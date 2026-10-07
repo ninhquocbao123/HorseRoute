@@ -1,0 +1,14 @@
+{
+  "name": "my-project",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev:infra": "docker compose -f docker-compose.dev.yml up -d",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter @my-project/shared build && pnpm -r --filter '!@my-project/shared' build",
+    "lint": "pnpm -r lint",
+    "migration:run": "pnpm --filter api migration:run"
+  }
+}
