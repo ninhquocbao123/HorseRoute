@@ -10,12 +10,26 @@ export const envValidationSchema = Joi.object({
   DB_NAME: Joi.string().required(),
   DB_USER: Joi.string().required(),
   DB_PASSWORD: Joi.string().required(),
+  DB_SSL: Joi.boolean().default(false),
+  DB_SSL_CA_PATH: Joi.when('DB_SSL', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
 
   REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().allow('').default(''),
 
   JWT_SECRET: Joi.string().min(32).required(),
+  DOCUMENT_STORAGE_PROVIDER: Joi.string().valid('local', 'supabase').default('local'),
+  SUPABASE_URL: Joi.string().uri({ scheme: ['https'] }).when('DOCUMENT_STORAGE_PROVIDER', {
+    is: 'supabase', then: Joi.required(), otherwise: Joi.optional(),
+  }),
+  SUPABASE_SECRET_KEY: Joi.string().when('DOCUMENT_STORAGE_PROVIDER', {
+    is: 'supabase', then: Joi.required(), otherwise: Joi.optional(),
+  }),
+  SUPABASE_STORAGE_BUCKET: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]{0,62}$/).default('wdp-documents'),
 
 }).unknown(true);
 

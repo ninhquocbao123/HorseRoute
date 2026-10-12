@@ -2,7 +2,6 @@ import { Role } from '../enums/role.enum';
 
 export interface IUser {
   id: string;
-  firebaseUid: string | null;
   email: string;
   fullName: string;
   phone: string | null;

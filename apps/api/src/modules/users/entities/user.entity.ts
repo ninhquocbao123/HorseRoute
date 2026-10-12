@@ -4,7 +4,6 @@ import { Role } from '@my-project/shared';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true }) id: string;
-  @Column({ name: 'firebase_uid', type: 'varchar', length: 128, nullable: true, unique: true }) firebaseUid: string | null;
   @Column({ length: 100, unique: true }) email: string;
   @Column({ name: 'full_name', length: 100 }) fullName: string;
   @Column({ name: 'password_hash', length: 255, select: false }) passwordHash: string;
