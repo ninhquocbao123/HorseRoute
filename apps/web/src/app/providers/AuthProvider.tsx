@@ -1,32 +1,73 @@
-import { createContext, ReactNode, useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
-import { syncUser } from '../../features/users/api/users.api';
+import { createContext, ReactNode, useCallback, useEffect, useState } from 'react';
+import { isAxiosError } from 'axios';
+import type { IUser } from '@my-project/shared';
+import { queryClient } from '../../lib/queryClient';
+import { getMe } from '../../features/users/api/users.api';
 
 interface AuthState {
-  user: User | null;
+  account: IUser | null;
   loading: boolean;
+  syncError: string;
+  logout: () => void;
+  onLoginSuccess: (token: string, user: IUser) => void;
 }
 
-export const AuthContext = createContext<AuthState>({ user: null, loading: true });
+export const AuthContext = createContext<AuthState>({
+  account: null,
+  loading: true,
+  syncError: '',
+  logout: () => {},
+  onLoginSuccess: () => {},
+});
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ user: null, loading: true });
+  const [account, setAccount] = useState<IUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncError, setSyncError] = useState('');
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          try {
-            await syncUser(); // đồng bộ user vào MySQL
-          } catch (e) {
-            console.error('Sync user failed', e);
-          }
-        }
-        setState({ user, loading: false });
-      }),
-    [],
+  // Khi app khởi động: nếu có token trong localStorage thì tự động load thông tin user
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    getMe()
+      .then((user) => {
+        if (!active || localStorage.getItem('accessToken') !== token) return;
+        setAccount(user);
+        setSyncError('');
+      })
+      .catch((e) => {
+        if (!active || localStorage.getItem('accessToken') !== token) return;
+        localStorage.removeItem('accessToken');
+        setSyncError(
+          isAxiosError(e) ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' : 'Không thể tải thông tin tài khoản.',
+        );
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const onLoginSuccess = useCallback((token: string, user: IUser) => {
+    localStorage.setItem('accessToken', token);
+    queryClient.clear();
+    setAccount(user);
+    setSyncError('');
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    queryClient.clear();
+    setAccount(null);
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ account, loading, syncError, logout, onLoginSuccess }}>
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
 }
+

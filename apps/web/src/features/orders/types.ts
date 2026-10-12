@@ -1,0 +1,12 @@
+export type HorseDraft = { id?: string; name: string; passportNo: string; breed: string; birthDate: string; sex: string; coatColor: string; note: string };
+export type OrderDraft = { originAddress: string; originCountry: string; destinationAddress: string; destinationCountry: string; desiredDepartureDate: string; specialRequirements: string; horses: HorseDraft[] };
+export type OrderSummary = { id: string; order_code: string; status: string; origin_country: string|null; destination_country: string|null; desired_departure_date: string|null; customer_name: string };
+export type OrderDetail = OrderSummary & { origin_address: string|null; destination_address: string|null; special_requirements: string|null; manager_note: string|null; draft: OrderDraft|null; customer: {full_name:string;email:string;phone:string|null}; horses: {id:string;name:string;passport_no:string;breed:string|null;birth_date:string|null;sex:string|null;coat_color:string|null;note:string|null}[]; documents: {id:string;document_name:string;horse_name:string;status:string}[]; history: {id:string;occurred_at:string;action:string;reason:string|null;actor_name:string}[] };
+export type ReviewOptions = {coordinators:{id:string;full_name:string}[];rules:{id:string;border_location_id:string|null;border_name:string|null;authority_name:string|null}[]};
+export const statuses:Record<string,string>={DRAFT:'Nháp',PENDING:'Chờ duyệt',NEED_INFO:'Cần bổ sung',APPROVED:'Đã duyệt',REJECTED:'Từ chối',PREPARING:'Đang chuẩn bị',READY:'Sẵn sàng',IN_TRANSIT:'Đang vận chuyển',DELIVERED:'Đã giao',CANCELLED:'Đã hủy'};
+export const emptyHorse=():HorseDraft=>({name:'',passportNo:'',breed:'',birthDate:'',sex:'',coatColor:'',note:''});
+export const emptyDraft=():OrderDraft=>({originAddress:'',originCountry:'VN',destinationAddress:'',destinationCountry:'',desiredDepartureDate:'',specialRequirements:'',horses:[]});
+export function draftFrom(order:OrderDetail):OrderDraft {
+  if(order.draft)return {...emptyDraft(),...order.draft,horses:order.draft.horses.map(h=>({...emptyHorse(),...h}))};
+  return {originAddress:order.origin_address||'',originCountry:order.origin_country||'',destinationAddress:order.destination_address||'',destinationCountry:order.destination_country||'',desiredDepartureDate:order.desired_departure_date?.slice(0,10)||'',specialRequirements:order.special_requirements||'',horses:order.horses.map(h=>({id:h.id,name:h.name,passportNo:h.passport_no,breed:h.breed||'',birthDate:h.birth_date?.slice(0,10)||'',sex:h.sex||'',coatColor:h.coat_color||'',note:h.note||''}))};
+}

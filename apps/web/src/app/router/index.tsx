@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 
 const LoginPage = lazy(() => import('../../features/auth/pages/LoginPage'));
@@ -15,7 +15,9 @@ export default function AppRouter() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<HomePage />} />
         </Route>
+        <Route path="*" element={<main className="container"><h1>Không tìm thấy trang</h1><Link className="button" to="/dashboard">Về trang làm việc</Link></main>} />
       </Routes>
     </Suspense>
   );
 }
+

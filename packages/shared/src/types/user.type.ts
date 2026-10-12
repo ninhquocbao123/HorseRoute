@@ -2,12 +2,14 @@ import { Role } from '../enums/role.enum';
 
 export interface IUser {
   id: string;
-  firebaseUid: string;
+  firebaseUid: string | null;
   email: string;
-  displayName?: string | null;
+  fullName: string;
+  phone: string | null;
+  address: string | null;
+  accountStatus: 'ACTIVE' | 'LOCKED' | 'PENDING';
   role: Role;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface IPaginated<T> {
@@ -16,3 +18,4 @@ export interface IPaginated<T> {
   page: number;
   limit: number;
 }
+

@@ -12,8 +12,8 @@ export function Brand() {
   );
 }
 export default function LandingPage() {
-  const { user } = useAuth();
-  const destination = user ? "/dashboard" : "/login";
+  const { account } = useAuth();
+  const destination = account ? "/dashboard" : "/login";
   return (
     <div className="landing">
       <header className="site-header">
@@ -24,7 +24,7 @@ export default function LandingPage() {
           <a href="#questions">Giải đáp</a>
         </nav>
         <Link className="button" to={destination}>
-          {user ? "Tài khoản của tôi" : "Đăng nhập"} ↗
+          {account ? "Tài khoản của tôi" : "Đăng nhập"} ↗
         </Link>
       </header>
       <main>
@@ -209,3 +209,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+

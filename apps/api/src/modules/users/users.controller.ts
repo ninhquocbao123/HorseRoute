@@ -10,17 +10,17 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 @ApiTags('users')
 @ApiBearerAuth()
 @Controller('users')
+@UseGuards(RolesGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get('me')
-  me(@CurrentUser() user: { uid: string }) {
-    return this.users.getByFirebaseUid(user.uid);
+  me(@CurrentUser() user: { sub: string }) {
+    return this.users.getById(user.sub);
   }
 
   @Get()
   @Roles(Role.ADMIN)
-  @UseGuards(RolesGuard)
   findAll(@Query() query: PaginationDto) {
     return this.users.findAll(query);
   }

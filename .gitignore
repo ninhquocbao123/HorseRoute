@@ -4,3 +4,8 @@ dist
 *.log
 .DS_Store
 firebase-service-account.json
+*.tsbuildinfo
+test-results/
+
+**/var/private-documents/
+

@@ -1,0 +1,22 @@
+export type Area = { id:string; title:string; description:string; columns:string[] };
+export type Workspace = { name:string; title:string; intro:string; areas:Area[] };
+const area=(id:string,title:string,description:string,columns:string[]):Area=>({id,title,description,columns});
+const orders=area('orders','Yêu cầu vận chuyển','Tạo, bổ sung và xét duyệt yêu cầu vận chuyển.',[]);
+const documents=area('documents','Hồ sơ & kiểm dịch','Chuẩn bị giấy tờ theo từng ngựa và tuyến vận chuyển.',['Hồ sơ','Ngựa','Loại giấy tờ','Trạng thái']);
+const trips=area('trips','Chuyến vận chuyển','Theo dõi kế hoạch, nhân sự và tiến độ từng chuyến.',['Mã chuyến','Lộ trình','Khởi hành','Trạng thái']);
+export const workspaces:Record<string,Workspace>={
+MANAGER:{name:'Logistics Manager',title:'Điều hành vận chuyển',intro:'Xét duyệt yêu cầu và theo dõi hoạt động vận chuyển của đội ngũ.',areas:[orders,documents,trips,area('operations','Tiến độ vận hành','Theo dõi hồ sơ và các mốc hành trình.',['Đơn hàng','Hồ sơ','Chuyến đi','Mốc gần nhất'])]},
+CUSTOMER:{name:'Customer',title:'Hành trình của bạn',intro:'Tạo yêu cầu, chuẩn bị giấy tờ và theo dõi ngựa trên từng chặng đường.',areas:[{...orders,title:'Đơn của tôi'},documents,area('tracking','Theo dõi hành trình','Theo dõi tiến độ vận chuyển và tình trạng ngựa.',['Mã đơn','Chuyến đi','Mốc gần nhất','Trạng thái'])]},
+SPECIALIST:{name:'Transport Specialist',title:'Hồ sơ & thủ tục',intro:'Chuẩn bị hồ sơ đầy đủ để mỗi hành trình được thông quan thuận lợi.',areas:[documents,area('rules','Quy định kiểm dịch','Tra cứu yêu cầu theo quốc gia, cửa khẩu và cơ quan thẩm quyền.',['Tuyến quốc gia','Cửa khẩu','Cơ quan','Giấy tờ yêu cầu']),area('submissions','Theo dõi phê duyệt','Theo dõi hồ sơ gửi cơ quan chức năng và yêu cầu bổ sung.',['Mã hồ sơ','Cơ quan','Ngày gửi','Kết quả'])]},
+COORDINATOR:{name:'Fleet & Route Coordinator',title:'Đội xe & lộ trình',intro:'Tổ chức phương tiện, nhân sự và điểm dừng cho từng chuyến vận chuyển.',areas:[trips,area('fleet','Phương tiện','Theo dõi phương tiện chuyên dụng phục vụ vận chuyển ngựa.',['Phương tiện','Loại','Sức chứa','Trạng thái']),area('routes','Lộ trình & phân công','Sắp xếp chặng đường, điểm dừng và nhân sự thực hiện.',['Chuyến đi','Chặng','Điểm dừng','Nhân sự'])]},
+DRIVER_ESCORT:{name:'Driver / Escort',title:'Hành trình được phân công',intro:'Xem lịch trình, cập nhật các mốc và ghi nhận tình trạng ngựa trong chuyến đi.',areas:[area('assignments','Chuyến của tôi','Xem chuyến và nhiệm vụ được điều phối viên phân công.',['Mã chuyến','Khởi hành','Lộ trình','Nhiệm vụ']),area('milestones','Mốc hành trình','Theo dõi xuất phát, đến điểm dừng và hoàn tất thông quan.',['Chuyến đi','Chặng','Mốc','Thời gian']),area('horse-logs','Nhật ký ngựa','Theo dõi sức khỏe, ăn uống và biểu hiện của ngựa.',['Ngựa','Chuyến đi','Tình trạng','Thời điểm'])]},
+ADMIN:{name:'Administrator',title:'Không gian quản trị',intro:'Thông tin tài khoản và thông báo hệ thống.',areas:[]}
+};
+export const roleGuides:Record<string,{title:string;steps:string[]}>={
+MANAGER:{title:'Từ yêu cầu đến chuyến đi',steps:['Kiểm tra địa chỉ, thời gian và danh sách ngựa trong yêu cầu.','Yêu cầu khách hàng bổ sung nếu thông tin chưa đủ.','Chọn điều phối viên và quy định phù hợp trước khi duyệt.','Theo dõi việc chuẩn bị hồ sơ, kế hoạch và tiến độ chuyến.']},
+CUSTOMER:{title:'Chuẩn bị cho hành trình',steps:['Tạo yêu cầu với điểm đi, điểm đến và ngày mong muốn.','Thêm thông tin ngựa cùng các yêu cầu chăm sóc đặc biệt.','Theo dõi phản hồi của quản lý và bổ sung thông tin khi cần.','Chuẩn bị giấy tờ và theo dõi các mốc vận chuyển.']},
+SPECIALIST:{title:'Quy trình xử lý hồ sơ',steps:['Đối chiếu checklist của từng ngựa với tuyến vận chuyển.','Kiểm tra hộ chiếu, giấy chứng nhận và thời hạn hiệu lực.','Theo dõi hồ sơ gửi cơ quan kiểm dịch, hải quan.','Thông báo giấy tờ còn thiếu và cập nhật kết quả phê duyệt.']},
+COORDINATOR:{title:'Chuẩn bị chuyến vận chuyển',steps:['Kiểm tra yêu cầu của đơn đã được phê duyệt.','Bố trí phương tiện có sức chứa phù hợp và kiểm tra lịch sử dụng.','Thiết lập chặng đường, điểm nghỉ, tiếp nhiên liệu và kiểm dịch.','Phân công tài xế, nhân viên đi kèm và theo dõi tiến độ.']},
+DRIVER_ESCORT:{title:'Trước và trong chuyến đi',steps:['Kiểm tra chuyến được giao, danh sách ngựa và điểm dừng.','Đối chiếu thời gian khởi hành và nhiệm vụ của bạn.','Ghi nhận các mốc xuất phát, đến điểm dừng và thông quan.','Ghi nhật ký sức khỏe, ăn uống và biểu hiện của từng ngựa.']}
+};
+
