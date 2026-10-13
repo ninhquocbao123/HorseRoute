@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { mysqlSsl } from './database/mysql-ssl';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OrdersModule } from './modules/orders/orders.module';
         username: c.get<string>('DB_USER'),
         password: c.get<string>('DB_PASSWORD'),
         database: c.get<string>('DB_NAME'),
+        ssl: mysqlSsl(c.get<boolean>('DB_SSL'), c.get<string>('DB_SSL_CA_PATH')),
         timezone: 'Z',
         supportBigNumbers: true,
         bigNumberStrings: true,

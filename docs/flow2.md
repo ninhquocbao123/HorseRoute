@@ -26,7 +26,7 @@ pnpm dev:web
 
 Migration SystemAudit cho phép actor_id NULL để phân biệt nhật ký tự động với người dùng. Chưa chạy migration này trên database wdp thật trong lần triển khai.
 
-File lưu riêng ngoài CSDL. Mặc định `var/private-documents` tính từ thư mục chạy BE; nên đặt DOCUMENT_STORAGE_DIR thành đường dẫn tuyệt đối ổn định trong .env. Khi dùng Docker cần mount volume vào đường dẫn này. Sao lưu DB và thư mục file cùng nhau. Không di chuyển thư mục giữa các lần chạy nếu không cập nhật cấu hình. Các attachment cũ trỏ file chưa có tại kho riêng sẽ báo không tìm thấy, không tự truy cập URL bên ngoài.
+File lưu riêng ngoài CSDL. Có thể chọn Supabase Storage để cả team dùng chung ảnh/PDF; xem [hướng dẫn cấu hình](supabase-storage.md). Mặc định vẫn là local: `var/private-documents` tính từ thư mục chạy BE; nên đặt DOCUMENT_STORAGE_DIR thành đường dẫn tuyệt đối ổn định trong .env. Khi dùng Docker cần mount volume vào đường dẫn này. Sao lưu DB và thư mục file cùng nhau. Không di chuyển thư mục giữa các lần chạy nếu không cập nhật cấu hình. Các attachment cũ trỏ file chưa có tại kho riêng sẽ báo không tìm thấy, không tự truy cập URL bên ngoài.
 
 Giới hạn tạm thời 5 MB/file, kiểm tra chữ ký PDF/JPG/PNG. Chưa có quét malware. Nếu tiến trình bị tắt giữa lúc ghi file và commit, có thể còn file mồ côi; không xóa tự động các file đó.
 
