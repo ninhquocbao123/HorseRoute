@@ -151,3 +151,39 @@ test('production hides Swagger and rate limiting returns legacy error envelope',
     const res=await f.request('/api/v1/health');assert.equal(res.status,429);assert.equal((await res.json()).statusCode,429);
   }finally{await f.close();}
 });
+
+test('request IDs correlate HTTP failures and completion logs without logging secrets', async () => {
+  const f = await fixture();
+  const logs = [];
+  const previous = { log: console.log, error: console.error };
+  console.log = console.error = line => logs.push(JSON.parse(line));
+  try {
+    f.services.orders.detail = async () => { throw Object.assign(new Error('driver-secret'), { sql: 'sql-secret' }); };
+    const res = await f.request('/api/v1/orders/1?token=query-secret', {
+      id: '1', headers: { 'X-Request-ID': 'untrusted-secret', Origin: 'http://localhost:5173' },
+    });
+    const requestId = res.headers.get('x-request-id');
+    assert.match(requestId, /^[0-9a-f-]{36}$/);
+    assert.equal((await res.json()).requestId, requestId);
+    assert.match(res.headers.get('access-control-expose-headers'), /X-Request-ID/i);
+    const correlated = logs.filter(x => x.requestId === requestId);
+    assert.equal(correlated.filter(x => x.event === 'request_completed').length, 1);
+    assert.equal(correlated.find(x => x.event === 'request_failed').code, 'UNKNOWN_ERROR');
+    assert.equal(correlated.find(x => x.event === 'request_completed').statusCode, 500);
+    assert.equal(correlated.find(x => x.event === 'request_completed').route, '/:id');
+    assert.ok(correlated.find(x => x.event === 'request_completed').durationMs >= 0);
+    const ok = await f.request('/api/v1/health');
+    await ok.text();
+    assert.notEqual(ok.headers.get('x-request-id'), requestId);
+    const malformed = await fetch(ok.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"password":"body-secret"' });
+    assert.equal(malformed.status, 400);
+    assert.equal((await malformed.json()).requestId, malformed.headers.get('x-request-id'));
+    const missing = await f.request('/path-secret?token=query-secret');
+    assert.equal(missing.status, 404);
+    await missing.text();
+    assert.doesNotMatch(JSON.stringify(logs), /driver-secret|sql-secret|query-secret|untrusted-secret|body-secret|path-secret|Bearer/);
+  } finally {
+    Object.assign(console, previous);
+    await f.close();
+  }
+});

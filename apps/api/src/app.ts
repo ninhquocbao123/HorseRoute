@@ -11,12 +11,14 @@ import { createRateLimiter } from './shared/middlewares/rateLimiter.middleware';
 import { errorHandler } from './shared/middlewares/error.middleware';
 import { NotFoundException } from './shared/core/error.response';
 import { openApiDocument } from './shared/config/openapi';
+import { requestContext } from './shared/middlewares/request.middleware';
 export function createApp(options: { services: Services; tokens: TokenService; corsOrigin: string; production?: boolean; requestLimit?: number }) {
   const app = express();
   app.disable('x-powered-by');
+  app.use(requestContext);
   app.use(helmet());
   app.use(compression());
-  app.use(cors({ origin: options.corsOrigin.split(',').map(value => value.trim()).filter(Boolean), credentials: true }));
+  app.use(cors({ origin: options.corsOrigin.split(',').map(value => value.trim()).filter(Boolean), credentials: true, exposedHeaders: ['X-Request-ID'] }));
   app.use(express.json({ limit: '1mb' }));
   app.use('/api/v1', createRateLimiter(options.requestLimit), apiRoutes(options.services, options.tokens));
   if (!options.production) {

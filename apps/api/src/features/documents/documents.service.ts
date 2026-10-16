@@ -1,5 +1,5 @@
 import { DocumentsRepository } from './documents.repository';
-import { Logger } from '../../shared/utils/logger.util';
+import { Logger, safeError } from '../../shared/utils/logger.util';
 import { BadRequestException, ConflictException, NotFoundException } from '../../shared/core/error.response';
 import { DataSource, EntityManager } from 'typeorm';
 import { User } from '../users/users.model';
@@ -11,16 +11,30 @@ const day=(v:Date|string|null)=>v instanceof Date?v.toISOString().slice(0,10):v?
 const today=()=>new Date().toISOString().slice(0,10);
 
 export class DocumentsService {
- private timer?:ReturnType<typeof setInterval>;private expiring=false;private readonly logger=new Logger(DocumentsService.name);
+ private timer?:ReturnType<typeof setInterval>;private expiryRun?:Promise<void>;private readonly logger=new Logger(DocumentsService.name);
  constructor(private readonly db: DataSource, private readonly repository = new DocumentsRepository()){}
- startExpiryJob(){this.timer=setInterval(()=>void this.expireAll(),60_000);this.timer.unref();void this.expireAll();}
- stopExpiryJob(){if(this.timer)clearInterval(this.timer);}
+ startExpiryJob(){if(this.timer)return;this.timer=setInterval(()=>void this.expireAll(),60_000);this.timer.unref();void this.expireAll();}
+ async stopExpiryJob(){if(this.timer)clearInterval(this.timer);this.timer=undefined;await this.expiryRun;}
  private async audit(m:EntityManager,actor:string|null,kind:string,id:string,action:string,old:unknown,value:unknown,reason?:string){await this.repository.insertAudit(m, [actor,kind,id,action,JSON.stringify(old),JSON.stringify(value),reason||null]);}
  private async notify(m:EntityManager,order:Row,text:string){await this.repository.insertNotification(m, [order.customer_id,text.slice(0,500),order.id]);}
  async order(m:EntityManager,user:User,id:string){const [o]=await this.repository.lockOrder(m, [id]);if(!o||(user.role==='CUSTOMER'&&String(o.customer_id)!==String(user.id)))throw new NotFoundException('Không tìm thấy đơn.');return o as Row;}
  private editable(o:Row){if(!['APPROVED','PREPARING','READY'].includes(o.status))throw new ConflictException('Chỉ xử lý hồ sơ của đơn đã duyệt, chưa vận chuyển.');}
  private async expireOrder(m:EntityManager,orderId:string){const docs:Row[]=await this.repository.lockExpiredDocuments(m, [orderId]);for(const d of docs){await this.repository.markExpired(m, [d.id]);await this.audit(m,null,'DOCUMENT',d.id,'AUTO_EXPIRE',{status:'VALID'},{status:'EXPIRED'},'Hệ thống tự cập nhật theo ngày UTC.');}}
- async expireAll(){if(this.expiring)return;this.expiring=true;try{const orders=await this.repository.findOrdersWithExpiredDocuments(this.db, []);for(const o of orders)await this.db.transaction(async m=>{await this.repository.lockOrderId(m, [o.order_id]);await this.expireOrder(m,o.order_id);});}catch{this.logger.warn('Chưa cập nhật được hạn giấy tờ; kiểm tra kết nối và migration SystemAudit.');}finally{this.expiring=false;}}
+ expireAll():Promise<void>{
+  if(this.expiryRun)return this.expiryRun;
+  this.expiryRun=this.runExpiry().finally(()=>{this.expiryRun=undefined;});
+  return this.expiryRun;
+ }
+ private async runExpiry(){
+  try{
+   const orders=await this.repository.findOrdersWithExpiredDocuments(this.db, []);
+   for(const o of orders)await this.db.transaction(async m=>{
+    await this.repository.lockOrderId(m, [o.order_id]);
+    await this.expireOrder(m,o.order_id);
+   });
+  }catch(error){this.logger.warn('expiry_job_failed',safeError(error));}
+ }
+
  async list(user:User,p:PaginationDto){const scope=user.role==='CUSTOMER'?'AND o.customer_id=?':'';const args=user.role==='CUSTOMER'?[user.id]:[];const where=`WHERE EXISTS(SELECT 1 FROM horses h JOIN documents d ON d.horse_id=h.id WHERE h.order_id=o.id) ${scope}`;const items=await this.repository.listOrders(this.db, [...args,p.limit,(p.page-1)*p.limit], where);const [count]=await this.repository.countOrders(this.db, args, where);return {items,total:Number(count.total),page:p.page,limit:p.limit};}
  async detail(user:User,id:string){return this.db.transaction(async m=>{const order=await this.order(m,user,id);await this.expireOrder(m,id);const documents=await this.repository.findChecklist(m, [id]);const versions=await this.repository.findVersions(m, [id]);const dossiers=await this.repository.findDossiers(m, [id]);const history=await this.repository.findHistory(m, [id,id]);return {order,documents,versions,dossiers,history};});}
  private async document(m:EntityManager,orderId:string,id:string){const [d]=await this.repository.lockDocument(m, [id,orderId]);if(!d)throw new NotFoundException('Không tìm thấy giấy tờ.');return d as Row;}

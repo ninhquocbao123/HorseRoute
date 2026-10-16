@@ -1,6 +1,9 @@
 import type { ErrorRequestHandler } from 'express';
 import { MulterError } from 'multer';
 import { HttpError } from '../core/error.response';
+import { Logger, safeError } from '../utils/logger.util';
+import { requestRoute } from './request.middleware';
+const logger = new Logger('HTTP');
 export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (res.headersSent) { next(error); return; }
   let statusCode = 500;
@@ -20,7 +23,7 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     statusCode = 413; message = 'Nội dung yêu cầu quá lớn.';
   }
   // Avoid logging credentials, raw SQL, or provider response bodies.
-  if (statusCode >= 500) console.error('API failure', { name: error?.name, path: req.path, statusCode });
-  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), path: req.originalUrl, timestamp: new Date().toISOString() });
+  if (statusCode >= 500) logger.error('request_failed', { ...safeError(error), requestId: req.requestId, route: requestRoute(req), statusCode });
+  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), requestId: req.requestId, path: req.originalUrl, timestamp: new Date().toISOString() });
 };
 
