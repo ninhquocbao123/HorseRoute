@@ -1,6 +1,14 @@
 require('reflect-metadata');require('ts-node').register({project:require('path').resolve(__dirname,'../tsconfig.json'),transpileOnly:true});
-const assert=require('node:assert/strict');const {Module,VersioningType}=require('@nestjs/common');const {NestFactory}=require('@nestjs/core');const {SwaggerModule,DocumentBuilder}=require('@nestjs/swagger');
-const {AuthController}=require('../src/modules/auth/auth.controller');const {AuthService}=require('../src/modules/auth/auth.service');const {OrdersController}=require('../src/modules/orders/orders.controller');const {OrdersService}=require('../src/modules/orders/orders.service');const {UsersService}=require('../src/modules/users/users.service');const {RolesGuard}=require('../src/common/guards/roles.guard');
-const {DocumentsController}=require('../src/modules/documents/documents.controller');const {DocumentsService}=require('../src/modules/documents/documents.service');
-(async()=>{class TestModule{};Module({controllers:[AuthController,OrdersController,DocumentsController],providers:[{provide:DocumentsService,useValue:{}},{provide:AuthService,useValue:{}},{provide:OrdersService,useValue:{}},{provide:UsersService,useValue:{}},RolesGuard]})(TestModule);const app=await NestFactory.create(TestModule,{logger:false});try{app.setGlobalPrefix('api');app.enableVersioning({type:VersioningType.URI,defaultVersion:'1'});const doc=SwaggerModule.createDocument(app,new DocumentBuilder().addBearerAuth().build());const registration=doc.components.schemas.RegisterDto;for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);assert.ok(doc.paths['/api/v1/auth/register']);assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security);assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);assert.ok(doc.paths['/api/v1/documents/orders/{orderId}/items/{id}/upload'].post.requestBody.content['multipart/form-data']);assert.ok(doc.paths['/api/v1/documents/orders/{orderId}/files/{id}'].get.security);console.log('PASS Swagger: Flow2 multipart and authenticated downloads;  versioned routes, five required registration fields, nested horses and JWT security.');}finally{await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {openApiDocument:doc}=require('../src/shared/config/openapi');
+test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
+ const registration=doc.components.schemas.RegisterDto;
+ for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),21);
+ assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
+ assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
+ assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
+ assert.ok(doc.paths['/api/v1/documents/orders/{orderId}/items/{id}/upload'].post.requestBody.content['multipart/form-data']);
+ assert.ok(doc.paths['/api/v1/documents/orders/{orderId}/files/{id}'].get.security.length);
+});
 

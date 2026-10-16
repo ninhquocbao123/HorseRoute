@@ -5,8 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 require('reflect-metadata');
 require('ts-node').register({ project: path.resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
-const { saveFile, loadFile, removeFile, MAX_FILE_SIZE } = require('../src/modules/documents/file-storage');
-const { envValidationSchema } = require('../src/config/env.validation');
+const { saveFile, loadFile, removeFile, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
+const { envValidationSchema } = require('../src/shared/config/env.validation');
 const pdf = { buffer: Buffer.from('%PDF-1.7\nfixture'), originalname: 'giấy tờ.pdf', size: 16 };
 
 test('private storage integration', async t => {
