@@ -4,21 +4,21 @@ require('reflect-metadata');
 require('ts-node').register({project:require('path').resolve(__dirname,'../tsconfig.json'),transpileOnly:true});
 const fs=require('fs');const path=require('path');const assert=require('node:assert/strict');
 const mysql=require('mysql2/promise');const {DataSource}=require('typeorm');
-const {DocumentsService}=require('../src/modules/documents/documents.service');
+const {DocumentsService}=require('../src/features/documents/documents.service');
 const {SystemAudit1800000002000}=require('../src/database/migrations/1800000002000-SystemAudit');
-const {OrdersService}=require('../src/modules/orders/orders.service');
+const {OrdersService}=require('../src/features/orders/orders.service');
 const {OrderDrafts1800000001000}=require('../src/database/migrations/1800000001000-OrderDrafts');
-const env=require('dotenv').parse(fs.readFileSync(path.resolve(__dirname,'../../../.env')));
 const name='wdp_flow2_test_'+require('crypto').randomBytes(8).toString('hex');
-const options={host:env.DB_HOST||'127.0.0.1',port:Number(env.DB_PORT||3306),user:env.DB_USER,password:env.DB_PASSWORD,connectTimeout:5000};
+const options=require('./mysql-options.cjs');
 const storageRoot=path.resolve(__dirname,'../../../test-results');process.env.DOCUMENT_STORAGE_DIR=path.join(storageRoot,name);
+process.env.DOCUMENT_STORAGE_PROVIDER='local';
 let admin,db,created=false;let passed=0;
 async function check(label,fn){await fn();passed++;console.log('PASS '+label);}
 async function main(){
  admin=await mysql.createConnection(options);
  assert.match(name,/^wdp_flow2_test_[0-9a-f]{16}$/);
  await admin.query('CREATE DATABASE `'+name+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');created=true;
- db=new DataSource({type:'mysql',host:options.host,port:options.port,username:options.user,password:options.password,database:name,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,extra:{multipleStatements:true}});await db.initialize();
+ db=new DataSource({type:'mysql',host:options.host,port:options.port,username:options.user,password:options.password,ssl:options.ssl,database:name,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,extra:{multipleStatements:true}});await db.initialize();
  await db.query(fs.readFileSync(path.join(__dirname,'fixtures/wdp-schema.sql'),'utf8'));
  const runner=db.createQueryRunner();await runner.connect();
  try{await new OrderDrafts1800000001000().up(runner);await new SystemAudit1800000002000().up(runner);}finally{await runner.release();}

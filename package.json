@@ -2,7 +2,7 @@
   "name": "my-project",
   "private": true,
   "packageManager": "pnpm@9.15.0",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev:infra": "docker compose -f docker-compose.dev.yml up -d",
     "dev:api": "pnpm --filter api start:dev",
