@@ -19,7 +19,7 @@ async function main(){
  assert.match(name,/^wdp_flow2_test_[0-9a-f]{16}$/);
  await admin.query('CREATE DATABASE `'+name+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');created=true;
  db=new DataSource({type:'mysql',host:options.host,port:options.port,username:options.user,password:options.password,ssl:options.ssl,database:name,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,extra:{multipleStatements:true}});await db.initialize();
- await db.query(fs.readFileSync(path.join(__dirname,'fixtures/wdp-schema.sql'),'utf8'));
+ await require('./load-schema.cjs')(db);
  const runner=db.createQueryRunner();await runner.connect();
  try{await new OrderDrafts1800000001000().up(runner);await new SystemAudit1800000002000().up(runner);}finally{await runner.release();}
  await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (1,'one@example.com','!','Khách 1','CUSTOMER','ACTIVE'),(2,'two@example.com','!','Khách 2','CUSTOMER','ACTIVE'),(3,'manager@example.com','!','Quản lý','MANAGER','ACTIVE'),(4,'coordinator@example.com','!','Điều phối','COORDINATOR','ACTIVE')");

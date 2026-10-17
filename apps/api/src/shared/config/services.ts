@@ -1,3 +1,5 @@
+import { TripsService } from '../../features/trips/trips.service';
+import { TripsRepository } from '../../features/trips/trips.repository';
 import { DataSource } from 'typeorm';
 import { User } from '../../features/users/users.model';
 import { UsersRepository } from '../../features/users/users.repository';
@@ -11,7 +13,7 @@ import { HealthService } from '../../features/health/health.service';
 import { TokenService } from '../utils/jwt.util';
 export function createServices(db: DataSource, tokens: TokenService) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
-  return { users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
+  return { trips: new TripsService(new TripsRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
     documents: new DocumentsService(db), notifications: new NotificationsService(new NotificationsRepository(db)),
     health: new HealthService(db) };
 }

@@ -1,3 +1,4 @@
+import { tripsRoutes } from '../features/trips/trips.routes';
 import { Router } from 'express';
 import { Services } from '../shared/config/services';
 import { TokenService } from '../shared/utils/jwt.util';
@@ -17,6 +18,7 @@ export function apiRoutes(services: Services, tokens: TokenService) {
   router.use('/users', usersRoutes(services.users));
   router.use('/orders', ordersRoutes(services.orders));
   router.use('/documents', documentsRoutes(services.documents));
+  router.use('/trips', tripsRoutes(services.trips));
   router.use('/notifications', notificationsRoutes(services.notifications));
   return router;
 }

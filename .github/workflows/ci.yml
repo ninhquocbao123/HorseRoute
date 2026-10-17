@@ -30,3 +30,10 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: integration-test-only
           TEST_DB_SSL: 'false'
+      - run: node apps/api/test/flow3-read.mysql.cjs
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: integration-test-only
+          TEST_DB_SSL: 'false'
