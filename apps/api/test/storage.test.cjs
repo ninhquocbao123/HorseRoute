@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 require('reflect-metadata');
 require('ts-node').register({ project: path.resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
-const { saveFile, loadFile, removeFile, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
+const { saveFile, loadFile, removeFile, verifyStoredFile, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
 const { envValidationSchema } = require('../src/shared/config/env.validation');
 const pdf = { buffer: Buffer.from('%PDF-1.7\nfixture'), originalname: 'giấy tờ.pdf', size: 16 };
 
@@ -77,6 +77,24 @@ test('private storage integration', async t => {
       await assert.rejects(saveFile({ ...pdf, buffer: Buffer.from('not an image') }), e => e.getStatus() === 400);
       await assert.rejects(saveFile({ ...pdf, buffer: Buffer.alloc(MAX_FILE_SIZE + 1) }), e => e.getStatus() === 400);
       assert.equal(calls.length, 0);
+    });
+    await t.test('readiness inspects private object metadata only and fails closed', async () => {
+      calls.length = 0;
+      const key = 'supabase:wdp-documents/12345678-1234-1234-1234-123456789abc';
+      handler = url => url.includes('/bucket/') ? json({ public: false }) : json({ size: 16 });
+      assert.equal(await verifyStoredFile(key, '16'), true);
+      assert.equal(await verifyStoredFile(key, '17'), false);
+      assert.ok(calls.every(c => c.url.includes('/bucket/') || c.url.includes('/object/info/')));
+      handler = () => json({ public: true });
+      assert.equal(await verifyStoredFile(key, '16'), false);
+      handler = () => { throw new Error('provider unavailable'); };
+      assert.equal(await verifyStoredFile(key, '16'), false);
+      assert.equal(await verifyStoredFile('../../secret', '16'), false);
+      process.env.DOCUMENT_STORAGE_PROVIDER = 'local';
+      const saved = await saveFile(pdf);
+      assert.equal(await verifyStoredFile(saved.key, String(saved.size)), true);
+      await removeFile(saved.key);
+      assert.equal(await verifyStoredFile(saved.key, String(saved.size)), false);
     });
     await t.test('Supabase config is required only when selected', () => {
       const base = { CORS_ORIGIN: 'http://localhost', DB_HOST: 'localhost', DB_NAME: 'test', DB_USER: 'test', DB_PASSWORD: 'test', REDIS_HOST: 'localhost', JWT_SECRET: 'x'.repeat(32) };

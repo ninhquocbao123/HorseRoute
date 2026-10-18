@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),27);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),32);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -111,4 +111,27 @@ test('Review plan documents decisions and review metadata in TripDetail',()=>{
  assert.equal(op.requestBody.content['application/json'].schema.$ref,'#/components/schemas/ReviewTripPlanInput');
  for(const key of ['orderStatus','approvedBy','approvedAt','returnReason']) assert.ok(doc.components.schemas.TripDetail.required.includes(key));
  assert.equal(doc.components.schemas.ReviewTripPlanInput.oneOf.length,2);
+});
+
+test('Crew API documents strict input, both roles and crew-only readiness',()=>{
+ for(const [path,method] of [['/api/v1/trips/{id}/assignment-options','get'],['/api/v1/trips/{id}/assignments','get'],['/api/v1/trips/{id}/assignments','put']]) {
+  const op=doc.paths[path][method];assert.equal(op['x-implementation-status'],'implemented');assert.deepEqual(op.security,[{bearer:[]}]);
+ }
+ const input=doc.components.schemas.TripAssignmentsInput;
+ assert.equal(input.additionalProperties,false);assert.equal(input.properties.assignments.items.additionalProperties,false);
+ assert.equal(input.properties.assignments.minItems,2);assert.equal(input.properties.assignments.maxItems,100);
+ assert.ok(doc.components.schemas.TripAssignments.properties.crewReadiness);
+});
+
+test('Readiness and mark-ready expose real endpoints, blockers and strict empty body', () => {
+ const get = doc.paths['/api/v1/trips/{id}/readiness'].get;
+ const post = doc.paths['/api/v1/orders/{id}/mark-ready'].post;
+ assert.equal(get['x-implementation-status'], 'implemented');
+ assert.ok(!get.requestBody);
+ assert.match(post.description, /Manager/);
+ assert.match(post.parameters[0].description, /Order/);
+ assert.equal(post.responses[200].content['application/json'].schema.$ref, '#/components/schemas/MarkReadyResult');
+ assert.equal(doc.components.schemas.SubmitTripPlanInput.additionalProperties, false);
+ assert.ok(doc.components.schemas.Error.properties.blockers);
+ assert.ok(post.responses[409]);
 });

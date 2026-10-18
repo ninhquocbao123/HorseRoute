@@ -32,6 +32,17 @@ const reviewProperties = {
   returnReason: { type: 'string', nullable: true, maxLength: 255 },
 };
 export const tripSchemas = {
+  ReadinessBlocker: object({ code: { type: 'string' }, message: { type: 'string' }, horseId: id, documentId: id, dossierId: id, legId: id, userId: id }, ['code','message']),
+  TripReadiness: object({ tripId: id, orderId: id, orderStatus: { type: 'string' }, planStatus: { type: 'string' }, eligibleForReady: { type: 'boolean' }, blockers: { type: 'array', items: ref('ReadinessBlocker') } }),
+  MarkReadyResult: object({ orderId: id, tripId: id, orderStatus: { type: 'string', enum: ['READY'] }, planStatus: { type: 'string', enum: ['APPROVED'] } }),
+
+  CrewOption: object({ id, fullName: { type: 'string' } }),
+  AssignmentOptions: object({ items: { type: 'array', items: ref('CrewOption') } }),
+  TripAssignment: object({ id, userId: id, fullName: { type: 'string' }, role: { type: 'string', enum: ['DRIVER','ESCORT'] }, assignedBy: id, assignedAt: time }),
+  CrewBlocker: object({ code: { type: 'string', enum: ['MISSING_DRIVER','MISSING_ESCORT','INELIGIBLE_CREW'] }, message: { type: 'string' }, userId: id }, ['code','message']),
+  CrewReadiness: object({ complete: { type: 'boolean' }, blockers: { type: 'array', items: ref('CrewBlocker') } }),
+  TripAssignments: object({ tripId: id, items: { type: 'array', items: ref('TripAssignment') }, crewReadiness: ref('CrewReadiness') }),
+  TripAssignmentsInput: object({ assignments: { type: 'array', minItems: 2, maxItems: 100, items: object({ userId: id, role: { type: 'string', enum: ['DRIVER','ESCORT'] } }), description: 'Danh sách đầy đủ, ít nhất một DRIVER và một ESCORT khác người. Không trùng userId. Giới hạn kỹ thuật 100 người/request.' } }),
   ReviewTripPlanInput: { ...object({ decision: { type: 'string', enum: ['APPROVED','RETURNED'] }, reason: { type: 'string', minLength: 1, maxLength: 255, description: 'Bắt buộc khi RETURNED, trim; APPROVED không nhận reason.' } }, ['decision']),
     oneOf: [object({ decision: { type: 'string', enum: ['APPROVED'] } }), object({ decision: { type: 'string', enum: ['RETURNED'] }, reason: { type: 'string', minLength: 1, maxLength: 255 } })] },
   SubmitTripPlanInput: object({}),
@@ -62,7 +73,7 @@ const optionsExample = {
 
 export const tripsTag = {
   name: 'Flow 3 - Trips',
-  description: `**Ba API GET, PUT lưu kế hoạch, POST submit-plan và POST review-plan đã triển khai.** Phần A của kế hoạch mở rộng đã được người dùng đồng ý; thời gian đệm và thời lượng tối thiểu chưa có con số chốt. Ví dụ dùng ID giả lập; khi Execute phải dùng ID thật.
+  description: `**Ba API GET, PUT lưu kế hoạch, POST submit-plan và POST review-plan và các API phân công, GET readiness, POST mark-ready đã triển khai.** Phần A của kế hoạch mở rộng đã được người dùng đồng ý; thời gian đệm và thời lượng tối thiểu chưa có con số chốt. Ví dụ dùng ID giả lập; khi Execute phải dùng ID thật.
 
 ### Mục tiêu và phạm vi
 Tiến làm API/UI lập kế hoạch nháp. Bảo chuẩn bị dữ liệu và tích hợp. Long dùng dữ liệu chặng để xây tracking.
@@ -84,7 +95,7 @@ Flow 1 đã tạo Trip DRAFT khi Manager duyệt đơn; **không tạo Trip th�
 4. Giữ giới hạn chỉ thêm/sửa tại chỗ; chưa xóa/đảo chặng, chưa chống stale edit.
 
 ### Chưa nằm trong contract này
-Phân công Driver bằng UI, chuyển READY, khởi hành, thông quan, kiểm tra đầy đủ trùng lịch/sức chứa, CRUD danh mục. **Lưu nháp thành công không chứng minh đủ điều kiện khởi hành.**
+Phân công Driver bằng UI, khởi hành, thông quan, kiểm tra đầy đủ trùng lịch/sức chứa, CRUD danh mục. **Lưu nháp thành công không chứng minh đủ điều kiện khởi hành.**
 
 ### Xác nhận
 Chưa có xác nhận của Bảo/Long. Sau khi review, ghi quyết định vào Phần 1 của docs/ke-hoach-tien-flow3.md hoặc PR. Swagger không theo dõi trạng thái hoàn thành công việc.
@@ -101,12 +112,12 @@ function errors(path: string, codes: number[]) {
     401: 'Thiếu token, token sai/hết hạn.',
     403: 'Vai trò không được phép hoặc tài khoản bị khóa; Manager không được PUT kế hoạch.',
     404: 'Trip không tồn tại hoặc Coordinator không phụ trách Trip này.',
-    409: 'Trạng thái Trip/Order không cho sửa hoặc chặng đã vận hành/có lịch sử.',
+    409: path.endsWith('/mark-ready') ? 'Chưa đủ điều kiện READY hoặc đã READY; xem blockers để biết lý do.' : 'Trạng thái Trip/Order không cho sửa hoặc chặng đã vận hành/có lịch sử.',
     413: 'Request vượt giới hạn body JSON của ứng dụng (hiện 1 MB).',
     429: 'Vượt giới hạn tần suất request.',
     500: 'Lỗi nội bộ; thông báo an toàn, tra log bằng requestId.',
   };
-  return Object.fromEntries(codes.map(code => [code, { description: descriptions[code], headers: { 'X-Request-ID': requestIdHeader }, content: { 'application/json': { schema: ref('Error'), example: { statusCode: code, message: descriptions[code], ...(code === 400 && path.endsWith('/plan') ? { fields: { 'legs.1.plannedDepartureAt': 'Giờ đi phải từ giờ đến chặng trước trở đi.' } } : {}), path: path.replace('{id}', '200'), requestId: '3eab0ee0-73a0-4c7b-9971-a468c52b096b', timestamp: '2026-10-17T02:00:00Z' } } } } ]));
+  return Object.fromEntries(codes.map(code => [code, { description: descriptions[code], headers: { 'X-Request-ID': requestIdHeader }, content: { 'application/json': { schema: ref('Error'), example: { statusCode: code, message: descriptions[code], ...(code === 409 && path.endsWith('/mark-ready') ? { blockers: [{ code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' }] } : {}), ...(code === 400 && path.endsWith('/plan') ? { fields: { 'legs.1.plannedDepartureAt': 'Giờ đi phải từ giờ đến chặng trước trở đi.' } } : {}), path: path.replace('{id}', '200'), requestId: '3eab0ee0-73a0-4c7b-9971-a468c52b096b', timestamp: '2026-10-17T02:00:00Z' } } } } ]));
 }
 const pathId = { name: 'id', in: 'path', required: true, description: 'ID Trip đã được Flow 1 tạo, không phải orderId.', schema: id };
 const common = { tags: [tripsTag.name], security: [{ bearer: [] }], 'x-implementation-status': 'implemented', 'x-contract-status': 'proposed' };
@@ -116,7 +127,43 @@ const detailPath = '/api/v1/trips/{id}';
 const optionsPath = detailPath + '/plan-options';
 const planPath = detailPath + '/plan';
 
+const crewExample = { tripId: '200', items: [
+  { id: '401', userId: '7', fullName: 'Tài xế mẫu', role: 'DRIVER', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z' },
+  { id: '402', userId: '8', fullName: 'Người hộ tống mẫu', role: 'ESCORT', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z' },
+], crewReadiness: { complete: true, blockers: [] } };
+const crewEmpty = { tripId: '200', items: [], crewReadiness: { complete: false, blockers: [
+  { code: 'MISSING_DRIVER', message: 'Chưa có tài xế hợp lệ.' }, { code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' },
+] } };
 export const tripPaths = {
+  '/api/v1/trips/{id}/readiness': { get: { ...common, summary: 'Kiểm tra điều kiện chuyển READY (chỉ đọc)',
+    description: 'Coordinator phụ trách hoặc Manager. Không body. Trả tất cả blockers tìm được: kế hoạch, ngựa, xe, nhân sự, giấy tờ, hồ sơ và file thật. Không expire giấy tờ/đổi trạng thái. Đơn cũ thiếu requirements_snapshot trả REQUIREMENTS_UNVERIFIED. READY không đủ điều kiện chuyển lần nữa. Không chứng nhận điều kiện vĩnh viễn; Flow 4 phải kiểm tra lại trước khởi hành. Lịch xe dùng [đi,đến), chưa có buffer Phần E.',
+    parameters: [pathId], responses: { 200: response('TripReadiness', { blocked: { value: { tripId: '200', orderId: '100', orderStatus: 'PREPARING', planStatus: 'APPROVED', eligibleForReady: false, blockers: [{ code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' }] } } }), ...errors('/api/v1/trips/{id}/readiness', [400,401,403,404,429,500]) } } },
+  '/api/v1/orders/{id}/mark-ready': { post: { ...common, summary: 'Manager chuyển đơn đủ điều kiện sang READY',
+    description: 'Chỉ Manager. ID là orderId. Body strict {}. Đọc lại điều kiện dưới khóa Order → Trip → legs → tài nguyên. 409 kèm blockers nếu không đạt hoặc đã READY; không đổi dữ liệu. Thành công giữ Trip APPROVED, audit MARK_READY + thông báo IN_APP cùng transaction. File được xác minh theo key bất biến trước transaction; không thể chống xóa ngoài kho file sau xác minh. Flow 4 bắt buộc kiểm tra lại trước khởi hành; không tự hạ READY khi điều kiện mất hiệu lực.',
+    parameters: [{ ...pathId, description: 'ID Order, không phải Trip.' }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('SubmitTripPlanInput'), example: {} } } },
+    responses: { 200: response('MarkReadyResult', { ready: { value: { orderId: '100', tripId: '200', orderStatus: 'READY', planStatus: 'APPROVED' } } }), ...errors('/api/v1/orders/{id}/mark-ready', [400,401,403,404,409,413,429,500]) } } },
+
+  '/api/v1/trips/{id}/assignment-options': { get: {
+    ...readCommon, 'x-contract-status': 'accepted', operationId: 'getTripAssignmentOptions', summary: '[Đã triển khai] Nhân sự để phân công', parameters: [pathId],
+    description: 'Manager hoặc Coordinator phụ trách. Kiểm tra quyền Trip trước khi trả các tài khoản DRIVER_ESCORT đang ACTIVE. items gồm id chuỗi, fullName; sắp fullName rồi id. Không khẳng định người đang rảnh lịch. Không phân trang trong bản đầu.',
+    responses: { 200: response('AssignmentOptions', { available: { value: { items: [{ id: '7', fullName: 'Tài xế mẫu' }, { id: '8', fullName: 'Người hộ tống mẫu' }] } }, empty: { value: { items: [] } } }), ...errors('/api/v1/trips/{id}/assignment-options', [400,401,403,404,429,500]) },
+  } },
+  '/api/v1/trips/{id}/assignments': {
+    get: { ...readCommon, 'x-contract-status': 'accepted', operationId: 'getTripAssignments', summary: '[Đã triển khai] Xem phân công Driver/Escort', parameters: [pathId],
+      description: 'Manager hoặc Coordinator phụ trách. items sắp theo userId rồi ID phân công. crewReadiness chỉ kiểm tra nhân sự: thiếu DRIVER/ESCORT hợp lệ hoặc tài khoản không còn ACTIVE/DRIVER_ESCORT. complete=true KHÔNG có nghĩa Order đủ điều kiện READY. Nhân sự bị khóa vẫn hiện trong danh sách cũ, kèm blocker.',
+      responses: { 200: response('TripAssignments', { assigned: { value: crewExample }, empty: { value: crewEmpty } }), ...errors('/api/v1/trips/{id}/assignments', [400,401,403,404,429,500]) },
+    },
+    put: { ...readCommon, 'x-contract-status': 'accepted', operationId: 'saveTripAssignments', summary: '[Đã triển khai] Coordinator lưu phân công', parameters: [pathId],
+      description: `Chỉ Coordinator phụ trách. Order APPROVED/PREPARING, chưa có vận hành/lịch sử; không hạn chế planStatus của Trip vì không sửa chặng.
+Gửi danh sách đầy đủ 2–100 người. Ít nhất một DRIVER, một ESCORT khác người; userId duy nhất, tài khoản DRIVER_ESCORT ACTIVE. Không nhận assignedBy/assignedAt/id phân công từ client.
+Khóa Order → Trip → chặng → users theo ID → phân công. Giữ ID và metadata của dòng không đổi; đổi role giữ ID và cập nhật actor/time; thêm người mới, xóa người bị bỏ khỏi danh sách.
+Audit ASSIGN_CREW và thông báo IN_APP cho người được thêm/đổi role/gỡ phân công cùng transaction. Gửi lại danh sách giống cũ không thêm audit/thông báo. Lỗi rollback toàn bộ.
+Không đổi trạng thái Order/Trip, không sửa legs. Chưa kiểm tra trùng lịch nhân sự, chưa có version chống ghi đè hai danh sách khác nhau; request sau có thể thay thế request trước.`,
+      requestBody: { required: true, content: { 'application/json': { schema: ref('TripAssignmentsInput'), examples: { assign: { value: { assignments: [{ userId: '7', role: 'DRIVER' }, { userId: '8', role: 'ESCORT' }] } } } } } },
+      responses: { 200: response('TripAssignments', { saved: { value: crewExample } }), ...errors('/api/v1/trips/{id}/assignments', [400,401,403,404,409,429,500]) },
+    },
+  },
   '/api/v1/trips/{id}/review-plan': { post: {
     ...readCommon, 'x-contract-status': 'accepted', operationId: 'reviewTripPlan',
     summary: '[Đã triển khai] Manager duyệt hoặc trả lại kế hoạch', parameters: [pathId],
@@ -126,7 +173,7 @@ Khoảng lịch [đi, đến), giờ đến > giờ đi. Chưa có số phút đ
 Ghi approvedBy từ tài khoản hiện tại, approvedAt UTC server; xóa returnReason.
 RETURNED: bắt buộc reason sau trim, 1–255 ký tự; Trip về DRAFT, xóa approvedBy/approvedAt, lưu lý do. Có thể trả lại kế hoạch rỗng/sai để Coordinator sửa.
 Cả hai quyết định giữ nguyên Order và ID chặng, ghi audit REVIEW_PLAN + thông báo IN_APP cho Coordinator cùng transaction. Lỗi rollback toàn bộ. Duyệt lần nữa hoặc sửa Trip đã duyệt trả 409.
-Chưa chuyển Order READY; readiness thuộc phần F.`,
+API phân công không chuyển Order READY; dùng GET readiness và POST orders/{id}/mark-ready.`,
     requestBody: { required: true, content: { 'application/json': { schema: ref('ReviewTripPlanInput'), examples: {
       approve: { value: { decision: 'APPROVED' } }, returned: { value: { decision: 'RETURNED', reason: 'Điều chỉnh xe và thời gian chặng thứ hai.' } },
     } } } },

@@ -1,10 +1,11 @@
 import { parse } from '../../shared/utils/validation.util';
-import { tripIdSchema, tripPlanSchema, submitTripPlanSchema, TripPlanInput, reviewTripPlanSchema } from './trips.validation';
+import { tripIdSchema, tripPlanSchema, submitTripPlanSchema, TripPlanInput, reviewTripPlanSchema, tripAssignmentsSchema } from './trips.validation';
 import { Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
 import { PaginationDto } from '../../shared/utils/pagination.util';
-import { TripDetail, TripList, TripPlanOptions, TripSummary } from './trips.dto';
+import { TripDetail, TripList, TripPlanOptions, TripSummary, TripAssignments } from './trips.dto';
+import { checkCrewReadiness } from './trips.crew';
 import { TripsRepository, TripRow, TripScope } from './trips.repository';
 
 function scope(account: Pick<User, 'id' | 'role'>): TripScope {
@@ -162,6 +163,66 @@ export class TripsService {
       const reason = input.decision === 'RETURNED' ? input.reason : null;
       await repo.auditReview(account.id, id, reviewSnapshot(before), reviewSnapshot(after), reason);
       await repo.notifyPlanCoordinator(id, trip.plannedBy, input.decision, reason);
+      return after;
+    });
+  }
+  async assignmentOptions(account: User, id: string) {
+    await this.accessible(account, id);
+    return { items: await this.repository.assignmentOptions() };
+  }
+  async assignments(account: User, id: string): Promise<TripAssignments> {
+    await this.accessible(account, id);
+    const rows = await this.repository.assignments(id);
+    return { tripId: id, items: rows.map(row => ({ id: row.id, userId: row.userId, fullName: row.fullName,
+      role: row.role, assignedBy: row.assignedBy, assignedAt: row.assignedAt.toISOString() })), crewReadiness: checkCrewReadiness(rows) };
+  }
+  async saveAssignments(account: User, rawId: string, body: unknown): Promise<TripAssignments> {
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được phân công.');
+    const id = parse(tripIdSchema, rawId), input = parse(tripAssignmentsSchema, body);
+    return this.repository.transaction(async repo => {
+      const orderId = await repo.orderId(id);
+      if (!orderId) throw new NotFoundException('Không tìm thấy chuyến.');
+      const order = await repo.lockOrder(orderId), trip = await repo.lockTrip(id);
+      if (!trip || trip.plannedBy !== account.id) throw new NotFoundException('Không tìm thấy chuyến.');
+      if (!order || trip.orderId !== orderId) throw new ConflictException('Đơn của chuyến đã thay đổi.');
+      if (!['APPROVED', 'PREPARING'].includes(order.status)) throw new ConflictException('Chỉ phân công khi Order APPROVED/PREPARING.');
+      const legs = await repo.lockLegs(id);
+      if (legs.some(l => l.status !== 'NOT_STARTED' || l.actualDepartureAt || l.actualArrivalAt) || await repo.hasHistory(id)) {
+        throw new ConflictException('Chuyến đã có dữ liệu vận hành, không được đổi phân công.');
+      }
+      // Trip lock serializes replacements. Lock the union of old/new users before assignment rows.
+      const before = await repo.assignments(id);
+      const ids = [...new Set([...before.map(a => a.userId), ...input.assignments.map(a => a.userId)])]
+        .sort((a, b) => a.length - b.length || a.localeCompare(b));
+      const users = new Map<string, { role: string; accountStatus: string } | undefined>();
+      for (const userId of ids) users.set(userId, await repo.lockCrewUser(userId));
+      await repo.lockAssignments(id);
+      input.assignments.forEach((a, index) => {
+        const user = users.get(a.userId);
+        if (!user || user.role !== 'DRIVER_ESCORT' || user.accountStatus !== 'ACTIVE') {
+          throw new BadRequestException({ message: 'Nhân sự phân công không hợp lệ.', fields: { [`assignments.${index}.userId`]: 'Chọn tài khoản DRIVER_ESCORT đang ACTIVE.' } });
+        }
+      });
+      const oldByUser = new Map(before.map(a => [a.userId, a]));
+      const wanted = new Map(input.assignments.map(a => [a.userId, a.role]));
+      const changes: { userId: string; role: string | null }[] = [];
+      for (const old of before) if (!wanted.has(old.userId)) {
+        await repo.deleteAssignment(old.id); changes.push({ userId: old.userId, role: null });
+      }
+      for (const assignment of input.assignments) {
+        const old = oldByUser.get(assignment.userId);
+        if (!old) await repo.insertAssignment(id, assignment.userId, assignment.role, account.id);
+        else if (old.role !== assignment.role) await repo.updateAssignment(old.id, assignment.role, account.id);
+        else continue;
+        changes.push(assignment);
+      }
+      const after = await new TripsService(repo).assignments(account, id);
+      if (changes.length) {
+        // Snapshot identifiers and assignment facts, avoiding long names overflowing audit TEXT.
+        const snapshot = (rows: { id: string; userId: string; role: string; assignedBy: string; assignedAt: Date | string }[]) => JSON.stringify(rows.map(a => ({ id: a.id, userId: a.userId, role: a.role, assignedBy: a.assignedBy, assignedAt: a.assignedAt })));
+        await repo.auditCrew(account.id, id, snapshot(before), snapshot(after.items));
+        for (const change of changes) await repo.notifyCrew(id, change.userId, change.role);
+      }
       return after;
     });
   }

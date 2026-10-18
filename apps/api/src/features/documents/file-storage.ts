@@ -2,7 +2,7 @@ import { Logger } from '../../shared/utils/logger.util';
 import { BadRequestException, NotFoundException } from '../../shared/core/error.response';
 import { storageClient, unavailable } from './supabase-storage';
 import { randomUUID } from 'crypto';
-import { mkdir, writeFile, unlink, readFile } from 'fs/promises';
+import { mkdir, writeFile, unlink, readFile, lstat } from 'fs/promises';
 import { resolve, basename } from 'path';
 export type Upload={buffer:Buffer;originalname:string;size:number};
 export const MAX_FILE_SIZE=5*1024*1024;
@@ -82,3 +82,20 @@ export async function loadFile(key: string) {
  } catch { throw unavailable(); }
 }
 
+
+// Metadata only: never download document contents for readiness.
+export async function verifyStoredFile(key: string, expectedSize: string): Promise<boolean> {
+ try {
+  if (!/^[1-9]\d*$/.test(expectedSize)) return false;
+  const target = location(key);
+  if (!target.bucket) {
+   const info = await lstat(resolve(directory(), target.object), { bigint: true });
+   return info.isFile() && info.size.toString() === expectedSize;
+  }
+  const storage = storageClient();
+  const bucket = await storage.getBucket(target.bucket);
+  if (bucket.error || bucket.data?.public !== false) return false;
+  const result = await storage.from(target.bucket).info(target.object);
+  return !result.error && String(result.data?.size) === expectedSize;
+ } catch { return false; }
+}

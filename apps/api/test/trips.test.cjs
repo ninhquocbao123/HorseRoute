@@ -62,3 +62,20 @@ test('Review accepts only APPROVED or RETURNED with strict trimmed reason', () =
     assert.equal(reviewTripPlanSchema.safeParse(body).success,false);
   }
 });
+
+const { tripAssignmentsSchema } = require('../src/features/trips/trips.validation');
+const { checkCrewReadiness } = require('../src/features/trips/trips.crew');
+test('Crew input requires distinct DRIVER and ESCORT and rejects server-owned fields',()=>{
+ const crew=[{userId:'7',role:'DRIVER'},{userId:'8',role:'ESCORT'}];
+ assert.ok(tripAssignmentsSchema.safeParse({assignments:crew}).success);
+ for(const assignments of [[],[crew[0]],[crew[0],{...crew[1],userId:'7'}],[crew[0],{...crew[1],role:'DRIVER'}],[{...crew[0],assignedBy:'4'},crew[1]],[{...crew[0],role:'MANAGER'},crew[1]]]) assert.equal(tripAssignmentsSchema.safeParse({assignments}).success,false);
+ assert.equal(tripAssignmentsSchema.safeParse({assignments:crew,tripId:'9'}).success,false);
+});
+test('Crew readiness reports missing and invalid crew, without claiming full READY',()=>{
+ assert.deepEqual(checkCrewReadiness([]).blockers.map(b=>b.code),['MISSING_DRIVER','MISSING_ESCORT']);
+ const driver={userId:'7',role:'DRIVER',accountRole:'DRIVER_ESCORT',accountStatus:'ACTIVE'};
+ const escort={...driver,userId:'8',role:'ESCORT'};
+ assert.equal(checkCrewReadiness([driver,escort]).complete,true);
+ assert.deepEqual(checkCrewReadiness([driver,{...escort,accountStatus:'LOCKED'}]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_ESCORT']);
+ assert.deepEqual(checkCrewReadiness([{...driver,accountRole:'CUSTOMER'},escort]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_DRIVER']);
+});

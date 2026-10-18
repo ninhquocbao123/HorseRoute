@@ -1,3 +1,4 @@
+import { Requirements } from '../readiness/requirements';
 import { OrdersRepository } from './orders.repository';
 import { BadRequestException, ConflictException, NotFoundException } from '../../shared/core/error.response';
 import { DataSource, EntityManager } from 'typeorm';
@@ -161,15 +162,23 @@ export class OrdersService {
         if(!horses.length||horses.some(h=>h.order_status!=='NORMAL'))throw new ConflictException('Cần xử lý ngựa bị đánh dấu trước khi duyệt.');
         // Reject obsolete schedules even when they were valid when submitted.
         if(dateOnly(order.desired_departure_date)<new Date().toISOString().slice(0,10))throw new ConflictException('Ngày khởi hành đã qua. Hãy yêu cầu khách cập nhật.');
+        const snapshot: Requirements = { version: 1, ruleIds: [...selected], horses: horses.map(h => ({ horseId: String(h.id), documents: [], authorityIds: [] })) };
         for(const rule of applicable){
           if(!rule.authority_id)throw new ConflictException('Quy định chưa có cơ quan tiếp nhận.');
           const types=await this.repository.findRuleDocumentTypes(m, [rule.id]);
           if(!types.length)throw new ConflictException('Quy định chưa có danh sách giấy tờ.');
+          for (const expected of snapshot.horses) {
+            if (!expected.authorityIds.includes(String(rule.authority_id))) expected.authorityIds.push(String(rule.authority_id));
+            for (const type of types) if (!expected.documents.some(d => d.documentTypeId === String(type.document_type_id))) {
+              expected.documents.push({ documentTypeId: String(type.document_type_id), hasExpiry: Boolean(type.has_expiry) });
+            }
+          }
           for(const horse of horses){
             for(const type of types)await this.repository.ensureDocument(m, [horse.id,type.document_type_id,horse.id,type.document_type_id]);
             await this.repository.ensureDossier(m, [horse.id,rule.authority_id,horse.id,rule.authority_id]);
           }
         }
+        await m.query('UPDATE orders SET requirements_snapshot=? WHERE id=?', [JSON.stringify(snapshot), id]);
         await this.repository.insertTrip(m, [id,coordinator.id]);
         await this.notify(m,coordinator.id,id,'ORDER_ASSIGNED',`Bạn phụ trách lập kế hoạch cho đơn ${order.order_code}.`);
       }

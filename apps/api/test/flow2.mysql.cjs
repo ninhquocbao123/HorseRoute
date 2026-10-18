@@ -46,6 +46,16 @@ async function main(){
  await check('approval failure rolls back previously created checklist and dossiers',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);for(const table of ['documents','dossiers','trips']){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),0);}assert.equal((await service.detail(customer,id)).status,'PENDING');});
  await db.query('INSERT INTO quarantine_rule_doctypes(rule_id,document_type_id) VALUES (2,1)');
  await check('approval creates distinct checklist, dossiers and one draft trip',async()=>{await service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']});for(const [table,count]of [['documents',2],['dossiers',1],['trips',1]]){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),count);}assert.equal((await service.detail(customer,id)).status,'APPROVED');});
+ await check('approval freezes exact per-horse requirements and later rule changes do not rewrite snapshot',async()=>{
+  const [row]=await db.query('SELECT requirements_snapshot AS snapshot FROM orders WHERE id=?',[id]);
+  const snapshot=typeof row.snapshot==='string'?JSON.parse(row.snapshot):row.snapshot;
+  assert.equal(snapshot.version,1);assert.deepEqual(snapshot.ruleIds,['1','2']);assert.equal(snapshot.horses.length,1);
+  assert.deepEqual(snapshot.horses[0].documents,[{documentTypeId:'1',hasExpiry:false},{documentTypeId:'2',hasExpiry:true}]);
+  assert.deepEqual(snapshot.horses[0].authorityIds,['1']);
+  await db.query('UPDATE document_types SET has_expiry=0 WHERE id=2');
+  const [after]=await db.query('SELECT requirements_snapshot AS snapshot FROM orders WHERE id=?',[id]);
+  assert.deepEqual(after.snapshot,row.snapshot);await db.query('UPDATE document_types SET has_expiry=1 WHERE id=2');
+ });
  await check('approved order cannot be edited or reviewed again',async()=>{await assert.rejects(()=>service.save(customer,payload,id),e=>e.getStatus()===409);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);});
  const otherId=(await service.save(other,{...payload,horses:[{name:'Ngựa Hai',passportNo:'TEST-TWO'}]})).id;await service.submit(other,otherId);
  await check('rejection records reason and creates no trip',async()=>{await service.review(manager,otherId,{decision:'REJECTED',reason:'Không phục vụ tuyến này'});const detail=await service.detail(other,otherId);assert.equal(detail.status,'REJECTED');assert.equal(detail.manager_note,'Không phục vụ tuyến này');const [n]=await db.query('SELECT COUNT(*) n FROM trips WHERE order_id=?',[otherId]);assert.equal(Number(n.n),0);});

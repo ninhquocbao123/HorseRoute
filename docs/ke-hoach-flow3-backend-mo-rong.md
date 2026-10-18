@@ -6,7 +6,7 @@ Ngày lập: 17/10/2026. Phạm vi: HorseRoute, backend Express/MySQL.
 
 ## 1. Điểm xuất phát và kết quả cần đạt
 
-Đã có sáu API: GET danh sách Trips, GET chi tiết, GET plan-options, PUT lưu kế hoạch, POST submit-plan (Phần B) và POST review-plan (Phần C). Tiếp tục sử dụng authenticate, authorize, validation, transaction, audit và định dạng lỗi hiện có.
+Đã có mười một API: GET danh sách Trips, GET chi tiết, GET plan-options, PUT lưu kế hoạch, POST submit-plan (Phần B) và POST review-plan (Phần C), GET assignment-options, GET assignments và PUT assignments (Phần D), GET readiness và POST mark-ready (Phần F). Tiếp tục sử dụng authenticate, authorize, validation, transaction, audit và định dạng lỗi hiện có.
 
 Quy tắc được người dùng chốt lại: **chỉ Coordinator phụ trách được sửa chặng khi Trip DRAFT và Order APPROVED hoặc PREPARING**. Trip PENDING_APPROVAL/APPROVED không được sửa trực tiếp. Giữ chặn các chặng đã vận hành/có lịch sử; không xóa lịch sử để sửa kế hoạch.
 
@@ -73,7 +73,7 @@ Cổng A:
 
 ## 3. Danh sách API đề xuất
 
-Tất cả URL bên dưới có tiền tố `/api/v1`. POST submit-plan và POST review-plan đã triển khai, kiểm thử ở Phần B–C. Các API phân công/readiness/mark-ready trong bảng vẫn là đề xuất, chưa hoạt động.
+Tất cả URL bên dưới có tiền tố `/api/v1`. POST submit-plan và POST review-plan đã triển khai, kiểm thử ở Phần B–C. Ba API phân công đã triển khai ở Phần D. Readiness tổng thể/mark-ready trong bảng vẫn là đề xuất, chưa hoạt động.
 
 | Method + URL | Ai gọi | Gửi gì | Thành công |
 | --- | --- | --- | --- |
@@ -147,7 +147,7 @@ Cổng C:
 - [x] Trả lại → sửa → gửi lại → duyệt chạy được; lịch sử các vòng còn đầy đủ.
 - [x] Duyệt Trip DRAFT/APPROVED hoặc duyệt hai lần bị trả 409.
 - [x] Trip được duyệt vẫn chưa làm Order READY.
-- [ ] Dữ liệu seed APPROVED nhưng legs=[] được báo không hợp lệ ở readiness, không tự bịa thêm chặng.
+- [x] Dữ liệu seed APPROVED nhưng legs=[] được báo không hợp lệ ở readiness, không tự bịa thêm chặng.
 
 ### Kết quả triển khai Phần C — 17/10/2026
 
@@ -173,7 +173,7 @@ Giờ đến phải sau giờ đi khi gửi/duyệt; lưu nháp vẫn theo valid
 
 **Bằng chứng kiểm thử:** 51 tests API và 38 nhóm integration Trips trên MySQL test cô lập nạp fixtures/schema.sql đều đạt. Có 13 nhóm mới cho review: phân quyền/validation, metadata/lý do, vòng trả-sửa-gửi-duyệt, trạng thái, kế hoạch sai, sức chứa từng chặng, lịch sử vận hành, các dạng trùng lịch, xe còn vận hành, hai quyết định trên cùng Trip, hai Trip trùng xe cùng duyệt, thứ tự xe ngược nhau không deadlock, rollback cả hai quyết định khi audit/thông báo lỗi.
 
-**Mục còn chờ F:** checkbox “seed APPROVED nhưng legs=[] được báo ở readiness” giữ trống vì chưa có API readiness. Trong phạm vi C đã xác minh không thể duyệt kế hoạch rỗng và không tự tạo chặng. Không đánh dấu toàn bộ E/F hoàn thành chỉ vì kiểm tra duyệt đã đạt; F còn giấy tờ, phân công, FLAGGED và mất điều kiện sau READY.
+**Cập nhật sau Phần F:** checkbox “seed APPROVED nhưng legs=[] được báo ở readiness” đã đạt; API trả blocker `NO_LEGS`. Trong phạm vi C đã xác minh không thể duyệt kế hoạch rỗng và không tự tạo chặng. Không đánh dấu toàn bộ E/F hoàn thành chỉ vì kiểm tra duyệt đã đạt; F còn giấy tờ, phân công, FLAGGED và mất điều kiện sau READY.
 
 ### Hướng dẫn bạn thử trên Swagger
 
@@ -199,17 +199,67 @@ Giờ đến phải sau giờ đi khi gửi/duyệt; lưu nháp vẫn theo valid
 
 Cổng D:
 
-- [ ] Chọn người từ options thật, không hard-code ID.
-- [ ] Không chọn CUSTOMER, tài khoản LOCKED hoặc ID không tồn tại.
-- [ ] Cùng userId xuất hiện hai lần bị chặn bằng validation trước khi gặp lỗi unique database.
-- [ ] Lưu lại danh sách giống cũ không tạo phân công trùng; ID dòng không đổi được giữ.
-- [ ] Coordinator khác không xem/sửa phân công của chuyến.
-- [ ] Khi READY hoặc đã vận hành, PUT bị chặn; dữ liệu cũ còn nguyên.
-- [ ] Theo Phần A đã chốt bắt buộc đủ DRIVER/ESCORT, thiếu người phải xuất hiện trong readiness blockers.
+- [x] Backend trả options thật từ MySQL, không hard-code ID. Dropdown React sẽ dùng API này khi nối giao diện.
+- [x] Không chọn CUSTOMER, tài khoản LOCKED hoặc ID không tồn tại.
+- [x] Cùng userId xuất hiện hai lần bị chặn bằng validation trước khi gặp lỗi unique database.
+- [x] Lưu lại danh sách giống cũ không tạo phân công trùng; ID dòng không đổi được giữ.
+- [x] Coordinator khác không xem/sửa phân công của chuyến.
+- [x] Khi READY hoặc đã vận hành, PUT bị chặn; dữ liệu cũ còn nguyên.
+- [x] Đã có blockers nhân sự MISSING_DRIVER/MISSING_ESCORT/INELIGIBLE_CREW qua crewReadiness và helper dùng chung, đúng yêu cầu đủ DRIVER/ESCORT.
+- [x] Ghép blockers nhân sự vào API readiness tổng thể ở Phần F (đã triển khai và kiểm thử).
 
-## 7. Phần E — Trùng lịch xe và sức chứa (120–180 phút)
+### Kết quả triển khai Phần D — 17/10/2026
 
-Triển khai phần này trước khi nghiệm thu duyệt kế hoạch và READY. Nếu nhóm xác nhận nằm ngoài yêu cầu, ghi rõ mục bị hoãn; không đánh dấu đã bảo đảm xe khả dụng.
+Ba API đã triển khai, sau authenticate:
+
+| API | Quyền | Response |
+| --- | --- | --- |
+| GET /api/v1/trips/{id}/assignment-options | Coordinator phụ trách hoặc Manager | `{items:[{id,fullName}]}` của tài khoản DRIVER_ESCORT ACTIVE, theo tên rồi ID |
+| GET /api/v1/trips/{id}/assignments | Coordinator phụ trách hoặc Manager | `{tripId,items,crewReadiness}`; các dòng theo userId rồi ID |
+| PUT /api/v1/trips/{id}/assignments | Chỉ Coordinator phụ trách | Danh sách đã lưu cùng kiểm tra nhân sự |
+
+Body PUT mẫu (ID minh họa, phải chọn ID thật từ options):
+
+```json
+{
+  "assignments": [
+    { "userId": "7", "role": "DRIVER" },
+    { "userId": "8", "role": "ESCORT" }
+  ]
+}
+```
+
+- Body strict, danh sách đầy đủ 2–100 người (100 là giới hạn kỹ thuật bản đầu), ít nhất một DRIVER/một ESCORT khác người, không trùng userId. Manager PUT bị 403; Coordinator khác nhận 404. ID sai/body sai/nhân sự không đủ điều kiện trả 400 với fields.
+- Order APPROVED/PREPARING; Trip có thể DRAFT/PENDING_APPROVAL/APPROVED vì thao tác không đổi kế hoạch chặng. Khi có trạng thái/thời gian thực tế hoặc lịch sử vận hành, hoặc Order không còn cho chuẩn bị, trả 409.
+- Transaction khóa Order → Trip → chặng → hợp các users cũ/mới theo ID → phân công. Kiểm tra lại role/accountStatus sau khóa. Không sửa trạng thái Order/Trip, legs hoặc lịch sử vận hành.
+- Giữ ID, assignedBy/assignedAt cho dòng không đổi. Đổi role giữ ID nhưng cập nhật metadata từ server. Người mới được INSERT; người bị bỏ khỏi danh sách được xóa phân công. Không xóa user.
+- Gửi lại danh sách giống cũ (kể cả đảo thứ tự request) không thêm audit/thông báo. Hai request giống nhau đồng thời cho một bộ phân công, một audit và một thông báo/người được thêm.
+- Thay đổi thật ghi audit ASSIGN_CREW trước/sau cùng actor thực; thông báo TRIP_CREW_CHANGED IN_APP cho người được thêm, đổi vai trò hoặc gỡ phân công. Lỗi ở bất kỳ bước ghi nào rollback toàn bộ.
+- GET vẫn hiển thị người cũ bị khóa/đổi role để Coordinator thay thế. `crewReadiness.complete` chỉ kiểm tra nhân sự hợp lệ, **không có nghĩa Order đủ READY**. Helper `trips.crew.ts` được chuẩn bị cho Phần F.
+
+**Kiểm chứng:** 54 tests API và 47 nhóm integration Trips trên MySQL test riêng nạp fixtures/schema.sql đều đạt; 9 nhóm mới cho Phần D. Có kiểm thử role/ownership trên cả ba API, user không hợp lệ, BIGINT và ISO UTC, thêm/đổi/gỡ, no-op, mọi trạng thái Trip/Order, lịch sử vận hành, người đã khóa, request đồng thời, và rollback khi audit/thông báo lỗi. TypeScript lint/build đạt. Database dự án không được dùng để thử ghi.
+
+### Cách tự kiểm tra trên Swagger
+
+1. Chạy `pnpm dev:api`, mở `/docs`, tag Flow 3 - Trips; Authorize bằng Coordinator phụ trách.
+2. GET assignments cho Trip chưa phân công: items rỗng, có MISSING_DRIVER và MISSING_ESCORT.
+3. GET assignment-options, chọn hai ID thật khác nhau. Nếu mảng rỗng, cần chuẩn bị tài khoản DRIVER_ESCORT ACTIVE; backend không tự seed nhân sự.
+4. PUT assignments với body mẫu; mong đợi 200, ít nhất một DRIVER và một ESCORT, ID phân công dạng chuỗi, assignedBy đúng Coordinator và assignedAt UTC.
+5. GET lại để đối chiếu. PUT lại danh sách giống cũ: ID/metadata giữ nguyên, không nhân đôi audit/thông báo.
+6. Đổi role hoặc thay một người (vẫn đủ hai role); kiểm tra người giữ lại không đổi role thì ID/metadata không đổi, người đổi role giữ ID.
+7. Thử trùng userId hoặc chọn user không ACTIVE/khác role: 400. Token Manager xem GET được nhưng PUT nhận 403. Coordinator khác nhận 404.
+8. Trong dữ liệu test, Order READY hoặc có vận hành thì PUT nhận 409; phân công cũ còn nguyên.
+
+**Giới hạn:** chưa có UI dropdown, chưa kiểm tra trùng lịch nhân sự, chưa có version chống ghi đè hai danh sách khác nhau. Danh sách sau có thể thay thế danh sách trước khi hai người cùng chỉnh. Không đánh dấu API readiness/mark-ready hoặc Flow 4 đã hoàn thành.
+
+## 7. Phần E — Trùng lịch xe và sức chứa (120–180 phút) — TẠM HOÃN
+
+**Trạng thái: TẠM HOÃN theo yêu cầu người dùng ngày 17/10/2026; chưa đánh dấu hoàn thành.**
+
+- Giữ nguyên các kiểm tra đã triển khai ở bước gửi/duyệt: xe active, sức chứa, trùng lịch và khóa xe chống duyệt đồng thời.
+- Tạm hoãn việc hoàn thiện/nghiệm thu riêng Phần E, gồm chốt thời gian đệm, thời lượng tối thiểu cụ thể và các mục còn mở bên dưới.
+- Có thể tiếp tục các công việc độc lập của Phần F. Trước khi nghiệm thu READY, phải tích hợp kiểm tra lại điều kiện xe/sức chứa/lịch; không dùng việc tạm hoãn để bỏ qua điều kiện sẵn sàng vận chuyển.
+- Giữ các checkbox nghiệm thu E chưa hoàn thành ở trạng thái trống. Chưa chốt ngày tiếp tục; khi tiếp tục, đối chiếu kiểm tra đã có trước khi triển khai bổ sung.
 
 ### E1. Sức chứa
 
@@ -288,15 +338,68 @@ Các điều kiện bắt buộc phải kiểm tra:
 
 Cổng F:
 
-- [ ] GET readiness không thay đổi database và trả rõ từng lý do chưa đạt.
-- [ ] Thiếu một giấy tờ/hồ sơ/người/xe đều chặn READY đúng lý do.
-- [ ] Giấy tờ VALID nhưng expiry_date đã qua vẫn bị chặn.
-- [ ] Có permit_attachment_id nhưng file mất/không xác minh được không được coi là hợp lệ.
-- [ ] Thiếu toàn bộ checklist/dossier không vượt qua kiểm tra do mảng rỗng.
-- [ ] GET báo đủ, sau đó nhân sự bị khóa/xe mất active/giấy tờ đổi trước POST: POST kiểm tra lại và từ chối.
-- [ ] Hai POST mark-ready đồng thời chỉ chuyển và ghi audit một lần; lần sau 409 theo contract.
-- [ ] Lỗi ghi audit rollback Order, không để READY nửa chừng.
-- [ ] Nhóm có quyết định rõ về thay đổi điều kiện sau READY và điểm kiểm tra trước khởi hành.
+- [x] GET readiness không thay đổi database và trả rõ từng lý do chưa đạt.
+- [x] Thiếu một giấy tờ/hồ sơ/người/xe đều chặn READY đúng lý do.
+- [x] Giấy tờ VALID nhưng expiry_date đã qua vẫn bị chặn.
+- [x] Có permit_attachment_id nhưng file mất/không xác minh được không được coi là hợp lệ.
+- [x] Thiếu toàn bộ checklist/dossier không vượt qua kiểm tra do mảng rỗng.
+- [x] GET báo đủ, sau đó nhân sự bị khóa/xe mất active/giấy tờ đổi trước POST: POST kiểm tra lại và từ chối.
+- [x] Hai POST mark-ready đồng thời chỉ chuyển và ghi audit một lần; lần sau 409 theo contract.
+- [x] Lỗi ghi audit rollback Order, không để READY nửa chừng.
+- [x] Nhóm có quyết định rõ về thay đổi điều kiện sau READY và điểm kiểm tra trước khởi hành.
+
+### Kết quả triển khai Phần F — 17/10/2026
+
+**Đã hoàn thành Cổng F theo quy tắc bản đầu.** Phần E vẫn **TẠM HOÃN**; không đánh dấu các checkbox E hoàn tất. READY tái sử dụng kiểm tra xe hiện có: active, đủ stall cho toàn bộ ngựa NORMAL, khoảng lịch [đi, đến), xe còn đang vận hành. Chưa bổ sung buffer hoặc số phút tối thiểu chưa được chốt ở E.
+
+#### API để kiểm tra trên Swagger
+
+| API | Quyền | Gửi | Kết quả |
+| --- | --- | --- | --- |
+| `GET /api/v1/trips/{id}/readiness` | Coordinator phụ trách hoặc Manager | ID Trip, Bearer token; không body | 200: `tripId`, `orderId`, `orderStatus`, `planStatus`, `eligibleForReady`, `blockers` |
+| `POST /api/v1/orders/{id}/mark-ready` | Chỉ Manager | ID Order, Bearer token, body `{}` | 200: `orderId`, `tripId`, `orderStatus: READY`, `planStatus: APPROVED`; chưa đủ/đã READY: 409 kèm `blockers` |
+
+GET không gọi job hết hạn và không ghi database. Giấy tờ VALID nhưng hết hạn vẫn báo `DOCUMENT_EXPIRED`. ID trong response và blockers là chuỗi. Các lỗi 401/403/404/400 vẫn theo middleware chung; Coordinator khác chủ chuyến nhận 404.
+
+POST dùng cùng readiness service, đọc lại sau khóa Order → Trip → legs → locations/vehicles theo ID → horses → users theo ID → assignments/hồ sơ/attachments. Kết quả GET trước đó không dùng để cấp quyền chuyển trạng thái. Audit `MARK_READY` và thông báo `ORDER_READY` đến Customer, Coordinator và nhân sự được phân công cùng transaction; lỗi ghi bất kỳ phần nào rollback toàn bộ. Hai POST đồng thời: một thành công, một 409; Trip vẫn APPROVED.
+
+#### Migration bắt buộc trước khi thử database nhóm
+
+```bash
+pnpm --filter api migration:run
+pnpm dev:api
+```
+
+Migration mới `1800000004000-OrderRequirements.ts` thêm `orders.requirements_snapshot` kiểu JSON nullable. Đã kiểm thử trên database tách biệt; **chưa chạy migration vào database nhóm**. Không sửa dump tham chiếu `test/fixtures/schema.sql`; bộ test nạp CREATE TABLE rồi áp dụng migration mới.
+
+Khi Manager duyệt một Order mới, cùng transaction sẽ lưu phiên bản snapshot, ruleIds, từng horseId, loại giấy tờ bắt buộc + hasExpiry và authorityIds. Thay đổi quy định sau này không sửa snapshot. Checklist/dossier bị thiếu không thể vượt kiểm tra vì mảng rỗng.
+
+**Đơn cũ/seed không có snapshot:** trả `REQUIREMENTS_UNVERIFIED`; không tự backfill từ checklist có thể thiếu hoặc quy định hiện tại. Để demo, dùng đơn mới đi qua luồng duyệt thật. Đối với dữ liệu cũ cần giữ, phải đối soát yêu cầu gốc rồi thiết kế đợt chuyển đổi có kiểm duyệt/audit riêng; không xóa Trip, đặt lại trạng thái hoặc điền snapshot giả để vượt điều kiện.
+
+#### File thật và thay đổi điều kiện sau READY
+
+- Local: kiểm tra metadata file thường, kích thước khớp; Supabase: bucket private và object metadata. Không download nội dung để kiểm tra. Sai key, mất file, sai kích thước, lỗi provider đều chặn.
+- POST xác minh file trước transaction; bên trong transaction phải khớp key + kích thước đã xác minh. Metadata thay đổi giữa hai lần đọc sẽ bị chặn. Upload hiện dùng UUID mới và `upsert: false`.
+- Không thể khóa kho file bằng transaction MySQL. Người quản trị xóa/ghi đè file bên ngoài sau xác minh vẫn là giới hạn; kiểm thử Supabase dùng adapter HTTP giả lập, chưa nghiệm thu với kho Supabase thật.
+- **Quyết định bản đầu:** không tự hạ READY khi giấy tờ hết hạn/xe ngừng active/nhân sự bị khóa. Documents và expiry job giữ hành vi hiện có; GET readiness chỉ báo các blocker hiện tại, không tự đổi Order. Đã kiểm thử tình huống giấy tờ mất hiệu lực sau READY.
+- **Bàn giao bắt buộc cho Flow 4:** trước chuyển `READY → IN_TRANSIT`, phải kiểm tra lại toàn bộ điều kiện dưới khóa phù hợp, dùng trạng thái đầu vào READY thay vì APPROVED/PREPARING của mark-ready, đồng thời ghi audit chuyển trạng thái. Không chỉ kiểm tra `orders.status === READY`, không dùng trực tiếp `eligibleForReady` (trường này chỉ nói có thể thực hiện mark-ready hay không). API khởi hành chưa triển khai trong Phần F; đây là ràng buộc tích hợp, chưa phải xác nhận của Long.
+
+#### Kiểm thử đã đạt
+
+- `pnpm --filter api lint` và `pnpm --filter api build`: đạt.
+- `pnpm --filter api test`: **56/56** unit/HTTP/Swagger/storage tests đạt.
+- `node apps/api/test/flow1.mysql.cjs`: **13/13** nhóm hồi quy đạt.
+- `node apps/api/test/flow2.mysql.cjs`: **26/26** nhóm đạt, gồm snapshot bất biến khi danh mục thay đổi.
+- `node apps/api/test/flow3-read.mysql.cjs`: **60/60** nhóm đạt; **13 nhóm mới cho F**, gồm phân quyền, ma trận trạng thái, read-only, thiếu dữ liệu/file, hết hạn trực tiếp, stale GET, lịch xe, hai POST đồng thời, rollback audit/thông báo và metadata đổi sau xác minh.
+- Các lệnh MySQL trên đã chạy với `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER`, `TEST_DB_PASSWORD`, `TEST_DB_SSL` trỏ vào MySQL test local riêng. Mỗi suite tạo/xóa database ngẫu nhiên `wdp_flow*_test_*`, không dùng database dự án.
+
+#### Các bước bạn kiểm tra lại
+
+1. Chạy migration, khởi động API, mở `/docs/`; tạo/duyệt đơn mới để có snapshot thật.
+2. Coordinator lập kế hoạch → gửi; Manager duyệt; Coordinator phân công đủ DRIVER/ESCORT.
+3. GET readiness: đọc từng blocker; hoàn thiện giấy tờ và hồ sơ qua Flow 2, upload file thật.
+4. GET có `eligibleForReady: true` → đăng nhập Manager → POST mark-ready body `{}` với **orderId**.
+5. Kiểm tra Order READY, Trip APPROVED, audit và thông báo; POST lần nữa phải 409. Không dùng thao tác thay đổi dữ liệu trực tiếp trên database nhóm để thử tình huống lỗi; các tình huống đó có trong integration test tách biệt.
 
 ## 9. Phần G — Swagger, kiểm thử và bàn giao (90–120 phút)
 
@@ -325,7 +428,7 @@ Cổng G — nghiệm thu cuối:
 | A: chốt quy tắc | Tiến + Bảo + Long | Đọc schema và tài liệu này | Bảng quyết định đã điền |
 | B–C: gửi/duyệt/trả | Tiến | A; C cần E trước nghiệm thu | API và tests trạng thái |
 | D: phân công | Long | A và contract dùng chung | API + dữ liệu phục vụ tracking |
-| E: xe/sức chứa | Tiến, Bảo hỗ trợ SQL/test | A | Validator dùng chung và tests concurrent |
+| E: xe/sức chứa — TẠM HOÃN | Tiến, Bảo hỗ trợ SQL/test | A; chưa chốt ngày tiếp tục | Giữ kiểm tra hiện có; hoàn thiện/nghiệm thu bổ sung trước READY |
 | F: hồ sơ/readiness | Bảo | A; tích hợp C, D, E | Readiness service + mark-ready |
 | G: tích hợp/demo | Cả nhóm | B–F | Swagger, tests và biên bản nghiệm thu |
 

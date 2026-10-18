@@ -13,6 +13,8 @@ module.exports = async function loadSchema(db) {
     if (!statements?.length) throw new Error('No CREATE TABLE definitions in schema.sql');
     await runner.query('SET FOREIGN_KEY_CHECKS=0');
     for (const statement of statements) await runner.query(statement);
+    const { OrderRequirements1800000004000 } = require('../src/database/migrations/1800000004000-OrderRequirements');
+    await new OrderRequirements1800000004000().up(runner);
   } finally {
     try { await runner.query('SET FOREIGN_KEY_CHECKS=1'); } finally { await runner.release(); }
   }
