@@ -1,0 +1,9 @@
+.app-confirm-dialog{box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:90dvh;padding:32px;border:1px solid #dce6df;border-radius:20px;background:white;color:#234535;box-shadow:0 24px 80px #102b3340;font-family:"Segoe UI",Arial,sans-serif}
+.app-confirm-dialog::backdrop{background:#102c2666;backdrop-filter:blur(3px)}
+.app-confirm-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#fff1d8;color:#94641f;font-size:26px;font-weight:700;margin-bottom:20px}
+.app-confirm-caption{font-size:11px;font-weight:650;letter-spacing:1.2px;color:#78877d}
+.app-confirm-dialog h2{font:700 25px/1.4 "Segoe UI",Arial,sans-serif;margin:10px 0 14px}
+.app-confirm-dialog p{font-size:14px;line-height:1.8;color:#627368;margin:0;white-space:pre-line}
+.app-confirm-actions{display:flex;gap:10px;margin-top:28px}.app-confirm-actions button{flex:1;min-height:46px;padding:10px;border:1px solid #d6e1d0;border-radius:9px;background:white;color:#365640;font:600 13px/1.5 "Segoe UI",Arial,sans-serif;cursor:pointer}
+.app-confirm-actions .app-confirm-primary{background:#244f3e;color:white;border-color:#244f3e}.app-confirm-actions button:focus-visible{outline:3px solid #94b8a4;outline-offset:3px}
+@media(max-width:500px){.app-confirm-dialog{padding:24px}.app-confirm-actions{flex-direction:column}}

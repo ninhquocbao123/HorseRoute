@@ -1,0 +1,18 @@
+.flow-orders .flow-list{display:flex;flex-direction:column;position:sticky;top:20px;max-height:min(740px,calc(100dvh - 40px));overflow:hidden;padding:20px}
+.flow-orders .flow-list>.header,.flow-orders .flow-list>.flow-list-caption,.flow-orders .order-list-filters,.flow-orders .flow-list>.pagination{flex-shrink:0}
+.flow-orders .flow-list .flow-list-caption{margin:8px 0 14px;padding-bottom:12px}
+.flow-orders .order-list-filters{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:end;border-bottom:1px solid var(--flow-line);padding-bottom:14px}
+.flow-orders .order-list-filters>label:first-child{grid-column:1/-1}
+.flow-orders .order-list-filters input,.flow-orders .order-list-filters select{margin:5px 0 10px;padding:9px 10px;font-size:13px}
+.flow-orders .order-list-filters select{margin-bottom:0}
+.flow-orders .order-list-filters>button{padding:9px 10px;min-height:40px;font-size:12px}
+.flow-orders .order-list-scroll{overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:#b7cbbf transparent;scrollbar-gutter:stable;min-height:100px;padding:4px 5px 4px 0;flex:0 1 auto}
+.flow-orders .order-list-scroll:focus-visible{outline:2px solid #779b68;outline-offset:-2px;border-radius:8px}
+.flow-orders .order-list-scroll .order-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;padding:12px;margin-top:8px;border-radius:10px}
+.flow-orders .order-list-scroll .order-row strong{grid-column:1/-1;font-size:12px}
+.flow-orders .order-list-scroll .order-row>span:not(.status-chip){grid-column:1/-1;font-size:12px}
+.flow-orders .order-list-scroll .flow-created{font-size:10px;align-self:center;line-height:1.5}
+.flow-orders .order-list-scroll .status-chip{grid-column:2;font-size:10px;padding:3px 7px;justify-self:end}
+.flow-orders .flow-list>.pagination{margin-top:10px;padding-top:12px}
+@media(max-width:950px){.flow-orders .flow-list{position:static;max-height:540px}.flow-orders .order-list-scroll{max-height:260px}}
+@media(max-height:650px) and (min-width:951px){.flow-orders .flow-list{position:static;max-height:570px}}

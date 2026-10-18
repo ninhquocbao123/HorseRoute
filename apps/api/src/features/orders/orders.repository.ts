@@ -1,8 +1,11 @@
 // SQL stays here; callers pass the transaction manager when holding row locks.
 type QueryExecutor = { query(sql: string, parameters?: any[]): Promise<any> };
 export class OrdersRepository {
+  deleteDraft(db:QueryExecutor,parameters:any[]){
+    return db.query("DELETE FROM orders WHERE id=? AND customer_id=? AND status='DRAFT'",parameters);
+  }
   list(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
-    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_country,o.destination_country,o.desired_departure_date,o.created_at,u.full_name AS customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY o.created_at DESC,o.id DESC LIMIT ? OFFSET ?`, parameters);
+    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_country,o.destination_country,o.desired_departure_date,o.created_at,u.full_name AS customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY o.created_at ASC,o.id ASC LIMIT ? OFFSET ?`, parameters);
   }
   count(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
     return db.query(`SELECT COUNT(*) AS total FROM orders o ${parts[0]}`, parameters);

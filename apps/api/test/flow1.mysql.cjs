@@ -28,6 +28,13 @@ async function main(){
  await check('save empty draft and idempotent retry',async()=>{id=(await service.save(customer,{requestId,horses:[]})).id;assert.equal((await service.save(customer,{requestId,horses:[]})).id,id);const [n]=await db.query('SELECT COUNT(*) n FROM orders');assert.equal(Number(n.n),1);});
  await check('submit incomplete draft returns keyed field errors without changing status',async()=>{await assert.rejects(()=>service.submit(customer,id),e=>Boolean(e.getStatus()===400&&e.getResponse().fields.originAddress&&e.getResponse().fields.horses));assert.equal((await service.detail(customer,id)).status,'DRAFT');});
  await check('customer ownership enforced for read edit submit',async()=>{for(const fn of [()=>service.detail(other,id),()=>service.save(other,{horses:[]},id),()=>service.submit(other,id)])await assert.rejects(fn,e=>e.getStatus()===404);});
+ await check('draft is absent from Manager and other Customer lists and cannot be opened by Manager',async()=>{
+  for(const user of [manager,other])assert.equal((await service.list(user,{page:1,limit:10})).total,0);
+  assert.equal((await service.list(customer,{page:1,limit:10})).total,1);
+  assert.equal((await service.list(manager,{page:1,limit:10,status:'DRAFT'})).total,0);
+  await assert.rejects(()=>service.detail(manager,id),e=>e.getStatus()===404);
+  await assert.rejects(()=>service.reviewOptions(manager,id),e=>e.getStatus()===404);
+ });
  const future=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
  let payload={originAddress:'Trại ngựa',originCountry:'VN',destinationAddress:'Singapore',destinationCountry:'SG',desiredDepartureDate:future,specialRequirements:'Chăm sóc riêng',horses:[{name:'Ngựa Một',passportNo:'TEST-ONE',breed:'Arabian',birthDate:'2020-01-01'}]};
  await service.save(customer,payload,id);
@@ -49,5 +56,24 @@ async function main(){
  const collision=(await service.save(other,payload)).id;
  await check('duplicate passport returns field error and preserves saved draft',async()=>{await assert.rejects(()=>service.submit(other,collision),e=>e.getStatus()===400);assert.equal((await service.detail(other,collision)).status,'DRAFT');});
  console.log('Integration checks passed: '+passed);
+ await check('delete own draft removes row, preserves audit and rejects sent orders',async()=>{
+  await assert.rejects(()=>service.deleteDraft(customer,collision),e=>e.getStatus()===404);
+  await assert.rejects(()=>service.deleteDraft(manager,collision),e=>e.getStatus()===403);
+  await assert.rejects(()=>service.deleteDraft(customer,id),e=>e.getStatus()===409);
+  await service.deleteDraft(other,collision);
+  await assert.rejects(()=>service.detail(other,collision),e=>e.getStatus()===404);
+  const [audit]=await db.query("SELECT COUNT(*) n FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='DELETE_DRAFT'",[collision]);assert.equal(Number(audit.n),1);
+ });
+ await check('Manager groups and stable oldest-first pagination',async()=>{
+  const list=await service.list(manager,{page:1,limit:10});
+  assert.deepEqual(list.items.map(o=>String(o.id)),[String(id),String(otherId)]);
+  assert.equal((await service.list(manager,{page:1,limit:1})).items[0].id,id);
+  assert.equal(String((await service.list(manager,{page:2,limit:1})).items[0].id),String(otherId));
+  assert.equal((await service.list(manager,{page:1,limit:10,group:'approved'})).total,1);
+  assert.equal((await service.list(manager,{page:1,limit:10,group:'documents'})).total,1);
+  assert.equal((await service.list(manager,{page:1,limit:10,group:'pending'})).total,0);
+  await db.query("UPDATE documents SET status='SUBMITTED'");
+  assert.equal((await service.list(manager,{page:1,limit:10,group:'documents'})).total,0);
+ });
 }
 main().catch(e=>{console.error('Integration failed:',e.code||e.name,e instanceof assert.AssertionError?e.message:(typeof e.getResponse==='function'?JSON.stringify(e.getResponse()):e.sqlMessage||'Check local MySQL availability and test setup.'));process.exitCode=1;}).finally(async()=>{if(db?.isInitialized)await db.destroy();if(admin){if(created&&/^wdp_flow1_test_[0-9a-f]{16}$/.test(name))await admin.query('DROP DATABASE `'+name+'`');await admin.end();}});

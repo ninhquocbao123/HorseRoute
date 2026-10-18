@@ -4,6 +4,7 @@ import { parse, idSchema } from '../../shared/utils/validation.util';
 import { draftOrderSchema, orderQuerySchema, reviewSchema } from './orders.validation';
 export class OrdersController {
   constructor(private readonly service: OrdersService) {}
+  remove: RequestHandler = async (req,res)=>{res.json(await this.service.deleteDraft(req.account,parse(idSchema,req.params.id)));};
   list: RequestHandler = async (req, res) => { res.json(await this.service.list(req.account, parse(orderQuerySchema, req.query))); };
   detail: RequestHandler = async (req, res) => { res.json(await this.service.detail(req.account, parse(idSchema, req.params.id))); };
   options: RequestHandler = async (req, res) => { res.json(await this.service.reviewOptions(req.account, parse(idSchema, req.params.id))); };
