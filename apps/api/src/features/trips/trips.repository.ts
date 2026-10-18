@@ -1,6 +1,7 @@
 import { DataSource, EntityManager } from 'typeorm';
-import { TripSummary, TripLeg, TripPlanOptions } from './trips.dto';
+import { TripSummary, TripLeg, TripPlanOptions, TripAssignment, CrewOption } from './trips.dto';
 
+export type AssignmentRow = Omit<TripAssignment, 'assignedAt'> & { assignedAt: Date; accountRole: string; accountStatus: string };
 export type TripScope = { coordinatorId: string } | { manager: true };
 export type TripRow = Omit<TripSummary, 'plannedDepartureAt' | 'plannedArrivalAt'> & {
   plannedDepartureAt: Date | null; plannedArrivalAt: Date | null;
@@ -137,6 +138,40 @@ export class TripsRepository {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       SELECT id,'TRIP_PLAN_SUBMITTED',?,'TRIP',?,'IN_APP' FROM users WHERE role='MANAGER' AND account_status='ACTIVE'`,
       [`Chuyến ${id}: kế hoạch đã được gửi, chờ Manager duyệt.`, id]);
+  }
+  assignmentOptions(): Promise<CrewOption[]> {
+    return this.db.query("SELECT CAST(id AS CHAR) AS id,full_name AS fullName FROM users WHERE role='DRIVER_ESCORT' AND account_status='ACTIVE' ORDER BY full_name,id");
+  }
+  assignments(id: string): Promise<AssignmentRow[]> {
+    return this.db.query(`SELECT CAST(a.id AS CHAR) AS id,CAST(a.user_id AS CHAR) AS userId,u.full_name AS fullName,
+      a.role,CAST(a.assigned_by AS CHAR) AS assignedBy,a.assigned_at AS assignedAt,
+      u.role AS accountRole,u.account_status AS accountStatus
+      FROM trip_assignments a JOIN users u ON u.id=a.user_id WHERE a.trip_id=? ORDER BY a.user_id,a.id`, [id]);
+  }
+  async lockCrewUser(id: string): Promise<{ role: string; accountStatus: string } | undefined> {
+    const [row] = await this.db.query('SELECT role,account_status AS accountStatus FROM users WHERE id=? FOR UPDATE', [id]);
+    return row;
+  }
+  async lockAssignments(id: string) {
+    await this.db.query('SELECT id FROM trip_assignments WHERE trip_id=? ORDER BY user_id,id FOR UPDATE', [id]);
+  }
+  async insertAssignment(tripId: string, userId: string, role: string, actor: string) {
+    await this.db.query('INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (?,?,?,?,UTC_TIMESTAMP())', [tripId, userId, role, actor]);
+  }
+  async updateAssignment(id: string, role: string, actor: string) {
+    await this.db.query('UPDATE trip_assignments SET role=?,assigned_by=?,assigned_at=UTC_TIMESTAMP() WHERE id=?', [role, actor, id]);
+  }
+  async deleteAssignment(id: string) {
+    await this.db.query('DELETE FROM trip_assignments WHERE id=?', [id]);
+  }
+  async auditCrew(actor: string, tripId: string, before: string, after: string) {
+    await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value)
+      VALUES (?,'TRIP',?,'ASSIGN_CREW',?,?)`, [actor, tripId, before, after]);
+  }
+  async notifyCrew(tripId: string, userId: string, role: string | null) {
+    await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
+      VALUES (?,'TRIP_CREW_CHANGED',?,'TRIP',?,'IN_APP')`, [userId,
+      role ? `Chuyến ${tripId}: bạn được phân công vai trò ${role}.` : `Chuyến ${tripId}: phân công của bạn đã được gỡ.`, tripId]);
   }
   async list(scope: TripScope, limit: number, offset: number): Promise<{ rows: TripRow[]; total: number }> {
     const where = scopeWhere(scope);

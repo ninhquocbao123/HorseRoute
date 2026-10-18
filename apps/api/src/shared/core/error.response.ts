@@ -1,4 +1,4 @@
-export type ErrorBody = { message: string | string[]; fields?: Record<string, string> };
+export type ErrorBody = { message: string | string[]; fields?: Record<string, string>; blockers?: import('../../features/readiness/readiness.service').ReadinessBlocker[] };
 export class HttpError extends Error {
   constructor(public readonly statusCode: number, private readonly body: ErrorBody | string) {
     super(typeof body === 'string' ? body : String(body.message));

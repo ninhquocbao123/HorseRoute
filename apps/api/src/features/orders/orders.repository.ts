@@ -83,7 +83,7 @@ export class OrdersRepository {
     return db.query("SELECT * FROM horses WHERE order_id=? AND order_status<>'REMOVED'", parameters);
   }
   findRuleDocumentTypes(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('SELECT document_type_id FROM quarantine_rule_doctypes WHERE rule_id=?', parameters);
+    return db.query('SELECT q.document_type_id,t.has_expiry FROM quarantine_rule_doctypes q JOIN document_types t ON t.id=q.document_type_id WHERE q.rule_id=? FOR SHARE', parameters);
   }
   ensureDocument(db: QueryExecutor, parameters: any[] = []) {
     return db.query('INSERT INTO documents(horse_id,document_type_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM documents WHERE horse_id=? AND document_type_id=?)', parameters);

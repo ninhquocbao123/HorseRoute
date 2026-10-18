@@ -9,10 +9,12 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   let statusCode = 500;
   let message: string | string[] = 'Internal server error';
   let fields: Record<string, string> | undefined;
+  let blockers: import('../../features/readiness/readiness.service').ReadinessBlocker[] | undefined;
   if (error instanceof HttpError) {
     statusCode = error.getStatus();
     const body = error.getResponse();
     message = typeof body === 'string' ? body : body.message;
+    blockers = typeof body === 'string' ? undefined : body.blockers;
     fields = typeof body === 'string' ? undefined : body.fields;
   } else if (error instanceof MulterError) {
     statusCode = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
@@ -24,6 +26,6 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   }
   // Avoid logging credentials, raw SQL, or provider response bodies.
   if (statusCode >= 500) logger.error('request_failed', { ...safeError(error), requestId: req.requestId, route: requestRoute(req), statusCode });
-  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), requestId: req.requestId, path: req.originalUrl, timestamp: new Date().toISOString() });
+  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), ...(blockers ? { blockers } : {}), requestId: req.requestId, path: req.originalUrl, timestamp: new Date().toISOString() });
 };
 

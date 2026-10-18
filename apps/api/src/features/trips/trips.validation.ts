@@ -41,3 +41,17 @@ export const reviewTripPlanSchema = z.discriminatedUnion('decision', [
   z.object({ decision: z.literal('RETURNED'), reason: z.string().trim().min(1).max(255) }).strict(),
 ]);
 export type ReviewTripPlanInput = z.infer<typeof reviewTripPlanSchema>;
+
+export const tripAssignmentsSchema = z.object({
+  assignments: z.array(z.object({ userId: tripIdSchema, role: z.enum(['DRIVER', 'ESCORT']) }).strict()).min(2).max(100),
+}).strict().superRefine(({ assignments }, context) => {
+  const seen = new Set<string>();
+  assignments.forEach((assignment, index) => {
+    if (seen.has(assignment.userId)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['assignments', index, 'userId'], message: 'Một người chỉ được phân công một vai trò trên chuyến.' });
+    seen.add(assignment.userId);
+  });
+  for (const role of ['DRIVER', 'ESCORT']) if (!assignments.some(a => a.role === role)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['assignments'], message: 'Cần ít nhất một DRIVER và một ESCORT khác người.' });
+  }
+});
+export type TripAssignmentsInput = z.infer<typeof tripAssignmentsSchema>;
