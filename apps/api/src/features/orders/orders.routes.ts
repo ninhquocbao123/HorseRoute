@@ -10,6 +10,7 @@ export function ordersRoutes(service: OrdersService) {
   router.get('/:id', authorize(Role.CUSTOMER, Role.MANAGER), c.detail);
   router.post('/', authorize(Role.CUSTOMER), c.create);
   router.put('/:id', authorize(Role.CUSTOMER), c.edit);
+  router.delete('/:id', authorize(Role.CUSTOMER), c.remove);
   router.post('/:id/submit', authorize(Role.CUSTOMER), c.submit);
   router.post('/:id/review', authorize(Role.MANAGER), c.review);
   return router;

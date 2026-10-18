@@ -27,6 +27,7 @@ export const reviewSchema = z.object({
   coordinatorId: optional(idSchema), ruleIds: optional(z.array(idSchema).max(30)),
 }).strict();
 export const orderQuerySchema = paginationSchema.extend({
+  group: optional(z.enum(['pending','approved','documents','closed'])),
   status: optional(z.enum(['DRAFT','PENDING','NEED_INFO','REJECTED','APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED','CANCELLED'])),
   search: optional(z.string().max(50)),
 }).strict();

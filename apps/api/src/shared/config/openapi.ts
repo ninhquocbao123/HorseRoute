@@ -47,9 +47,10 @@ route('post', '/auth/register', 'Đăng ký Customer: tên, email, số điện 
 route('get', '/health', 'Kiểm tra kết nối MySQL', 'Health', { public: true });
 route('get', '/users/me', 'Tài khoản hiện tại', 'Users');
 route('get', '/users', 'Admin: danh sách người dùng', 'Users', { query: paginationSchema });
-route('get', '/orders', 'Customer xem đơn của mình; Manager xem tất cả', 'Flow 1 - Orders', { query: orderQuerySchema });
+route('get', '/orders', 'Customer xem đơn của mình; Manager xem đơn đã gửi, theo nhóm và thứ tự tạo tăng dần', 'Flow 1 - Orders', { query: orderQuerySchema });
 route('post', '/orders', 'Customer: lưu nháp, requestId chống tạo trùng', 'Flow 1 - Orders', { body: 'DraftOrderDto', status: 201 });
 route('get', '/orders/{id}', 'Chi tiết đơn và lịch sử', 'Flow 1 - Orders');
+route('delete', '/orders/{id}', 'Customer: xóa đơn DRAFT của chính mình; đơn đã gửi trả 409', 'Flow 1 - Orders');
 route('put', '/orders/{id}', 'Customer: sửa đơn DRAFT hoặc NEED_INFO', 'Flow 1 - Orders', { body: 'DraftOrderDto' });
 route('get', '/orders/{id}/review-options', 'Manager: điều phối viên và quy định phù hợp', 'Flow 1 - Orders');
 route('post', '/orders/{id}/submit', 'Customer: gửi duyệt đơn hoàn chỉnh', 'Flow 1 - Orders', { status: 201 });

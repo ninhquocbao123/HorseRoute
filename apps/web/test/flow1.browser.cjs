@@ -32,6 +32,9 @@ const fs=require('fs');
  });
  await page.goto('http://127.0.0.1:5183/test/flow1.html');
  await page.getByRole('button',{name:'Tạo đơn +'}).click();
+ await page.getByRole('button',{name:'Xóa đơn',exact:true}).click();
+ await page.getByRole('dialog',{name:'Xóa đơn nháp?'}).waitFor();
+ await page.getByRole('button',{name:'Giữ lại đơn',exact:true}).click();
  await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
  await page.getByText('Đã lưu nháp. Bạn có thể tiếp tục chỉnh sửa sau.').waitFor();
  await page.getByRole('button',{name:'Chỉnh sửa và gửi duyệt'}).click();
@@ -48,7 +51,18 @@ const fs=require('fs');
  page.on('dialog',d=>d.accept());
  mode='manager';detail={...detail,status:'PENDING',draft:null,origin_country:'VN',destination_country:'SG',desired_departure_date:'2030-01-01',horses:[{id:'1',name:'Ngựa thử',passport_no:'TEST-1'}]};
  await page.goto('http://127.0.0.1:5183/test/flow1.html?role=MANAGER');
+ assert.equal(await page.locator('#order-status option[value="DRAFT"]').count(),0);
+ for(const [group,label] of [['pending','Chưa duyệt'],['approved','Đã duyệt'],['documents','Cần bổ sung giấy tờ']]){
+  const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('group')===group);
+  await page.getByRole('navigation',{name:'Nhóm đơn vận chuyển'}).getByRole('button',{name:new RegExp('^'+label)}).click();
+  await response;
+ }
+ await page.getByRole('navigation',{name:'Nhóm đơn vận chuyển'}).getByRole('button',{name:/^Tất cả đơn đã gửi/}).click();
+ await page.setViewportSize({width:1440,height:1000});
  await page.getByRole('button',{name:/WDP-TEST/}).click();
+ assert.equal(await page.getByRole('button',{name:'Xóa đơn',exact:true}).count(),0);
+ await page.screenshot({path:'test-results/flow1-manager-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
  await page.getByRole('button',{name:'Yêu cầu bổ sung',exact:true}).click();await page.getByText('Cần nêu lý do hoặc nội dung bổ sung.',{exact:true}).waitFor();
  await page.getByLabel(/^Nội dung phản hồi/).fill('Bổ sung thông tin ngựa');
  await page.getByRole('button',{name:'Yêu cầu bổ sung',exact:true}).click();await page.getByText('Đã ghi nhận kết quả duyệt và gửi thông báo cho khách hàng.').waitFor();assert.equal(reviews,2);

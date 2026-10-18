@@ -1,6 +1,6 @@
 import { Requirements } from '../readiness/requirements';
 import { OrdersRepository } from './orders.repository';
-import { BadRequestException, ConflictException, NotFoundException } from '../../shared/core/error.response';
+import { BadRequestException, ConflictException, NotFoundException, ForbiddenException } from '../../shared/core/error.response';
 import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Role } from '@my-project/shared';
@@ -19,9 +19,28 @@ function dbCode(e: unknown) { const x=e as {code?:string;driverError?:{code?:str
 export class OrdersService {
   constructor(private readonly db: DataSource, private readonly repository = new OrdersRepository()) {}
 
+  async deleteDraft(user:User,id:string){
+    if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ Customer được xóa đơn nháp.');
+    try{return await this.db.transaction(async m=>{
+      const order=await this.owned(m,user,id,true);
+      if(order.status!=='DRAFT')throw new ConflictException('Chỉ được xóa đơn ở trạng thái Nháp.');
+      await this.audit(m,user,id,'DELETE_DRAFT',{order_code:order.order_code,status:order.status},null);
+      await this.repository.deleteDraft(m,[id,user.id]);
+      return {id,deleted:true};
+    });}catch(e){
+      if(dbCode(e)==='ER_ROW_IS_REFERENCED_2')throw new ConflictException('Đơn có dữ liệu liên quan nên không thể xóa.');
+      throw e;
+    }
+  }
+
   async list(user: User, p: OrderQueryDto) {
     const clauses: string[]=[]; const args: unknown[]=[];
     if(user.role===Role.CUSTOMER){clauses.push('o.customer_id=?');args.push(user.id);}
+    else {clauses.push("o.status <> 'DRAFT'");}
+    if(p.group==='pending')clauses.push("o.status IN ('PENDING','NEED_INFO')");
+    if(p.group==='approved')clauses.push("o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED')");
+    if(p.group==='documents')clauses.push("o.status IN ('APPROVED','PREPARING','READY') AND EXISTS (SELECT 1 FROM horses gh JOIN documents gd ON gd.horse_id=gh.id WHERE gh.order_id=o.id AND (gd.status IN ('NOT_SUBMITTED','INVALID','EXPIRED') OR (gd.status='VALID' AND gd.expiry_date < UTC_DATE())))");
+    if(p.group==='closed')clauses.push("o.status IN ('REJECTED','CANCELLED')");
     if(p.status){clauses.push('o.status=?');args.push(p.status);}
     if(p.search?.trim()){clauses.push('LOCATE(?,o.order_code)>0');args.push(p.search.trim());}
     const where=clauses.length?'WHERE '+clauses.join(' AND '):'';
@@ -32,6 +51,7 @@ export class OrdersService {
 
   async owned(m: EntityManager,user: User,id: string,lock=false) {
     const [order]=await this.repository.findOrder(m, [id], lock?'FOR UPDATE':'');
+    if(order?.status==='DRAFT' && (user.role!==Role.CUSTOMER || String(order.customer_id)!==String(user.id))) throw new NotFoundException('Không tìm thấy đơn.');
     if(!order || (user.role===Role.CUSTOMER && String(order.customer_id)!==String(user.id))) throw new NotFoundException('Không tìm thấy đơn.');
     return order as Row;
   }

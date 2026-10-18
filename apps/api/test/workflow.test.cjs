@@ -7,6 +7,37 @@ const {OrdersService}=require('../src/features/orders/orders.service');
 const {NotificationsService}=require('../src/features/notifications/notifications.service');
 const {NotificationsRepository}=require('../src/features/notifications/notifications.repository');
 const {orderSchema}=require('../src/features/orders/orders.validation');
+
+test('delete draft checks role, owner, locked status before deleting',async()=>{
+ let row={id:'1',customer_id:'2',status:'DRAFT'},deleted=0;
+ const m={query:async(sql)=>{if(sql.startsWith('SELECT')){assert.match(sql,/FOR UPDATE/);return [row];}if(sql.startsWith('DELETE'))deleted++;return {};}};
+ const service=new OrdersService({transaction:fn=>fn(m)});
+ await assert.rejects(()=>service.deleteDraft({id:'2',role:'MANAGER'},'1'),e=>e.getStatus()===403);
+ await assert.rejects(()=>service.deleteDraft({id:'3',role:'CUSTOMER'},'1'),e=>e.getStatus()===404);
+ for(const status of ['PENDING','NEED_INFO','APPROVED','REJECTED']){row.status=status;await assert.rejects(()=>service.deleteDraft({id:'2',role:'CUSTOMER'},'1'),e=>e.getStatus()===409);}
+ assert.equal(deleted,0);row.status='DRAFT';assert.equal((await service.deleteDraft({id:'2',role:'CUSTOMER'},'1')).deleted,true);assert.equal(deleted,1);
+});
+
+test('draft detail and review options remain private to the owning customer',async()=>{
+ const db={query:async()=>[{id:'1',customer_id:'2',status:'DRAFT'}]};
+ const service=new OrdersService({manager:db});
+ assert.equal((await service.owned(db,{id:'2',role:'CUSTOMER'},'1')).id,'1');
+ for(const user of [{id:'3',role:'CUSTOMER'},{id:'2',role:'MANAGER'},{id:'4',role:'SPECIALIST'}]){
+  await assert.rejects(()=>service.owned(db,user,'1'),e=>e.getStatus()===404);
+  await assert.rejects(()=>service.reviewOptions(user,'1'),e=>e.getStatus()===404);
+ }
+});
+
+test('list restrictions and document groups apply before pagination and counts',async()=>{
+ const calls=[];const db={query:async(sql,args)=>{calls.push({sql,args});return sql.includes('COUNT(*)')?[{total:0}]:[];}};
+ const service=new OrdersService(db);
+ await service.list({id:'22',role:'CUSTOMER'},{page:2,limit:10});
+ for(const call of calls){assert.match(call.sql,/o.customer_id=\?/);assert.equal(call.args[0],'22');}
+ assert.match(calls[0].sql,/ORDER BY o.created_at ASC,o.id ASC/);
+ calls.length=0;
+ await service.list({id:'3',role:'MANAGER'},{page:1,limit:10,status:'DRAFT',group:'documents'});
+ for(const call of calls){assert.match(call.sql,/o.status <> 'DRAFT'/);assert.match(call.sql,/EXISTS/);assert.match(call.sql,/NOT_SUBMITTED/);assert.match(call.sql,/UTC_DATE/);}
+});
 test('JWT ADMIN claim cannot grant Manager authority',async()=>{
  const req={headers:{authorization:'Bearer test'}};
  await authenticate({getById:async()=>({role:'CUSTOMER',accountStatus:'ACTIVE'})},{verify:()=>({sub:'1',role:'ADMIN'})})(req,{},()=>{});

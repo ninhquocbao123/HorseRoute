@@ -23,7 +23,7 @@ export class DocumentsRepository {
     return db.query('SELECT id FROM orders WHERE id=? FOR UPDATE', parameters);
   }
   listOrders(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
-    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_country,o.destination_country,u.full_name customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY o.id DESC LIMIT ? OFFSET ?`, parameters);
+    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_country,o.destination_country,u.full_name customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY o.created_at ASC,o.id ASC LIMIT ? OFFSET ?`, parameters);
   }
   countOrders(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
     return db.query(`SELECT COUNT(*) total FROM orders o ${parts[0]}`, parameters);
