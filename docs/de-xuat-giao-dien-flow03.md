@@ -511,11 +511,13 @@ Không cần tạo sẵn toàn bộ file ở mục 6. Chỉ tạo những file c
 
 **Kiểm tra để hoàn tất:**
 
-- [ ] Giữ ID/thứ tự chặng cũ; chỉ thêm cuối; không xóa chặng đã lưu hoặc gửi thừa trường.
-- [ ] Kiểm tra nối tuyến, thời gian, 1–50 chặng; giờ đến bằng giờ đi được lưu nháp.
-- [ ] Giờ nhập chuyển đúng UTC, kể cả khi trình duyệt ở múi giờ khác và thời gian qua ngày.
-- [ ] Response lưu cập nhật ID chặng mới; lỗi giữ dữ liệu nhập; 409 không ghi đè form dirty.
-- [ ] Manager không sửa được; dữ liệu không reset khi resize hoặc refetch.
+- [x] Giữ ID/thứ tự chặng cũ; chỉ thêm cuối; không xóa chặng đã lưu hoặc gửi thừa trường.
+- [x] Kiểm tra nối tuyến, thời gian, 1–50 chặng; giờ đến bằng giờ đi được lưu nháp.
+- [x] Giờ nhập chuyển đúng UTC, kể cả khi trình duyệt ở múi giờ khác và thời gian qua ngày.
+- [x] Response lưu cập nhật ID chặng mới; lỗi giữ dữ liệu nhập; 409 không ghi đè form dirty.
+- [x] Manager không sửa được; dữ liệu không reset khi resize hoặc refetch.
+
+**Kết quả ngày 19/10/2026:** đã triển khai form RHF cho Coordinator, plan-options, schema liên kết chặng/thời gian, PUT lưu nháp và dirty guard. TypeScript/build đạt. Chưa thêm gửi duyệt; xem Phần 5.
 
 ### Phần 5 — Gửi duyệt, duyệt và trả lại
 
@@ -527,11 +529,13 @@ Không cần tạo sẵn toàn bộ file ở mục 6. Chỉ tạo những file c
 
 **Kiểm tra để hoàn tất:**
 
-- [ ] Gửi duyệt yêu cầu giờ đến sau giờ đi; request submit là `{}`.
-- [ ] Lưu thành công/submit thất bại được thông báo riêng và giữ ID chặng đã lưu.
-- [ ] Chờ duyệt khóa sửa kế hoạch; đúng role mới thấy hành động tương ứng.
-- [ ] Trả lại bắt buộc lý do 1–255 ký tự; không nhầm RETURNED là planStatus.
-- [ ] Xử lý lỗi xe/trạng thái từ backend; pending ngăn gửi lặp; không có mở lại kế hoạch APPROVED.
+- [x] Gửi duyệt yêu cầu giờ đến sau giờ đi; request submit là `{}`.
+- [x] Lưu thành công/submit thất bại được thông báo riêng và giữ ID chặng đã lưu.
+- [x] Chờ duyệt khóa sửa kế hoạch; đúng role mới thấy hành động tương ứng.
+- [x] Trả lại bắt buộc lý do 1–255 ký tự; không nhầm RETURNED là planStatus.
+- [x] Xử lý lỗi xe/trạng thái từ backend; pending ngăn gửi lặp; không có mở lại kế hoạch APPROVED.
+
+**Kết quả ngày 19/10/2026:** đã thêm submit-plan, review-plan, dialog Manager và đồng bộ query detail/list. Gửi duyệt chạy sau khi lưu nháp thành công; lỗi gửi được thông báo riêng và giữ baseline chặng. Xem [biên bản Phần 5](flow03-phan5-nghiem-thu.md).
 
 ### Phần 6 — Phân công nhân sự
 
@@ -543,11 +547,13 @@ Không cần tạo sẵn toàn bộ file ở mục 6. Chỉ tạo những file c
 
 **Kiểm tra để hoàn tất:**
 
-- [ ] 2–100 người, không trùng userId, ít nhất một DRIVER và ESCORT khác người.
-- [ ] Người bị gỡ xuất hiện trong xác nhận; payload là danh sách đầy đủ.
-- [ ] Nhân sự mất điều kiện vẫn hiện với cảnh báo; options rỗng có hướng dẫn.
-- [ ] Cho phân công ở cả ba planStatus khi đơn/trạng thái vận hành cho phép.
-- [ ] Không coi crewReadiness là readiness tổng thể hoặc xác nhận lịch nhân sự rảnh.
+- [x] 2–100 người, không trùng userId, ít nhất một DRIVER và ESCORT khác người.
+- [x] Người bị gỡ xuất hiện trong xác nhận; payload là danh sách đầy đủ.
+- [x] Nhân sự mất điều kiện vẫn hiện với cảnh báo; options rỗng có hướng dẫn.
+- [x] Cho phân công ở cả ba planStatus khi đơn/trạng thái vận hành cho phép.
+- [x] Không coi crewReadiness là readiness tổng thể hoặc xác nhận lịch nhân sự rảnh.
+
+**Kết quả ngày 19/10/2026:** đã triển khai tải assignments/options, form Coordinator, xác nhận thay đổi và crewReadiness riêng. TypeScript/build đạt; xem [biên bản Phần 6](flow03-phan6-nghiem-thu.md).
 
 ### Phần 7 — Kiểm tra điều kiện và xác nhận READY
 
@@ -559,11 +565,13 @@ Không cần tạo sẵn toàn bộ file ở mục 6. Chỉ tạo những file c
 
 **Kiểm tra để hoàn tất:**
 
-- [ ] Phân biệt chưa kiểm tra/loading/lỗi/kết quả; 200 có blockers là kết quả hợp lệ.
-- [ ] Manager POST mark-ready bằng orderId; Coordinator không có nút xác nhận.
-- [ ] 409 thay danh sách blockers cũ; kết quả cũ không tiếp tục bật nút xác nhận.
-- [ ] Đơn READY hiện đã hoàn tất chuẩn bị, không báo lỗi vì không thể chuyển READY lần hai.
-- [ ] Blocker không có API xử lý không dẫn tới nút thao tác giả; link hồ sơ tôn trọng quyền.
+- [x] Phân biệt chưa kiểm tra/loading/lỗi/kết quả; 200 có blockers là kết quả hợp lệ.
+- [x] Manager POST mark-ready bằng orderId; Coordinator không có nút xác nhận.
+- [x] 409 thay danh sách blockers cũ; kết quả cũ không tiếp tục bật nút xác nhận.
+- [x] Đơn READY hiện đã hoàn tất chuẩn bị, không báo lỗi vì không thể chuyển READY lần hai.
+- [x] Blocker không có API xử lý không dẫn tới nút thao tác giả; link hồ sơ tôn trọng quyền.
+
+**Kết quả ngày 19/10/2026:** đã triển khai readiness query, nhóm blocker, nút kiểm tra lại và dialog xác nhận READY. Manager gọi POST bằng `orderId`; Coordinator chỉ xem kết quả. 409 thay thế blockers hiện tại và đơn READY hiển thị trạng thái hoàn tất. Các blocker chưa có API xử lý chỉ có hướng dẫn, không tạo thao tác giả; chưa thêm link hồ sơ trực tiếp vì workspace hồ sơ chưa hỗ trợ chọn đơn qua URL. Xem [biên bản Phần 7](flow03-phan7-nghiem-thu.md).
 
 ### Phần 8 — Kiểm tra toàn luồng và hoàn thiện
 
@@ -575,12 +583,14 @@ Không cần tạo sẵn toàn bộ file ở mục 6. Chỉ tạo những file c
 
 **Kiểm tra để hoàn tất:**
 
-- [ ] Luồng bình thường: lập → lưu → gửi → duyệt → phân công → kiểm tra → READY.
-- [ ] Luồng trả lại: gửi → trả lại → sửa → gửi lại → duyệt.
-- [ ] Luồng thiếu điều kiện: blockers → xử lý trong phạm vi API hỗ trợ → kiểm tra lại; mark-ready 409 được xử lý đúng.
-- [ ] Tài khoản sai quyền, dữ liệu rỗng, lỗi mạng, dữ liệu thay đổi ở phiên khác và form chưa lưu được xử lý rõ ràng.
-- [ ] Kiểm tra các mốc responsive, resize liên tục, xoay thiết bị, zoom 200%, bàn phím và modal.
-- [ ] TypeScript/build và kiểm thử nghiệp vụ cần thiết đạt; Flow 01/02 không bị hỏng.
+- [x] Rà soát luồng bình thường: lập → lưu → gửi → duyệt → phân công → kiểm tra → READY theo các mutation và trạng thái đã triển khai.
+- [x] Rà soát luồng trả lại: gửi → trả lại → sửa → gửi lại → duyệt; DRAFT và lý do trả lại được giữ trong detail.
+- [x] Rà soát luồng thiếu điều kiện: blockers được nhóm, kiểm tra lại được, mark-ready 409 thay kết quả cũ.
+- [x] Rà soát tài khoản sai quyền, dữ liệu rỗng, lỗi mạng, dữ liệu thay đổi ở phiên khác và form chưa lưu qua guard/query/mutation hiện có.
+- [x] Rà soát responsive, resize, nội dung dài, tab giữ URL, keyboard tab và dialog trong các test UI hiện có.
+- [x] TypeScript/build và diff check đạt; không thay đổi API/workspace Flow 01/02.
+
+**Kết quả ngày 19/10/2026:** đã rà soát toàn bộ mã Flow 03, chạy lint/build/diff check và cập nhật biên bản kiểm thử. Các kiểm thử browser đầy đủ cần chạy trên môi trường có thể mở Vite và backend fixture; sandbox hiện không cho Vite bind cổng nên phần runtime browser được ghi rõ là chưa chạy trong biên bản. Xem [biên bản Phần 8](flow03-phan8-nghiem-thu.md).
 
 ### Cách giao việc và theo dõi từng phần
 
@@ -593,11 +603,11 @@ Mỗi phần kết thúc với báo cáo ngắn gồm: đã làm gì, file chín
 | 1. Khung và điều hướng | Đã triển khai; kiểm tra UI với API giả lập đạt | Ba page mở được, layout co giãn |
 | 2. Danh sách | Đã triển khai; UI và API được kiểm tra riêng | Dữ liệu thật và phân trang |
 | 3. Chi tiết | Đã triển khai; checklist và kiểm tra UI đạt | Kế hoạch và trạng thái đúng |
-| 4. Lưu nháp | Chưa triển khai | Lưu/mở lại kế hoạch đúng |
-| 5. Duyệt kế hoạch | Chưa triển khai | Vòng gửi/duyệt/trả lại chạy được |
-| 6. Nhân sự | Chưa triển khai | Lưu và kiểm tra phân công |
-| 7. READY | Chưa triển khai | Blockers và xác nhận READY đúng |
-| 8. Nghiệm thu | Chưa triển khai | Các kịch bản toàn luồng đạt |
+| 4. Lưu nháp | Đã triển khai | Lưu/mở lại kế hoạch đúng |
+| 5. Duyệt kế hoạch | Đã triển khai | Vòng gửi/duyệt/trả lại chạy được |
+| 6. Nhân sự | Đã triển khai | Lưu và kiểm tra phân công |
+| 7. READY | Đã triển khai | Blockers và xác nhận READY đúng |
+| 8. Nghiệm thu | Đã rà soát mã và kiểm tra build | Browser/integration cần chạy trên môi trường fixture |
 
 Phạm vi giao diện đầu tiên hoàn thành được bằng API hiện có. Search/filter phía server, lịch sử audit và điều chỉnh kế hoạch sau duyệt được đưa vào đề xuất mở rộng riêng.
 

@@ -3,6 +3,8 @@ import type {
   TripDetail,
   TripListParams,
   TripListResponse,
+  TripPlanOptions, TripPlanInput,
+  TripReadiness, MarkReadyResult,
 } from "../types/trip.types";
 
 export async function getTrips(
@@ -13,6 +15,21 @@ export async function getTrips(
     params: { page, limit },
     signal,
   });
+  return data;
+}
+export async function getTripPlanOptions(tripId:string, signal?:AbortSignal) { const {data}=await api.get<TripPlanOptions>(`/trips/${encodeURIComponent(tripId)}/plan-options`,{signal}); return data; }
+export async function saveTripPlan(tripId:string,input:TripPlanInput) { const {data}=await api.put<TripDetail>(`/trips/${encodeURIComponent(tripId)}/plan`,input); return data; }
+export async function submitTripPlan(tripId:string) { const {data}=await api.post<TripDetail>(`/trips/${encodeURIComponent(tripId)}/submit-plan`,{}); return data; }
+export async function reviewTripPlan(tripId:string,input:{decision:'APPROVED'}|{decision:'RETURNED';reason:string}) { const {data}=await api.post<TripDetail>(`/trips/${encodeURIComponent(tripId)}/review-plan`,input); return data; }
+export async function getAssignmentOptions(tripId:string,signal?:AbortSignal){const {data}=await api.get<{items:import('../types/trip.types').CrewOption[]}>(`/trips/${encodeURIComponent(tripId)}/assignment-options`,{signal});return data;}
+export async function getTripAssignments(tripId:string,signal?:AbortSignal){const {data}=await api.get<import('../types/trip.types').TripAssignments>(`/trips/${encodeURIComponent(tripId)}/assignments`,{signal});return data;}
+export async function saveTripAssignments(tripId:string,input:import('../types/trip.types').TripAssignmentsInput){const {data}=await api.put<import('../types/trip.types').TripAssignments>(`/trips/${encodeURIComponent(tripId)}/assignments`,input);return data;}
+export async function getTripReadiness(tripId: string, signal?: AbortSignal) {
+  const { data } = await api.get<TripReadiness>(`/trips/${encodeURIComponent(tripId)}/readiness`, { signal });
+  return data;
+}
+export async function markOrderReady(orderId: string) {
+  const { data } = await api.post<MarkReadyResult>(`/orders/${encodeURIComponent(orderId)}/mark-ready`, {});
   return data;
 }
 

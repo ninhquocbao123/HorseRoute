@@ -188,6 +188,46 @@
 .trip-workspace .trip-detail-error h2 { color: #873e2b; }
 .trip-workspace .trip-detail-error p { color: #873e2b; }
 .trip-workspace .trip-detail-error button { margin-right: 12px; }
+.trip-workspace .trip-plan-form { display:grid; gap:18px; }
+.trip-workspace .trip-leg-form { min-width:0; }
+.trip-workspace .trip-leg-form legend { padding:0 8px; font-weight:600; color:#304d3c; }
+.trip-workspace .trip-leg-form legend small { color:#62766b; font-weight:400; }
+.trip-workspace .trip-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; }
+.trip-workspace .trip-form-grid label { min-width:0; display:block; }
+.trip-workspace .trip-form-grid input,.trip-workspace .trip-form-grid select { display:block; width:100%; min-height:44px; margin:8px 0 0; padding:10px; border:1px solid #cbd6c5; border-radius:8px; background:#fff; }
+.trip-workspace .trip-field-error { display:block; color:#9b3528; font-size:12px; margin-top:5px; }
+.trip-workspace .trip-form-hint { font-size:13px; margin:12px 0 0; }
+.trip-workspace .trip-form-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:12px; padding-top:8px; }
+.trip-workspace .trip-form-message { padding:14px 16px; border-radius:10px; background:#edf5e8; margin-bottom:18px; }
+.trip-workspace .trip-form-message.is-error { background:#fff0ec; border:1px solid #e8c2b8; color:#873e2b; }
+.trip-workspace .trip-review-actions { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
+.trip-workspace .trip-review-dialog { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; border:1px solid #dce5d8; border-radius:16px; padding:24px; color:#203b34; }
+.trip-workspace .trip-review-dialog::backdrop { background:#173c3166; }
+.trip-workspace .trip-review-dialog textarea { display:block; width:100%; min-height:110px; margin-top:8px; padding:10px; border:1px solid #cbd6c5; border-radius:8px; }
+.trip-workspace .trip-crew-row { display:grid; grid-template-columns:minmax(0,1fr) 160px auto; gap:10px; align-items:center; margin:12px 0; }
+.trip-workspace .trip-crew-row select { min-height:44px; min-width:0; padding:9px; border:1px solid #cbd6c5; border-radius:8px; background:#fff; }
+.trip-workspace .trip-crew-warning { padding:12px; margin-bottom:8px; border-radius:8px; background:#fff0d5; color:#7a5214; }
+.trip-workspace .trip-crew-ok { padding:12px; border-radius:8px; background:#e3f1e6; color:#28543b; }
+.trip-workspace .trip-readiness-panel { display:grid; gap:18px; }
+.trip-workspace .trip-readiness-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:16px; border-bottom:1px solid #e3e8e1; }
+.trip-workspace .trip-readiness-head h2 { margin-bottom:8px; }
+.trip-workspace .trip-readiness-head p { margin:0; }
+.trip-workspace .trip-readiness-state { padding:24px; border-radius:12px; background:#f3f6ef; }
+.trip-workspace .trip-readiness-state.is-error { background:#fff0ec; border:1px solid #e8c2b8; }
+.trip-workspace .trip-readiness-state.is-error h2, .trip-workspace .trip-readiness-state.is-error p { color:#873e2b; }
+.trip-workspace .trip-readiness-result { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:16px; border-radius:10px; background:#fff0d5; color:#7a5214; }
+.trip-workspace .trip-readiness-result.is-ready { background:#e3f1e6; color:#28543b; }
+.trip-workspace .trip-readiness-complete { display:flex; flex-direction:column; gap:4px; padding:16px; border-radius:10px; background:#e3f1e6; color:#28543b; }
+.trip-workspace .trip-readiness-blockers { display:grid; gap:16px; }
+.trip-workspace .trip-blocker-group { border:1px solid #e3e8e1; border-radius:12px; padding:16px; }
+.trip-workspace .trip-blocker-group h3 { margin:0 0 10px; font-size:15px; }
+.trip-workspace .trip-blocker-group ul { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.trip-workspace .trip-blocker-item { display:grid; gap:4px; padding:12px; border-radius:8px; background:#fafbf8; }
+.trip-workspace .trip-blocker-item strong { color:#873e2b; font-size:12px; letter-spacing:.3px; }
+.trip-workspace .trip-blocker-item span { overflow-wrap:anywhere; }
+.trip-workspace .trip-blocker-item small, .trip-workspace .trip-readiness-note { color:#62766b; }
+.trip-workspace .trip-readiness-actions { display:flex; justify-content:flex-end; padding-top:4px; }
+@container (max-width:520px) { .trip-workspace .trip-crew-row { grid-template-columns:1fr; } }
 
 /* Keep long names/reasons and narrow timelines inside their own columns. */
 .trip-workspace .trip-return-banner p { white-space: pre-wrap; overflow-wrap: anywhere; }
