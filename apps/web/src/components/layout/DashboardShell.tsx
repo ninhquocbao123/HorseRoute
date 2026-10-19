@@ -8,7 +8,7 @@ import '../../features/home/workspace.css';
 import './dashboard-shell.css';
 
 export function dashboardPath(view: string) {
-  return view === 'trips' ? '/dashboard/trips' : `/dashboard?view=${encodeURIComponent(view)}`;
+  return view === 'trips' || view === 'routes' ? '/dashboard/trips' : `/dashboard?view=${encodeURIComponent(view)}`;
 }
 
 type Props = {
