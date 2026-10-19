@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { App } from 'antd';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
 import { isValidTripId } from '../utils/trip-detail.utils';
 import { useTripDetailQuery } from '../hooks/use-trip-detail-query';
@@ -29,7 +30,8 @@ export default function TripDetailPage() {
   const listSearch = tripListSearch(readTripListParams(search));
   const activeTab = readTab(search);
   const { account } = useAuth();
-  const [reviewOpen,setReviewOpen]=useState(false); const [reviewing,setReviewing]=useState(false); const [reviewError,setReviewError]=useState(''); const qc=useQueryClient();
+  const { message: messageApi } = App.useApp();
+  const [reviewOpen,setReviewOpen]=useState(false); const [reviewing,setReviewing]=useState(false); const qc=useQueryClient();
 
   const query = useTripDetailQuery(tripId);
   const { data: trip } = query;
@@ -99,7 +101,7 @@ export default function TripDetailPage() {
   if (!trip) return null;
 
   const hasReturnReason = trip.planStatus === 'DRAFT' && !!trip.returnReason;
-  async function review(input:{decision:'APPROVED'}|{decision:'RETURNED';reason:string}) { if(account?.role!=='MANAGER'||!tripId)return; setReviewing(true);setReviewError(''); try { const saved=await reviewTripPlan(tripId,input); qc.setQueryData(tripQueryKeys.detail(account.id,tripId),saved); qc.invalidateQueries({queryKey:['trips',account.id,'list']}); setReviewOpen(false); } catch(e) { setReviewError(isAxiosError(e)?(e.response?.data?.message||'Không thể cập nhật kế hoạch.'):'Không thể cập nhật kế hoạch.'); } finally {setReviewing(false); } }
+  async function review(input:{decision:'APPROVED'}|{decision:'RETURNED';reason:string}) { if(account?.role!=='MANAGER'||!tripId)return; setReviewing(true); try { const saved=await reviewTripPlan(tripId,input); qc.setQueryData(tripQueryKeys.detail(account.id,tripId),saved); qc.invalidateQueries({queryKey:['trips',account.id,'list']}); setReviewOpen(false); void messageApi.success({key:'trip-review-feedback',content:input.decision==='APPROVED'?'Đã duyệt kế hoạch chuyến đi.':'Đã trả lại kế hoạch để chỉnh sửa.'}); } catch(e) { void messageApi.error({key:'trip-review-feedback',content:String(isAxiosError(e)?(e.response?.data?.message||'Không thể cập nhật kế hoạch.'):'Không thể cập nhật kế hoạch.'),duration:5}); } finally {setReviewing(false); } }
 
   return (
     <>
@@ -129,7 +131,6 @@ export default function TripDetailPage() {
 
       <TripDetailTabs activeTab={activeTab} onTabChange={setTab} />
       {account?.role==='MANAGER'&&trip.planStatus==='PENDING_APPROVAL'&&activeTab==='plan'&&<div className="trip-review-actions"><button type="button" onClick={()=>setReviewOpen(true)}>Duyệt kế hoạch</button><button type="button" onClick={()=>setReviewOpen(true)}>Trả lại chỉnh sửa</button></div>}
-      {reviewError&&<div className="trip-form-message is-error" role="alert">{reviewError}</div>}
       <TripReviewDialog open={reviewOpen} pending={reviewing} onClose={()=>setReviewOpen(false)} onSubmit={review} />
 
       <div className="trip-detail-grid">

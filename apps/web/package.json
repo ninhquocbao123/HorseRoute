@@ -10,10 +10,13 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.4",
     "@hookform/resolvers": "^3.9.1",
     "@my-project/shared": "workspace:*",
     "@tanstack/react-query": "^5.59.0",
+    "antd": "^6.6.6",
     "axios": "^1.7.7",
+    "dayjs": "^1.11.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
