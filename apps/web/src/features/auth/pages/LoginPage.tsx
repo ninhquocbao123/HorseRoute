@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
+import { Alert, Button, Form, Input } from 'antd';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { login, register as registerApi } from '../../users/api/users.api';
@@ -11,8 +12,11 @@ const schema=z.object({email:z.string().trim().email('Nhập email hợp lệ.')
 type FormData=z.infer<typeof schema>;
 export default function LoginPage(){
  const {account,loading,onLoginSuccess}=useAuth();
- const [isRegister,setIsRegister]=useState(false),[visible,setVisible]=useState(false),[error,setError]=useState('');
- const {register,handleSubmit,setError:fieldError,clearErrors,resetField,formState:{errors,isSubmitting}}=useForm<FormData>({resolver:zodResolver(schema)});
+ const [isRegister,setIsRegister]=useState(false),[error,setError]=useState('');
+ const {control,handleSubmit,setError:fieldError,clearErrors,resetField,formState:{errors,isSubmitting}}=useForm<FormData>({
+  resolver:zodResolver(schema),
+  defaultValues:{email:'',password:'',fullName:'',phone:'',address:''},
+ });
  if(account)return <Navigate to="/dashboard" replace/>;
  const busy=loading||isSubmitting;
  const submit=handleSubmit(async data=>{
@@ -29,12 +33,12 @@ export default function LoginPage(){
   try{const result=isRegister?await registerApi(data.email,data.password,data.fullName!.trim(),data.phone!.trim(),data.address!.trim()):await login(data.email,data.password);onLoginSuccess(result.accessToken,result.user);}
   catch(e){if(isAxiosError(e)){const body=e.response?.data;setError(typeof body?.message==='string'?body.message:'Chưa thể thực hiện. Vui lòng thử lại.');for(const [key,message] of Object.entries(body?.fields||{})){if(['email','password','fullName','phone','address'].includes(key))fieldError(key as keyof FormData,{message:String(message)});}}else setError('Không kết nối được máy chủ. Hãy thử lại.');}
  });
- const field=(name:keyof FormData,label:string,type:string,autoComplete:string,maxLength:number)=><div className="auth-field"><label htmlFor={name}>{label} <span aria-hidden="true">*</span></label><input id={name} type={type} autoComplete={autoComplete} maxLength={maxLength} disabled={busy} required aria-invalid={!!errors[name]} aria-describedby={errors[name]?name+'-error':undefined} {...register(name)}/>{errors[name]&&<p className="error" id={name+'-error'} role="alert">{errors[name]?.message}</p>}</div>;
- return <main className={'auth-page '+(isRegister?'auth-register':'')}><section className="auth-story"><div className="auth-story-content"><Brand/><div><p className="eyebrow">WDP EQUINE TRANSPORT</p><h1>Mọi chặng đường,<br/>luôn có người<br/><em>đồng hành.</em></h1><p>Quản lý yêu cầu, chuẩn bị hồ sơ và theo dõi hành trình trong một không gian.</p></div><small>CHĂM SÓC · KẾT NỐI · ĐỒNG HÀNH</small></div></section><section className="auth-panel"><Link className="back-link" to="/">← Về trang chủ</Link><div className="auth-form-wrap"><p className="eyebrow">KHÔNG GIAN CỦA BẠN</p><h2>{isRegister?'Tạo tài khoản khách hàng.':'Chào mừng trở lại.'}</h2><p className="auth-description">{isRegister?'Điền đầy đủ 5 thông tin dưới đây để bắt đầu tạo yêu cầu vận chuyển.':'Đăng nhập bằng email và mật khẩu của tài khoản WDP.'}</p><form noValidate onSubmit={submit}>
+ const field=(name:keyof FormData,label:string,type:string,autoComplete:string,maxLength:number)=><Form.Item label={label} required validateStatus={errors[name]?'error':undefined} help={errors[name]?.message}><Controller name={name} control={control} render={({field:inputField})=><Input {...inputField} value={inputField.value??''} id={name} type={type} autoComplete={autoComplete} maxLength={maxLength} disabled={busy} status={errors[name]?'error':undefined} aria-invalid={!!errors[name]}/>} /></Form.Item>;
+ return <main className={'auth-page '+(isRegister?'auth-register':'')}><section className="auth-story"><div className="auth-story-content"><Brand/><div><p className="eyebrow">WDP EQUINE TRANSPORT</p><h1>Mọi chặng đường,<br/>luôn có người<br/><em>đồng hành.</em></h1><p>Quản lý yêu cầu, chuẩn bị hồ sơ và theo dõi hành trình trong một không gian.</p></div><small>CHĂM SÓC · KẾT NỐI · ĐỒNG HÀNH</small></div></section><section className="auth-panel"><Link className="back-link" to="/">← Về trang chủ</Link><div className="auth-form-wrap"><p className="eyebrow">KHÔNG GIAN CỦA BẠN</p><h2>{isRegister?'Tạo tài khoản khách hàng.':'Chào mừng trở lại.'}</h2><p className="auth-description">{isRegister?'Điền đầy đủ 5 thông tin dưới đây để bắt đầu tạo yêu cầu vận chuyển.':'Đăng nhập bằng email và mật khẩu của tài khoản WDP.'}</p><Form className="auth-ant-form" component="div" layout="vertical" requiredMark={false}><form noValidate onSubmit={submit}>
  {isRegister&&field('fullName','Họ và tên','text','name',100)}
  {field('email','Email','email','email',100)}
  {isRegister&&field('phone','Số điện thoại','tel','tel',16)}
- <div className="password-label"><label htmlFor="password">Mật khẩu *</label></div><div className="password-input"><input id="password" type={visible?'text':'password'} autoComplete={isRegister?'new-password':'current-password'} disabled={busy} required maxLength={72} aria-invalid={!!errors.password} aria-describedby="password-help" {...register('password')}/><button type="button" className="visibility-button" disabled={busy} aria-pressed={visible} onClick={()=>setVisible(!visible)}>{visible?'Ẩn':'Hiện'}</button></div><p id="password-help" className={errors.password?'error':'form-hint'}>{errors.password?.message||(isRegister?'Ít nhất 8 ký tự. Không dùng mật khẩu chỉ gồm khoảng trắng.':'')}</p>
+ <Form.Item label="Mật khẩu" required validateStatus={errors.password?'error':undefined} help={errors.password?.message||(isRegister?'Ít nhất 8 ký tự. Không dùng mật khẩu chỉ gồm khoảng trắng.':undefined)}><Controller name="password" control={control} render={({field})=><Input.Password {...field} value={field.value??''} key={isRegister?'register-password':'login-password'} id="password" autoComplete={isRegister?'new-password':'current-password'} disabled={busy} maxLength={72} status={errors.password?'error':undefined} aria-invalid={!!errors.password}/>} /></Form.Item>
  {isRegister&&field('address','Địa chỉ nhà','text','street-address',255)}
- {error&&<p className="form-message error" role="alert">{error}</p>}<button type="submit" className="button submit-button" disabled={busy}>{busy?'Đang xử lý…':isRegister?'Tạo tài khoản':'Đăng nhập'}<span aria-hidden="true">↗</span></button></form><p className="auth-switch">{isRegister?'Đã có tài khoản?':'Chưa có tài khoản?'} <button type="button" className="inline-button" disabled={busy} onClick={()=>{setIsRegister(!isRegister);clearErrors();resetField('password');setVisible(false);setError('');}}>{isRegister?'Đăng nhập':'Đăng ký ngay'}</button></p></div><p className="auth-copyright">© {new Date().getFullYear()} WDP Equine Transport</p></section></main>;
+ {error&&<Alert className="auth-form-alert" type="error" showIcon message={error}/>}<Button type="primary" htmlType="submit" className="submit-button" loading={busy} disabled={busy} block>{isRegister?'Tạo tài khoản':'Đăng nhập'}<span aria-hidden="true">↗</span></Button></form></Form><p className="auth-switch">{isRegister?'Đã có tài khoản?':'Chưa có tài khoản?'} <Button type="link" htmlType="button" disabled={busy} onClick={()=>{setIsRegister(!isRegister);clearErrors();resetField('password');setError('');}}>{isRegister?'Đăng nhập':'Đăng ký ngay'}</Button></p></div><p className="auth-copyright">© {new Date().getFullYear()} WDP Equine Transport</p></section></main>;
 }

@@ -1,0 +1,118 @@
+{
+  "info": {
+    "name": "HorseRoute - Flow 03 - Trips, Plan, Crew, READY",
+    "description": "Collection kiểm thử Flow 03 theo Tong_Hop_API_FLow03.pdf. Chạy Login trước; các script tự lưu accessToken, account và trip/order ID vào Environment. Các ID nghiệp vụ còn lại phải trỏ tới dữ liệu thật của database.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "event": [{
+    "listen": "prerequest",
+    "script": { "type": "text/javascript", "exec": ["pm.request.headers.upsert({key: 'Accept', value: 'application/json'});"] }
+  }],
+  "item": [
+    {
+      "name": "00 - Auth và account context",
+      "item": [
+        {
+          "name": "Login (nhập loginEmail/loginPassword trước)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{loginPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Login thành công', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.environment.set('accessToken', json.accessToken);", "if (json.user) { pm.environment.set('accountId', String(json.user.id)); pm.environment.set('accountRole', json.user.role); pm.environment.set('accountEmail', json.user.email); }", ""] } }]
+        },
+        {
+          "name": "Get current account (/users/me)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Account hiện tại', () => pm.response.to.have.status(200));", "const user = pm.response.json();", "pm.environment.set('accountId', String(user.id));", "pm.environment.set('accountRole', user.role);", "pm.environment.set('accountEmail', user.email);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "01 - Trip discovery",
+      "item": [
+        {
+          "name": "List trips",
+          "request": { "method": "GET", "url": "{{baseUrl}}/trips?page=1&limit=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Danh sách chuyến', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "if (json.items && json.items.length) { pm.environment.set('tripId', String(json.items[0].id)); pm.environment.set('orderId', String(json.items[0].orderId)); }"] } }]
+        },
+        {
+          "name": "Get trip detail",
+          "request": { "method": "GET", "url": "{{baseUrl}}/trips/{{tripId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Chi tiết chuyến', () => pm.response.to.have.status(200));", "const trip = pm.response.json();", "pm.environment.set('tripId', String(trip.id));", "pm.environment.set('orderId', String(trip.orderId));", "if (trip.legs && trip.legs.length) {", "  pm.environment.set('legId', String(trip.legs[0].id));", "  pm.environment.set('planLegsJson', JSON.stringify(trip.legs.map(l => ({ id: String(l.id), fromLocationId: String(l.fromLocationId), toLocationId: String(l.toLocationId), vehicleId: String(l.vehicleId), plannedDepartureAt: l.plannedDepartureAt, plannedArrivalAt: l.plannedArrivalAt }))));", "}"] } }]
+        },
+        { "name": "Get plan options", "request": { "method": "GET", "url": "{{baseUrl}}/trips/{{tripId}}/plan-options" } }
+      ]
+    },
+    {
+      "name": "02 - Coordinator: plan",
+      "item": [
+        {
+          "name": "PUT save draft plan",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"legs\": {{planLegsJson}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/trips/{{tripId}}/plan"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Lưu kế hoạch nháp', () => pm.response.to.have.status(200));", "const trip = pm.response.json();", "if (trip.legs && trip.legs[0]) pm.environment.set('legId', String(trip.legs[0].id));"] } }]
+        },
+        {
+          "name": "PUT save new leg (bỏ trường id)",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"legs\": [\n    {\n      \"fromLocationId\": \"{{fromLocationId}}\",\n      \"toLocationId\": \"{{toLocationId}}\",\n      \"vehicleId\": \"{{vehicleId}}\",\n      \"plannedDepartureAt\": \"{{plannedDepartureAt}}\",\n      \"plannedArrivalAt\": \"{{plannedArrivalAt}}\"\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/trips/{{tripId}}/plan" }
+        },
+        {
+          "name": "POST submit plan (body phải là {})",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/trips/{{tripId}}/submit-plan" }
+        }
+      ]
+    },
+    {
+      "name": "03 - Manager: review plan",
+      "item": [
+        { "name": "Approve plan", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"decision\": \"APPROVED\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/trips/{{tripId}}/review-plan" } },
+        { "name": "Return plan (reason 1-255 ký tự)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"decision\": \"RETURNED\",\n  \"reason\": \"{{returnReason}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/trips/{{tripId}}/review-plan" } }
+      ]
+    },
+    {
+      "name": "04 - Coordinator: assignments",
+      "item": [
+        { "name": "Get assignment options", "request": { "method": "GET", "url": "{{baseUrl}}/trips/{{tripId}}/assignment-options" } },
+        { "name": "Get assignments", "request": { "method": "GET", "url": "{{baseUrl}}/trips/{{tripId}}/assignments" } },
+        {
+          "name": "PUT full assignments",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"assignments\": [\n    { \"userId\": \"{{driverUserId}}\", \"role\": \"DRIVER\" },\n    { \"userId\": \"{{escortUserId}}\", \"role\": \"ESCORT\" }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/trips/{{tripId}}/assignments" }
+        }
+      ]
+    },
+    {
+      "name": "05 - Readiness và READY",
+      "item": [
+        {
+          "name": "GET readiness",
+          "request": { "method": "GET", "url": "{{baseUrl}}/trips/{{tripId}}/readiness" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Readiness trả kết quả 200', () => pm.response.to.have.status(200));", "const result = pm.response.json();", "if (result.orderId) pm.environment.set('orderId', String(result.orderId));", "console.log('Blockers:', result.blockers || []);"] } }]
+        },
+        { "name": "POST mark READY (Manager, dùng orderId)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/orders/{{orderId}}/mark-ready" } }
+      ]
+    },
+    {
+      "name": "06 - Flow 02 prerequisites (optional)",
+      "description": "Dùng các request này để hoàn thiện hồ sơ trước khi gọi readiness. Cần nhập documentId/documentVersionId/dossierId và dùng đúng role CUSTOMER hoặc SPECIALIST.",
+      "item": [
+        { "name": "List document orders", "request": { "method": "GET", "url": "{{baseUrl}}/documents/orders?page=1&limit=20" } },
+        { "name": "Get order documents", "request": { "method": "GET", "url": "{{baseUrl}}/documents/orders/{{orderId}}" } },
+        { "name": "Upload document version (Customer; chọn documentFilePath)", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "{{documentFilePath}}" }] }, "url": "{{baseUrl}}/documents/orders/{{orderId}}/items/{{documentId}}/upload" } },
+        { "name": "Review document VALID", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"versionId\": \"{{documentVersionId}}\",\n  \"status\": \"VALID\",\n  \"expiryDate\": \"{{expiryDate}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/documents/orders/{{orderId}}/items/{{documentId}}/review" } },
+        { "name": "Request document supplement", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reason\": \"{{returnReason}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/documents/orders/{{orderId}}/items/{{documentId}}/request" } },
+        { "name": "Update dossier status (multipart)", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "status", "value": "{{dossierStatus}}", "type": "text" }, { "key": "receiptCode", "value": "{{receiptCode}}", "type": "text" }, { "key": "result", "value": "{{dossierResult}}", "type": "text" }] }, "url": "{{baseUrl}}/documents/orders/{{orderId}}/dossiers/{{dossierId}}" } }
+      ]
+    }
+  ]
+}

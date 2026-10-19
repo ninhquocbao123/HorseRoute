@@ -6,7 +6,7 @@ const {authenticate,authorize}=require('../src/shared/middlewares/auth.middlewar
 const {OrdersService}=require('../src/features/orders/orders.service');
 const {NotificationsService}=require('../src/features/notifications/notifications.service');
 const {NotificationsRepository}=require('../src/features/notifications/notifications.repository');
-const {orderSchema}=require('../src/features/orders/orders.validation');
+const {draftOrderSchema,orderSchema}=require('../src/features/orders/orders.validation');
 
 test('delete draft checks role, owner, locked status before deleting',async()=>{
  let row={id:'1',customer_id:'2',status:'DRAFT'},deleted=0;
@@ -64,6 +64,12 @@ test('rejection requires meaningful reason',async()=>{
 test('invalid dates and nested horses fail validation',()=>{
  const result=orderSchema.safeParse({originAddress:'A',destinationAddress:'B',originCountry:'VN',destinationCountry:'SG',desiredDepartureDate:'2026-02-30',horses:[{name:'',passportNo:''}]});
  assert.equal(result.success,false);assert.ok(result.error.issues.some(e=>e.path[0]==='desiredDepartureDate'));assert.ok(result.error.issues.some(e=>e.path[0]==='horses'));
+});
+test('horse sex only accepts Đực or Cái while remaining optional',()=>{
+ const base={originAddress:'A',destinationAddress:'B',originCountry:'VN',destinationCountry:'SG',desiredDepartureDate:'2030-01-01'};
+ for(const sex of ['Đực','Cái',''])assert.equal(orderSchema.safeParse({...base,horses:[{name:'Horse',passportNo:'H1',sex}]}).success,true);
+ assert.equal(orderSchema.safeParse({...base,horses:[{name:'Horse',passportNo:'H1',sex:'Khác'}]}).success,false);
+ assert.equal(draftOrderSchema.safeParse({horses:[{sex:'Khác'}]}).success,false);
 });
 test('mark-read always scopes update to recipient',async()=>{
  let params;const c=new NotificationsService(new NotificationsRepository({query:async(sql,p)=>{params=p;return {affectedRows:0};}}));

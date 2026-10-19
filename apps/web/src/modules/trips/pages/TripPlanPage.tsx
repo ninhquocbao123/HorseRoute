@@ -4,6 +4,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { isAxiosError } from "axios";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { App } from "antd";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { useTripDetailQuery } from "../hooks/use-trip-detail-query";
 import { useTripPlanOptionsQuery } from "../hooks/use-trip-plan-options-query";
@@ -24,12 +25,11 @@ export default function TripPlanPage() {
   const { tripId } = useParams();
   const [search] = useSearchParams();
   const { account } = useAuth();
+  const { message: messageApi } = App.useApp();
   const back = tripListSearch(readTripListParams(search));
   const detail = useTripDetailQuery(tripId);
   const options = useTripPlanOptionsQuery(tripId);
   const qc = useQueryClient();
-  const [message, setMessage] = useState("");
-  const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const defaults = useMemo<TripPlanFormValues>(
     () => ({
@@ -97,8 +97,6 @@ export default function TripPlanPage() {
       return;
     }
     setSaving(true);
-    setMessage("");
-    setFailed(false);
     try {
       const saved = await saveTripPlan(tripId, payload);
       qc.setQueryData(tripQueryKeys.detail(account?.id, tripId), saved);
@@ -116,21 +114,22 @@ export default function TripPlanPage() {
         try {
           const submitted = await submitTripPlan(tripId);
           qc.setQueryData(tripQueryKeys.detail(account?.id, tripId), submitted);
-          setMessage("Đã lưu và gửi kế hoạch chờ duyệt.");
-        } catch (e) {
-          setFailed(true);
-          setMessage(
-            "Đã lưu bản nháp, nhưng chưa gửi duyệt. Bạn có thể thử gửi lại.",
-          );
+          void messageApi.success({ key: "trip-plan-feedback", content: "Đã lưu và gửi kế hoạch chờ duyệt." });
+        } catch {
+          void messageApi.warning({
+            key: "trip-plan-feedback",
+            content: "Đã lưu bản nháp, nhưng chưa gửi duyệt. Bạn có thể thử gửi lại.",
+            duration: 5,
+          });
         }
-      } else setMessage("Đã lưu bản nháp kế hoạch.");
+      } else void messageApi.success({ key: "trip-plan-feedback", content: "Đã lưu bản nháp kế hoạch." });
     } catch (e) {
-      setFailed(true);
       const body = isAxiosError(e) ? e.response?.data : null;
-      setMessage(
-        body?.message ||
-          "Không thể lưu kế hoạch. Dữ liệu nhập vẫn được giữ lại.",
-      );
+      void messageApi.error({
+        key: "trip-plan-feedback",
+        content: String(body?.message || "Không thể lưu kế hoạch. Dữ liệu nhập vẫn được giữ lại."),
+        duration: 5,
+      });
       if (body?.fields)
         Object.entries(body.fields).forEach(([key, val]) =>
           form.setError(key as any, {
@@ -186,14 +185,6 @@ export default function TripPlanPage() {
         <h1>Kế hoạch chuyến #{tripId}</h1>
         <p>Nhập giờ theo Asia/Ho_Chi_Minh (UTC+07:00). Chỉ lưu bản nháp.</p>
       </header>
-      {message && (
-        <div
-          className={`trip-form-message${failed ? " is-error" : ""}`}
-          role={failed ? "alert" : "status"}
-        >
-          {message}
-        </div>
-      )}
       <form
         className="trip-plan-form"
         onSubmit={form.handleSubmit(submit)}
@@ -328,8 +319,8 @@ function LegForm({
         {(["plannedDepartureAt", "plannedArrivalAt"] as const).map((name) => (
           <label key={name}>
             {name === "plannedDepartureAt"
-              ? "Khởi hành dự kiến"
-              : "Đến dự kiến"}
+              ? "Khởi hành dự kiến (giờ Việt Nam)"
+              : "Đến dự kiến (giờ Việt Nam)"}
             <input
               type="datetime-local"
               {...form.register(`${p}.${name}`)}

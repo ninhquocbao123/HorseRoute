@@ -202,9 +202,6 @@
 .trip-workspace .trip-form-message { padding:14px 16px; border-radius:10px; background:#edf5e8; margin-bottom:18px; }
 .trip-workspace .trip-form-message.is-error { background:#fff0ec; border:1px solid #e8c2b8; color:#873e2b; }
 .trip-workspace .trip-review-actions { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
-.trip-workspace .trip-review-dialog { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; border:1px solid #dce5d8; border-radius:16px; padding:24px; color:#203b34; }
-.trip-workspace .trip-review-dialog::backdrop { background:#173c3166; }
-.trip-workspace .trip-review-dialog textarea { display:block; width:100%; min-height:110px; margin-top:8px; padding:10px; border:1px solid #cbd6c5; border-radius:8px; }
 .trip-workspace .trip-crew-row { display:grid; grid-template-columns:minmax(0,1fr) 160px auto; gap:10px; align-items:center; margin:12px 0; }
 .trip-workspace .trip-crew-row select { min-height:44px; min-width:0; padding:9px; border:1px solid #cbd6c5; border-radius:8px; background:#fff; }
 .trip-workspace .trip-crew-warning { padding:12px; margin-bottom:8px; border-radius:8px; background:#fff0d5; color:#7a5214; }

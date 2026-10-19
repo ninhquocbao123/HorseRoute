@@ -9,7 +9,6 @@
 .portal-dashboard .account-menu-identity { min-width: 0; }
 .portal-dashboard .portal-sidebar nav button { overflow-wrap: anywhere; }
 .portal-dashboard .portal-sidebar nav button > span { flex-shrink: 0; }
-.portal-dashboard .logout-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
 @media (max-width: 767px) {
   .portal-dashboard { display: block; }
   .portal-dashboard .portal-sidebar { display: none; width: 100%; height: auto; position: static; padding: 24px; }

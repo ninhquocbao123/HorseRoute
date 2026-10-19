@@ -2,14 +2,15 @@ import { z } from 'zod';
 import { isCountryCode } from '@my-project/shared';
 import { idSchema, dateSchema, optional } from '../../shared/utils/validation.util';
 import { paginationSchema } from '../../shared/utils/pagination.util';
+const optionalHorseSex = z.preprocess(value => value === '' || value === null ? undefined : value, z.enum(['Đực', 'Cái']).optional());
 export const horseSchema = z.object({
   id: optional(idSchema), name: z.string().trim().min(1).max(100), passportNo: z.string().trim().min(1).max(50),
-  breed: optional(z.string().max(50)), birthDate: optional(dateSchema), sex: optional(z.string().max(10)),
+  breed: optional(z.string().max(50)), birthDate: optional(dateSchema), sex: optionalHorseSex,
   coatColor: optional(z.string().max(30)), note: optional(z.string().max(255)),
 }).strict();
 export const draftHorseSchema = z.object({
   id: optional(idSchema), name: optional(z.string().max(100)), passportNo: optional(z.string().max(50)),
-  breed: optional(z.string().max(50)), birthDate: optional(z.string().max(10)), sex: optional(z.string().max(10)),
+  breed: optional(z.string().max(50)), birthDate: optional(z.string().max(10)), sex: optionalHorseSex,
   coatColor: optional(z.string().max(30)), note: optional(z.string().max(255)),
 }).strict();
 export const draftOrderSchema = z.object({
