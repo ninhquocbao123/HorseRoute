@@ -7,7 +7,7 @@ module.exports = async function loadSchema(db) {
   await runner.connect();
   try {
     const [row] = await runner.query('SELECT DATABASE() AS name');
-    if (!/^wdp_flow[123]_test_[0-9a-f]{16}$/.test(row.name)) throw new Error('Schema loader requires an isolated test database');
+    if (!/^wdp_flow[1234]_test_[0-9a-f]{16}$/.test(row.name)) throw new Error('Schema loader requires an isolated test database');
     const source = fs.readFileSync(path.join(__dirname, 'fixtures/schema.sql'), 'utf8');
     const statements = source.match(/CREATE TABLE `\w+` \([\s\S]*?\) ENGINE=[^\r\n]+;/g);
     if (!statements?.length) throw new Error('No CREATE TABLE definitions in schema.sql');

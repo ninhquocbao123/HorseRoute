@@ -12,9 +12,11 @@ import { NotificationsRepository } from '../../features/notifications/notificati
 import { NotificationsService } from '../../features/notifications/notifications.service';
 import { HealthService } from '../../features/health/health.service';
 import { TokenService } from '../utils/jwt.util';
+import { TrackingService } from '../../features/tracking/tracking.service';
+import { TrackingRepository } from '../../features/tracking/tracking.repository';
 export function createServices(db: DataSource, tokens: TokenService) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
-  return { readiness: new ReadinessService(db), trips: new TripsService(new TripsRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
+  return { readiness: new ReadinessService(db), trips: new TripsService(new TripsRepository(db)), tracking: new TrackingService(new TrackingRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
     documents: new DocumentsService(db), notifications: new NotificationsService(new NotificationsRepository(db)),
     health: new HealthService(db) };
 }

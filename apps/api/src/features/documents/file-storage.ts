@@ -6,7 +6,7 @@ import { mkdir, writeFile, unlink, readFile, lstat } from 'fs/promises';
 import { resolve, basename } from 'path';
 export type Upload={buffer:Buffer;originalname:string;size:number};
 export const MAX_FILE_SIZE=5*1024*1024;
-export function fileType(file:Upload){
+export function fileType(file:Upload):'PDF'|'PNG'|'JPG'{
  if(!file?.buffer?.length||file.buffer.length>MAX_FILE_SIZE)throw new BadRequestException('Chọn file PDF/JPG/PNG, tối đa 5 MB.');
  const b=file.buffer;
  if(b.subarray(0,5).toString()==='%PDF-')return 'PDF';
