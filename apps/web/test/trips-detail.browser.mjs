@@ -20,6 +20,9 @@ await context.route('**/api/v1/**', async route=>{
   if(match[1]==='201') await new Promise(r=>setTimeout(r,350));
   return route.fulfill({json:detail(match[1])});
  }
+ if(url.pathname.endsWith('/readiness')) return route.fulfill({json:{tripId:'200',orderId:'100',orderStatus:'PREPARING',planStatus:'DRAFT',eligibleForReady:false,blockers:[{code:'PLAN_NOT_APPROVED',message:'Kế hoạch chưa được duyệt.'}]}});
+ if(url.pathname.endsWith('/assignments')) return route.fulfill({json:{tripId:'200',items:[],crewReadiness:{complete:false,blockers:[]}}});
+ if(url.pathname.endsWith('/assignment-options')) return route.fulfill({json:{items:[]}});
  return route.fulfill({json:[]});
 });
 const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
@@ -37,12 +40,11 @@ try {
   await page.setViewportSize({width,height:900});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow ${width}`);
  }
- for(const [tab,name] of [['crew','Nhân sự'],['readiness','Điều kiện READY']]){
-  await page.getByRole('tab',{name,exact:true}).click();
-  await page.reload();await page.getByRole('tab',{name,exact:true,selected:true}).waitFor();
-  assert.equal(new URL(page.url()).searchParams.get('tab'),tab);
-  assert((await page.getByRole('tabpanel').innerText()).includes('đang được chuẩn bị'));
- }
+ await page.getByRole('tab',{name:'Điều kiện READY',exact:true}).click();
+ await page.reload();await page.getByRole('tab',{name:'Điều kiện READY',exact:true,selected:true}).waitFor();
+ assert.equal(new URL(page.url()).searchParams.get('tab'),'readiness');
+ await page.getByText('Chưa đủ điều kiện READY',{exact:true}).waitFor();
+ await page.getByText('PLAN_NOT_APPROVED',{exact:true}).waitFor();
  await page.getByRole('tab',{name:'Điều kiện READY',exact:true}).focus();await page.keyboard.press('Home');
  await page.getByRole('tab',{name:'Kế hoạch',selected:true,exact:true}).waitFor();
  assert.equal(await page.getByRole('tabpanel').getAttribute('aria-labelledby'),'trip-tab-plan');

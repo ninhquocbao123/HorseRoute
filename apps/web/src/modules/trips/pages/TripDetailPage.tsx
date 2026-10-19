@@ -1,6 +1,8 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../features/auth/hooks/useAuth';
 import { isValidTripId } from '../utils/trip-detail.utils';
 import { useTripDetailQuery } from '../hooks/use-trip-detail-query';
 import TripStatusBadge, { OrderStatusBadge } from '../components/TripStatusBadge';
@@ -10,6 +12,11 @@ import TripLegTimeline from '../components/TripLegTimeline';
 import { VALID_DETAIL_TABS } from '../constants/trip-status.constants';
 import { readTripListParams, tripListSearch } from '../utils/trip-list.utils';
 import type { TripDetailTab } from '../types/trip.types';
+import { reviewTripPlan } from '../api/trips.api';
+import { tripQueryKeys } from '../constants/trip-query-keys';
+import TripReviewDialog from '../components/TripReviewDialog';
+import TripAssignmentsPanel from '../components/TripAssignmentsPanel';
+import TripReadinessPanel from '../components/TripReadinessPanel';
 
 function readTab(search: URLSearchParams): TripDetailTab {
   const raw = search.get('tab');
@@ -21,6 +28,8 @@ export default function TripDetailPage() {
   const [search, setSearch] = useSearchParams();
   const listSearch = tripListSearch(readTripListParams(search));
   const activeTab = readTab(search);
+  const { account } = useAuth();
+  const [reviewOpen,setReviewOpen]=useState(false); const [reviewing,setReviewing]=useState(false); const [reviewError,setReviewError]=useState(''); const qc=useQueryClient();
 
   const query = useTripDetailQuery(tripId);
   const { data: trip } = query;
@@ -90,6 +99,7 @@ export default function TripDetailPage() {
   if (!trip) return null;
 
   const hasReturnReason = trip.planStatus === 'DRAFT' && !!trip.returnReason;
+  async function review(input:{decision:'APPROVED'}|{decision:'RETURNED';reason:string}) { if(account?.role!=='MANAGER'||!tripId)return; setReviewing(true);setReviewError(''); try { const saved=await reviewTripPlan(tripId,input); qc.setQueryData(tripQueryKeys.detail(account.id,tripId),saved); qc.invalidateQueries({queryKey:['trips',account.id,'list']}); setReviewOpen(false); } catch(e) { setReviewError(isAxiosError(e)?(e.response?.data?.message||'Không thể cập nhật kế hoạch.'):'Không thể cập nhật kế hoạch.'); } finally {setReviewing(false); } }
 
   return (
     <>
@@ -118,6 +128,9 @@ export default function TripDetailPage() {
       )}
 
       <TripDetailTabs activeTab={activeTab} onTabChange={setTab} />
+      {account?.role==='MANAGER'&&trip.planStatus==='PENDING_APPROVAL'&&activeTab==='plan'&&<div className="trip-review-actions"><button type="button" onClick={()=>setReviewOpen(true)}>Duyệt kế hoạch</button><button type="button" onClick={()=>setReviewOpen(true)}>Trả lại chỉnh sửa</button></div>}
+      {reviewError&&<div className="trip-form-message is-error" role="alert">{reviewError}</div>}
+      <TripReviewDialog open={reviewOpen} pending={reviewing} onClose={()=>setReviewOpen(false)} onSubmit={review} />
 
       <div className="trip-detail-grid">
         <section
@@ -142,6 +155,9 @@ export default function TripDetailPage() {
           )}
 
           {activeTab === 'crew' && (
+            <TripAssignmentsPanel trip={trip} /> /* crew readiness is not overall readiness */
+          )}
+          {false && (
             <div className="trip-placeholder">
               <span className="trip-placeholder-icon" aria-hidden="true">◇</span>
               <span className="trip-label">Sắp ra mắt</span>
@@ -154,15 +170,7 @@ export default function TripDetailPage() {
           )}
 
           {activeTab === 'readiness' && (
-            <div className="trip-placeholder">
-              <span className="trip-placeholder-icon" aria-hidden="true">◇</span>
-              <span className="trip-label">Sắp ra mắt</span>
-              <h2>Điều kiện sẵn sàng vận chuyển</h2>
-              <p>
-                Kiểm tra và xác nhận READY đang được chuẩn bị.
-                Bạn chưa thể kiểm tra điều kiện hoặc xác nhận sẵn sàng tại đây.
-              </p>
-            </div>
+            <TripReadinessPanel trip={trip} />
           )}
         </section>
 

@@ -5,5 +5,9 @@ export const tripQueryKeys = {
     ["trips", accountId, "list", params] as const,
   detail: (accountId: string | undefined, tripId: string) =>
     ["trips", accountId, tripId, "detail"] as const,
+  planOptions: (accountId: string | undefined, tripId: string) => ["trips", accountId, tripId, "plan-options"] as const,
+  assignments: (accountId: string|undefined, tripId:string) => ['trips',accountId,tripId,'assignments'] as const,
+  assignmentOptions: (accountId: string|undefined, tripId:string) => ['trips',accountId,tripId,'assignment-options'] as const,
+  readiness: (accountId: string | undefined, tripId: string) => ['trips', accountId, tripId, 'readiness'] as const,
 };
 
