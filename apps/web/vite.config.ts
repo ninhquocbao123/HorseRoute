@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
   server: { port: 5173 },
-  // package shared build ra CommonJS nên cần pre-bundle
-  optimizeDeps: { include: ['@my-project/shared'] },
-  build: { commonjsOptions: { include: [/shared/, /node_modules/] } },
+  // Read workspace source directly: avoid stale pre-bundled CommonJS exports in dev.
+  resolve: { alias: { '@my-project/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)) } },
+  optimizeDeps: { exclude: ['@my-project/shared'] },
 });
