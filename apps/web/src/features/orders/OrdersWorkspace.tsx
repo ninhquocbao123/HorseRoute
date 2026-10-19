@@ -13,8 +13,8 @@ import { OrderDetail, OrderDraft, OrderSummary, ReviewOptions, draftFrom, emptyD
 type Errors = Record<string,string>;
 const documentLabels:Record<string,string>={NOT_SUBMITTED:'Chưa nộp',SUBMITTED:'Đã nộp',VALID:'Hợp lệ',INVALID:'Không hợp lệ',EXPIRED:'Hết hạn'};
 const historyLabels:Record<string,string>={CREATE:'Tạo đơn nháp',EDIT:'Sửa đơn',SUBMIT:'Gửi duyệt',REVIEW:'Phản hồi từ quản lý'};
-const statusColors:Record<string,string>={DRAFT:'default',PENDING:'gold',NEED_INFO:'orange',APPROVED:'green',REJECTED:'red',PREPARING:'cyan',READY:'success',IN_TRANSIT:'blue',DELIVERED:'green',CANCELLED:'default'};
-function StatusTag({status,label}:{status:string;label?:string}){return <Tag color={statusColors[status]}>{label||statuses[status]||status}</Tag>;}
+const statusColors:Record<string,string>={DRAFT:'default',PENDING:'gold',NEED_INFO:'orange',APPROVED:'green',REJECTED:'red',PREPARING:'cyan',IN_TRANSIT:'blue',DELIVERED:'green',CANCELLED:'default'};
+function StatusTag({status,label}:{status:string;label?:string}){return <Tag className={`order-status-tag order-status-tag--${status.toLowerCase()}`} color={statusColors[status]}>{label||statuses[status]||status}</Tag>;}
 export default function OrdersWorkspace({role, refreshNotifications,onLeaveGuardChange}:{role:string;refreshNotifications:()=>void;onLeaveGuardChange?:(guard:(()=>Promise<boolean>)|null)=>void}) {
   const customer=role==='CUSTOMER'; const manager=role==='MANAGER';
   const {message:messageApi}=App.useApp();
