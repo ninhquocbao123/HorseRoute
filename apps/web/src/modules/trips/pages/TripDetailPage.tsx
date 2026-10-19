@@ -144,9 +144,16 @@ export default function TripDetailPage() {
             <>
               <div className="trip-panel-header">
                 <h2>Kế hoạch hành trình</h2>
-                {trip.legs.length > 0 && (
-                  <span className="trip-count">{trip.legs.length} chặng</span>
-                )}
+                <div className="trip-panel-header-actions">
+                  {trip.legs.length > 0 && (
+                    <span className="trip-count">{trip.legs.length} chặng</span>
+                  )}
+                  {account?.role === 'COORDINATOR' && trip.planStatus === 'DRAFT' && ['APPROVED', 'PREPARING'].includes(trip.orderStatus) && (
+                    <Link className="trip-action-button" to={`/dashboard/trips/${trip.id}/plan${listSearch}`}>
+                      {trip.legs.length > 0 ? 'Chỉnh sửa kế hoạch' : 'Lập kế hoạch'}
+                    </Link>
+                  )}
+                </div>
               </div>
               <p className="trip-timezone">Thời gian hiển thị: Asia/Ho_Chi_Minh (UTC+07:00).</p>
               <TripLegTimeline legs={trip.legs} />

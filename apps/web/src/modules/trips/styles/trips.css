@@ -116,6 +116,7 @@
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
 }
 .trip-workspace .trip-panel-header h2 { margin: 0; }
+.trip-workspace .trip-panel-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
 
 /* Leg timeline */
 .trip-workspace .trip-leg-timeline { list-style: none; padding: 0; margin: 0; }
