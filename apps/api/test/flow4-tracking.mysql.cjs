@@ -154,6 +154,33 @@ async function main() {
     assert.deepEqual(await snapshot(), before);
   });
 
+  await check('Flow 3 data is re-validated before the first departure and only transport (NORMAL) horses are tracked', async () => {
+    const before = await snapshot();
+    const blockedWith = async (code, mutate, restore) => {
+      await q(mutate);
+      try {
+        const r = await depart(minutesAgo(1));
+        assert.equal(r.status, 409, code + ' -> ' + JSON.stringify(r.data).slice(0, 200));
+        assert.ok(r.data.blockers?.some(b => b.code === code), 'blocker ' + code + ' reported: ' + JSON.stringify(r.data.blockers));
+      } finally { await q(restore); }
+    };
+    await blockedWith('VEHICLE_INACTIVE', 'UPDATE vehicles SET is_active=0 WHERE id=5', 'UPDATE vehicles SET is_active=1 WHERE id=5');
+    await blockedWith('VEHICLE_CAPACITY', 'UPDATE vehicles SET capacity_stalls=1 WHERE id=5', 'UPDATE vehicles SET capacity_stalls=4 WHERE id=5');
+    await blockedWith('HORSE_FLAGGED', "UPDATE horses SET order_status='FLAGGED' WHERE id=22", "UPDATE horses SET order_status='NORMAL' WHERE id=22");
+    await blockedWith('MISSING_ESCORT', "UPDATE users SET account_status='LOCKED' WHERE id=10", "UPDATE users SET account_status='ACTIVE' WHERE id=10");
+    assert.deepEqual(await snapshot(), before, 'a blocked departure changes nothing');
+    await q("UPDATE horses SET order_status='REMOVED' WHERE id=22");
+    try {
+      const trip = await expectStatus(200, 'GET', '/driver/trips', { as: ids.driver });
+      assert.equal(trip.length, 1);
+      const detail = await expectStatus(200, 'GET', '/trips/100', { as: ids.coordA });
+      assert.deepEqual(detail.horses.map(h => h.name), ['Bạch Mã'], 'removed horse is not part of the transport');
+    } finally { await q("UPDATE horses SET order_status='NORMAL' WHERE id=22"); }
+    await q("UPDATE trips SET plan_status='PENDING_APPROVAL' WHERE id=100");
+    try { assert.equal((await expectStatus(200, 'GET', '/driver/trips', { as: ids.driver })).length, 0, 'unapproved plan is not shown to the crew'); }
+    finally { await q("UPDATE trips SET plan_status='APPROVED' WHERE id=100"); }
+  });
+
   await check('Concurrent departures: exactly one wins, order moves to IN_TRANSIT once, UTC time stored exactly', async () => {
     const at = minutesAgo(60).replace(/\.\d{3}Z$/, '.000Z');
     const results = await Promise.all([depart(at), depart(at), depart(at)]);
@@ -270,7 +297,7 @@ async function main() {
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=6 AND event_type IN ('INCIDENT_ACKNOWLEDGED','INCIDENT_CLOSED')"), 2);
   });
 
-  await check('Alert: owning coordinator only; stored with author; crew and managers notified', async () => {
+  await check('Alert: owning coordinator only; stored with author; crew, managers and the order customer notified', async () => {
     const body = { alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ' };
     await expectStatus(403, 'POST', '/trips/100/alerts', { as: ids.manager, body });
     await expectStatus(404, 'POST', '/trips/100/alerts', { as: ids.coordB, body });
@@ -279,7 +306,7 @@ async function main() {
     assert.equal(alert.sentBy, '3');
     assert.equal(alert.sentByName, 'Điều Phối A');
     const recipients = await q("SELECT recipient_id AS r FROM notifications WHERE event_type='TRIP_ALERT' ORDER BY recipient_id");
-    assert.deepEqual(recipients.map(r => r.r), ['2', '6', '10']);
+    assert.deepEqual(recipients.map(r => r.r), ['1', '2', '6', '10']);
     assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver })).length, 1);
   });
 

@@ -1,5 +1,6 @@
 import { DataSource, EntityManager } from 'typeorm';
 import { LegStatus, MilestoneType, CrewRole, OrderStatus, PlanStatus } from '@my-project/shared';
+import { checkCrewReadiness } from '../trips/trips.crew';
 import { DEFAULT_MAX_RETROACTIVE_MINUTES } from './tracking.validation';
 import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip } from './tracking.dto';
 
@@ -19,7 +20,7 @@ export class TrackingRepository {
       FROM trips t
       JOIN trip_assignments a ON a.trip_id = t.id
       JOIN orders o ON o.id = t.order_id
-      WHERE a.user_id = ? AND o.status IN ('READY', 'IN_TRANSIT', 'DELIVERED')
+      WHERE a.user_id = ? AND t.plan_status = 'APPROVED' AND o.status IN ('READY', 'IN_TRANSIT', 'DELIVERED')
       ORDER BY t.id DESC`,
       [driverId]
     );
@@ -122,7 +123,7 @@ export class TrackingRepository {
   async getTripHorses(orderId: string): Promise<HorseInTrip[]> {
     return this.db.query(
       `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus
-      FROM horses WHERE order_id = ? ORDER BY id ASC`,
+      FROM horses WHERE order_id = ? AND order_status = 'NORMAL' ORDER BY id ASC`,
       [orderId]
     );
   }
@@ -358,7 +359,7 @@ export class TrackingRepository {
 
   async checkHorseBelongsToOrder(horseId: string, orderId: string): Promise<boolean> {
     const rows = await this.db.query(
-      `SELECT id FROM horses WHERE id = ? AND order_id = ? LIMIT 1`,
+      `SELECT id FROM horses WHERE id = ? AND order_id = ? AND order_status = 'NORMAL' LIMIT 1`,
       [horseId, orderId]
     );
     return rows.length > 0;
@@ -402,7 +403,7 @@ export class TrackingRepository {
     return row;
   }
 
-  async notifyCrewAndManagers(tripId: string, eventType: string, content: string): Promise<void> {
+  async notifyCrewAndManagers(tripId: string, eventType: string, content: string, includeCustomer = false): Promise<void> {
     await this.db.query(
       `INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel)
       SELECT DISTINCT id, ?, ?, 'TRIP', ?, 'IN_APP'
@@ -410,9 +411,51 @@ export class TrackingRepository {
       WHERE account_status = 'ACTIVE' AND (
         role = 'MANAGER'
         OR id IN (SELECT user_id FROM trip_assignments WHERE trip_id = ?)
+        ${includeCustomer ? 'OR id IN (SELECT o.customer_id FROM trips t JOIN orders o ON o.id = t.order_id WHERE t.id = ?)' : ''}
       )`,
-      [eventType, content, tripId, tripId]
+      includeCustomer ? [eventType, content, tripId, tripId, tripId] : [eventType, content, tripId, tripId]
     );
+  }
+
+  /**
+   * Kiểm tra lại điều kiện vận hành do Flow 3 lập (nhân sự, xe, ngựa) ngay trước khi chặng đầu xuất phát.
+   * Dữ liệu có thể đã đổi từ lúc đơn được chuyển READY (tài khoản bị khóa, xe ngừng hoạt động, ngựa bị đánh dấu...).
+   */
+  async getDepartureBlockers(tripId: string, orderId: string): Promise<{ code: string; message: string; legId?: string; userId?: string; horseId?: string }[]> {
+    const blockers: { code: string; message: string; legId?: string; userId?: string; horseId?: string }[] = [];
+    const crew = await this.db.query(
+      `SELECT CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus
+      FROM trip_assignments a JOIN users u ON u.id = a.user_id WHERE a.trip_id = ?`,
+      [tripId]
+    );
+    blockers.push(...checkCrewReadiness(crew).blockers);
+
+    const horses: { id: string; status: string }[] = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id, order_status AS status FROM horses WHERE order_id = ?`,
+      [orderId]
+    );
+    const normal = horses.filter(h => h.status === 'NORMAL').length;
+    if (!normal) blockers.push({ code: 'NO_TRANSPORT_HORSES', message: 'Đơn không còn ngựa NORMAL để vận chuyển.' });
+    for (const horse of horses.filter(h => h.status === 'FLAGGED')) {
+      blockers.push({ code: 'HORSE_FLAGGED', message: 'Có ngựa đang bị đánh dấu, cần xử lý trước khi xuất phát.', horseId: horse.id });
+    }
+
+    const legs: { id: string; vehicleActive: number | null; capacity: number | null; busy: number }[] = await this.db.query(
+      `SELECT CAST(l.id AS CHAR) AS id, v.is_active AS vehicleActive, v.capacity_stalls AS capacity,
+        EXISTS(
+          SELECT 1 FROM legs x JOIN trips xt ON xt.id = x.trip_id JOIN orders xo ON xo.id = xt.order_id
+          WHERE x.vehicle_id = l.vehicle_id AND xt.id <> l.trip_id AND xo.status = 'IN_TRANSIT'
+            AND (x.status IN ('MOVING', 'AT_STOP') OR (x.actual_departure_at IS NOT NULL AND x.actual_arrival_at IS NULL))
+        ) AS busy
+      FROM legs l LEFT JOIN vehicles v ON v.id = l.vehicle_id WHERE l.trip_id = ? ORDER BY l.seq_no`,
+      [tripId]
+    );
+    for (const leg of legs) {
+      if (!leg.vehicleActive) blockers.push({ code: 'VEHICLE_INACTIVE', message: 'Chặng thiếu xe hoặc xe không còn hoạt động.', legId: leg.id });
+      else if (leg.capacity === null || leg.capacity < normal) blockers.push({ code: 'VEHICLE_CAPACITY', message: 'Xe không đủ chỗ cho ngựa NORMAL.', legId: leg.id });
+      if (Number(leg.busy) === 1) blockers.push({ code: 'VEHICLE_BUSY', message: 'Xe còn đang vận hành chuyến khác.', legId: leg.id });
+    }
+    return blockers;
   }
 
   async insertHorseLog(

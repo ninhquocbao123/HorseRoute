@@ -282,6 +282,10 @@ export class TrackingService {
             if (leg.orderStatus !== OrderStatus.READY) {
               throw new ConflictException(`Đơn hàng phải ở trạng thái Sẵn sàng (READY) để xuất phát. Hiện tại: ${leg.orderStatus}`);
             }
+            const blockers = await repo.getDepartureBlockers(leg.tripId, leg.orderId);
+            if (blockers.length) {
+              throw new ConflictException({ message: 'Chuyến chưa đủ điều kiện xuất phát: ' + blockers.map(b => b.message).join(' '), blockers });
+            }
             nextOrderStatus = OrderStatus.IN_TRANSIT;
             await repo.updateOrderStatus(leg.orderId, OrderStatus.IN_TRANSIT);
             await repo.audit(
@@ -780,7 +784,7 @@ export class TrackingService {
         String(account.id), 'ALERT', alertId, 'SEND_ALERT', null,
         JSON.stringify({ tripId, alertType: input.alertType })
       );
-      await repo.notifyCrewAndManagers(tripId, 'TRIP_ALERT', `Cảnh báo ${ALERT_LABELS[input.alertType]} chuyến ${tripId} (đơn ${trip.orderCode}): ${input.content}`);
+      await repo.notifyCrewAndManagers(tripId, 'TRIP_ALERT', `Cảnh báo ${ALERT_LABELS[input.alertType]} chuyến ${tripId} (đơn ${trip.orderCode}): ${input.content}`, true);
 
       const alerts = await this.loadAlerts(repo, tripId);
       return alerts.find(alert => alert.id === alertId)!;

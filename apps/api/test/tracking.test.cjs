@@ -94,6 +94,7 @@ test('Milestone recording enforces sequential leg transitions and Order state ch
   let auditedOrder = false;
   let updatedOrder = null;
   let updatedLeg = null;
+  let blockers = [{ code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' }];
 
   const mockRepo = {
     transaction: work => work(mockRepo),
@@ -120,6 +121,7 @@ test('Milestone recording enforces sequential leg transitions and Order state ch
       { id: '11', seqNo: 2, status: LegStatus.NOT_STARTED, toLocationType: 'REST_STOP' },
     ],
     updateOrderStatus: async (id, status) => { updatedOrder = status; },
+    getDepartureBlockers: async () => (blockers),
     updateLegDeparture: async (id, time, actor) => { updatedLeg = 'MOVING'; },
     insertMilestone: async () => '1',
     audit: async (actor, entityType) => {
@@ -131,6 +133,14 @@ test('Milestone recording enforces sequential leg transitions and Order state ch
 
   const service = new TrackingService(mockRepo);
   const now = new Date().toISOString();
+
+  // 0. Điều kiện Flow 3 (nhân sự/xe/ngựa) bị hỏng sau khi READY: không cho xuất phát, không ghi gì
+  await assert.rejects(
+    () => service.recordMilestone({ id: '5', role: Role.DRIVER_ESCORT }, '10', { milestoneType: MilestoneType.DEPARTED, occurredAt: now }),
+    e => e.getStatus() === 409 && /hộ tống/.test(JSON.stringify(e.getResponse()))
+  );
+  assert.equal(updatedOrder, null);
+  blockers = [];
 
   // 1. Depart on first leg: should move Order to IN_TRANSIT
   const result = await service.recordMilestone(
@@ -194,7 +204,7 @@ test('Milestone requires an APPROVED plan and a time not before the previous mil
       getDriverAssignment: async () => ({ role: 'DRIVER' }),
       hasMilestone: async () => false,
       lockAllTripLegs: async () => [{ id: '10', seqNo: 1 }, { id: '11', seqNo: 2 }],
-      updateOrderStatus: async () => {}, updateLegDeparture: async () => {}, updateLegArrival: async () => {},
+      getDepartureBlockers: async () => [], updateOrderStatus: async () => {}, updateLegDeparture: async () => {}, updateLegArrival: async () => {},
       insertMilestone: async () => '1', audit: async () => {}, notify: async () => {},
     };
     return repo;
@@ -251,6 +261,7 @@ function correctionRepo({ leg, legs, milestones = [], calls = {} }) {
     insertMilestone: async (legId, type) => { (calls.inserted ||= []).push(type); return '1'; },
     updateLegCorrection: async (id, status, dep, arr) => { calls.leg = { status, dep, arr }; },
     updateOrderStatus: async (id, status) => { calls.order = status; },
+    getDepartureBlockers: async () => [],
     audit: async (actor, entity, id, action, oldV, newV) => { (calls.audits ||= []).push({ entity, action, oldV, newV }); },
     notifyStakeholders: async () => { calls.notified = true; },
   };
