@@ -23,10 +23,10 @@ export function render(role,view='overview'){
  build.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='auth'?'export const useAuth=()=>({account:globalThis.testAccount})':args.path==='firebase'?'export const auth={currentUser:null}':args.path==='actions'?'export const signOut=async()=>{}; export const sendPasswordResetEmail=async()=>{}':'export const api={get:async()=>({data:[]}),post:async()=>({data:{}})}',loader:'js'}));
 }}]});
 const mod=new Module(path.join(web,'role-render-test.cjs'),module);mod.filename=path.join(web,'role-render-test.cjs');mod.paths=module.paths;mod._compile(result.outputFiles[0].text,mod.filename);
-const {render,workspaces}=mod.exports;let checks=0;
+const {render,workspaces}=mod.exports;let checks=0;const trackingAreas={DRIVER_ESCORT:['assignments','milestones','horse-logs'],CUSTOMER:['tracking'],COORDINATOR:['operations'],MANAGER:['operations'],SPECIALIST:['tracking']};
 for(const role of ['MANAGER','CUSTOMER','SPECIALIST','COORDINATOR','DRIVER_ESCORT']){
  const config=workspaces[role],html=render(role);assert.ok(html.includes(config.title.replaceAll('&','&amp;')));assert.ok(html.includes('Người kiểm thử'));
- for(const area of config.areas){const page=render(role,area.id);assert.ok(page.includes(area.title.replaceAll('&','&amp;')));if(!['orders','documents','submissions'].includes(area.id))assert.ok(page.includes('Chưa kết nối dữ liệu'));checks++;}
+ for(const area of config.areas){if(area.id==='trips'&&['MANAGER','COORDINATOR'].includes(role)){checks++;continue;}/* mở trang Flow 3 riêng (/dashboard/trips) */const page=render(role,area.id);assert.ok(page.includes(area.title.replaceAll('&','&amp;')),role+':'+area.id);if(trackingAreas[role].includes(area.id))assert.ok(page.includes('Đang tải'),role+':'+area.id);else if(!['orders','documents','submissions'].includes(area.id))assert.ok(page.includes('Chưa kết nối dữ liệu'));checks++;}
  assert.ok(render(role,'account').includes('test@example.invalid'));assert.ok(render(role,'notifications').includes('Hộp thông báo'));
  if(!['MANAGER','CUSTOMER'].includes(role)){assert.ok(!html.includes('Yêu cầu vận chuyển'));assert.ok(render(role,'orders').includes(config.title.replaceAll('&','&amp;')));}
  checks+=4;

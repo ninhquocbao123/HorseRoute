@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),32);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),49);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -134,4 +134,36 @@ test('Readiness and mark-ready expose real endpoints, blockers and strict empty 
  assert.equal(doc.components.schemas.SubmitTripPlanInput.additionalProperties, false);
  assert.ok(doc.components.schemas.Error.properties.blockers);
  assert.ok(post.responses[409]);
+});
+
+test('Flow 4 tracking contract documents every implemented endpoint with security, uploads and errors', () => {
+ const expected = [
+  ['/api/v1/tracking/driver/trips', 'get'], ['/api/v1/tracking/trips/{id}', 'get'],
+  ['/api/v1/tracking/legs/{legId}/milestones', 'post'], ['/api/v1/tracking/legs/{legId}/complete', 'post'], ['/api/v1/tracking/legs/{legId}/correct', 'patch'],
+  ['/api/v1/tracking/legs/{legId}/horse-logs', 'post'], ['/api/v1/tracking/trips/{tripId}/horse-logs', 'get'],
+  ['/api/v1/tracking/trips/{tripId}/incidents', 'post'], ['/api/v1/tracking/trips/{tripId}/incidents', 'get'],
+  ['/api/v1/tracking/incidents/{id}', 'patch'],
+  ['/api/v1/tracking/trips/{tripId}/alerts', 'post'], ['/api/v1/tracking/trips/{tripId}/alerts', 'get'],
+  ['/api/v1/tracking/attachments/{id}', 'get'],
+  ['/api/v1/tracking/orders/{orderId}/timeline', 'get'], ['/api/v1/tracking/trips/{tripId}/timeline', 'get'], ['/api/v1/tracking/operations/active-trips', 'get'],
+ ];
+ for (const [path, method] of expected) {
+  const op = doc.paths[path][method];
+  assert.ok(op, path + ' ' + method);
+  assert.deepEqual(op.security, [{ bearer: [] }]);
+  assert.deepEqual(op.tags, ['Flow 4 - Tracking']);
+  assert.equal(op['x-implementation-status'], 'implemented');
+  assert.ok(op.responses[401] && op.responses[403]);
+ }
+ assert.ok(doc.tags.some(tag => tag.name === 'Flow 4 - Tracking'));
+ for (const path of ['/api/v1/tracking/legs/{legId}/horse-logs', '/api/v1/tracking/trips/{tripId}/incidents']) {
+  const body = doc.paths[path].post.requestBody.content;
+  assert.ok(body['multipart/form-data'].schema.allOf[1].properties.photos.maxItems === 3);
+  assert.ok(body['application/json']);
+ }
+ assert.ok(doc.paths['/api/v1/tracking/legs/{legId}/milestones'].post.responses[409]);
+ assert.equal(doc.components.schemas.CorrectLegInput.properties.reason.maxLength, 255);
+ assert.ok(doc.components.schemas.CorrectLegInput.required.includes('reason'));
+ assert.ok(!doc.paths['/api/v1/tracking/trips/{id}'].get.description.includes('Customer xem'));
+ assert.ok(doc.paths['/api/v1/tracking/attachments/{id}'].get.responses[200].content['image/jpeg']);
 });
