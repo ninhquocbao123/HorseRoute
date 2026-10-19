@@ -1,0 +1,2 @@
+export const inputToUtc=(value:string)=>{const [d,t]=value.split('T');return `${d}T${t}:00+07:00`;};
+export const utcToInput=(value:string)=>{const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(value)).reduce<Record<string,string>>((a,x)=>(a[x.type]=x.value,a),{});return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;};

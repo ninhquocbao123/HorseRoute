@@ -171,6 +171,7 @@ export class OrdersService {
         const [coordinator]=await this.repository.lockCoordinator(m, [dto.coordinatorId]);
         if(!coordinator)throw fieldError({coordinatorId:'Điều phối viên không hoạt động.'});
         const rules:Row[]=await this.repository.lockRules(m, [order.origin_country,order.destination_country]);
+        if(!rules.length)throw fieldError({ruleIds:`Chưa có quy định kiểm dịch cho tuyến ${order.origin_country} → ${order.destination_country}. Cần bổ sung danh mục trước khi duyệt.`});
         const selected=new Set(dto.ruleIds||[]);
         if(!selected.size||[...selected].some(key=>!rules.some(r=>String(r.id)===key)))throw fieldError({ruleIds:'Chọn quy định thuộc đúng cặp quốc gia của đơn.'});
         const applicable=rules.filter(r=>selected.has(String(r.id)));

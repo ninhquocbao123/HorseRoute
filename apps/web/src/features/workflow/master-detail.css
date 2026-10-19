@@ -1,0 +1,16 @@
+/* Full-width browse first, split workspace after selection. */
+.flow-workspace .master-detail>[hidden]{display:none!important}
+.flow-workspace .master-detail.list-only{grid-template-columns:minmax(0,1fr)}
+.flow-workspace .master-detail.list-only>.flow-list{width:100%;max-height:none;position:static;overflow:visible;box-sizing:border-box}
+.flow-workspace .master-detail.list-only .order-list-filters{grid-template-columns:minmax(220px,2fr) minmax(180px,1fr) auto;gap:16px;align-items:end}
+.flow-workspace .master-detail.list-only .order-list-filters>label:first-child{grid-column:auto}
+.flow-workspace .master-detail.list-only .order-list-filters input{margin-bottom:0}
+.flow-workspace .master-detail.list-only .order-list-scroll,.flow-workspace .master-detail.list-only .document-order-scroll{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;max-height:none;overflow:visible;padding:16px 0;min-height:0}
+.flow-workspace .master-detail.list-only .order-row{margin:0;height:100%;box-sizing:border-box;padding:18px}
+.flow-workspace .master-detail.list-only .pagination{justify-content:flex-end;gap:18px}
+.flow-workspace .back-to-list{margin-bottom:20px;font-size:13px;border-color:transparent;background:transparent;padding-left:0}
+.flow-workspace .master-detail.has-detail>.order-content,.flow-workspace .master-detail.has-detail>.flow-detail{animation:open-detail .24s ease-out}
+@keyframes open-detail{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:950px){.flow-workspace .master-detail.has-detail>.flow-list{display:none}.flow-workspace .master-detail.list-only .order-list-filters{grid-template-columns:minmax(0,1fr) auto}.flow-workspace .master-detail.list-only .order-list-filters>label:first-child{grid-column:1/-1}}
+@media(max-width:600px){.flow-workspace .master-detail.list-only .order-list-scroll,.flow-workspace .master-detail.list-only .document-order-scroll{grid-template-columns:minmax(0,1fr);gap:10px}}
+@media(prefers-reduced-motion:reduce){.flow-workspace .master-detail.has-detail>.order-content,.flow-workspace .master-detail.has-detail>.flow-detail{animation:none}}

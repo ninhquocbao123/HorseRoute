@@ -14,5 +14,12 @@
 .flow-orders .order-list-scroll .flow-created{font-size:10px;align-self:center;line-height:1.5}
 .flow-orders .order-list-scroll .status-chip{grid-column:2;font-size:10px;padding:3px 7px;justify-self:end}
 .flow-orders .flow-list>.pagination{margin-top:10px;padding-top:12px}
+.flow-orders .review-rule-picker{border:1px solid #bfd3c5!important;border-radius:12px;padding:20px!important;background:#f2f7f4}
+.review-rule-picker legend{font-weight:700;font-size:16px;padding:0 8px;color:#244f3e}
+.review-rule-picker .rule-route{font-size:14px;color:#365640}
+.flow-orders .review-rule-option{display:flex;gap:12px;padding:16px!important;margin:10px 0;background:white;border:1px solid #d4e2d9;border-radius:10px;cursor:pointer}
+.review-rule-option:has(input:checked){border-color:#448262;background:#eaf4ee}
+.review-rule-option span{display:flex;flex-direction:column;gap:6px}.review-rule-option small{font-weight:400;color:#687b70}
+.flow-orders .review-rule-option input{appearance:auto;width:20px;height:20px;flex-shrink:0;accent-color:#244f3e}
 @media(max-width:950px){.flow-orders .flow-list{position:static;max-height:540px}.flow-orders .order-list-scroll{max-height:260px}}
 @media(max-height:650px) and (min-width:951px){.flow-orders .flow-list{position:static;max-height:570px}}

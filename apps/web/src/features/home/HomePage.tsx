@@ -1,3 +1,4 @@
+import { Navigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../auth/pages/components/DashboardLayout';
 import { useAuth } from '../auth/hooks/useAuth';
 import CustomerDashboard from '../auth/pages/Customer/CustomerDashboard';
@@ -8,6 +9,7 @@ import SpecialistDashboard from '../auth/pages/Specialist/SpecialistDashboard';
 
 export default function HomePage() {
   const { account, logout } = useAuth();
+  const [params] = useSearchParams();
 
   if (!account) {
     return (
@@ -15,6 +17,10 @@ export default function HomePage() {
         <p>Đang tải thông tin người dùng...</p>
       </div>
     );
+  }
+
+  if (params.get('view') === 'trips' && ['MANAGER', 'COORDINATOR'].includes(account.role)) {
+    return <Navigate to="/dashboard/trips" replace />;
   }
 
   switch (account.role) {

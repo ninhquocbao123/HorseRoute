@@ -5,3 +5,12 @@
 .document-preview-dialog::backdrop{background:#142e2877;backdrop-filter:blur(3px)}
 .document-preview-dialog header{display:flex;justify-content:space-between;gap:20px;align-items:center}.document-preview-dialog h2{font-size:18px;overflow-wrap:anywhere;margin:8px 0}.document-preview-dialog header span{font-size:11px;letter-spacing:1px;color:#688074}
 .document-preview-dialog .document-preview-body img{max-height:65dvh}.document-preview-dialog .document-preview-body iframe{height:65dvh}
+.flow-documents .flow-list{display:flex;flex-direction:column;position:sticky;top:20px;max-height:min(650px,calc(100dvh - 40px));overflow:hidden}
+.flow-documents .flow-list>h2{font-size:18px;margin:0}.flow-documents .flow-list>.flow-list-caption,.flow-documents .flow-list>.pagination{flex-shrink:0}
+.document-order-scroll{overflow:auto;min-height:100px;scrollbar-width:thin;scrollbar-gutter:stable;overscroll-behavior:contain;padding-right:5px}
+.flow-documents .document-order-scroll .order-row{padding:13px;gap:6px;margin-top:8px;border-radius:10px}
+.flow-documents .flow-list>.pagination{margin-top:12px;padding-top:12px}
+.flow-manager-note{font-size:13px;line-height:1.7;border:1px solid #dbe6df;background:white;padding:16px 20px;border-radius:12px;color:#526b5e}
+.document-order-scroll:focus-visible{outline:2px solid #779b68;outline-offset:-2px}
+@media(max-width:950px){.flow-documents .flow-list{position:static;max-height:420px}.document-order-scroll{max-height:260px}}
+@media(max-height:600px){.flow-documents .flow-list{position:static;max-height:420px}}

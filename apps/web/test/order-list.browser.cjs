@@ -7,15 +7,16 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   const items=Array.from({length:7},(_,i)=>({id:String(i+1),order_code:'ORD-2026-000'+(i+1),status:'DRAFT',origin_country:'VN',destination_country:'SG',created_at:'2026-10-01'}));
   await page.route('**/api/v1/**',r=>r.fulfill({json:{items,total:7}}));
   await page.goto('http://127.0.0.1:5185/test/flow1.html');await page.locator('.order-row').last().waitFor();
-  const region=page.getByRole('region',{name:'Danh sách đơn vận chuyển'});
-  assert.ok(await region.evaluate(e=>e.scrollHeight>e.clientHeight));
-  assert.ok((await page.locator('.flow-list').boundingBox()).height<=740);
-  await region.evaluate(e=>e.scrollTop=e.scrollHeight);await page.locator('.order-row').last().isVisible();
+  assert.equal(await page.locator('.order-content').isVisible(),false);
+  const fullWidth=(await page.locator('.flow-list').boundingBox()).width;
+  await page.getByRole('button',{name:'Tạo đơn +'}).click();await page.locator('.order-content').waitFor();
+  assert.ok((await page.locator('.flow-list').boundingBox()).width<fullWidth/2);
+  await page.getByRole('button',{name:'← Quay lại danh sách'}).click();assert.equal(await page.locator('.order-content').isVisible(),false);
   await page.screenshot({path:'test-results/compact-orders-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  assert.ok((await page.locator('.flow-list').boundingBox()).height<=540);
+  await page.getByRole('button',{name:'Tạo đơn +'}).click();assert.equal(await page.locator('.flow-list').isVisible(),false);await page.getByRole('button',{name:'← Quay lại danh sách'}).click();assert.equal(await page.locator('.flow-list').isVisible(),true);
   await page.screenshot({path:'test-results/compact-orders-mobile.png',fullPage:true});
-  console.log('PASS seven orders scroll inside bounded panel; desktop/mobile widths and panel heights.');
+  console.log('PASS full-width initial list, desktop split editor, return to list and mobile detail navigation.');
  }finally{if(browser)await browser.close();await server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

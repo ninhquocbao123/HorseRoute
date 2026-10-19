@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCountryCode } from '@my-project/shared';
 import { idSchema, dateSchema, optional } from '../../shared/utils/validation.util';
 import { paginationSchema } from '../../shared/utils/pagination.util';
 export const horseSchema = z.object({
@@ -18,8 +19,8 @@ export const draftOrderSchema = z.object({
   horses: z.array(draftHorseSchema).max(50),
 }).strict();
 export const orderSchema = z.object({
-  originAddress: z.string().trim().min(1).max(255), originCountry: z.string().regex(/^[A-Z]{2}$/),
-  destinationAddress: z.string().trim().min(1).max(255), destinationCountry: z.string().regex(/^[A-Z]{2}$/),
+  originAddress: z.string().trim().min(1).max(255), originCountry: z.string().refine(isCountryCode,'Chọn quốc gia / vùng lãnh thổ hợp lệ.'),
+  destinationAddress: z.string().trim().min(1).max(255), destinationCountry: z.string().refine(isCountryCode,'Chọn quốc gia / vùng lãnh thổ hợp lệ.'),
   desiredDepartureDate: dateSchema, specialRequirements: optional(z.string().max(5000)), horses: z.array(horseSchema).min(1).max(50),
 }).strict();
 export const reviewSchema = z.object({
