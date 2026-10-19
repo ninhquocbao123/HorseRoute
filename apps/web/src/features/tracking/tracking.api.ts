@@ -65,6 +65,7 @@ export function errorMessage(error: unknown, fallback = 'Không thực hiện đ
     const data = error.response.data as { message?: string | string[]; fields?: Record<string, string> } | undefined;
     const fields = data?.fields ? Object.values(data.fields).join(' ') : '';
     const message = Array.isArray(data?.message) ? data?.message.join(' ') : data?.message;
+    if (error.response.status === 429) return 'Bạn thao tác quá nhanh. Dữ liệu vẫn được giữ, hãy đợi vài giây rồi thử lại.';
     if (error.response.status === 403) return message || 'Bạn không có quyền thực hiện thao tác này.';
     return [message, fields].filter(Boolean).join(' ') || fallback;
   }

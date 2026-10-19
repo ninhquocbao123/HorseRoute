@@ -17,7 +17,8 @@
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
     "test": "node --test test/*.test.cjs",
-    "test:mysql:flow4": "node test/flow4-tracking.mysql.cjs"
+    "test:mysql:flow4": "node test/flow4-tracking.mysql.cjs",
+    "seed:flow4-demo": "node scripts/seed-flow4-demo.cjs"
   },
   "dependencies": {
     "@my-project/shared": "workspace:*",
