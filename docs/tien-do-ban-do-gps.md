@@ -73,7 +73,7 @@ Code nhánh này đọc cột `locations.latitude/longitude` (cả ở `GET /tri
   - Gỡ 56 dòng CSS mobile chỉ Driver dùng khỏi `tracking.css`.
   - `test/driver.browser.cjs` viết lại cho 1440px; `test/portal-harness.tsx` bọc `AntDesignProvider` + theme token như `main.tsx`.
 - **Sửa CSS toàn cục** `features/home/workspace.css`: `.portal button` không còn đè lên nút antd (dùng `:not(:where([class*=ant-]))`, giữ độ ưu tiên cũ). Ảnh hưởng: nút antd ở mọi màn hình portal (Fleet, Hồ sơ, Đơn hàng, Trips…) giờ hiện đúng màu theme.
-- **Điều tra luồng Driver** (tài khoản Bùi Văn Tài): không phải lỗi. Driver chỉ thấy chuyến khi đơn `READY`; chuyến 21, 22 còn `PREPARING` vì giấy tờ/hồ sơ Flow 2 chưa đủ (chuyến 21 còn thiếu file thật trên kho lưu trữ).
+- **Điều tra luồng Driver** (tài khoản Bùi Văn Tài): không phải lỗi. Driver chỉ thấy chuyến khi đơn `READY`; chuyến 21, 22 còn `PREPARING` vì giấy tờ/hồ sơ Flow 2 chưa đủ (chuyến 21 còn thiếu file thật trên kho lưu trữ). **Đã thay đổi** từ commit `4fc8100` của Tiến (merge 20/10/2026): bỏ bước Manager "Đánh dấu sẵn sàng"; đơn tự chuyển `READY` khi kế hoạch được duyệt và đã phân công đủ tài xế + hộ tống (không còn kiểm giấy tờ). Các chuyến đã duyệt trước đó vẫn ở `PREPARING` cho tới khi có thao tác duyệt kế hoạch hoặc lưu phân công lại.
 
 ## Kiểm thử hiện tại
 

@@ -17,7 +17,6 @@ import { reviewTripPlan } from '../api/trips.api';
 import { tripQueryKeys } from '../constants/trip-query-keys';
 import TripReviewDialog from '../components/TripReviewDialog';
 import TripAssignmentsPanel from '../components/TripAssignmentsPanel';
-import TripReadinessPanel from '../components/TripReadinessPanel';
 
 function readTab(search: URLSearchParams): TripDetailTab {
   const raw = search.get('tab');
@@ -163,7 +162,7 @@ export default function TripDetailPage() {
           )}
 
           {activeTab === 'crew' && (
-            <TripAssignmentsPanel trip={trip} /> /* crew readiness is not overall readiness */
+            <TripAssignmentsPanel trip={trip} />
           )}
           {false && (
             <div className="trip-placeholder">
@@ -177,9 +176,6 @@ export default function TripDetailPage() {
             </div>
           )}
 
-          {activeTab === 'readiness' && (
-            <TripReadinessPanel trip={trip} />
-          )}
         </section>
 
         <aside className="trip-panel trip-summary-aside" aria-labelledby="trip-summary-title">

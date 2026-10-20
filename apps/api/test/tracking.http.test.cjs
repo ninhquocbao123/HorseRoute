@@ -21,7 +21,7 @@ async function fixture() {
   tracking.getAttachmentFile = async () => ({ buffer: PNG, originalName: 'ảnh ngựa.png', fileType: 'PNG' });
   const users = { getById: async id => ({ id, role: roles[id], accountStatus: 'ACTIVE' }) };
   const tokens = new TokenService(secret);
-  const services = { users, auth: {}, health: {}, orders: {}, notifications: {}, documents: {}, trips: {}, readiness: {}, tracking };
+  const services = { users, auth: {}, health: {}, orders: {}, notifications: {}, documents: {}, trips: {}, tracking };
   const server = createApp({ services, tokens, corsOrigin: 'http://localhost:5173', requestLimit: 1000 }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = 'http://127.0.0.1:' + server.address().port;

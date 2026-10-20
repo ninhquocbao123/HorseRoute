@@ -156,18 +156,20 @@ async function main() {
 
   await check('Flow 3 data is re-validated before the first departure and only transport (NORMAL) horses are tracked', async () => {
     const before = await snapshot();
-    const blockedWith = async (code, mutate, restore) => {
+    // Error bodies no longer carry `blockers`; each reason is spelled out in the 409 message.
+    const blockedWith = async (reason, mutate, restore) => {
       await q(mutate);
       try {
         const r = await depart(minutesAgo(1));
-        assert.equal(r.status, 409, code + ' -> ' + JSON.stringify(r.data).slice(0, 200));
-        assert.ok(r.data.blockers?.some(b => b.code === code), 'blocker ' + code + ' reported: ' + JSON.stringify(r.data.blockers));
+        assert.equal(r.status, 409, reason + ' -> ' + JSON.stringify(r.data).slice(0, 200));
+        assert.match(r.data.message, reason, 'reason reported: ' + r.data.message);
+        assert.equal(r.data.blockers, undefined);
       } finally { await q(restore); }
     };
-    await blockedWith('VEHICLE_INACTIVE', 'UPDATE vehicles SET is_active=0 WHERE id=5', 'UPDATE vehicles SET is_active=1 WHERE id=5');
-    await blockedWith('VEHICLE_CAPACITY', 'UPDATE vehicles SET capacity_stalls=1 WHERE id=5', 'UPDATE vehicles SET capacity_stalls=4 WHERE id=5');
-    await blockedWith('HORSE_FLAGGED', "UPDATE horses SET order_status='FLAGGED' WHERE id=22", "UPDATE horses SET order_status='NORMAL' WHERE id=22");
-    await blockedWith('MISSING_ESCORT', "UPDATE users SET account_status='LOCKED' WHERE id=10", "UPDATE users SET account_status='ACTIVE' WHERE id=10");
+    await blockedWith(/xe không còn hoạt động/, 'UPDATE vehicles SET is_active=0 WHERE id=5', 'UPDATE vehicles SET is_active=1 WHERE id=5');
+    await blockedWith(/Xe không đủ chỗ/, 'UPDATE vehicles SET capacity_stalls=1 WHERE id=5', 'UPDATE vehicles SET capacity_stalls=4 WHERE id=5');
+    await blockedWith(/ngựa đang bị đánh dấu/, "UPDATE horses SET order_status='FLAGGED' WHERE id=22", "UPDATE horses SET order_status='NORMAL' WHERE id=22");
+    await blockedWith(/Chưa có người hộ tống hợp lệ/, "UPDATE users SET account_status='LOCKED' WHERE id=10", "UPDATE users SET account_status='ACTIVE' WHERE id=10");
     assert.deepEqual(await snapshot(), before, 'a blocked departure changes nothing');
     await q("UPDATE horses SET order_status='REMOVED' WHERE id=22");
     try {

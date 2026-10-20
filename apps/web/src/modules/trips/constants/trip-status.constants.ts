@@ -22,7 +22,6 @@ export const legStatusLabels: Record<TripLegStatus, string> = {
 export const tripDetailTabs: { id: TripDetailTab; label: string }[] = [
   { id: 'plan', label: 'Kế hoạch' },
   { id: 'crew', label: 'Nhân sự' },
-  { id: 'readiness', label: 'Điều kiện READY' },
 ];
 
-export const VALID_DETAIL_TABS: ReadonlySet<string> = new Set<TripDetailTab>(['plan', 'crew', 'readiness']);
+export const VALID_DETAIL_TABS: ReadonlySet<string> = new Set<TripDetailTab>(['plan', 'crew']);

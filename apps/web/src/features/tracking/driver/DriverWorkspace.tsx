@@ -112,7 +112,7 @@ export default function DriverWorkspace({ view, onNavigate }: { view: string; on
         <section className="drv-card drv-empty">
           <Empty description={<>
             <strong>Chưa có chuyến nào được giao</strong>
-            <p>Chuyến sẽ xuất hiện khi điều phối viên phân công bạn và Quản lý đánh dấu đơn hàng đã sẵn sàng.</p>
+            <p>Chuyến sẽ xuất hiện khi kế hoạch được duyệt và điều phối viên phân công đủ tài xế, hộ tống (đơn tự chuyển sang sẵn sàng).</p>
           </>} />
           <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={refreshing}>Tải lại</Button>
         </section>

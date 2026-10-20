@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),59);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),57);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -123,17 +123,13 @@ test('Crew API documents strict input, both roles and crew-only readiness',()=>{
  assert.ok(doc.components.schemas.TripAssignments.properties.crewReadiness);
 });
 
-test('Readiness and mark-ready expose real endpoints, blockers and strict empty body', () => {
- const get = doc.paths['/api/v1/trips/{id}/readiness'].get;
- const post = doc.paths['/api/v1/orders/{id}/mark-ready'].post;
- assert.equal(get['x-implementation-status'], 'implemented');
- assert.ok(!get.requestBody);
- assert.match(post.description, /Manager/);
- assert.match(post.parameters[0].description, /Order/);
- assert.equal(post.responses[200].content['application/json'].schema.$ref, '#/components/schemas/MarkReadyResult');
- assert.equal(doc.components.schemas.SubmitTripPlanInput.additionalProperties, false);
- assert.ok(doc.components.schemas.Error.properties.blockers);
- assert.ok(post.responses[409]);
+test('Manual readiness endpoints are removed and assignment documents automatic READY', () => {
+ assert.ok(!doc.paths['/api/v1/trips/{id}/readiness']);
+ assert.ok(!doc.paths['/api/v1/orders/{id}/mark-ready']);
+ assert.ok(!doc.components.schemas.TripReadiness);
+ assert.ok(!doc.components.schemas.MarkReadyResult);
+ assert.ok(!doc.components.schemas.Error.properties.blockers);
+ assert.match(doc.paths['/api/v1/trips/{id}/assignments'].put.description, /tự động chuyển READY/);
 });
 
 test('Flow 4 tracking contract documents every implemented endpoint with security, uploads and errors', () => {

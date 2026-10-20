@@ -1,6 +1,6 @@
 import { CrewReadiness } from './trips.dto';
 
-// Shared with the full readiness service; this checks crew only, never Order READY.
+// This validates the crew roster; the caller decides whether a complete roster can advance the Order.
 export function checkCrewReadiness(rows: { userId: string; role: string; accountRole: string; accountStatus: string }[]): CrewReadiness {
   const blockers: CrewReadiness['blockers'] = [];
   const eligible = rows.filter(row => row.accountRole === 'DRIVER_ESCORT' && row.accountStatus === 'ACTIVE');

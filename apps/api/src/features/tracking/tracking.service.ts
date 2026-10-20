@@ -284,7 +284,8 @@ export class TrackingService {
             }
             const blockers = await repo.getDepartureBlockers(leg.tripId, leg.orderId);
             if (blockers.length) {
-              throw new ConflictException({ message: 'Chuyến chưa đủ điều kiện xuất phát: ' + blockers.map(b => b.message).join(' '), blockers });
+              // Error bodies no longer carry `blockers` (removed with manual READY); every reason is in the message.
+              throw new ConflictException('Chuyến chưa đủ điều kiện xuất phát: ' + blockers.map(b => b.message).join(' '));
             }
             nextOrderStatus = OrderStatus.IN_TRANSIT;
             await repo.updateOrderStatus(leg.orderId, OrderStatus.IN_TRANSIT);

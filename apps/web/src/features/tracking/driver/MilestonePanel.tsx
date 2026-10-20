@@ -122,7 +122,7 @@ export default function MilestonePanel({ trip, onChanged }: { trip: IDriverTripS
                 <span className="drv-muted">{action.hint}</span>
               </div>
             ) : !finished && (
-              <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng được đánh dấu sẵn sàng." />
+              <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
             )}
           </section>
         )}
