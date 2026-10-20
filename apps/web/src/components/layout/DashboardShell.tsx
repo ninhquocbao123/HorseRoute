@@ -63,7 +63,12 @@ export default function DashboardShell({
       />}
       <a className="portal-skip" href="#portal-main">Đến nội dung chính</a>
       <aside ref={sidebar} id="dashboard-sidebar" className={`portal-sidebar${mobile ? ' is-open' : ''}`}>
-        <Link className="portal-brand" to="/" onClick={event => { event.preventDefault(); go('/'); }}>
+        <Link
+          className="portal-brand"
+          to="/dashboard"
+          aria-label="WDP Equine – Về Tổng quan"
+          onClick={event => { event.preventDefault(); go('/dashboard'); }}
+        >
           <span>W</span><div>WDP EQUINE<small>TRANSPORT MANAGEMENT</small></div>
         </Link>
         <div className="portal-role">KHÔNG GIAN LÀM VIỆC<strong>{config.name}</strong></div>
