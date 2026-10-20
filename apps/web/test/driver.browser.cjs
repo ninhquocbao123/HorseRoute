@@ -1,4 +1,4 @@
-// Kiểm thử trình duyệt giao diện Driver (Flow 4, Bước 4) với API giả lập, viewport điện thoại 390px.
+// Kiểm thử trình duyệt giao diện Driver (Flow 4) trên web desktop 1440px với API giả lập.
 // Chạy: PLAYWRIGHT_PACKAGE=<đường dẫn playwright-core> node apps/web/test/driver.browser.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -13,7 +13,7 @@ const { pathToFileURL } = require('node:url');
   let browser, page;
   try {
     browser = await chromium.launch({ channel: 'msedge', headless: true });
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -59,7 +59,6 @@ const { pathToFileURL } = require('node:url');
         const l = state.legs.find(x => x.id === milestone[1]);
         if (body.milestoneType === 'DEPARTED') { l.status = 'MOVING'; l.actualDepartureAt = body.occurredAt; state.orderStatus = 'IN_TRANSIT'; }
         if (body.milestoneType === 'ARRIVED_AT_STOP') { l.status = 'AT_STOP'; l.actualArrivalAt = body.occurredAt; }
-        if (body.milestoneType === 'CUSTOMS_CLEARED') { /* trạng thái giữ AT_STOP */ }
         if (body.milestoneType === 'DELIVERED') { l.status = 'COMPLETED'; state.orderStatus = 'DELIVERED'; }
         mark(l, body.milestoneType, body.occurredAt);
         return route.fulfill({ status: 201, json: { milestoneId: '1', legId: l.id, milestoneType: body.milestoneType, legStatus: l.status, orderStatus: state.orderStatus } });
@@ -71,16 +70,14 @@ const { pathToFileURL } = require('node:url');
         return route.fulfill({ json: { legId: complete[1], status: 'COMPLETED' } });
       }
       if (/^\/tracking\/legs\/\d+\/horse-logs$/.test(p) && method === 'POST') {
-        const raw = request.postData() || '';
-        calls.horseLogs.push(raw);
+        calls.horseLogs.push(request.postData() || '');
         state.logs.push({ id: '1', horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn sáng', loggedAt: iso(0), createdBy: '1', createdByName: 'Tài xế', correctsLogId: null, attachments: [] });
         return route.fulfill({ status: 201, json: state.logs[state.logs.length - 1] });
       }
       if (p === '/tracking/trips/100/incidents' && method === 'POST') {
         const raw = request.postData() || '';
         calls.incidents.push(raw);
-        const urgency = raw.includes('HORSE_MEDICAL') ? 'HIGH' : 'NORMAL';
-        return route.fulfill({ status: 201, json: { id: '9', urgency, status: 'NEW' } });
+        return route.fulfill({ status: 201, json: { id: '9', urgency: raw.includes('HORSE_MEDICAL') ? 'HIGH' : 'NORMAL', status: 'NEW' } });
       }
       return route.fulfill({ status: 404, json: { message: 'unmocked ' + p } });
     });
@@ -93,115 +90,110 @@ const { pathToFileURL } = require('node:url');
       const { scroll, inner } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
       assert.ok(scroll <= inner, `${label}: ngang ${scroll} > ${inner}`);
     };
-    const smallTargets = async scope => page.evaluate(selector => {
-      const root = document.querySelector(selector) || document;
-      return [...root.querySelectorAll('button, select, input:not([type=file]), textarea')]
-        .filter(el => el.offsetParent !== null)
-        .map(el => ({ text: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height), tag: el.tagName }))
-        .filter(item => item.h < 44 && !/Đến nội dung chính/.test(item.text));
-    }, scope);
+    const action = label => page.locator('.drv-action', { hasText: label });
+    const dialog = () => page.locator('.ant-modal-wrap:visible [role=dialog]');
+    // Bấm xác nhận rồi đợi hộp thoại đóng (thành công) hoặc vẫn mở (lỗi mạng).
+    const confirm = () => dialog().getByRole('button', { name: 'Xác nhận', exact: true }).click();
+    const pick = async (label, option) => {
+      await page.getByLabel(label, { exact: true }).click();
+      await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: option }).click();
+    };
+    const photo = { name: 'ngua.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]) };
 
-    // 1. Danh sách chuyến
+    // 1. Tổng quan: thống kê, danh sách chuyến bên trái, chi tiết chuyến bên phải
     await open('assignments');
-    await page.getByText('WDP-TEST-1').first().waitFor();
+    await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
     await page.getByText('Kho HCM → Trạm Đồng Nai → Cửa khẩu').waitFor();
-    assert.equal(await page.locator('.trk-facts dd').nth(1).innerText(), '2', 'số ngựa');
+    assert.equal(await page.locator('.drv-facts dd').nth(1).innerText(), '2', 'số ngựa');
     await page.getByText('Cảnh báo từ điều phối viên').waitFor();
+    assert.equal(await page.getByRole('tab', { name: 'Tổng quan chuyến' }).getAttribute('aria-selected'), 'true');
+    await page.getByText('Việc cần làm tiếp theo').waitFor();
+    await page.getByRole('cell', { name: 'Bạch Mã' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Báo sự cố khẩn cấp' }).isDisabled(), true, 'chưa vận chuyển: khóa báo sự cố');
     await noOverflow('assignments');
-    await page.screenshot({ path: 'test-results/driver-assignments-390.png', fullPage: true });
-    assert.deepEqual(await smallTargets('.portal-main'), [], 'nút/ô nhập dưới 44px ở danh sách chuyến');
+    await page.screenshot({ path: 'test-results/driver-overview-desktop.png', fullPage: true });
 
-    // 2. Ghi mốc: 1 nút lớn, xác nhận trong 2 lần chạm
-    await page.getByRole('button', { name: 'Cập nhật mốc' }).click();
+    // 2. Ghi mốc: một nút hành động (màu theo loại mốc), xác nhận trong hộp thoại
+    await page.getByRole('button', { name: 'Mở mốc hành trình' }).click();
     await page.getByRole('heading', { name: /Kho HCM/ }).waitFor();
-    assert.equal(await page.locator('.trk-action').count(), 1, 'chỉ một nút hành động chính');
-    const actionBox = await page.locator('.trk-action').boundingBox();
-    assert.ok(actionBox.height >= 56, 'nút hành động chính đủ lớn: ' + actionBox.height);
-    let taps = 0;
-    await page.locator('.trk-action', { hasText: 'XÁC NHẬN XUẤT PHÁT' }).tap(); taps++;
-    await page.getByRole('dialog').waitFor();
-    await noOverflow('sheet');
-    assert.deepEqual(await smallTargets('dialog'), [], 'nút trong sheet dưới 44px');
-    await page.screenshot({ path: 'test-results/driver-sheet-390.png' });
-    await page.getByRole('button', { name: 'Xác nhận', exact: true }).tap(); taps++;
-    await page.locator('.trk-action', { hasText: 'ĐÃ ĐẾN TRẠM DỪNG' }).waitFor();
-    assert.ok(taps <= 3, 'quá 3 lần chạm: ' + taps);
+    assert.equal(await page.locator('.drv-action').count(), 1, 'chỉ một nút hành động chính');
+    await action('XÁC NHẬN XUẤT PHÁT').click();
+    await dialog().waitFor();
+    await page.screenshot({ path: 'test-results/driver-confirm-desktop.png' });
+    await confirm();
+    await action('ĐÃ ĐẾN TRẠM DỪNG').waitFor();
     assert.equal(calls.milestones.at(-1).milestoneType, 'DEPARTED');
     assert.ok(Math.abs(Date.parse(calls.milestones.at(-1).occurredAt) - Date.now()) < 60e3, 'giờ mặc định là hiện tại');
 
     // 3. Mất mạng: giữ nguyên giờ đã chốt và gửi lại đúng giờ đó
     fail.next = 1;
-    await page.locator('.trk-action', { hasText: 'ĐÃ ĐẾN TRẠM DỪNG' }).tap();
-    await page.getByRole('button', { name: 'Xác nhận', exact: true }).tap();
-    await page.getByText(/Mất kết nối mạng/).waitFor();
-    assert.equal(await page.getByRole('dialog').count(), 1, 'sheet vẫn mở để gửi lại');
+    await action('ĐÃ ĐẾN TRẠM DỪNG').click();
+    await confirm();
+    await dialog().getByText(/Mất kết nối mạng/).waitFor();
     const firstAttempt = calls.milestones.find(c => c.failed);
-    await page.getByRole('button', { name: 'Hủy' }).tap();
+    await dialog().getByRole('button', { name: 'Hủy' }).click();
     await page.getByText('Có thao tác chưa gửi được').waitFor();
-    // Điều hướng trong ứng dụng đã đổi URL thật, nên mở lại trang giả lập thay vì reload.
     await open('milestones');
     await page.getByText('Có thao tác chưa gửi được').waitFor();
-    await page.getByRole('button', { name: 'Gửi lại' }).tap();
-    await page.locator('.trk-action', { hasText: 'HOÀN THÀNH CHẶNG' }).waitFor();
+    await page.getByRole('button', { name: 'Gửi lại' }).click();
+    await action('HOÀN THÀNH CHẶNG').waitFor();
     assert.equal(calls.milestones.at(-1).occurredAt, firstAttempt.occurredAt, 'gửi lại đúng giờ đã chốt');
     assert.equal(calls.milestones.at(-1).milestoneType, 'ARRIVED_AT_STOP');
-    await noOverflow('milestones');
 
     // Chặng trung gian → "Hoàn thành chặng" → chặng 2 là cửa khẩu: xuất phát, đến, thông quan, giao
-    await page.locator('.trk-action', { hasText: 'HOÀN THÀNH CHẶNG' }).tap();
-    await page.getByRole('button', { name: 'Xác nhận', exact: true }).tap();
-    await page.locator('.trk-action', { hasText: 'XÁC NHẬN XUẤT PHÁT' }).waitFor();
+    await action('HOÀN THÀNH CHẶNG').click();
+    await confirm();
+    await action('XÁC NHẬN XUẤT PHÁT').waitFor();
     assert.equal(calls.complete.length, 1);
-    for (const [label, expected] of [['XÁC NHẬN XUẤT PHÁT', 'DEPARTED'], ['ĐÃ ĐẾN ĐIỂM ĐÍCH', 'ARRIVED_AT_STOP'], ['ĐÃ THÔNG QUAN', 'CUSTOMS_CLEARED'], ['ĐÃ GIAO NGỰA AN TOÀN', 'DELIVERED']]) {
-      await page.locator('.trk-action', { hasText: label }).tap();
-      await page.getByRole('button', { name: 'Xác nhận', exact: true }).tap();
-      await page.waitForTimeout(150);
+    const steps = [['XÁC NHẬN XUẤT PHÁT', 'DEPARTED', 'ĐÃ ĐẾN ĐIỂM ĐÍCH'], ['ĐÃ ĐẾN ĐIỂM ĐÍCH', 'ARRIVED_AT_STOP', 'ĐÃ THÔNG QUAN'], ['ĐÃ THÔNG QUAN', 'CUSTOMS_CLEARED', 'ĐÃ GIAO NGỰA AN TOÀN'], ['ĐÃ GIAO NGỰA AN TOÀN', 'DELIVERED', null]];
+    for (const [label, expected, next] of steps) {
+      await action(label).click();
+      await confirm();
+      if (next) await action(next).waitFor();
+      else await page.getByText('Tất cả các chặng đã hoàn thành').first().waitFor();
       assert.equal(calls.milestones.at(-1).milestoneType, expected);
     }
-    await page.getByText('Tất cả các chặng đã hoàn thành').waitFor();
-    assert.equal(await page.locator('.trk-action').count(), 0);
-    await page.screenshot({ path: 'test-results/driver-milestones-done-390.png', fullPage: true });
+    assert.equal(await page.locator('.drv-action').count(), 0);
+    await noOverflow('milestones');
+    await page.screenshot({ path: 'test-results/driver-milestones-done-desktop.png', fullPage: true });
 
     // 4. Nhật ký ngựa: lỗi mạng không mất dữ liệu, nháp còn sau khi tải lại
     state.orderStatus = 'IN_TRANSIT';
     state.legs[1].status = 'MOVING';
     await open('horse-logs');
     await page.getByRole('heading', { name: 'Ghi nhật ký sức khỏe ngựa' }).waitFor();
-    await page.locator('select').nth(1).selectOption('21');
-    await page.getByRole('button', { name: /Bỏ ăn/ }).tap();
+    await pick('Con ngựa', 'Bạch Mã');
+    await page.getByRole('button', { name: /Bỏ ăn/ }).click();
     await page.getByPlaceholder(/Biểu hiện/).fill('Bỏ ăn sáng');
-    await page.locator('input[type=file]').setInputFiles({ name: 'ngua.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]) });
-    await page.getByText('📷 Chụp / chọn ảnh (1/3)').waitFor();
+    await page.locator('input[type=file]').setInputFiles(photo);
+    await page.getByRole('button', { name: /Thêm ảnh \(1\/3\)/ }).waitFor();
     assert.equal(await page.locator('input[type=file]').isVisible(), false, 'ô chọn tệp gốc phải được ẩn');
-    assert.deepEqual(await smallTargets('.trk-form'), [], 'nút/ô nhập dưới 44px ở form nhật ký');
     await noOverflow('horse-log form');
-    await page.screenshot({ path: 'test-results/driver-horse-log-390.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/driver-horse-log-desktop.png', fullPage: true });
     fail.next = 1;
-    await page.getByRole('button', { name: 'GỬI NHẬT KÝ' }).tap();
+    await page.getByRole('button', { name: 'Gửi nhật ký' }).click();
     await page.getByText(/Mất kết nối mạng/).waitFor();
     assert.equal(await page.getByPlaceholder(/Biểu hiện/).inputValue(), 'Bỏ ăn sáng', 'ghi chú còn nguyên sau lỗi mạng');
     await page.reload(); await page.waitForLoadState('networkidle');
     assert.equal(await page.getByPlaceholder(/Biểu hiện/).inputValue(), 'Bỏ ăn sáng', 'nháp còn sau khi tải lại');
-    await page.locator('input[type=file]').setInputFiles({ name: 'ngua.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]) });
-    await page.getByRole('button', { name: 'GỬI NHẬT KÝ' }).tap();
+    await page.locator('input[type=file]').setInputFiles(photo);
+    await page.getByRole('button', { name: 'Gửi nhật ký' }).click();
     await page.getByText('Đã lưu nhật ký ngựa.').waitFor();
     assert.equal(calls.horseLogs.length, 1);
     assert.ok(/name="horseId"[\s\S]*21/.test(calls.horseLogs[0]) && /OFF_FEED/.test(calls.horseLogs[0]) && /name="photos"/.test(calls.horseLogs[0]), 'multipart có ngựa, tình trạng, ảnh');
     assert.equal(await page.getByPlaceholder(/Biểu hiện/).inputValue(), '', 'nháp được xóa sau khi gửi thành công');
 
     // 5. Báo sự cố khẩn cấp
-    await page.getByRole('button', { name: /BÁO SỰ CỐ KHẨN CẤP/ }).tap();
-    await page.getByRole('dialog').waitFor();
-    await page.getByRole('button', { name: 'Y tế ngựa' }).tap();
-    await page.getByPlaceholder(/Chuyện gì đang xảy ra/).fill('Ngựa đau bụng, đổ mồ hôi');
-    await page.getByRole('button', { name: 'GỬI BÁO SỰ CỐ' }).tap();
-    await page.getByText(/chọn con ngựa bị ảnh hưởng/).waitFor();
+    await page.getByRole('button', { name: 'Báo sự cố khẩn cấp' }).click();
+    await dialog().waitFor();
+    await dialog().getByRole('button', { name: 'Y tế ngựa' }).click();
+    await dialog().getByPlaceholder(/Chuyện gì đang xảy ra/).fill('Ngựa đau bụng, đổ mồ hôi');
+    await dialog().getByRole('button', { name: 'Gửi báo sự cố' }).click();
+    await dialog().getByText(/chọn con ngựa bị ảnh hưởng/).waitFor();
     assert.equal(calls.incidents.length, 0, 'chưa gửi khi thiếu ngựa');
-    await page.getByRole('dialog').locator('select').nth(0).selectOption('21');
-    await noOverflow('incident');
-    await page.screenshot({ path: 'test-results/driver-incident-390.png' });
-    assert.deepEqual(await smallTargets('dialog'), [], 'nút trong hộp sự cố dưới 44px');
-    await page.getByRole('button', { name: 'GỬI BÁO SỰ CỐ' }).tap();
+    await pick('Con ngựa liên quan', 'Bạch Mã');
+    await page.screenshot({ path: 'test-results/driver-incident-desktop.png' });
+    await dialog().getByRole('button', { name: 'Gửi báo sự cố' }).click();
     await page.getByText(/Đã báo sự cố KHẨN/).waitFor();
     assert.equal(calls.incidents.length, 1);
     assert.ok(/HORSE_MEDICAL/.test(calls.incidents[0]));
@@ -209,13 +201,13 @@ const { pathToFileURL } = require('node:url');
     // 6. Chuyến không còn vận chuyển: nút khẩn cấp bị khóa
     state.orderStatus = 'DELIVERED';
     await open('assignments');
-    assert.equal(await page.getByRole('button', { name: /BÁO SỰ CỐ KHẨN CẤP/ }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Báo sự cố khẩn cấp' }).isDisabled(), true);
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');
   } catch (error) {
     // Giữ lại ảnh và nội dung trang khi test lỗi để dễ tìm nguyên nhân.
-    try { await page?.screenshot({ path: 'test-results/driver-failure.png', fullPage: true }); console.log('PAGE TEXT:', (await page.locator('body').innerText()).slice(0, 600)); } catch { /* bỏ qua */ }
+    try { await page?.screenshot({ path: 'test-results/driver-failure.png', fullPage: true }); console.log('PAGE TEXT:', (await page.locator('body').innerText()).slice(0, 800)); } catch { /* bỏ qua */ }
     throw error;
   } finally {
     await browser?.close();

@@ -250,7 +250,8 @@ export class TripsService {
     await this.accessible(account, id);
     const [locations, vehicles] = await Promise.all([this.repository.locations(), this.repository.vehicles()]);
     return {
-      locations: locations.map(l => ({ id: l.id, name: l.name, locationType: l.locationType, country: l.country, timezone: l.timezone, address: l.address })),
+      locations: locations.map(l => ({ id: l.id, name: l.name, locationType: l.locationType, country: l.country, timezone: l.timezone, address: l.address,
+        latitude: l.latitude === null ? null : Number(l.latitude), longitude: l.longitude === null ? null : Number(l.longitude) })),
       vehicles: vehicles.map(v => ({ id: v.id, plateOrCode: v.plateOrCode, vehicleType: v.vehicleType, capacityStalls: v.capacityStalls, isActive: true })),
     };
   }

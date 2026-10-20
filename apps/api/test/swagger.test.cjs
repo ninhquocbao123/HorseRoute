@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),54);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),59);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -166,4 +166,28 @@ test('Flow 4 tracking contract documents every implemented endpoint with securit
  assert.ok(doc.components.schemas.CorrectLegInput.required.includes('reason'));
  assert.ok(!doc.paths['/api/v1/tracking/trips/{id}'].get.description.includes('Customer xem'));
  assert.ok(doc.paths['/api/v1/tracking/attachments/{id}'].get.responses[200].content['image/jpeg']);
+});
+
+test('Locations catalog documents Specialist CRUD with required coordinates and plan-options coordinates', () => {
+ const expected = [['/api/v1/locations', 'get'], ['/api/v1/locations', 'post'], ['/api/v1/locations/{id}', 'get'], ['/api/v1/locations/{id}', 'put'], ['/api/v1/locations/{id}', 'delete']];
+ for (const [path, method] of expected) {
+  const op = doc.paths[path][method];
+  assert.ok(op, path + ' ' + method);
+  assert.deepEqual(op.security, [{ bearer: [] }]);
+  assert.deepEqual(op.tags, ['Flow 3 - Locations']);
+  assert.equal(op['x-implementation-status'], 'implemented');
+  assert.ok(op.responses[401] && op.responses[403] && op.responses[500]);
+ }
+ for (const [path, method] of expected.slice(1).filter(([, m]) => m !== 'get')) assert.ok(doc.paths[path][method].responses[409], path + ' ' + method);
+ const input = doc.components.schemas.LocationInput;
+ assert.equal(input.additionalProperties, false);
+ for (const key of ['latitude', 'longitude', 'timezone', 'country']) assert.ok(input.required.includes(key), key);
+ assert.ok(!input.required.includes('address'));
+ const item = doc.components.schemas.Location;
+ for (const key of ['legCount', 'ruleCount', 'inActiveUse']) assert.ok(item.required.includes(key), key);
+ assert.equal(item.properties.latitude.nullable, true);
+ const option = doc.components.schemas.TripLocationOption;
+ assert.equal(option.properties.latitude.nullable, true);
+ assert.ok(option.required.includes('longitude'));
+ assert.ok(doc.tags.some(tag => tag.name === 'Flow 3 - Locations'));
 });

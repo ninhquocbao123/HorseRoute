@@ -52,7 +52,9 @@ export const tripSchemas = {
   TripList: object({ items: { type: 'array', items: ref('TripSummary') }, total: { type: 'integer', minimum: 0 }, page: { type: 'integer', minimum: 1 }, limit: { type: 'integer', minimum: 1, maximum: 100 } }),
   TripPlanLegInput: object(legInputProperties, Object.keys(legInputProperties).filter(key => key !== 'id')),
   TripPlanInput: object({ legs: { type: 'array', minItems: 1, maxItems: 50, items: ref('TripPlanLegInput'), description: 'Đề xuất giới hạn kỹ thuật 50 chặng/request, chờ xác nhận. Gửi đủ các chặng cũ đúng thứ tự, sau đó mới đến chặng mới. Không hỗ trợ xóa/đảo thứ tự.' } }),
-  TripLocationOption: object({ id, name: { type: 'string' }, locationType: { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'] }, country: { type: 'string', pattern: '^[A-Z]{2}$' }, timezone: { type: 'string', example: 'Asia/Ho_Chi_Minh' }, address: { type: 'string', nullable: true } }),
+  TripLocationOption: object({ id, name: { type: 'string' }, locationType: { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'] }, country: { type: 'string', pattern: '^[A-Z]{2}$' }, timezone: { type: 'string', example: 'Asia/Ho_Chi_Minh' }, address: { type: 'string', nullable: true },
+    latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true, description: 'WGS84; null khi chưa ghim trên bản đồ. Không ảnh hưởng việc lưu kế hoạch.' },
+    longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true, description: 'WGS84; null cùng lúc với latitude.' } }),
   TripVehicleOption: object({ id, plateOrCode: { type: 'string' }, vehicleType: { type: 'string', enum: ['TRUCK', 'AIRCRAFT_HOLD', 'CRATE'] }, capacityStalls: { type: 'integer', minimum: 1 }, isActive: { type: 'boolean', enum: [true] } }),
   TripPlanOptions: object({ locations: { type: 'array', items: ref('TripLocationOption') }, vehicles: { type: 'array', items: ref('TripVehicleOption') } }),
 };
@@ -67,7 +69,8 @@ const detail = { ...summary, ...reviewFields, legs: [
 ] };
 const emptyDetail = { ...summary, ...reviewFields, plannedDepartureAt: null, plannedArrivalAt: null, legs: [] };
 const optionsExample = {
-  locations: ['10', '11', '12'].map((value, index) => ({ id: value, name: `Điểm ${['A', 'B', 'C'][index]} (mẫu)`, locationType: 'REST_STOP', country: 'VN', timezone: 'Asia/Ho_Chi_Minh', address: null })),
+  locations: ['10', '11', '12'].map((value, index) => ({ id: value, name: `Điểm ${['A', 'B', 'C'][index]} (mẫu)`, locationType: 'REST_STOP', country: 'VN', timezone: 'Asia/Ho_Chi_Minh', address: null,
+    latitude: [10.6380, 11.0760, null][index], longitude: [106.4700, 106.1580, null][index] })),
   vehicles: [{ id: '5', plateOrCode: 'XE-DEMO-01', vehicleType: 'TRUCK', capacityStalls: 4, isActive: true }],
 };
 

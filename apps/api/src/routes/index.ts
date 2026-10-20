@@ -14,6 +14,7 @@ import { ordersRoutes } from '../features/orders/orders.routes';
 import { documentsRoutes } from '../features/documents/documents.routes';
 import { notificationsRoutes } from '../features/notifications/notifications.routes';
 import { vehiclesRoutes } from '../features/vehicles/vehicles.routes';
+import { locationsRoutes } from '../features/locations/locations.routes';
 import { trackingRoutes } from '../features/tracking/tracking.routes';
 export function apiRoutes(services: Services, tokens: TokenService) {
   const router = Router();
@@ -32,6 +33,7 @@ export function apiRoutes(services: Services, tokens: TokenService) {
   router.use('/documents', documentsRoutes(services.documents));
   router.use('/trips', tripsRoutes(services.trips));
   router.use('/vehicles', vehiclesRoutes(services.vehicles));
+  router.use('/locations', locationsRoutes(services.locations));
   router.use('/tracking', trackingRoutes(services.tracking));
   router.use('/notifications', notificationsRoutes(services.notifications));
   return router;
