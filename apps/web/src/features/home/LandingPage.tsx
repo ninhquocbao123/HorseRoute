@@ -1,5 +1,11 @@
+import { useState } from "react";
+import { MenuOutlined } from "@ant-design/icons";
+import { Drawer } from "antd";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/hooks/useAuth";
+import heroImage960 from "../../assets/horse-hero-960.webp";
+import heroImage1600 from "../../assets/horse-hero-1600.webp";
+import "./landing-page.css";
 
 export function Brand() {
   return (
@@ -14,18 +20,50 @@ export function Brand() {
 export default function LandingPage() {
   const { account } = useAuth();
   const destination = account ? "/dashboard" : "/login";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <div className="landing">
       <header className="site-header">
         <Brand />
-        <nav aria-label="Điều hướng chính">
+        <nav className="site-nav" aria-label="Điều hướng chính">
           <a href="#services">Dịch vụ</a>
           <a href="#process">Quy trình</a>
           <a href="#questions">Giải đáp</a>
         </nav>
-        <Link className="button" to={destination}>
-          {account ? "Tài khoản của tôi" : "Đăng nhập"} ↗
+        <Link className="button header-account-link" to={destination}>
+          {account ? "Tài khoản của tôi" : "Đăng nhập"}{" "}
+          <span aria-hidden="true">↗</span>
         </Link>
+        <button
+          className="mobile-menu-trigger"
+          type="button"
+          aria-label="Mở menu điều hướng"
+          aria-expanded={menuOpen}
+          aria-controls="mobile-navigation"
+          onClick={() => setMenuOpen(true)}
+        >
+          <MenuOutlined aria-hidden="true" />
+        </button>
+        <Drawer
+          className="mobile-menu-drawer"
+          title="Điều hướng"
+          placement="right"
+          size={320}
+          open={menuOpen}
+          onClose={closeMenu}
+        >
+          <nav id="mobile-navigation" className="mobile-nav" aria-label="Điều hướng di động">
+            <a href="#services" onClick={closeMenu}>Dịch vụ</a>
+            <a href="#process" onClick={closeMenu}>Quy trình</a>
+            <a href="#questions" onClick={closeMenu}>Giải đáp</a>
+            <Link className="button" to={destination} onClick={closeMenu}>
+              {account ? "Mở bảng điều khiển" : "Đăng nhập"}{" "}
+              <span aria-hidden="true">↗</span>
+            </Link>
+          </nav>
+        </Drawer>
       </header>
       <main>
         <section className="hero">
@@ -42,14 +80,14 @@ export default function LandingPage() {
             </p>
             <div className="hero-actions">
               <Link className="button" to={destination}>
-                Bắt đầu hành trình ↗
+                Bắt đầu hành trình <span aria-hidden="true">↗</span>
               </Link>
               <a href="#services" className="text-link">
-                Khám phá dịch vụ ↓
+                Khám phá dịch vụ <span aria-hidden="true">↓</span>
               </a>
             </div>
             <div className="hero-note">
-              <span>◇</span>
+              <span aria-hidden="true">◇</span>
               <p>
                 Sự an toàn của ngựa.
                 <br />
@@ -59,9 +97,14 @@ export default function LandingPage() {
           </div>
           <div className="hero-photo">
             <img
-              src="https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=1400&q=85"
+              src={heroImage1600}
+              srcSet={`${heroImage960} 960w, ${heroImage1600} 1600w`}
+              sizes="(max-width: 650px) 88vw, (max-width: 1440px) 47vw, 680px"
+              width="1600"
+              height="1066"
               alt="Ngựa trên đồng cỏ"
-              fetchPriority="high"
+              loading="eager"
+              decoding="async"
             />
             <div className="photo-caption">
               <small>BUILT AROUND THEIR WELLBEING</small>
@@ -76,11 +119,11 @@ export default function LandingPage() {
         </section>
         <div className="value-strip">
           <span>Chăm sóc theo hành trình</span>
-          <i>✦</i>
+          <i aria-hidden="true">✦</i>
           <span>Hồ sơ tập trung</span>
-          <i>✦</i>
+          <i aria-hidden="true">✦</i>
           <span>Phối hợp xuyên suốt</span>
-          <i>✦</i>
+          <i aria-hidden="true">✦</i>
           <span>Kết nối mọi chặng đường</span>
         </div>
         <section id="services" className="section">
@@ -118,7 +161,7 @@ export default function LandingPage() {
             ].map(([icon, title, description], i) => (
               <article className="service-card" key={title}>
                 <div className="service-top">
-                  <span>{icon}</span>
+                  <span aria-hidden="true">{icon}</span>
                   <small>0{i + 1}</small>
                 </div>
                 <h3>{title}</h3>
@@ -136,7 +179,7 @@ export default function LandingPage() {
               Chúng tôi cùng đồng hành.
             </h2>
             <Link className="text-link" to={destination}>
-              Kết nối với HorseSystem ↗
+              Kết nối với HorseSystem <span aria-hidden="true">↗</span>
             </Link>
           </div>
           <ol>
@@ -195,7 +238,7 @@ export default function LandingPage() {
             bắt đầu từ đây.
           </h2>
           <Link className="button light" to={destination}>
-            Truy cập tài khoản ↗
+            Truy cập tài khoản <span aria-hidden="true">↗</span>
           </Link>
         </section>
       </main>

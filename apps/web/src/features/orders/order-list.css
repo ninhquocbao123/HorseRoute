@@ -13,6 +13,7 @@
 .flow-orders .order-list-scroll .order-row>span:not(.status-chip){grid-column:1/-1;font-size:12px}
 .flow-orders .order-list-scroll .flow-created{font-size:10px;align-self:center;line-height:1.5}
 .flow-orders .order-list-scroll .status-chip,.flow-orders .order-list-scroll .ant-tag{grid-column:2;font-size:10px;padding:3px 7px;justify-self:end;margin:0}
+.flow-orders .order-status-tag--ready{color:#7a4d00;background:#fff3cd;border-color:#e5bf62;font-weight:700}
 .flow-orders .order-list-state{display:grid;place-items:center;min-height:140px}
 .flow-orders .order-alert{margin-bottom:18px}
 .flow-orders .flow-list>.pagination{margin-top:10px;padding-top:12px}

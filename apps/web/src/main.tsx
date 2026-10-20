@@ -7,7 +7,10 @@ import App from "./App";
 import AntDesignProvider from "./app/providers/AntDesignProvider";
 import { AuthProvider } from "./app/providers/AuthProvider";
 import { queryClient } from "./lib/queryClient";
+import { applyThemeCssVariables } from "./styles/theme-tokens";
 import "./styles/index.css";
+
+applyThemeCssVariables();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

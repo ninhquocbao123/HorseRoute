@@ -3,6 +3,7 @@ import { App as AntApp, ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
+import { themeTokens } from '../../styles/theme-tokens';
 
 dayjs.locale('vi');
 
@@ -16,17 +17,17 @@ export default function AntDesignProvider({ children }: AntDesignProviderProps) 
       locale={viVN}
       theme={{
         token: {
-          colorPrimary: '#193e32',
-          colorSuccess: '#275338',
-          colorError: '#a32d28',
-          colorWarning: '#b09050',
-          colorText: '#193e32',
-          colorTextSecondary: '#68756e',
-          colorBgBase: '#fbfaf6',
-          colorBorder: '#d7dcd1',
-          borderRadius: 4,
-          controlHeight: 44,
-          fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
+          colorPrimary: themeTokens.colorBrand,
+          colorSuccess: themeTokens.colorSuccess,
+          colorError: themeTokens.colorError,
+          colorWarning: themeTokens.colorAccent,
+          colorText: themeTokens.colorBrand,
+          colorTextSecondary: themeTokens.colorTextMuted,
+          colorBgBase: themeTokens.colorBackground,
+          colorBorder: themeTokens.colorBorder,
+          borderRadius: themeTokens.borderRadius,
+          controlHeight: themeTokens.controlHeight,
+          fontFamily: themeTokens.fontSans,
         },
         components: {
           Button: {
