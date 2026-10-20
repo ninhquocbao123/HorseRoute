@@ -157,6 +157,13 @@ export class TripsService {
       // Return must remain possible for empty/invalid plans; approval must validate every stored leg again.
       if (input.decision === 'APPROVED') await this.validateStoredPlan(repo, before, existing.length, orderId, true);
       await repo.reviewPlan(id, account.id, input);
+      if (input.decision === 'APPROVED' && checkCrewReadiness(await repo.assignments(id)).complete) {
+        const markedReady = await repo.markOrderReady(orderId);
+        if (markedReady) {
+          await repo.auditOrderReady(account.id, orderId, id, order.status);
+          await repo.notifyOrderReady(orderId, id);
+        }
+      }
       const after = await service.detail(account, id);
       const reviewSnapshot = (detail: TripDetail) => JSON.stringify({ planStatus: detail.planStatus,
         orderStatus: detail.orderStatus, approvedBy: detail.approvedBy, approvedAt: detail.approvedAt, returnReason: detail.returnReason });
@@ -222,6 +229,13 @@ export class TripsService {
         const snapshot = (rows: { id: string; userId: string; role: string; assignedBy: string; assignedAt: Date | string }[]) => JSON.stringify(rows.map(a => ({ id: a.id, userId: a.userId, role: a.role, assignedBy: a.assignedBy, assignedAt: a.assignedAt })));
         await repo.auditCrew(account.id, id, snapshot(before), snapshot(after.items));
         for (const change of changes) await repo.notifyCrew(id, change.userId, change.role);
+      }
+      if (trip.planStatus === 'APPROVED' && after.crewReadiness.complete) {
+        const markedReady = await repo.markOrderReady(orderId);
+        if (markedReady) {
+          await repo.auditOrderReady(account.id, orderId, id, order.status);
+          await repo.notifyOrderReady(orderId, id);
+        }
       }
       return after;
     });

@@ -1,4 +1,3 @@
-import { ReadinessService } from '../../features/readiness/readiness.service';
 import { TripsService } from '../../features/trips/trips.service';
 import { TripsRepository } from '../../features/trips/trips.repository';
 import { DataSource } from 'typeorm';
@@ -16,7 +15,7 @@ import { TrackingService } from '../../features/tracking/tracking.service';
 import { TrackingRepository } from '../../features/tracking/tracking.repository';
 export function createServices(db: DataSource, tokens: TokenService) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
-  return { readiness: new ReadinessService(db), trips: new TripsService(new TripsRepository(db)), tracking: new TrackingService(new TrackingRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
+  return { trips: new TripsService(new TripsRepository(db)), tracking: new TrackingService(new TrackingRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
     documents: new DocumentsService(db), notifications: new NotificationsService(new NotificationsRepository(db)),
     health: new HealthService(db) };
 }

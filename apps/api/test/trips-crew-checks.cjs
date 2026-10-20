@@ -55,6 +55,13 @@ module.exports = async function crewChecks({ db, base, tokens, check }) {
     assert.equal(audit.actor,'3');assert.equal(audit.action,'ASSIGN_CREW');assert.deepEqual(JSON.parse(audit.old_value),[]);assert.equal(JSON.parse(audit.new_value)[0].id,saved.items[0].id);
     assert.deepEqual(await counts(id),[1,2]);
   });
+  await check('Approved plan with complete crew automatically marks Order READY with audit and notifications',async()=>{
+    const id=await fixture({planStatus:'APPROVED',orderStatus:'PREPARING'});const saved=await json(put(id));assert.equal(saved.crewReadiness.complete,true);
+    const [order]=await db.query('SELECT status FROM orders WHERE id=?',[id]);assert.equal(order.status,'READY');
+    const [audit]=await db.query("SELECT CAST(actor_id AS CHAR) actor,old_value,new_value FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='MARK_READY'",[id]);
+    assert.equal(audit.actor,'3');assert.equal(JSON.parse(audit.old_value).status,'PREPARING');assert.equal(JSON.parse(audit.new_value).status,'READY');
+    const [notes]=await db.query("SELECT COUNT(*) n FROM notifications WHERE related_type='ORDER' AND related_id=? AND event_type='ORDER_READY'",[id]);assert.equal(Number(notes.n),4);
+  });
   await check('Assignment input rejects invalid users, duplicates, missing role and forged metadata without writes',async()=>{
     const id=await fixture();await json(put(id));const before=await json(request(id)),count=await counts(id);
     for(const payload of [

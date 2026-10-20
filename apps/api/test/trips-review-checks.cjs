@@ -2,6 +2,9 @@ const assert = require('node:assert/strict');
 module.exports = async function reviewChecks({ db, base, tokens, read, check }) {
   const a='9007199254740993', b='9007199254740994', v='2000', w='2001';
   await db.query("INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (2000,'TRUCK',4,'REVIEW-A',1),(2001,'TRUCK',4,'REVIEW-B',1)");
+  await db.query(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES
+    (2900,'review-driver@test.local','!','Review Driver','DRIVER_ESCORT','ACTIVE'),
+    (2901,'review-escort@test.local','!','Review Escort','DRIVER_ESCORT','ACTIVE')`);
   let next=2000;
   const leg=(from=a,to=b,vehicle=v,start='01',end='03')=>({fromLocationId:from,toLocationId:to,vehicleId:vehicle,plannedDepartureAt:`2030-01-01T${start}:00:00.000Z`,plannedArrivalAt:`2030-01-01T${end}:00:00.000Z`});
   async function fixture({planStatus='PENDING_APPROVAL',orderStatus='PREPARING',legs=[leg()],horses=1}={}) {
@@ -67,7 +70,14 @@ module.exports = async function reviewChecks({ db, base, tokens, read, check }) 
     assert.deepEqual(audits.map(a=>a.action),['REVIEW_PLAN','SAVE_PLAN','SUBMIT_PLAN','REVIEW_PLAN']);
     await unchanged(id,409);assert.equal((await request(id,body,'3','plan','PUT')).status,409);
   });
-  await run('Review requires PENDING_APPROVAL and plannable Order; never changes Order to READY',async()=>{
+  await run('Approval automatically marks Order READY when valid crew was assigned first',async()=>{
+    const id=await fixture();
+    await db.query("INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (?,2900,'DRIVER',3,UTC_TIMESTAMP()),(?,2901,'ESCORT',3,UTC_TIMESTAMP())",[id,id]);
+    const data=await review(id);assert.equal(data.planStatus,'APPROVED');assert.equal(data.orderStatus,'READY');
+    const [audit]=await db.query("SELECT CAST(actor_id AS CHAR) actor FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='MARK_READY'",[id]);assert.equal(audit.actor,'2');
+    const [notes]=await db.query("SELECT COUNT(*) n FROM notifications WHERE related_type='ORDER' AND related_id=? AND event_type='ORDER_READY'",[id]);assert.equal(Number(notes.n),4);
+  });
+  await run('Review requires PENDING_APPROVAL and a plannable Order',async()=>{
     for(const planStatus of ['DRAFT','APPROVED']) {const id=await fixture({planStatus});await unchanged(id,409);await unchanged(id,409,{decision:'RETURNED',reason:'No'});}
     for(const orderStatus of ['DRAFT','PENDING','NEED_INFO','REJECTED','READY','IN_TRANSIT','DELIVERED','CANCELLED']) {
       const id=await fixture({orderStatus});await unchanged(id,409);await unchanged(id,409,{decision:'RETURNED',reason:'No'});

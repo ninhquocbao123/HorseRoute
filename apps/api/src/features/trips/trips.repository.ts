@@ -168,6 +168,21 @@ export class TripsRepository {
     await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value)
       VALUES (?,'TRIP',?,'ASSIGN_CREW',?,?)`, [actor, tripId, before, after]);
   }
+  async markOrderReady(orderId: string): Promise<boolean> {
+    const result = await this.db.query("UPDATE orders SET status='READY' WHERE id=? AND status='PREPARING'", [orderId]);
+    return Number(result?.affectedRows) === 1;
+  }
+  async auditOrderReady(actor: string, orderId: string, tripId: string, oldStatus: string) {
+    await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value)
+      VALUES (?,'ORDER',?,'MARK_READY',?,?)`, [actor, orderId,
+      JSON.stringify({ status: oldStatus }), JSON.stringify({ status: 'READY', tripId })]);
+  }
+  async notifyOrderReady(orderId: string, tripId: string) {
+    await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
+      SELECT id,'ORDER_READY',?,'ORDER',?,'IN_APP' FROM users WHERE id IN
+      (SELECT customer_id FROM orders WHERE id=? UNION SELECT planned_by FROM trips WHERE id=? UNION SELECT user_id FROM trip_assignments WHERE trip_id=?)`,
+    [`Đơn ${orderId} đã tự động chuyển sang READY sau khi kế hoạch được duyệt và phân công đủ nhân sự.`, orderId, orderId, tripId, tripId]);
+  }
   async notifyCrew(tripId: string, userId: string, role: string | null) {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       VALUES (?,'TRIP_CREW_CHANGED',?,'TRIP',?,'IN_APP')`, [userId,

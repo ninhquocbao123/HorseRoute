@@ -24,7 +24,7 @@ for (const [name, schema] of Object.entries(definitions)) {
 schemas.DraftOrderDto.properties.horses.items = { $ref: '#/components/schemas/DraftHorseDto' };
 schemas.OrderDto.properties.horses.items = { $ref: '#/components/schemas/HorseDto' };
 Object.assign(schemas, tripSchemas, trackingSchemas);
-schemas.Error = { type: 'object', properties: { blockers: { type: 'array', items: { $ref: '#/components/schemas/ReadinessBlocker' } }, statusCode: { type: 'integer' }, message: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] }, fields: { type: 'object', additionalProperties: { type: 'string' } }, requestId: { type: 'string', format: 'uuid' }, path: { type: 'string' }, timestamp: { type: 'string', format: 'date-time' } } };
+schemas.Error = { type: 'object', properties: { statusCode: { type: 'integer' }, message: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] }, fields: { type: 'object', additionalProperties: { type: 'string' } }, requestId: { type: 'string', format: 'uuid' }, path: { type: 'string' }, timestamp: { type: 'string', format: 'date-time' } } };
 
 const paths: Record<string, any> = {};
 function route(method: string, path: string, summary: string, tag: string, options: {

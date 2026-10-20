@@ -92,8 +92,7 @@ async function main() {
   await require('./trips-submit-checks.cjs')({ db, base, tokens, read, check });
   await require('./trips-review-checks.cjs')({ db, base, tokens, read, check });
   await require('./trips-crew-checks.cjs')({ db, base, tokens, read, check });
-  await require('./trips-readiness-checks.cjs')({ db, base, tokens, read, check });
-  console.log(`${passed} Flow 3 read/save/submit/review/crew/readiness integration checks passed`);
+  console.log(`${passed} Flow 3 read/save/submit/review/crew integration checks passed`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   if (server) await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

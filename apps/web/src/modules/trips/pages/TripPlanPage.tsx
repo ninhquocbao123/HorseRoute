@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { isAxiosError } from "axios";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
@@ -26,6 +26,7 @@ export default function TripPlanPage() {
   const [search] = useSearchParams();
   const { account } = useAuth();
   const { message: messageApi } = App.useApp();
+  const navigate = useNavigate();
   const back = tripListSearch(readTripListParams(search));
   const detail = useTripDetailQuery(tripId);
   const options = useTripPlanOptionsQuery(tripId);
@@ -115,6 +116,7 @@ export default function TripPlanPage() {
           const submitted = await submitTripPlan(tripId);
           qc.setQueryData(tripQueryKeys.detail(account?.id, tripId), submitted);
           void messageApi.success({ key: "trip-plan-feedback", content: "Đã lưu và gửi kế hoạch chờ duyệt." });
+          navigate(`/dashboard/trips/${tripId}${back}`, { replace: true });
         } catch {
           void messageApi.warning({
             key: "trip-plan-feedback",
@@ -122,7 +124,10 @@ export default function TripPlanPage() {
             duration: 5,
           });
         }
-      } else void messageApi.success({ key: "trip-plan-feedback", content: "Đã lưu bản nháp kế hoạch." });
+      } else {
+        void messageApi.success({ key: "trip-plan-feedback", content: "Đã lưu bản nháp kế hoạch." });
+        navigate(`/dashboard/trips/${tripId}${back}`, { replace: true });
+      }
     } catch (e) {
       const body = isAxiosError(e) ? e.response?.data : null;
       void messageApi.error({
@@ -251,7 +256,7 @@ export default function TripPlanPage() {
             type="submit"
             disabled={saving || !options.data}
           >
-            {saving ? "Đang lưu…" : "Lưu bản nháp"}
+            {saving ? "Đang lưu…" : "Lưu"}
           </button>
         </div>
       </form>
