@@ -207,13 +207,19 @@ export class TrackingService {
       }
     }
 
-    const [legs, horses] = await Promise.all([
+    const [legs, horses, crew, contacts, vehicles] = await Promise.all([
       this.repository.getTripLegs(tripId),
       this.repository.getTripHorses(trip.orderId),
+      this.repository.getTripCrew(tripId),
+      this.repository.getTripContacts(tripId),
+      this.repository.getTripVehicles(tripId),
     ]);
 
     const legIds = legs.map(l => l.id);
     const milestones = await this.repository.getLegMilestones(legIds);
+    // Specialist chỉ đọc chuyên môn: không thấy SĐT của tổ lái, điều phối viên và người nhận.
+    const showPhone = account.role !== Role.SPECIALIST;
+    const phone = (value: string | null | undefined) => (showPhone && value) || null;
 
     return {
       id: trip.id,
@@ -224,6 +230,13 @@ export class TrackingService {
       plannedDepartureAt: trip.plannedDepartureAt ? trip.plannedDepartureAt.toISOString() : null,
       plannedArrivalAt: trip.plannedArrivalAt ? trip.plannedArrivalAt.toISOString() : null,
       crewRole: userCrewRole,
+      crew: crew.map(c => ({ userId: c.userId, name: c.name, phone: phone(c.phone), role: c.role })),
+      customer: { name: contacts?.customerName ?? '' },
+      recipient: contacts?.recipientName || contacts?.recipientPhone
+        ? { name: contacts.recipientName ?? '', phone: phone(contacts.recipientPhone) }
+        : null,
+      coordinator: contacts?.coordinatorName ? { name: contacts.coordinatorName, phone: phone(contacts.coordinatorPhone) } : null,
+      vehicles: vehicles.map(v => ({ id: v.id, code: v.code, type: v.type, capacityStalls: Number(v.capacityStalls) })),
       horses,
       legs: legs.map(l => mapLegWithMilestones(l, milestones)),
     };

@@ -336,7 +336,7 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 |---|---|---|---|---|
 | **A** | **Làm ngay**: cho báo sự cố khi `READY` (5.4): BE, FE, thêm test ca `READY` → 201 | – | Nhỏ | ✅ Xong 22/10 |
 | **B** | **Nền dữ liệu**: 1 migration (`incidents`: severity, sub_type, lat/lng/location_text, damage_target · `attachments.caption` · `orders`: recipient_name/phone). Shared: enum `IncidentSeverity`, `DamageTarget`, hằng `INCIDENT_SUB_TYPES`, kiểu `IDriverTripDetail`. FE bỏ `TripDetail` tự khai báo | – | Vừa | 🟡 Xong code 22/10, migration chưa chạy trên Aiven |
-| **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicle {code, type, capacityStalls}` + test + openapi | B | Vừa | ⬜ Chưa làm |
+| **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicles[] {id, code, type, capacityStalls}` + test + openapi | B | Vừa | 🟡 Xong code 22/10, chờ CI flow4 |
 | **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | ⬜ Chưa làm |
 | **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ⬜ Chưa làm |
 | **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ⬜ Chưa làm |
@@ -376,6 +376,23 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Còn lại để chuyển ✅:
   - Chạy migration trên Aiven.
   - Xem kết quả CI flow4 (máy local không có MySQL nên chưa chạy test MySQL).
+
+**Ghi chú bước C (22/10/2026)**
+- Shared: thêm `ITripCrewMember`, `ITripContact`, `ITripVehicle`. `IDriverTripDetail` có thêm `crew`, `customer`, `recipient`, `coordinator`, `vehicles` (bắt buộc).
+- Repository ([tracking.repository.ts](../apps/api/src/features/tracking/tracking.repository.ts)): 3 query mới, chỉ JOIN, không migration.
+  - `getTripCrew`: `trip_assignments` JOIN `users`, DRIVER trước ESCORT.
+  - `getTripContacts`: khách (`orders.customer_id`), người nhận (`orders.recipient_*`), điều phối (`trips.planned_by`, LEFT JOIN).
+  - `getTripVehicles`: các xe khác nhau trong `legs`, theo chặng đầu tiên dùng xe.
+- Phân quyền giữ nguyên. `getTripDetail` **không dùng** `authorizeTrip` mà tự kiểm tra:
+  - Customer, Admin → 403.
+  - Driver/Escort chưa được phân công → 404. Coordinator không phải người lập → 404.
+  - Manager, Specialist → xem được mọi chuyến.
+  - **Specialist** nhận `phone: null` cho crew, coordinator và người nhận (tên vẫn trả).
+- `recipient`: null khi cả tên và SĐT đều trống. Chỉ có SĐT → `name: ""`.
+- `coordinator`: null khi không JOIN được user (thực tế `planned_by` NOT NULL nên luôn có).
+- OpenAPI: schema `TrackingCrewMember`, `TrackingVehicle`, `recipient`/`coordinator` inline (nullable) + ví dụ đầy đủ.
+- Test: 3 unit test mới trong `tracking.test.cjs`. `flow4-tracking.mysql.cjs` thêm check GET `/trips/100` với tài xế (crew DRIVER+ESCORT kèm SĐT, `vehicles[0].capacityStalls = 4`, coordinator "Điều Phối A" kèm SĐT, recipient đúng giá trị fixture) và Specialist (phone của crew/coordinator/recipient đều null). Fixture thêm SĐT cho user 3, 6 và người nhận cho order 50.
+- Còn lại để chuyển ✅: xem kết quả CI flow4.
 
 ### 6.2 Bổ sung để không vướng D2
 

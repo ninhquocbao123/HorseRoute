@@ -327,6 +327,52 @@ test('Trip detail is not available to customers', async () => {
   await assert.rejects(() => new TrackingService({}).getTripDetail({ id: '2', role: Role.CUSTOMER }, '100'), e => e.getStatus() === 403);
 });
 
+function tripDetailRepo(overrides = {}) {
+  return {
+    findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.READY, planStatus: PlanStatus.APPROVED, plannedDepartureAt: null, plannedArrivalAt: null, plannedBy: '3', customerId: '1' }),
+    getDriverAssignment: async () => ({ role: 'DRIVER' }),
+    getTripLegs: async () => [],
+    getTripHorses: async () => [],
+    getLegMilestones: async () => [],
+    getTripCrew: async () => [
+      { userId: '6', name: 'Tài Xế', phone: '0901', role: 'DRIVER' },
+      { userId: '10', name: 'Hộ Tống', phone: null, role: 'ESCORT' },
+    ],
+    getTripContacts: async () => ({ customerName: 'Khách Một', recipientName: 'Người Nhận', recipientPhone: '+65 1234', coordinatorName: 'Điều Phối A', coordinatorPhone: '0903' }),
+    getTripVehicles: async () => [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: '4' }],
+    ...overrides,
+  };
+}
+
+test('Trip detail returns crew, customer, recipient, coordinator and vehicles', async () => {
+  const detail = await new TrackingService(tripDetailRepo()).getTripDetail({ id: '6', role: Role.DRIVER_ESCORT }, '100');
+  assert.equal(detail.crewRole, 'DRIVER');
+  assert.deepEqual(detail.crew, [
+    { userId: '6', name: 'Tài Xế', phone: '0901', role: 'DRIVER' },
+    { userId: '10', name: 'Hộ Tống', phone: null, role: 'ESCORT' },
+  ]);
+  assert.deepEqual(detail.customer, { name: 'Khách Một' });
+  assert.deepEqual(detail.recipient, { name: 'Người Nhận', phone: '+65 1234' });
+  assert.deepEqual(detail.coordinator, { name: 'Điều Phối A', phone: '0903' });
+  assert.deepEqual(detail.vehicles, [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }]);
+});
+
+test('Trip detail returns recipient null when the order has no recipient name or phone', async () => {
+  const repo = tripDetailRepo({ getTripContacts: async () => ({ customerName: 'Khách Một', recipientName: null, recipientPhone: null, coordinatorName: 'Điều Phối A', coordinatorPhone: '0903' }) });
+  const detail = await new TrackingService(repo).getTripDetail({ id: '2', role: Role.MANAGER }, '100');
+  assert.equal(detail.recipient, null);
+  assert.equal(detail.crewRole, undefined);
+  assert.equal(detail.coordinator.phone, '0903');
+});
+
+test('Trip detail hides crew and coordinator phones from specialists', async () => {
+  const detail = await new TrackingService(tripDetailRepo()).getTripDetail({ id: '7', role: Role.SPECIALIST }, '100');
+  assert.ok(detail.crew.every(c => c.phone === null));
+  assert.deepEqual(detail.coordinator, { name: 'Điều Phối A', phone: null });
+  assert.deepEqual(detail.recipient, { name: 'Người Nhận', phone: null });
+  assert.equal(detail.crew.length, 2);
+});
+
 // ─── Giai đoạn 2 ──────────────────────────────────────────────────────────────
 const fs = require('node:fs');
 const os = require('node:os');

@@ -54,6 +54,28 @@ export interface MilestoneRow {
 export type HorseInTrip = ITripHorse;
 export type TrackingTripDetail = IDriverTripDetail;
 
+export interface TripCrewRow {
+  userId: string;
+  name: string;
+  phone: string | null;
+  role: CrewRole;
+}
+
+export interface TripContactsRow {
+  customerName: string;
+  recipientName: string | null;
+  recipientPhone: string | null;
+  coordinatorName: string | null;
+  coordinatorPhone: string | null;
+}
+
+export interface TripVehicleRow {
+  id: string;
+  code: string;
+  type: string;
+  capacityStalls: number | string;
+}
+
 export interface HorseLogRow {
   id: string;
   horseId: string;

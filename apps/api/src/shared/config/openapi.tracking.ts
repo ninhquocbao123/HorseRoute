@@ -12,6 +12,7 @@ const conditionStatus = { type: 'string', enum: ['STABLE', 'OFF_FEED', 'STRESSED
 const incidentType = { type: 'string', enum: ['VEHICLE_BREAKDOWN', 'LONG_TRAFFIC_JAM', 'HORSE_MEDICAL'] };
 const incidentStatus = { type: 'string', enum: ['NEW', 'ACKNOWLEDGED', 'CLOSED'] };
 const locationType = { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'], description: 'BORDER yêu cầu mốc CUSTOMS_CLEARED trước khi hoàn tất chặng.' };
+const contact = (description: string, phone: string) => nullable({ ...object({ name: { type: 'string' }, phone: nullable({ type: 'string', description: phone }) }), description });
 const alertType = { type: 'string', enum: ['TRAFFIC', 'WEATHER', 'BORDER'] };
 
 export const trackingSchemas = {
@@ -26,6 +27,15 @@ export const trackingSchemas = {
     milestones: { type: 'array', items: ref('TrackingMilestone') },
   }),
   TrackingHorse: object({ id, name: { type: 'string' }, passportNo: { type: 'string' }, orderStatus: { type: 'string', enum: ['NORMAL', 'FLAGGED', 'REMOVED'] } }),
+  TrackingCrewMember: object({
+    userId: id, name: { type: 'string' },
+    phone: nullable({ type: 'string', description: 'null khi chưa khai báo, hoặc khi người gọi là Specialist.' }),
+    role: { type: 'string', enum: ['DRIVER', 'ESCORT'] },
+  }),
+  TrackingVehicle: object({
+    id, code: { type: 'string', description: 'vehicles.plate_or_code' },
+    type: { type: 'string', enum: ['TRUCK', 'AIRCRAFT_HOLD', 'CRATE'] }, capacityStalls: { type: 'integer', minimum: 1 },
+  }),
   DriverTripSummary: object({
     id, orderId: id, orderCode: { type: 'string' }, orderStatus, planStatus,
     plannedDepartureAt: nullable(time), plannedArrivalAt: nullable(time),
@@ -35,8 +45,13 @@ export const trackingSchemas = {
     id, orderId: id, orderCode: { type: 'string' }, orderStatus, planStatus,
     plannedDepartureAt: nullable(time), plannedArrivalAt: nullable(time),
     crewRole: { type: 'string', enum: ['DRIVER', 'ESCORT'], description: 'Chỉ có khi người gọi là Driver/Escort của chuyến.' },
+    crew: { type: 'array', items: ref('TrackingCrewMember'), description: 'Driver/Escort được phân công; DRIVER trước ESCORT.' },
+    customer: object({ name: { type: 'string' } }),
+    recipient: contact('Người nhận ở điểm đến (orders.recipient_name/phone); null khi cả hai đều trống.', 'null khi đơn chưa có SĐT người nhận, hoặc khi người gọi là Specialist.'),
+    coordinator: contact('Điều phối viên lập kế hoạch (trips.planned_by).', 'null khi chưa khai báo, hoặc khi người gọi là Specialist.'),
+    vehicles: { type: 'array', items: ref('TrackingVehicle'), description: 'Các xe khác nhau dùng trong chặng, theo thứ tự chặng đầu tiên dùng xe.' },
     horses: { type: 'array', items: ref('TrackingHorse') }, legs: { type: 'array', items: ref('TrackingLeg') },
-  }, ['id', 'orderId', 'orderCode', 'orderStatus', 'planStatus', 'plannedDepartureAt', 'plannedArrivalAt', 'horses', 'legs']),
+  }, ['id', 'orderId', 'orderCode', 'orderStatus', 'planStatus', 'plannedDepartureAt', 'plannedArrivalAt', 'crew', 'customer', 'recipient', 'coordinator', 'vehicles', 'horses', 'legs']),
 
   MilestoneInput: object({ milestoneType, occurredAt: { ...time, description: 'Không ở tương lai (cho lệch đồng hồ 60 giây); nhập bù tối đa T phút (mặc định 120, cấu hình system_parameters.LEG_BACK); không sớm hơn mốc trước của chặng.' } }),
   MilestoneResult: object({ milestoneId: id, legId: id, milestoneType, legStatus, orderStatus }),
@@ -215,8 +230,12 @@ export const trackingPaths = {
     description: 'Chỉ chuyến có Order READY/IN_TRANSIT/DELIVERED mà người gọi được phân công; kèm chặng và mốc.',
     responses: { ...ok(200, list('DriverTripSummary'), [{ id: '200', orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', planStatus: 'APPROVED', plannedDepartureAt: t0, plannedArrivalAt: t1, crewRole: 'DRIVER', legs: [leg1] }]), ...errors([401, 403, 429, 500]) } } },
   '/api/v1/tracking/trips/{id}': { get: { ...common, operationId: 'getTrackingTrip', summary: 'Chi tiết chuyến để theo dõi: chặng, mốc, danh sách ngựa', parameters: [param('id', 'ID chuyến (trips.id).')],
-    description: 'Driver (được phân công), Coordinator (chuyến mình lập), Manager, Specialist (chỉ đọc). Customer không gọi API này: dùng timeline đơn (Giai đoạn 3).',
-    responses: { ...ok(200, ref('TrackingTripDetail'), { id: '200', orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', planStatus: 'APPROVED', plannedDepartureAt: t0, plannedArrivalAt: t1, crewRole: 'DRIVER', horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
+    description: 'Driver (được phân công), Coordinator (chuyến mình lập), Manager, Specialist (chỉ đọc, không thấy SĐT của crew/coordinator/người nhận). Customer và Admin nhận 403: Customer dùng timeline đơn (Giai đoạn 3).',
+    responses: { ...ok(200, ref('TrackingTripDetail'), { id: '200', orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', planStatus: 'APPROVED', plannedDepartureAt: t0, plannedArrivalAt: t1, crewRole: 'DRIVER',
+      crew: [{ userId: '6', name: 'Tài xế mẫu', phone: '0901000001', role: 'DRIVER' }, { userId: '10', name: 'Hộ tống mẫu', phone: '0901000002', role: 'ESCORT' }],
+      customer: { name: 'Khách hàng mẫu' }, recipient: { name: 'Người nhận mẫu', phone: '+6560000000' }, coordinator: { name: 'Điều phối mẫu', phone: '0901000003' },
+      vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'TRUCK', capacityStalls: 4 }],
+      horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Driver/Escort: ghi mốc của chặng', parameters: [legId],
     description: `Quy tắc: tuần tự theo luồng chặng (409 nếu nhảy cóc hoặc trùng mốc); \`occurredAt\` không ở tương lai, nhập bù tối đa T phút, không sớm hơn mốc trước (400).
 - DEPARTED chặng 1: Trip phải APPROVED và Order READY; Order → IN_TRANSIT. Chặng k+1 cần chặng k COMPLETED.
