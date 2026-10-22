@@ -35,7 +35,7 @@ export default function DriverDashboard({ account, logout }: DashboardProps) {
       account={account} logout={logout} view={view} onNavigate={go} crewRole={data.selected?.crewRole}
       heading={heading} search={search} onSearch={setSearch}
     >
-      <DriverWorkspace data={data} view={view} search={search} onNavigate={go} />
+      <DriverWorkspace data={data} userId={String(account.id)} view={view} search={search} onNavigate={go} />
     </DriverShell>
   );
 }
