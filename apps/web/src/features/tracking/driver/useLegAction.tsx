@@ -22,6 +22,8 @@ export function isTripStart(action: NextAction | null, seqNo: number | undefined
 type Options = {
   /** Tên hiển thị của nút/hộp thoại; mặc định là nhãn của hành động. */
   label?: (action: NextAction) => string;
+  /** Tiêu đề hộp thoại khi khác tên nút (ví dụ nút chung "Check-in chặng", hộp thoại ghi rõ hành động); mặc định = label. */
+  title?: (action: NextAction) => string;
   /** Nội dung thêm trong hộp thoại xác nhận (ví dụ cảnh báo checklist). */
   warning?: (action: NextAction) => ReactNode;
 };
@@ -129,7 +131,7 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
 
   const modal = (
     <Modal
-      open={!!confirming} centered width={520} title={confirming ? labelOf(confirming.action) : undefined} destroyOnHidden
+      open={!!confirming} centered width={520} title={confirming ? options.title?.(confirming.action) ?? labelOf(confirming.action) : undefined} destroyOnHidden
       mask={{ closable: !busy }} keyboard={!busy} onCancel={() => !busy && setConfirming(null)}
       footer={[
         <Button key="cancel" disabled={busy} onClick={() => setConfirming(null)}>Hủy</Button>,

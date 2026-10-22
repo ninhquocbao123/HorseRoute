@@ -39,7 +39,7 @@ const { pathToFileURL } = require('node:url');
       },
       200: { orderCode: 'WDP-TEST-2', orderStatus: 'DELIVERED', customer: 'Khách Hai', legs: [leg('20', 1, 'COMPLETED', 'Kho HN', 'Sân bay Nội Bài', 'AIRPORT')] },
     };
-    const state = { incidents: [] };
+    const state = { incidents: [], horseLogs: [] };
     const calls = { milestones: [], complete: [], incidents: [] };
     const fail = { next: 0 };
     const conflict = { next: 0, apply: null };
@@ -78,6 +78,7 @@ const { pathToFileURL } = require('node:url');
       if (tripGet && method === 'GET') return route.fulfill({ json: detail(tripGet[1]) });
       if (/^\/tracking\/trips\/\d+\/alerts$/.test(p)) return route.fulfill({ json: [{ id: '1', tripId: '100', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến', sentBy: '4', sentByName: 'Điều phối', sentAt: iso(-60e3) }] });
       if (/^\/tracking\/trips\/\d+\/incidents$/.test(p) && method === 'GET') return route.fulfill({ json: state.incidents });
+      if (/^\/tracking\/trips\/\d+\/horse-logs$/.test(p) && method === 'GET') return route.fulfill({ json: state.horseLogs });
       const milestone = /^\/tracking\/legs\/(\d+)\/milestones$/.exec(p);
       if (milestone && method === 'POST') {
         const body = request.postDataJSON();
@@ -123,6 +124,14 @@ const { pathToFileURL } = require('node:url');
       assert.ok(scroll <= inner, `${label}: ngang ${scroll} > ${inner}`);
     };
     const action = label => page.locator('.drv-action', { hasText: label });
+    const checkInButton = () => page.locator('.drv-header-actions .drv-action', { hasText: 'Check-in chặng' });
+    // Bấm "Check-in chặng", kiểm tra hộp thoại ghi đúng hành động, rồi xác nhận.
+    const checkIn = async title => {
+      await checkInButton().click();
+      await dialog().locator('.ant-modal-title', { hasText: title }).waitFor();
+      await confirm();
+    };
+    const modalClosed = () => dialog().waitFor({ state: 'detached' });
     const dialog = () => page.locator('.ant-modal-wrap:visible [role=dialog]');
     const confirm = () => dialog().getByRole('button', { name: 'Xác nhận', exact: true }).click();
     const pick = async (label, option) => {
@@ -213,17 +222,80 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await dialog().locator('.ant-modal-title').innerText(), 'Bắt đầu chuyến đi');
     await page.screenshot({ path: 'test-results/driver-confirm-desktop.png' });
     await confirm();
-    await action('ĐÃ ĐẾN TRẠM DỪNG').waitFor();
     await heading('Chuyến đang chạy').waitFor();
-    await page.locator('.drv-badge', { hasText: 'Đang vận chuyển' }).waitFor();
+    await checkInButton().waitFor();
+    await page.locator('.drv-badge', { hasText: 'Đang di chuyển' }).waitFor();
     assert.equal(calls.milestones.at(-1).milestoneType, 'DEPARTED');
     assert.ok(Math.abs(Date.parse(calls.milestones.at(-1).occurredAt) - Date.now()) < 60e3, 'giờ mặc định là hiện tại');
     assert.equal(await page.locator('.drv-checklist').count(), 0, 'đang chạy: ẩn checklist');
     assert.equal(await page.locator('.drv-stops li.is-reached').count(), 1, 'điểm xuất phát đã qua');
 
+    // 2b. Màn D1b (IN_TRANSIT): topbar, header, ETA, ba thẻ dưới bản đồ, timeline 3 trạng thái, ghi chú hộ tống
+    await page.locator('.drs-breadcrumb', { hasText: 'Chuyến đang chạy' }).waitFor();
+    await page.getByText('Bấm Check-in mỗi khi tới một chặng').waitFor();
+    assert.deepEqual(await page.locator('.drv-header-actions .ant-btn').allInnerTexts(), ['Check-in chặng', 'Báo cáo sự cố'], 'Check-in đứng trước Báo cáo sự cố');
+    const eta = new Date(trips[100].legs[2].plannedArrivalAt);
+    const two = n => String(n).padStart(2, '0');
+    const etaText = `${two(eta.getDate())}/${two(eta.getMonth() + 1)} ${two(eta.getHours())}:${two(eta.getMinutes())}`;
+    assert.equal(await page.locator('.drv-route-card .drv-card-head > span').innerText(), `ETA ${etaText}`);
+    assert.equal(await page.getByText(/Còn .* km|Đang chia sẻ GPS/).count(), 0, 'chưa có km / GPS (bước H)');
+    const stat = label => page.locator('.drv-stat-card', { hasText: label });
+    assert.equal(await stat('Chặng tiếp').locator('strong').innerText(), 'Trạm Đồng Nai');
+    // Tên điểm một dòng (ellipsis), title có tên đầy đủ; ba thẻ cao bằng nhau
+    assert.equal(await stat('Chặng tiếp').locator('strong').getAttribute('title'), 'Trạm Đồng Nai');
+    assert.ok(await stat('Chặng tiếp').locator('strong').evaluate(el => el.getClientRects().length === 1 && getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis'), 'tên điểm 1 dòng');
+    const heights = await page.locator('.drv-stat-card').evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().height)));
+    assert.equal(new Set(heights).size, 1, 'ba thẻ cao bằng nhau: ' + heights.join(','));
+    assert.equal(await stat('Tốc độ').locator('strong').innerText(), '—');
+    assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'Có ở bước bật GPS');
+    assert.match(await stat('Đã chạy').locator('strong').innerText(), /^[01] phút$/, 'vừa xuất phát');
+    assert.match(await stat('Đã chạy').locator('small').innerText(), /^nghỉ tiếp sau \d+ phút$/);
+    assert.equal(await page.locator('.drv-stops li.is-current').count(), 1, 'đúng một điểm đang tới');
+    assert.equal(await page.locator('.drv-stops li[aria-current=step]').innerText().then(t => t.split('\n')[0]), 'Trạm Đồng Nai');
+    assert.equal(await page.locator('.drv-escort-note').count(), 0, 'chưa có ghi chú → ẩn thẻ');
+    await page.getByText('Cảnh báo từ điều phối viên').waitFor();
+    // Ghi chú của chính mình không hiện; ghi chú mới nhất của người khác thì hiện "HH:mm · nội dung"
+    const log = (id, createdBy, note, at) => ({ id, horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'STABLE', note, loggedAt: at, createdBy, createdByName: createdBy === 'test' ? 'Phan Thị Lan' : 'Lê Hộ Tống', correctsLogId: null, attachments: [] });
+    state.horseLogs = [log('1', 'test', 'Ghi chú của tôi', iso(-10 * 60e3))];
+    await open('trip');
+    await checkInButton().waitFor();
+    assert.equal(await page.locator('.drv-escort-note').count(), 0, 'ghi chú của chính mình không tính');
+    const noteAt = new Date(Date.now() - 5 * 60e3).toISOString();
+    state.horseLogs.push(log('2', '7', 'Ngựa cũ hơn', iso(-60 * 60e3)), log('3', '7', 'Hai ngựa đã uống 20 L nước, ăn uống bình thường.', noteAt), log('4', '7', null, iso(0)));
+    await open('trip');
+    const hhmm = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(new Date(noteAt));
+    assert.equal(await page.locator('.drv-escort-note p').innerText(), `${hhmm} · Hai ngựa đã uống 20 L nước, ăn uống bình thường.`);
+    // Tự tải lại mỗi 2 phút khi tab đang hiển thị (đồng hồ giả của Playwright để không phải chờ thật)
+    await page.clock.install();
+    await open('trip');
+    await page.locator('.drv-escort-note p', { hasText: 'Hai ngựa đã uống' }).waitFor();
+    const newerAt = new Date(Date.now() + 60e3).toISOString();
+    state.horseLogs.push(log('5', '7', 'Đã cho ngựa nghỉ 15 phút.', newerAt));
+    await page.clock.fastForward('01:00');
+    assert.match(await page.locator('.drv-escort-note p').innerText(), /Hai ngựa đã uống/, 'chưa tới 2 phút: chưa tải lại');
+    await page.clock.fastForward('01:05');
+    await page.locator('.drv-escort-note p', { hasText: 'Đã cho ngựa nghỉ 15 phút.' }).waitFor();
+    state.horseLogs.pop();
+    // "Đã chạy" tính từ giờ xuất phát thực tế; quá giờ đến dự kiến của chặng → "trễ" màu cảnh báo
+    const firstLeg = trips[100].legs[0];
+    const saved = { dep: firstLeg.actualDepartureAt, arr: firstLeg.plannedArrivalAt };
+    // Tính theo giờ trong trang (đồng hồ giả ở trên đã đẩy giờ trang lên trước).
+    const pageNow = await page.evaluate(() => Date.now());
+    firstLeg.actualDepartureAt = new Date(pageNow - (6 * 60 + 40) * 60e3 - 20e3).toISOString();
+    firstLeg.plannedArrivalAt = new Date(pageNow - 25 * 60e3 - 20e3).toISOString();
+    await open('trip');
+    assert.equal(await stat('Đã chạy').locator('strong').innerText(), '6 giờ 40');
+    assert.equal(await stat('Đã chạy').locator('small.is-warn').innerText(), 'trễ 25 phút');
+    await noOverflow('in-transit');
+    await page.screenshot({ path: 'test-results/driver-intransit-desktop.png', fullPage: true });
+    Object.assign(firstLeg, { actualDepartureAt: saved.dep, plannedArrivalAt: saved.arr });
+    await open('trip');
+    await checkInButton().waitFor();
+
     // 3. Mất mạng: giữ nguyên giờ đã chốt, còn sau khi tải lại, gửi lại đúng giờ đó
     fail.next = 1;
-    await action('ĐÃ ĐẾN TRẠM DỪNG').click();
+    await checkInButton().click();
+    await dialog().locator('.ant-modal-title', { hasText: 'Xác nhận: Đã đến Trạm Đồng Nai' }).waitFor();
     await confirm();
     await dialog().getByText(/Mất kết nối mạng/).waitFor();
     const firstAttempt = calls.milestones.find(c => c.failed);
@@ -232,12 +304,11 @@ const { pathToFileURL } = require('node:url');
     await open('trip');
     await page.getByText('Có thao tác chưa gửi được').waitFor();
     await page.getByRole('button', { name: 'Gửi lại' }).click();
-    await action('HOÀN THÀNH CHẶNG').waitFor();
+    await page.getByText('Đã ghi nhận: Đã đến điểm dừng.').waitFor();
     assert.equal(calls.milestones.at(-1).occurredAt, firstAttempt.occurredAt, 'gửi lại đúng giờ đã chốt');
     assert.equal(calls.milestones.at(-1).milestoneType, 'ARRIVED_AT_STOP');
-    await action('HOÀN THÀNH CHẶNG').click();
-    await confirm();
-    await action('XÁC NHẬN XUẤT PHÁT').waitFor();
+    await checkIn('Hoàn thành chặng tới Trạm Đồng Nai');
+    await modalClosed();
     assert.equal(calls.complete.length, 1);
 
     // 4. Báo sự cố (màn D2, trang riêng ?view=incident): nút trên header mở trang, gửi xong quay về D1
@@ -329,25 +400,25 @@ const { pathToFileURL } = require('node:url');
     // 5. 409: chặng đã bị cập nhật ở nơi khác → báo và tải lại dữ liệu mới, không gửi lại
     conflict.next = 1;
     conflict.apply = () => { const l = trips[100].legs[1]; l.status = 'MOVING'; mark(l, 'DEPARTED', iso(0)); };
-    await action('XÁC NHẬN XUẤT PHÁT').click();
-    await confirm();
+    await checkIn('Xác nhận: Xuất phát từ Trạm Đồng Nai');
     await page.getByText('Trạng thái chặng đã thay đổi. Đã tải lại dữ liệu mới nhất.').waitFor();
-    await action('ĐÃ ĐẾN TRẠM DỪNG').waitFor();
-    await dialog().waitFor({ state: 'detached' }); // hộp thoại đóng sau 409
+    await modalClosed(); // hộp thoại đóng sau 409
+    await page.locator('.drv-stops li.is-current', { hasText: 'Trạm Phan Thiết' }).waitFor();
 
     // Các chặng còn lại: đến, hoàn thành; chặng cuối là cửa khẩu: xuất phát, đến, thông quan, giao
     const steps = [
-      ['ĐÃ ĐẾN TRẠM DỪNG', 'ARRIVED_AT_STOP', 'HOÀN THÀNH CHẶNG'], ['HOÀN THÀNH CHẶNG', null, 'XÁC NHẬN XUẤT PHÁT'],
-      ['XÁC NHẬN XUẤT PHÁT', 'DEPARTED', 'ĐÃ ĐẾN ĐIỂM ĐÍCH'], ['ĐÃ ĐẾN ĐIỂM ĐÍCH', 'ARRIVED_AT_STOP', 'ĐÃ THÔNG QUAN'],
-      ['ĐÃ THÔNG QUAN', 'CUSTOMS_CLEARED', 'ĐÃ GIAO NGỰA AN TOÀN'], ['ĐÃ GIAO NGỰA AN TOÀN', 'DELIVERED', null],
+      ['Xác nhận: Đã đến Trạm Phan Thiết', 'ARRIVED_AT_STOP'], ['Hoàn thành chặng tới Trạm Phan Thiết', null],
+      ['Xác nhận: Xuất phát từ Trạm Phan Thiết', 'DEPARTED'], ['Xác nhận: Đã đến Cửa khẩu Mộc Bài', 'ARRIVED_AT_STOP'],
+      ['Thông quan xong tại Cửa khẩu Mộc Bài', 'CUSTOMS_CLEARED'], ['Xác nhận: Đã giao ngựa tại Cửa khẩu Mộc Bài', 'DELIVERED'],
     ];
-    for (const [label, expected, next] of steps) {
-      await action(label).click();
-      await confirm();
-      if (next) await action(next).waitFor();
-      else await page.getByText('Tất cả các chặng đã hoàn thành').first().waitFor();
+    for (const [title, expected] of steps) {
+      await checkIn(title);
+      await modalClosed();
       if (expected) assert.equal(calls.milestones.at(-1).milestoneType, expected);
     }
+    await page.getByText('Tất cả các chặng đã hoàn thành').first().waitFor();
+    await heading('Chuyến vận chuyển').waitFor();
+    await page.locator('.drv-badge', { hasText: 'Đã giao xong' }).waitFor();
     assert.equal(calls.complete.length, 2);
     assert.equal(await page.locator('.drv-action').count(), 0);
     assert.equal(await page.locator('.drv-stops li.is-reached').count(), 4, 'mọi điểm dừng đã qua');
@@ -357,6 +428,15 @@ const { pathToFileURL } = require('node:url');
     // 6. Chuyến không còn vận chuyển: nút báo sự cố bị khóa
     await open('trip');
     assert.equal(await reportButton().isDisabled(), true);
+
+    // 7. Đang chạy nhưng chưa có mốc nào ghi được (ví dụ điều phối vừa hiệu chỉnh chặng 1 về chưa bắt đầu): nút Check-in bị khóa, có giải thích
+    trips[100].orderStatus = 'IN_TRANSIT';
+    trips[100].legs.forEach(l => { l.status = 'NOT_STARTED'; l.milestones = []; l.actualDepartureAt = null; });
+    await open('trip');
+    assert.equal(await checkInButton().isDisabled(), true, 'không có hành động → khóa');
+    await checkInButton().hover({ force: true });
+    await page.getByRole('tooltip', { name: /Chưa có mốc nào cần ghi/ }).waitFor();
+    assert.equal(await page.locator('.drv-stat-card', { hasText: 'Đã chạy' }).locator('strong').innerText(), '—', 'chưa xuất phát → chưa tính giờ chạy');
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');

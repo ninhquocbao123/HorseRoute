@@ -4,7 +4,7 @@ import type { NextAction } from '../tracking.format';
 // antd preset colors: every status and action has its own color so the driver reads state at a glance.
 export const ORDER_TAG: Record<string, { label: string; color: string }> = {
   READY: { label: 'Sẵn sàng khởi hành', color: 'blue' },
-  IN_TRANSIT: { label: 'Đang vận chuyển', color: 'gold' },
+  IN_TRANSIT: { label: 'Đang di chuyển', color: 'gold' },
   DELIVERED: { label: 'Đã giao xong', color: 'green' },
 };
 export const LEG_TAG: Record<string, { label: string; color: string }> = {
@@ -36,7 +36,8 @@ export const tripProgress = (legs: ILegTracking[]) => {
   return { done, total: legs.length, percent: legs.length ? Math.round((done / legs.length) * 100) : 0 };
 };
 
-export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean };
+/** `current`: điểm đến của chặng đang chạy khi chuyến IN_TRANSIT (D1b: "đang tới"). */
+export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean; current: boolean };
 
 const STOP_NOTE: Record<string, string> = {
   REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
@@ -51,13 +52,13 @@ const localDay = (iso: string) => {
  * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
  * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
  */
-export function tripStops(legs: ILegTracking[], horseCount: number): TripStop[] {
+export function tripStops(legs: ILegTracking[], horseCount: number, currentLegId: string | null = null): TripStop[] {
   if (!legs.length) return [];
   const first = legs[0];
   const startDay = localDay(first.plannedDepartureAt);
   const start: TripStop = {
     key: 'start', name: first.fromLocationName, note: `Nhận ${horseCount} ngựa`,
-    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED',
+    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED', current: false,
   };
   return [start, ...legs.map((leg, index) => ({
     key: leg.id,
@@ -66,6 +67,7 @@ export function tripStops(legs: ILegTracking[], horseCount: number): TripStop[] 
     plannedAt: leg.plannedArrivalAt,
     dayOffset: localDay(leg.plannedArrivalAt) - startDay,
     reached: leg.status === 'AT_STOP' || leg.status === 'COMPLETED',
+    current: leg.id === currentLegId && leg.status !== 'AT_STOP' && leg.status !== 'COMPLETED',
   }))];
 }
 
@@ -118,3 +120,30 @@ export const WAITING_STEPS = [
 ];
 
 export const CAPTION_SUGGESTIONS = ['Lốp sau', 'Toàn xe', 'Khoang ngựa'];
+
+/** Thời lượng dạng "6 giờ 40" / "40 phút". */
+export function formatDuration(ms: number) {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} phút`;
+  return rest ? `${hours} giờ ${String(rest).padStart(2, '0')}` : `${hours} giờ`;
+}
+
+/** Tiêu đề hộp thoại "Check-in chặng": ghi rõ hành động cụ thể vì nút chỉ ghi chung. */
+export function checkInTitle(action: NextAction, leg: ILegTracking) {
+  if (action.kind === 'complete') return `Hoàn thành chặng tới ${leg.toLocationName}`;
+  switch (action.milestone) {
+    case 'DEPARTED': return `Xác nhận: Xuất phát từ ${leg.fromLocationName}`;
+    case 'ARRIVED_AT_STOP': return `Xác nhận: Đã đến ${leg.toLocationName}`;
+    case 'CUSTOMS_CLEARED': return `Thông quan xong tại ${leg.toLocationName}`;
+    default: return `Xác nhận: Đã giao ngựa tại ${leg.toLocationName}`;
+  }
+}
+
+/** "17/11 10:00" (giờ địa phương), dùng cho ETA và giờ đến khác ngày. */
+export function formatDayTime(value: string | Date) {
+  const date = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

@@ -106,7 +106,6 @@
   background: var(--drs-soft); color: var(--drs-navy2); }
 .drv-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .drv-badge.is-ready, .drv-badge.is-delivered { background: var(--drs-green-bg); color: var(--drs-green); }
-.drv-badge.is-in_transit { background: var(--drs-soft); color: var(--drs-navy2); }
 .drv-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .drs .drv-header-actions .ant-btn { height: 48px; padding: 0 24px; border-radius: var(--drs-radius); font-size: 15px; font-weight: 700; }
 .drs .drv-header-actions .drv-btn-report { background: var(--drs-red-bg); border: 1.5px solid var(--drs-red); color: var(--drs-red); }
@@ -242,4 +241,35 @@
 }
 @media (max-width: 1100px) {
   .drv-incident-page, .drv-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─── Màn D1b Chuyến đang chạy (Figma 57:5087) ───────────────────────────── */
+.drv-badge.is-in_transit { background: #d7eeee; color: var(--drs-navy2); }
+.drs .drv-header-actions .drv-btn-checkin:disabled { background: var(--drs-soft) !important; border-color: var(--drs-line) !important; color: var(--drs-muted) !important; }
+
+/* Ba thẻ dưới bản đồ */
+.drv-stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.drv-stat-card { display: grid; grid-template-rows: auto auto 1fr; align-content: start; gap: 6px; min-width: 0; height: 100%; padding: 20px; border: 1px solid var(--drs-line); border-radius: 18px; background: var(--drs-card); }
+.drv-stat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--drs-muted); }
+.drv-stat-head .drv-icon-box { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; }
+.drv-stat-card strong { font-size: 26px; font-weight: 800; letter-spacing: -.52px; line-height: 1.2; overflow-wrap: anywhere; color: var(--drs-ink); }
+.drv-stat-card strong.is-clamped { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; overflow-wrap: normal; }
+.drv-stat-card > small { font-size: 12px; color: var(--drs-muted); }
+.drv-stat-card > small.is-muted { color: #9db0b2; }
+.drv-stat-card > small.is-warn { color: var(--drs-red-text); font-weight: 600; }
+
+/* Điểm dừng đang tới */
+.drv-stops li.is-current { color: var(--drs-ink); }
+.drv-stops li.is-current .drv-stop-mark { background: var(--drs-gold); border-color: var(--drs-gold); color: var(--drs-navy); font-size: 14px; }
+.drv-stops li.is-current .drv-stop-mark::after { content: none; }
+.drv-stops li.is-current .drv-stop-text strong { font-weight: 800; }
+
+/* Ghi chú từ hộ tống */
+.drs .drv-escort-note { display: grid; gap: 10px; }
+.drv-escort-note p { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px; border-radius: 14px;
+  background: var(--drs-green-bg); color: var(--drs-green); font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.drv-escort-note p .anticon { font-size: 18px; flex-shrink: 0; }
+
+@media (max-width: 1280px) {
+  .drv-stats-row { grid-template-columns: minmax(0, 1fr); }
 }

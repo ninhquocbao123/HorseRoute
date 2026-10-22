@@ -337,10 +337,10 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | **A** | **Làm ngay**: cho báo sự cố khi `READY` (5.4): BE, FE, thêm test ca `READY` → 201 | – | Nhỏ | ✅ Xong 22/10 |
 | **B** | **Nền dữ liệu**: 1 migration (`incidents`: severity, sub_type, lat/lng/location_text, damage_target · `attachments.caption` · `orders`: recipient_name/phone). Shared: enum `IncidentSeverity`, `DamageTarget`, hằng `INCIDENT_SUB_TYPES`, kiểu `IDriverTripDetail`. FE bỏ `TripDetail` tự khai báo | – | Vừa | ✅ Xong 22/10 (CI flow4 pass, PR #6) |
 | **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicles[] {id, code, type, capacityStalls}` + test + openapi | B | Vừa | ✅ Xong 22/10 (CI flow4 pass, PR #6) |
-| **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | 🟡 Xong code 22/10, chờ review UI |
-| **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | 🟡 Xong code 22/10, chờ review UI |
-| **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | 🟡 Xong code 23/10, chờ CI flow4 + chạy migration 1800000008000 trên Aiven |
-| **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | ⬜ Chưa làm |
+| **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | ✅ Xong 23/10 (PR #7, CI #26 pass) |
+| **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ✅ Xong 23/10 (PR #7, CI #26 pass) |
+| **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ✅ Xong 23/10 (PR #7, CI #26 pass) |
+| **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
 | **H** | **GPS và bản đồ**: `/map`, `/positions`, `useGpsSharing`, `DriverRouteMap`, `VMAX`, reverse geocode | G | Lớn | ⬜ Chưa làm |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
 
@@ -409,9 +409,7 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Còn lệch Figma: khoảng cách km, nhãn tuyến, bản đồ thật, ghi chú "Nghỉ đêm" (không có dữ liệu); font Be Vietnam Pro chưa nạp; icon dùng `@ant-design/icons` thay vì SVG của Figma; khung cảnh báo của điều phối viên không có trên Figma.
 
 **Ghi chú bước F (23/10/2026)**
-- **Cần làm trước khi chuyển ✅**:
-  - Chạy migration [1800000008000-HotlineParam.ts](../apps/api/src/database/migrations/1800000008000-HotlineParam.ts) trên Aiven. Migration chỉ `INSERT IGNORE` dòng `HOTLINE = '1900 1080'`; `down` xóa đúng dòng đó.
-  - Xem kết quả CI flow4 (máy local không có MySQL).
+- Migration [1800000008000-HotlineParam.ts](../apps/api/src/database/migrations/1800000008000-HotlineParam.ts) **đã chạy trên Aiven** (dòng `HOTLINE = '1900 1080'`; `down` xóa đúng dòng đó). CI flow4 pass (CI #26, PR #7).
 - BE `POST /tracking/trips/:tripId/incidents`:
   - Bắt buộc `severity` (RED/ORANGE/YELLOW) và `damageTarget` (VEHICLE/HORSE/BOTH).
   - Tùy chọn: `subType` (phải thuộc `INCIDENT_SUB_TYPES` của loại, sai → 400), `latitude` + `longitude` (đủ cặp, đúng phạm vi), `locationText` (≤ 255), `captions[]` (≤ 100 ký tự, số nhãn ≤ số ảnh, gắn theo thứ tự ảnh).
@@ -427,6 +425,17 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - flow4: các POST sự cố đều gửi thêm `severity` + `damageTarget`. Ca sự cố của hộ tống đổi thành ca có vị trí + 2 ảnh có nhãn (thay vì thêm sự cố mới, để không làm lệch số đếm dashboard ở các check sau). Thêm các ca 400 và kiểm tra `emergencyHotline` (có dòng / không có dòng).
 - **Màn Ops chưa sửa**: [IncidentsTab.tsx](../apps/web/src/features/tracking/ops/IncidentsTab.tsx) và [TripDetailPanel.tsx](../apps/web/src/features/tracking/ops/TripDetailPanel.tsx) chưa hiện mức độ, loại con, đối tượng hư hại, vị trí và nhãn ảnh. Dữ liệu đã có trong `IIncident`, cần làm ở một bước sau.
 - Còn lệch Figma: font Be Vietnam Pro chưa nạp; icon dùng `@ant-design/icons`; ô ảnh dùng ảnh thật kèm ô nhãn thay vì ô màu có icon camera; dropdown "Loại sự cố" cho gõ để tìm.
+
+**Ghi chú bước G (23/10/2026)**
+- Chỉ FE, không đổi API. Khi `orderStatus = IN_TRANSIT`:
+  - Topbar "Chuyến đang chạy" / "Bấm Check-in mỗi khi tới một chặng"; badge "Đang di chuyển".
+  - Nút chung **"Check-in chặng"** (navy, đứng trước "Báo cáo sự cố") dùng lại `useLegAction` (xác nhận giờ, nhập bù, `pendingStore`, 409). Hook có thêm tùy chọn `title`: hộp thoại ghi rõ hành động, ví dụ "Xác nhận: Đã đến Trạm Đồng Nai", "Thông quan xong tại Cửa khẩu Mộc Bài", "Hoàn thành chặng tới …", "Xác nhận: Đã giao ngựa tại …". Không có hành động tiếp theo → nút khóa kèm tooltip.
+  - Thẻ "Lộ trình chuyến đi": góc phải "ETA dd/MM HH:mm" (giờ đến dự kiến chặng cuối). Bản đồ vẫn `MapFallback`.
+  - [LiveStatsCards.tsx](../apps/web/src/features/tracking/driver/LiveStatsCards.tsx): "Chặng tiếp" (điểm đến chặng hiện tại + giờ dự kiến), "Tốc độ" ("—", "Có ở bước bật GPS"), "Đã chạy" (từ giờ xuất phát thực tế chặng 1; dòng phụ "nghỉ tiếp sau …" hoặc "trễ …" màu cảnh báo). Tự cập nhật mỗi 60 giây.
+  - `StopTimeline` 3 trạng thái: ✓ đã qua, 🚚 đang tới (điểm đến của chặng hiện tại), ○ chưa tới.
+  - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú của **người khác** tài khoản đang đăng nhập (5.5: chưa lọc được theo vai trò escort). Không có thì ẩn.
+- Mốc DELIVERED cuối cùng giữ luồng cũ; xong thì trang quay về "Chuyến vận chuyển", badge "Đã giao xong", thông báo "Tất cả các chặng đã hoàn thành".
+- Còn lệch Figma: không có "Còn … km", badge GPS, tốc độ thật (bước H); ghi chú "Nghỉ đêm" (không có dữ liệu); font và icon như D1; khung "Cảnh báo từ điều phối viên" không có trên Figma.
 
 ### 6.2 Bổ sung để không vướng D2
 
