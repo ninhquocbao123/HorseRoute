@@ -74,18 +74,23 @@ export class RoutesProvider {
     const token = this.token();
     if (!token) return straight(from, to); // Chưa cấu hình token: không lưu, để khi có token sẽ lấy đường thật.
 
+    // Timer thường (có ref), không dùng AbortSignal.timeout: timer của nó là unref nên khi chỉ còn chờ Mapbox,
+    // event loop có thể rỗng và tiến trình thoát trước khi hết giờ. Hạn này bao cả thời gian đọc thân phản hồi.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new DOMException('Directions request timed out', 'TimeoutError')), this.timeoutMs);
     let response: Response;
+    let body: { code?: string; routes?: { geometry?: { coordinates?: LngLat[] }; distance?: number; duration?: number }[] } = {};
     try {
       const url = `${DIRECTIONS_URL}${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&overview=simplified&access_token=${encodeURIComponent(token)}`;
-      response = await this.fetchImpl(url, { signal: AbortSignal.timeout(this.timeoutMs) });
+      response = await this.fetchImpl(url, { signal: controller.signal });
+      try { body = await response.json(); } catch { /* thân không phải JSON */ }
     } catch (error) {
       // Timeout / mất mạng: lỗi tạm thời, không cache để lần sau thử lại.
       logger.warn('directions_unreachable', { fromId, toId, message: error instanceof Error ? error.name : String(error) });
       return straight(from, to);
+    } finally {
+      clearTimeout(timer);
     }
-
-    let body: { code?: string; routes?: { geometry?: { coordinates?: LngLat[] }; distance?: number; duration?: number }[] } = {};
-    try { body = await response.json(); } catch { /* thân không phải JSON */ }
     const best = body.routes?.[0];
     const coordinates = best?.geometry?.coordinates;
     if (response.ok && body.code === 'Ok' && coordinates && coordinates.length >= 2) {
