@@ -13,7 +13,8 @@ const { pathToFileURL } = require('node:url');
   let browser, page;
   try {
     browser = await chromium.launch({ channel: 'msedge', headless: true });
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    // GPS giả lập cho màn D2 (ô vị trí tự điền tọa độ).
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 18.3421, longitude: 105.9057 }, permissions: ['geolocation'] });
     page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -48,10 +49,12 @@ const { pathToFileURL } = require('node:url');
       ...summary(id), horses,
       crew: [{ userId: 'test', name: 'Phan Thị Lan', phone: '0901', role: 'DRIVER' }, { userId: '7', name: 'Lê Hộ Tống', phone: '0902', role: 'ESCORT' }],
       customer: { name: trips[id].customer }, recipient: id === '100' ? { name: 'Người Nhận SG', phone: '+6560000050' } : null,
-      coordinator: { name: 'Điều Phối A', phone: '0903' }, vehicles: [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }],
+      coordinator: { name: 'Điều Phối A', phone: '0903' }, emergencyHotline: '1900 1080', vehicles: [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }],
     });
     const allLegs = () => Object.values(trips).flatMap(t => t.legs);
     const tripOf = legId => Object.values(trips).find(t => t.legs.some(l => l.id === legId));
+    // Giá trị các field cùng tên trong body multipart (theo thứ tự).
+    const field = (raw, name) => [...raw.matchAll(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)\\r\\n`, 'g'))].map(m => m[1]);
     const mark = (l, type, at) => l.milestones.push({ id: String(Math.random()), legId: l.id, milestoneType: type, occurredAt: at, recordedBy: '1', recordedByName: 'Tài xế' });
 
     await page.route('**/api/v1/**', async route => {
@@ -96,7 +99,17 @@ const { pathToFileURL } = require('node:url');
       if (/^\/tracking\/trips\/\d+\/incidents$/.test(p) && method === 'POST') {
         const raw = request.postData() || '';
         calls.incidents.push(raw);
-        return route.fulfill({ status: 201, json: { id: '9', urgency: raw.includes('HORSE_MEDICAL') ? 'HIGH' : 'NORMAL', status: 'NEW' } });
+        const [severity] = field(raw, 'severity');
+        const [incidentType] = field(raw, 'incidentType');
+        const [subType] = field(raw, 'subType');
+        const created = {
+          id: String(9 + state.incidents.length), tripId: '100', legId: null, horseId: null, horseName: null, incidentType, subType, severity,
+          damageTarget: field(raw, 'damageTarget')[0], latitude: null, longitude: null, locationText: null, description: field(raw, 'description')[0],
+          urgency: severity === 'RED' || incidentType === 'HORSE_MEDICAL' ? 'HIGH' : 'NORMAL', status: 'NEW',
+          reportedBy: 'test', reportedByName: 'Phan Thị Lan', reportedAt: iso(0), receivedBy: null, handlingNote: null, closedAt: null, attachments: [],
+        };
+        state.incidents.push(created);
+        return route.fulfill({ status: 201, json: created });
       }
       return route.fulfill({ status: 404, json: { message: 'unmocked ' + p } });
     });
@@ -116,6 +129,8 @@ const { pathToFileURL } = require('node:url');
       await page.getByLabel(label, { exact: true }).click();
       await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: option }).click();
     };
+    // PNG 1×1 hợp lệ để ô ảnh hiển thị được trong ảnh chụp.
+    const photo = { name: 'ngua.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkqGOoBwAEhQGAzc9FWwAAAABJRU5ErkJggg==', 'base64') };
     const heading = name => page.getByRole('heading', { level: 1, name, exact: true });
     const fact = label => page.locator('.drv-header-facts > div', { hasText: label }).locator('dd');
     const stops = () => page.locator('.drv-stops li');
@@ -225,29 +240,91 @@ const { pathToFileURL } = require('node:url');
     await action('XÁC NHẬN XUẤT PHÁT').waitFor();
     assert.equal(calls.complete.length, 1);
 
-    // 4. Báo sự cố: nút trên header mở ?view=incident (tạm dùng IncidentDialog), xong quay về trip
+    // 4. Báo sự cố (màn D2, trang riêng ?view=incident): nút trên header mở trang, gửi xong quay về D1
+    const form = () => page.locator('.drv-incident-form');
+    const submitReport = () => form().getByRole('button', { name: 'Gửi báo cáo cho điều phối' }).click();
     await reportButton().click();
-    await dialog().waitFor();
-    assert.match(page.url(), /view=incident$/);
     await heading('Báo cáo sự cố').waitFor();
+    assert.match(page.url(), /view=incident$/);
+    await page.getByText('Tạo đơn báo cáo gửi điều phối · chuyến WDP-TEST-1').waitFor();
     assert.equal(await page.locator('.drs-sidebar nav button[aria-current=page]').innerText(), 'Báo cáo sự cố');
-    await dialog().getByRole('button', { name: 'Y tế ngựa' }).click();
-    await dialog().getByPlaceholder(/Chuyện gì đang xảy ra/).fill('Ngựa đau bụng, đổ mồ hôi');
-    await dialog().getByRole('button', { name: 'Gửi báo sự cố' }).click();
-    await dialog().getByText(/chọn con ngựa bị ảnh hưởng/).waitFor();
-    assert.equal(calls.incidents.length, 0, 'chưa gửi khi thiếu ngựa');
+    // GPS tự điền tọa độ; cột phải: việc cần làm, liên hệ nhanh, banner đỏ (câu chữ theo 5.8)
+    await page.waitForFunction(() => document.querySelector('input[aria-label="Vị trí"]')?.value === '18.342100, 105.905700');
+    assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper').count(), 3);
+    assert.equal(await page.getByRole('link', { name: 'Gọi điều phối: Điều Phối A' }).getAttribute('href'), 'tel:0903');
+    assert.equal(await page.getByRole('link', { name: 'Cứu hộ 24/7: 1900 1080' }).getAttribute('href'), 'tel:19001080');
+    await page.getByText('Mức đỏ sẽ gửi thông báo khẩn ngay tới điều phối viên.').waitFor();
+    assert.equal(await page.locator('.drv-reported-list').count(), 0, 'chưa có sự cố nào');
+    // Thiếu thông tin: không gửi
+    await submitReport();
+    await page.getByText('Chọn mức độ sự cố.').waitFor();
+    assert.equal(calls.incidents.length, 0);
+    await page.getByRole('radio', { name: /Đỏ · Nghiêm trọng/ }).click();
+    await pick('Loại sự cố', 'Hỏng xe · Nổ lốp');
+    await page.getByLabel('Mô tả chi tiết').fill('Lốp sau phải nổ khi đang chạy 60 km/h');
+    assert.equal(await page.getByLabel('Con ngựa liên quan').count(), 0, 'chỉ hiện ô chọn ngựa khi liên quan tới ngựa');
+    await page.getByRole('radio', { name: 'Cả hai', exact: true }).click();
     await pick('Con ngựa liên quan', 'Bạch Mã');
-    await page.screenshot({ path: 'test-results/driver-incident-desktop.png' });
-    await dialog().getByRole('button', { name: 'Gửi báo sự cố' }).click();
+    await page.locator('input[type=file]').setInputFiles([photo, { ...photo, name: 'xe.png' }]);
+    await page.getByLabel('Nhãn ảnh 1').fill('Lốp sau');
+    await page.getByLabel('Nhãn ảnh 2').fill('Toàn xe');
+    await page.getByRole('button', { name: /Chụp thêm ảnh \(2\/3\)/ }).waitFor();
+    await noOverflow('incident');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+    await page.waitForFunction(() => [...document.querySelectorAll('.ant-select-dropdown')].every(el => el.getBoundingClientRect().height === 0 || getComputedStyle(el).visibility === 'hidden' || el.classList.contains('ant-select-dropdown-hidden')));
+    await page.screenshot({ path: 'test-results/driver-incident-desktop.png', fullPage: true });
+    // Mất mạng: giữ nguyên dữ liệu đã nhập (cả ảnh và nhãn)
+    fail.next = 1;
+    await submitReport();
+    await page.getByText(/Mất kết nối mạng/).waitFor();
+    assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), 'Lốp sau phải nổ khi đang chạy 60 km/h');
+    assert.equal(await page.getByLabel('Nhãn ảnh 2').inputValue(), 'Toàn xe');
+    assert.equal(await page.getByRole('radio', { name: /Đỏ · Nghiêm trọng/ }).getAttribute('aria-checked'), 'true');
+    // Nháp (trừ ảnh) còn sau khi tải lại
+    await open('incident');
+    assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), 'Lốp sau phải nổ khi đang chạy 60 km/h', 'nháp còn sau khi tải lại');
+    assert.equal(await page.locator('.drv-photo').count(), 0, 'ảnh không lưu vào nháp');
+    await page.locator('input[type=file]').setInputFiles([photo, { ...photo, name: 'xe.png' }]);
+    await page.getByLabel('Nhãn ảnh 1').fill('Lốp sau');
+    await submitReport();
     await page.getByText(/Đã báo sự cố KHẨN/).waitFor();
-    assert.match(page.url(), /view=trip$/);
-    assert.equal(calls.incidents.length, 1);
-    assert.ok(/HORSE_MEDICAL/.test(calls.incidents[0]));
-    // Mục "Báo cáo sự cố" trên sidebar cũng mở hộp thoại; đóng thì về trip
-    await page.locator('.drs-sidebar nav button', { hasText: 'Báo cáo sự cố' }).click();
-    await dialog().waitFor();
-    await dialog().getByRole('button', { name: /Hủy|Đóng/ }).first().click();
     await heading('Chuyến đang chạy').waitFor();
+    assert.match(page.url(), /view=trip$/);
+    const sent = calls.incidents.at(-1);
+    assert.deepEqual(
+      ['severity', 'incidentType', 'subType', 'damageTarget', 'horseId', 'latitude', 'longitude'].map(name => field(sent, name)[0]),
+      ['RED', 'VEHICLE_BREAKDOWN', 'TIRE_BURST', 'BOTH', '21', '18.3421', '105.9057'],
+    );
+    assert.deepEqual(field(sent, 'locationText'), [], 'tọa độ GPS không sửa → gửi latitude/longitude');
+    assert.deepEqual(field(sent, 'captions'), ['Lốp sau', ''], 'nhãn theo đúng thứ tự ảnh');
+    assert.equal((sent.match(/name="photos"/g) || []).length, 2);
+
+    // Lần 2 qua sidebar: nháp đã xóa; sửa ô vị trí thành chữ → gửi locationText; mức cam → thường
+    await page.locator('.drs-sidebar nav button', { hasText: 'Báo cáo sự cố' }).click();
+    await heading('Báo cáo sự cố').waitFor();
+    assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), '', 'nháp đã xóa sau khi gửi');
+    await page.locator('.drv-reported-list .drv-sev-badge', { hasText: 'Đỏ' }).waitFor();
+    await page.locator('.drv-reported-list', { hasText: 'Hỏng xe · Nổ lốp' }).waitFor();
+    await page.getByRole('radio', { name: /Cam · Trung bình/ }).click();
+    await page.getByLabel('Loại sự cố').fill('thi công');
+    await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: 'Tắc đường · Thi công / cấm đường' }).click();
+    await page.getByLabel('Vị trí').fill('Km 742 QL1A, Hà Tĩnh');
+    await page.getByLabel('Mô tả chi tiết').fill('Kẹt xe 40 phút do thi công');
+    await page.getByRole('radio', { name: 'Xe', exact: true }).click();
+    await submitReport();
+    await page.getByText('Đã báo sự cố. Điều phối viên sẽ liên hệ với bạn.').waitFor();
+    const second = calls.incidents.at(-1);
+    assert.deepEqual(field(second, 'locationText'), ['Km 742 QL1A, Hà Tĩnh']);
+    assert.deepEqual(field(second, 'latitude'), []);
+    assert.deepEqual(field(second, 'severity'), ['ORANGE']);
+    assert.deepEqual(field(second, 'horseId'), [], 'không liên quan ngựa → không gửi horseId');
+    // Hủy: về D1 không gửi gì
+    await reportButton().click();
+    await heading('Báo cáo sự cố').waitFor();
+    await form().getByRole('button', { name: 'Hủy' }).click();
+    await heading('Chuyến đang chạy').waitFor();
+    assert.equal(calls.incidents.length, 2, 'chỉ 2 lần gửi tới server (lần mất mạng không tới)');
 
     // 5. 409: chặng đã bị cập nhật ở nơi khác → báo và tải lại dữ liệu mới, không gửi lại
     conflict.next = 1;

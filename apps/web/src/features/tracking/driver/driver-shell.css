@@ -4,6 +4,7 @@
   --drs-navy: #0b3b42; --drs-navy2: #14606a; --drs-gold: #f4b942; --drs-gold-hover: #e9ab2c; --drs-brown: #2b1a00;
   --drs-mint: #b2d2d2; --drs-nav-text: #dbf0f0; --drs-bg: #f6faf9; --drs-card: #fff; --drs-line: #d8e6e6;
   --drs-muted: #546d71; --drs-ink: #0d2a2e; --drs-soft: #e7f1f1; --drs-red: #dc2626; --drs-red-bg: #fef2f2;
+  --drs-red-soft: #fee2e2; --drs-red-text: #b91c1c; --drs-orange: #ea580c; --drs-yellow: #ca8a04;
   --drs-green: #166534; --drs-green-bg: #dcfce7; --drs-radius: 12px; --drs-radius-card: 20px;
   display: flex; min-height: 100svh; background: var(--drs-bg); color: var(--drs-ink);
   font-family: var(--font-sans, "Segoe UI", Arial, sans-serif); font-size: 14px;

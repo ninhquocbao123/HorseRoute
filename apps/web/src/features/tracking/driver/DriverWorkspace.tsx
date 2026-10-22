@@ -6,7 +6,7 @@ import { trackingApi } from '../tracking.api';
 import { ALERT_LABEL, currentLeg, formatDateTime } from '../tracking.format';
 import MapFallback from '../../trackmap/MapFallback';
 import '../../trackmap/trackmap.css';
-import IncidentDialog from './IncidentDialog';
+import IncidentReportPage from './IncidentReportPage';
 import TripHeaderCard from './TripHeaderCard';
 import StopTimeline from './StopTimeline';
 import PreDepartureChecklist from './PreDepartureChecklist';
@@ -32,6 +32,7 @@ export default function DriverWorkspace({ data, view, search, onNavigate }: {
   onNavigate: (view: string) => void;
 }) {
   const { trips, details, selected, select, load, loading, refreshing, error } = data;
+  const [flash, setFlash] = useState('');
 
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
@@ -55,28 +56,51 @@ export default function DriverWorkspace({ data, view, search, onNavigate }: {
           </>} />
           <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={refreshing}>Tải lại</Button>
         </section>
-      ) : selected && (
+      ) : selected && (view === 'incident' ? (
+        <IncidentScreen
+          key={selected.id} trip={selected} detail={details[selected.id]} onNavigate={onNavigate}
+          onDone={message => { setFlash(message); onNavigate('trip'); }}
+        />
+      ) : (
         <TripScreen
           key={selected.id} trip={selected} detail={details[selected.id]} trips={options} onSelect={select}
-          onChanged={load} view={view} onNavigate={onNavigate}
+          onChanged={load} onNavigate={onNavigate} flash={flash} onFlashClose={() => setFlash('')}
         />
-      )}
+      ))}
     </div>
   );
 }
 
-function TripScreen({ trip, detail, trips, onSelect, onChanged, view, onNavigate }: {
+/** ?view=incident: màn D2 cho chuyến đang chọn; chuyến không còn báo được sự cố thì chỉ báo lý do. */
+function IncidentScreen({ trip, detail, onNavigate, onDone }: {
+  trip: IDriverTripSummary;
+  detail: IDriverTripDetail | undefined;
+  onNavigate: (view: string) => void;
+  onDone: (message: string) => void;
+}) {
+  if (trip.orderStatus !== 'READY' && trip.orderStatus !== 'IN_TRANSIT') {
+    return (
+      <Alert
+        type="info" showIcon message="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển."
+        action={<Button size="small" onClick={() => onNavigate('trip')}>Về chuyến vận chuyển</Button>}
+      />
+    );
+  }
+  return <IncidentReportPage trip={trip} detail={detail} onDone={onDone} onCancel={() => onNavigate('trip')} />;
+}
+
+function TripScreen({ trip, detail, trips, onSelect, onChanged, onNavigate, flash, onFlashClose }: {
   trip: IDriverTripSummary;
   detail: IDriverTripDetail | undefined;
   trips: IDriverTripSummary[];
   onSelect: (tripId: string) => void;
   onChanged: () => Promise<void>;
-  view: string;
   onNavigate: (view: string) => void;
+  flash: string;
+  onFlashClose: () => void;
 }) {
   const [checked, setChecked] = useDraft<string[]>(`checklist:${trip.id}`, []);
   const [alerts, setAlerts] = useState<IAlert[]>([]);
-  const [reported, setReported] = useState('');
   const remaining = PRE_DEPARTURE_CHECKS.filter(item => !checked.includes(item.id)).length;
   const ready = trip.orderStatus === 'READY';
   const canReport = ready || trip.orderStatus === 'IN_TRANSIT';
@@ -116,7 +140,7 @@ function TripScreen({ trip, detail, trips, onSelect, onChanged, view, onNavigate
       />
 
       {legAction.notice && <Alert type="success" showIcon message={legAction.notice} role="status" closable onClose={() => legAction.setNotice('')} />}
-      {reported && <Alert type="success" showIcon message={reported} role="status" closable onClose={() => setReported('')} />}
+      {flash && <Alert type="success" showIcon message={flash} role="status" closable onClose={onFlashClose} />}
       {legAction.pendingAlert}
       {finished && <Alert type="success" showIcon message="Tất cả các chặng đã hoàn thành. Cảm ơn bạn!" />}
       {!action && !finished && trip.legs.length > 0 && !ready && trip.orderStatus !== 'IN_TRANSIT' && (
@@ -156,20 +180,6 @@ function TripScreen({ trip, detail, trips, onSelect, onChanged, view, onNavigate
       </div>
 
       {legAction.modal}
-
-      {view === 'incident' && (canReport ? (
-        <IncidentDialog
-          trip={trip}
-          detail={detail}
-          onClose={() => onNavigate('trip')}
-          onReported={message => {
-            setReported(message);
-            onNavigate('trip');
-          }}
-        />
-      ) : (
-        <Alert type="info" showIcon message="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển." />
-      ))}
     </>
   );
 }

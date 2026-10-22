@@ -1,4 +1,4 @@
-import type { ILegTracking } from '@my-project/shared';
+import { INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
 import type { NextAction } from '../tracking.format';
 
 // antd preset colors: every status and action has its own color so the driver reads state at a glance.
@@ -77,3 +77,44 @@ export const PRE_DEPARTURE_CHECKS = [
   { id: 'papers', label: 'Giấy kiểm dịch mang theo' },
   { id: 'loaded', label: 'Ngựa đã lên xe và cố định' },
 ];
+
+/** Mức độ sự cố (Figma D2). RED → urgency HIGH ở backend (quyết định 5.1). */
+export const SEVERITIES: { value: IncidentSeverity; label: string; hint: string }[] = [
+  { value: 'RED' as IncidentSeverity, label: 'Đỏ · Nghiêm trọng', hint: 'Tai nạn, ngựa bị thương, xe không thể chạy tiếp' },
+  { value: 'ORANGE' as IncidentSeverity, label: 'Cam · Trung bình', hint: 'Hỏng hóc nhỏ, ngựa có dấu hiệu bất thường' },
+  { value: 'YELLOW' as IncidentSeverity, label: 'Vàng · Nhẹ', hint: 'Kẹt xe, chậm lịch trình, thời tiết xấu' },
+];
+export const SEVERITY_SHORT: Record<string, string> = { RED: 'Đỏ', ORANGE: 'Cam', YELLOW: 'Vàng' };
+
+export const DAMAGE_TARGETS: { value: DamageTarget; label: string }[] = [
+  { value: 'VEHICLE' as DamageTarget, label: 'Xe' },
+  { value: 'HORSE' as DamageTarget, label: 'Ngựa' },
+  { value: 'BOTH' as DamageTarget, label: 'Cả hai' },
+];
+
+const TYPE_LABEL: Record<IncidentType, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa' } as Record<IncidentType, string>;
+
+/** Dropdown "Loại sự cố" gộp loại + loại con, giá trị dạng `TYPE:SUB_TYPE`. */
+export const INCIDENT_KIND_GROUPS = (Object.keys(INCIDENT_SUB_TYPES) as IncidentType[]).map(type => ({
+  label: TYPE_LABEL[type],
+  options: INCIDENT_SUB_TYPES[type].map(sub => ({ value: `${type}:${sub.code}`, label: `${TYPE_LABEL[type]} · ${sub.label}` })),
+}));
+
+export function splitIncidentKind(kind: string): { incidentType: IncidentType; subType: string } | null {
+  const [incidentType, subType] = kind.split(':');
+  return incidentType && subType ? { incidentType: incidentType as IncidentType, subType } : null;
+}
+
+export function incidentKindLabel(type: string, subType: string | null) {
+  const sub = subType ? INCIDENT_SUB_TYPES[type as IncidentType]?.find(item => item.code === subType)?.label : null;
+  return [TYPE_LABEL[type as IncidentType] ?? type, sub].filter(Boolean).join(' · ');
+}
+
+/** 3 việc an toàn trong lúc chờ (Figma D2, nội dung tĩnh). */
+export const WAITING_STEPS = [
+  { id: 'hazard', label: 'Bật đèn khẩn cấp, đặt biển cảnh báo' },
+  { id: 'horses', label: 'Kiểm tra ngựa cùng hộ tống' },
+  { id: 'stall', label: 'Không mở khoang trên đường cao tốc' },
+];
+
+export const CAPTION_SUGGESTIONS = ['Lốp sau', 'Toàn xe', 'Khoang ngựa'];

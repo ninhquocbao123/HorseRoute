@@ -81,14 +81,6 @@
 .drv-photo .ant-btn { position: absolute; top: -8px; right: -8px; box-shadow: 0 1px 4px rgb(0 0 0 / 20%); background: #fff; }
 .drv-photo-add { height: 88px; }
 
-/* Hộp thoại sự cố (render ngoài .portal) */
-.drv-incident-title { display: inline-flex; gap: 10px; align-items: center; color: var(--color-error, #a32d28); }
-.drv-incident .drv-form { margin-top: 4px; }
-.drv-reported { margin-top: 18px; padding: 14px 16px; background: #f6f8f4; border: 1px solid #e3e8e1; border-radius: 10px; }
-.drv-reported h4 { margin: 0 0 10px; font-size: 14px; }
-.drv-reported ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.drv-reported li { display: grid; gap: 4px; font-size: 13px; }
-.drv-reported time, .drv-reported small { font-size: 12px; color: var(--color-text-muted, #68756e); }
 
 /* Màn hình rộng: khối mốc/nhật ký chia hai cột. */
 @media (min-width: 1680px) {
@@ -163,4 +155,91 @@
 }
 @media (max-width: 1100px) {
   .drv-columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─── Màn D2 Báo cáo sự cố (Figma 57:5285) ───────────────────────────────── */
+.drv-incident-page { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+.drs .drv-incident-form { display: grid; gap: 14px; padding: 24px; }
+.drv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.drv-input { display: grid; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--drs-muted); }
+.drv-input small { font-size: 12px; font-weight: 400; }
+.drs .drv-input .ant-select, .drs .drv-input > .ant-input { width: 100%; }
+.drs .drv-input .ant-select-selector, .drs .drv-input > .ant-input, .drs .drv-input textarea.ant-input {
+  background: var(--drs-bg); border: 1.5px solid var(--drs-line); border-radius: var(--drs-radius); font-size: 15px; font-weight: 400; color: var(--drs-ink);
+}
+.drs .drv-input .ant-select { height: 50px; }
+.drs .drv-input .ant-select-selector { padding: 0 16px !important; }
+.drs .drv-input > .ant-input { height: 50px; padding: 0 16px; }
+.drs .drv-input textarea.ant-input { min-height: 96px; padding: 14px 16px; }
+.drs .drv-input .ant-select-status-error .ant-select-selector, .drs .drv-input textarea.ant-input-status-error { border-color: var(--drs-red) !important; }
+
+/* Mức độ */
+.drv-severity { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.drs .drv-severity-card { display: grid; gap: 8px; padding: 18px; text-align: left; border: 1px solid var(--drs-line); border-radius: 16px; background: var(--drs-card); color: var(--drs-ink); }
+.drv-severity-head { display: flex; align-items: center; gap: 8px; }
+.drv-severity-head strong { flex: 1; min-width: 0; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.drv-severity-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.drv-severity-card.is-red .drv-severity-dot { background: var(--drs-red); }
+.drv-severity-card.is-orange .drv-severity-dot { background: var(--drs-orange); }
+.drv-severity-card.is-yellow .drv-severity-dot { background: var(--drs-yellow); }
+.drv-severity-check { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--drs-line); color: #fff; font-size: 12px; flex-shrink: 0; }
+.drv-severity-hint { font-size: 13px; color: var(--drs-muted); }
+.drs .drv-severity-card[aria-checked=true] { border-width: 2.5px; padding: 16.5px; }
+.drs .drv-severity-card.is-red[aria-checked=true] { background: var(--drs-red-soft); border-color: var(--drs-red); }
+.drs .drv-severity-card.is-red[aria-checked=true] strong { color: var(--drs-red-text); }
+.drs .drv-severity-card.is-orange[aria-checked=true] { background: #ffedd5; border-color: var(--drs-orange); }
+.drs .drv-severity-card.is-yellow[aria-checked=true] { background: #fef9c3; border-color: var(--drs-yellow); }
+.drv-severity-card.is-red[aria-checked=true] .drv-severity-check { background: var(--drs-red); border-color: var(--drs-red); }
+.drv-severity-card.is-orange[aria-checked=true] .drv-severity-check { background: var(--drs-orange); border-color: var(--drs-orange); }
+.drv-severity-card.is-yellow[aria-checked=true] .drv-severity-check { background: var(--drs-yellow); border-color: var(--drs-yellow); }
+.drs .drv-severity.is-invalid .drv-severity-card, .drs .drv-chips.is-invalid .drv-chip { border-color: var(--drs-red); }
+
+/* Hư hại liên quan tới */
+.drv-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.drs .drv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--drs-line); border-radius: 99px; background: var(--drs-card); color: var(--drs-muted); font-size: 13px; font-weight: 600; }
+.drs .drv-chip[aria-checked=true] { background: var(--drs-navy); border-color: var(--drs-navy); color: #fff; }
+.drv-horse-field { max-width: 360px; }
+
+/* Ảnh có nhãn */
+.drv-photos.is-tiles .drv-photos-row { gap: 12px; align-items: flex-start; }
+.drv-photos.is-tiles .drv-photo { width: 150px; height: auto; display: grid; gap: 6px; }
+.drv-photos.is-tiles .drv-photo img { height: 110px; border-radius: var(--drs-radius); }
+.drv-photos.is-tiles figcaption .ant-select { width: 100%; }
+.drs .drv-photos.is-tiles .drv-photo-add { width: 150px; height: 110px; display: grid; place-content: center; justify-items: center; gap: 4px;
+  background: var(--drs-bg); border: 1.5px solid var(--drs-line); border-radius: var(--drs-radius); color: var(--drs-navy2); font-size: 11px; font-weight: 600; }
+.drs .drv-photos.is-tiles .drv-photo-add .anticon { font-size: 20px; }
+
+.drs .drv-incident-form .drv-form-actions { justify-content: flex-end; gap: 12px; }
+.drs .drv-form-actions .ant-btn { height: 48px; padding: 0 24px; border-radius: var(--drs-radius); font-size: 15px; font-weight: 700; }
+.drs .drv-btn-ghost { border: 1.5px solid var(--drs-line); color: var(--drs-ink); }
+.drs .drv-btn-danger { background: var(--drs-red); border-color: var(--drs-red); color: #fff; }
+.drs .drv-btn-danger:not(:disabled):hover { background: var(--drs-red-text) !important; border-color: var(--drs-red-text) !important; color: #fff !important; }
+
+/* Cột phải */
+.drs .drv-contacts { display: grid; gap: 10px; }
+.drs .drv-contact { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px; border: 1.5px solid var(--drs-line);
+  border-radius: var(--drs-radius); color: var(--drs-ink); font-size: 15px; font-weight: 700; text-align: center; }
+.drs .drv-contact.is-primary { background: var(--drs-navy); border-color: var(--drs-navy); color: #fff; }
+.drs .drv-contact:hover { border-color: var(--drs-navy2); }
+.drv-red-notice { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px; border-radius: 14px; background: var(--drs-red-soft); color: var(--drs-red-text); font-size: 14px; font-weight: 500; }
+.drs .drv-reported-list { display: grid; gap: 10px; }
+.drv-reported-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.drv-reported-list li { display: grid; gap: 4px; font-size: 13px; padding-top: 10px; border-top: 1px solid var(--drs-line); }
+.drv-reported-list li:first-child { border-top: 0; padding-top: 0; }
+.drv-reported-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.drv-reported-head .ant-tag { margin: 0 0 0 auto; }
+.drv-reported-desc { color: var(--drs-ink); overflow-wrap: anywhere; }
+.drv-reported-list time, .drv-reported-list small { font-size: 12px; color: var(--drs-muted); }
+.drv-sev-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.drv-sev-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.drv-sev-badge.is-red { background: var(--drs-red-soft); color: var(--drs-red-text); }
+.drv-sev-badge.is-orange { background: #ffedd5; color: #c2410c; }
+.drv-sev-badge.is-yellow { background: #fef9c3; color: #a16207; }
+
+@media (max-width: 1280px) {
+  .drv-incident-page { grid-template-columns: minmax(0, 1fr) 280px; }
+  .drv-severity { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1100px) {
+  .drv-incident-page, .drv-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
