@@ -1,111 +1,50 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Empty, Progress, Spin, Tabs, Tag, Tooltip } from 'antd';
-import { AlertOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Empty, Spin, Tag } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import type { IAlert, IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
-import { errorMessage, trackingApi } from '../tracking.api';
-import { ALERT_LABEL, formatDateTime } from '../tracking.format';
-import TripList from './TripList';
-import TripOverview from './TripOverview';
-import MilestonePanel from './MilestonePanel';
-import HorseLogForm from './HorseLogForm';
+import { trackingApi } from '../tracking.api';
+import { ALERT_LABEL, currentLeg, formatDateTime } from '../tracking.format';
+import MapFallback from '../../trackmap/MapFallback';
+import '../../trackmap/trackmap.css';
 import IncidentDialog from './IncidentDialog';
-import { ALERT_COLOR, ORDER_TAG, routeStops, tripProgress } from './driver-ui';
+import TripHeaderCard from './TripHeaderCard';
+import StopTimeline from './StopTimeline';
+import PreDepartureChecklist from './PreDepartureChecklist';
+import { useDraft } from './useDraft';
+import { isTripStart, useLegAction } from './useLegAction';
+import { ALERT_COLOR, PRE_DEPARTURE_CHECKS } from './driver-ui';
+import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
 
-const SELECTED_KEY = 'wdp:tracking:selected-trip';
-const TABS = [
-  { key: 'assignments', label: 'Tổng quan chuyến' },
-  { key: 'milestones', label: 'Mốc hành trình' },
-  { key: 'horse-logs', label: 'Nhật ký ngựa' },
-];
-
-function storedTrip() {
-  try {
-    return sessionStorage.getItem(SELECTED_KEY);
-  } catch {
-    return null;
-  }
+/** Chuyến khớp ô tìm kiếm (mã đơn hoặc tên khách), lọc phía client. */
+export function matchTrips(trips: IDriverTripSummary[], details: Record<string, IDriverTripDetail>, search: string) {
+  const term = search.trim().toLocaleLowerCase('vi');
+  if (!term) return trips;
+  return trips.filter(trip => trip.orderCode.toLocaleLowerCase('vi').includes(term)
+    || details[trip.id]?.customer.name.toLocaleLowerCase('vi').includes(term));
 }
 
-/** Không gian làm việc của Driver/Escort trên web: danh sách chuyến bên trái, chi tiết chuyến đang chọn bên phải. */
-export default function DriverWorkspace({ view, onNavigate }: { view: string; onNavigate: (view: string) => void }) {
-  const [trips, setTrips] = useState<IDriverTripSummary[]>([]);
-  const [details, setDetails] = useState<Record<string, IDriverTripDetail>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(storedTrip);
-  const [alerts, setAlerts] = useState<IAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [incidentOpen, setIncidentOpen] = useState(false);
-  const [notice, setNotice] = useState('');
-
-  const load = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const list = await trackingApi.driverTrips();
-      setTrips(list);
-      setError('');
-      const entries = await Promise.all(list.map(async trip => [trip.id, await trackingApi.tripDetail(trip.id)] as const));
-      setDetails(Object.fromEntries(entries));
-    } catch (e) {
-      setError(errorMessage(e, 'Không tải được danh sách chuyến.'));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // Chuyến đang chọn; mặc định chuyến đang chạy, rồi chuyến đầu tiên.
-  const selected = trips.find(t => t.id === selectedId) ?? trips.find(t => t.orderStatus === 'IN_TRANSIT') ?? trips[0] ?? null;
-
-  function select(tripId: string) {
-    setSelectedId(tripId);
-    setNotice('');
-    try {
-      sessionStorage.setItem(SELECTED_KEY, tripId);
-    } catch {
-      // bỏ qua
-    }
-  }
-
-  useEffect(() => {
-    if (!selected) return setAlerts([]);
-    trackingApi.alerts(selected.id).then(setAlerts).catch(() => setAlerts([]));
-  }, [selected?.id, selected?.orderStatus]);
-
-  const count = (status: string) => trips.filter(t => t.orderStatus === status).length;
-  const stats = [
-    { label: 'Chuyến được giao', value: trips.length, tone: 'brand' },
-    { label: 'Đang vận chuyển', value: count('IN_TRANSIT'), tone: 'gold' },
-    { label: 'Sẵn sàng khởi hành', value: count('READY'), tone: 'blue' },
-    { label: 'Đã giao xong', value: count('DELIVERED'), tone: 'green' },
-  ];
+/** Màn tài xế: một chuyến đang chọn (D1 khi READY; khi IN_TRANSIT tạm giữ nút ghi mốc + các chặng, phần còn lại ở bước G). */
+export default function DriverWorkspace({ data, view, search, onNavigate }: {
+  data: DriverTrips;
+  view: string;
+  search: string;
+  onNavigate: (view: string) => void;
+}) {
+  const { trips, details, selected, select, load, loading, refreshing, error } = data;
 
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
-  const canReport = selected?.orderStatus === 'READY' || selected?.orderStatus === 'IN_TRANSIT';
-  const detail = selected ? details[selected.id] : undefined;
-  const progress = selected ? tripProgress(selected.legs) : null;
-  const tab = TABS.some(t => t.key === view) ? view : 'assignments';
-  const vehicles = selected ? [...new Set(selected.legs.map(leg => leg.vehicleCode).filter(Boolean))].join(', ') : '';
+  const matches = matchTrips(trips, details, search);
+  const options = selected && !matches.includes(selected) ? [selected, ...matches] : matches;
 
   return (
     <div className="drv">
-      <div className="drv-stats">
-        {stats.map(stat => (
-          <div key={stat.label} className={'drv-stat is-' + stat.tone}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
-        ))}
-      </div>
-
       {error && (
         <Alert type="error" showIcon message={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
+      )}
+      {search.trim() && matches.length === 0 && trips.length > 0 && (
+        <Alert type="info" showIcon message={`Không có chuyến nào khớp “${search.trim()}”.`} />
       )}
 
       {!error && trips.length === 0 ? (
@@ -117,85 +56,120 @@ export default function DriverWorkspace({ view, onNavigate }: { view: string; on
           <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={refreshing}>Tải lại</Button>
         </section>
       ) : selected && (
-        <div className="drv-layout">
-          <TripList trips={trips} details={details} selectedId={selected.id} onSelect={select} />
-
-          <div className="drv-main">
-            <section className="drv-card drv-head" aria-label="Chuyến đang chọn">
-              <div className="drv-head-top">
-                <div className="drv-head-title">
-                  <span className="drv-overline">Chuyến #{selected.id} · Vai trò: {selected.crewRole === 'DRIVER' ? 'Tài xế' : 'Hộ tống'}</span>
-                  <h2>{selected.orderCode}</h2>
-                  <p className="drv-route">{routeStops(selected.legs).join(' → ') || 'Chưa có chặng'}</p>
-                </div>
-                <div className="drv-head-actions">
-                  <Tag color={ORDER_TAG[selected.orderStatus]?.color} className="drv-status-tag">{ORDER_TAG[selected.orderStatus]?.label ?? selected.orderStatus}</Tag>
-                  <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={refreshing}>Làm mới</Button>
-                  <Tooltip title={canReport ? '' : 'Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển.'}>
-                    <Button type="primary" danger size="large" icon={<AlertOutlined />} disabled={!canReport} onClick={() => setIncidentOpen(true)}>
-                      Báo sự cố khẩn cấp
-                    </Button>
-                  </Tooltip>
-                </div>
-              </div>
-              <dl className="drv-facts">
-                <div><dt>Phương tiện</dt><dd>{vehicles || '—'}</dd></div>
-                <div><dt>Số ngựa</dt><dd>{detail ? detail.horses.length : '…'}</dd></div>
-                <div><dt>Khởi hành dự kiến</dt><dd>{formatDateTime(selected.plannedDepartureAt)}</dd></div>
-                <div><dt>Đến dự kiến</dt><dd>{formatDateTime(selected.plannedArrivalAt)}</dd></div>
-                <div><dt>Tiến độ</dt><dd>{progress!.done}/{progress!.total} chặng hoàn thành</dd></div>
-              </dl>
-              <Progress percent={progress!.percent} strokeColor="var(--color-success, #275338)" aria-label="Tiến độ chuyến" />
-            </section>
-
-            {notice && <Alert type="success" showIcon message={notice} closable onClose={() => setNotice('')} role="status" />}
-
-            {alerts.length > 0 && (
-              <Alert
-                type="warning" showIcon className="drv-alerts"
-                message="Cảnh báo từ điều phối viên"
-                description={(
-                  <ul>
-                    {[...alerts].reverse().slice(0, 3).map(alert => (
-                      <li key={alert.id}>
-                        <Tag color={ALERT_COLOR[alert.alertType]}>{ALERT_LABEL[alert.alertType] ?? alert.alertType}</Tag>
-                        <span>{alert.content}</span>
-                        <time dateTime={alert.sentAt}>{formatDateTime(alert.sentAt)} · {alert.sentByName}</time>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              />
-            )}
-
-            <section className="drv-card drv-tabs">
-              <Tabs
-                activeKey={tab}
-                onChange={onNavigate}
-                items={TABS.map(item => ({
-                  ...item,
-                  children: item.key !== tab ? null
-                    : item.key === 'assignments' ? <TripOverview trip={selected} detail={detail} onOpen={onNavigate} />
-                    : item.key === 'milestones' ? <MilestonePanel key={selected.id} trip={selected} onChanged={load} />
-                    : <HorseLogForm key={selected.id} trip={selected} detail={detail} />,
-                }))}
-              />
-            </section>
-          </div>
-        </div>
-      )}
-
-      {incidentOpen && selected && (
-        <IncidentDialog
-          trip={selected}
-          detail={detail}
-          onClose={() => setIncidentOpen(false)}
-          onReported={message => {
-            setIncidentOpen(false);
-            setNotice(message);
-          }}
+        <TripScreen
+          key={selected.id} trip={selected} detail={details[selected.id]} trips={options} onSelect={select}
+          onChanged={load} view={view} onNavigate={onNavigate}
         />
       )}
     </div>
+  );
+}
+
+function TripScreen({ trip, detail, trips, onSelect, onChanged, view, onNavigate }: {
+  trip: IDriverTripSummary;
+  detail: IDriverTripDetail | undefined;
+  trips: IDriverTripSummary[];
+  onSelect: (tripId: string) => void;
+  onChanged: () => Promise<void>;
+  view: string;
+  onNavigate: (view: string) => void;
+}) {
+  const [checked, setChecked] = useDraft<string[]>(`checklist:${trip.id}`, []);
+  const [alerts, setAlerts] = useState<IAlert[]>([]);
+  const [reported, setReported] = useState('');
+  const remaining = PRE_DEPARTURE_CHECKS.filter(item => !checked.includes(item.id)).length;
+  const ready = trip.orderStatus === 'READY';
+  const canReport = ready || trip.orderStatus === 'IN_TRANSIT';
+  const seqNo = currentLeg(trip.legs)?.seqNo;
+
+  const legAction = useLegAction(trip, onChanged, {
+    label: next => (isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : next.label),
+    warning: next => isTripStart(next, seqNo) && remaining > 0 && (
+      <Alert type="warning" showIcon message={`Còn ${remaining} mục chưa kiểm tra`} description="Bạn vẫn có thể bắt đầu; hãy rà lại danh sách kiểm tra trước khi xe lăn bánh." />
+    ),
+  });
+  const { action, finished } = legAction;
+
+  useEffect(() => {
+    trackingApi.alerts(trip.id).then(setAlerts).catch(() => setAlerts([]));
+  }, [trip.id, trip.orderStatus]);
+
+  const start = isTripStart(action, seqNo);
+
+  return (
+    <>
+      <TripHeaderCard
+        trip={trip} detail={detail} trips={trips} onSelect={onSelect}
+        actions={<>
+          <Button
+            danger size="large" className="drv-btn-report" disabled={!canReport} onClick={() => onNavigate('incident')}
+            title={canReport ? undefined : 'Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển.'}
+          >
+            Báo cáo sự cố
+          </Button>
+          {action && (
+            <Button size="large" className={'drv-action' + (start ? ' drv-btn-start' : ' drv-btn-checkin')} onClick={() => legAction.open(action)}>
+              {legAction.labelOf(action)}
+            </Button>
+          )}
+        </>}
+      />
+
+      {legAction.notice && <Alert type="success" showIcon message={legAction.notice} role="status" closable onClose={() => legAction.setNotice('')} />}
+      {reported && <Alert type="success" showIcon message={reported} role="status" closable onClose={() => setReported('')} />}
+      {legAction.pendingAlert}
+      {finished && <Alert type="success" showIcon message="Tất cả các chặng đã hoàn thành. Cảm ơn bạn!" />}
+      {!action && !finished && trip.legs.length > 0 && !ready && trip.orderStatus !== 'IN_TRANSIT' && (
+        <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
+      )}
+
+      {alerts.length > 0 && (
+        <Alert
+          type="warning" showIcon className="drv-alerts"
+          message="Cảnh báo từ điều phối viên"
+          description={(
+            <ul>
+              {[...alerts].reverse().slice(0, 3).map(alert => (
+                <li key={alert.id}>
+                  <Tag color={ALERT_COLOR[alert.alertType]}>{ALERT_LABEL[alert.alertType] ?? alert.alertType}</Tag>
+                  <span>{alert.content}</span>
+                  <time dateTime={alert.sentAt}>{formatDateTime(alert.sentAt)} · {alert.sentByName}</time>
+                </li>
+              ))}
+            </ul>
+          )}
+        />
+      )}
+
+      <div className="drv-columns">
+        <section className="drv-card drv-route-card" aria-labelledby="drv-route-title">
+          <div className="drv-card-head">
+            <h3 id="drv-route-title" className="drv-card-title">Lộ trình chuyến đi</h3>
+            <span>{trip.legs.length} chặng</span>
+          </div>
+          <MapFallback reason="disabled" height={400}>Bản đồ lộ trình sẽ có ở bước sau. Xem thứ tự điểm dừng ở thẻ “Các chặng”.</MapFallback>
+        </section>
+        <div className="drv-side">
+          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} />
+          {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
+        </div>
+      </div>
+
+      {legAction.modal}
+
+      {view === 'incident' && (canReport ? (
+        <IncidentDialog
+          trip={trip}
+          detail={detail}
+          onClose={() => onNavigate('trip')}
+          onReported={message => {
+            setReported(message);
+            onNavigate('trip');
+          }}
+        />
+      ) : (
+        <Alert type="info" showIcon message="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển." />
+      ))}
+    </>
   );
 }

@@ -35,3 +35,45 @@ export const tripProgress = (legs: ILegTracking[]) => {
   const done = legs.filter(leg => leg.status === 'COMPLETED').length;
   return { done, total: legs.length, percent: legs.length ? Math.round((done / legs.length) * 100) : 0 };
 };
+
+export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean };
+
+const STOP_NOTE: Record<string, string> = {
+  REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
+};
+
+const localDay = (iso: string) => {
+  const date = new Date(iso);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+};
+
+/**
+ * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
+ * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
+ */
+export function tripStops(legs: ILegTracking[], horseCount: number): TripStop[] {
+  if (!legs.length) return [];
+  const first = legs[0];
+  const startDay = localDay(first.plannedDepartureAt);
+  const start: TripStop = {
+    key: 'start', name: first.fromLocationName, note: `Nhận ${horseCount} ngựa`,
+    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED',
+  };
+  return [start, ...legs.map((leg, index) => ({
+    key: leg.id,
+    name: leg.toLocationName,
+    note: index === legs.length - 1 ? 'Bàn giao' : STOP_NOTE[leg.toLocationType] ?? 'Điểm dừng',
+    plannedAt: leg.plannedArrivalAt,
+    dayOffset: localDay(leg.plannedArrivalAt) - startDay,
+    reached: leg.status === 'AT_STOP' || leg.status === 'COMPLETED',
+  }))];
+}
+
+/** 5 mục kiểm tra trước khi chạy (Figma D1); tick lưu ở client theo chuyến (quyết định 5.3). */
+export const PRE_DEPARTURE_CHECKS = [
+  { id: 'vehicle', label: 'Lốp, phanh, đèn đã kiểm tra' },
+  { id: 'stall', label: 'Khoang ngựa vệ sinh, có lót sàn' },
+  { id: 'supplies', label: 'Nước 120 L, thức ăn đủ 3 ngày' },
+  { id: 'papers', label: 'Giấy kiểm dịch mang theo' },
+  { id: 'loaded', label: 'Ngựa đã lên xe và cố định' },
+];
