@@ -7,6 +7,8 @@ const { once } = require('node:events');
 const mysql = require('mysql2/promise');
 const { DataSource } = require('typeorm');
 const { createServices } = require('../src/shared/config/services');
+const { TrackingService } = require('../src/features/tracking/tracking.service');
+const { TrackingRepository } = require('../src/features/tracking/tracking.repository');
 const { User } = require('../src/features/users/users.model');
 const { createApp } = require('../src/app');
 const { TokenService } = require('../src/shared/utils/jwt.util');
@@ -16,6 +18,8 @@ const name = 'wdp_flow4_test_' + require('crypto').randomBytes(8).toString('hex'
 const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-flow4-'));
 process.env.DOCUMENT_STORAGE_DIR = storageDir;
 process.env.DOCUMENT_STORAGE_PROVIDER = 'local';
+// Không bao giờ gọi Mapbox thật trong test: thiếu token → tuyến STRAIGHT, không cache.
+delete process.env.MAPBOX_ACCESS_TOKEN;
 
 let admin, db, server, created = false, passed = 0;
 async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
@@ -47,8 +51,9 @@ async function main() {
   await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status,recipient_name,recipient_phone) VALUES
     (50,'WDP-F4-50',1,'A','VN','B','SG','2026-10-20','READY','Người Nhận SG','+6560000050'),(51,'WDP-F4-51',8,'A','VN','B','SG','2026-10-20','READY',NULL,NULL)`);
   await q(`INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES (21,50,1,'Bạch Mã','T-21'),(22,50,1,'Hắc Mã','T-22'),(23,51,8,'Xích Thố','T-23')`);
-  await q(`INSERT INTO locations(id,name,location_type,country,timezone) VALUES
-    (1,'Kho HCM','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'Cửa khẩu','BORDER','VN','Asia/Ho_Chi_Minh'),(3,'Sân bay đích','AIRPORT','SG','Asia/Singapore')`);
+  await q(`INSERT INTO locations(id,name,location_type,country,timezone,latitude,longitude) VALUES
+    (1,'Kho HCM','REST_STOP','VN','Asia/Ho_Chi_Minh',10.850000,106.600000),(2,'Cửa khẩu','BORDER','VN','Asia/Ho_Chi_Minh',11.076000,106.158000),
+    (3,'Sân bay đích','AIRPORT','SG','Asia/Singapore',1.364400,103.991500)`);
   await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (5,'TRUCK',4,'XE-01',1)`);
   await q(`INSERT INTO trips(id,order_id,plan_status,planned_departure_at,planned_arrival_at,planned_by) VALUES
     (100,50,'APPROVED',UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() + INTERVAL 3 HOUR,3),(101,51,'APPROVED',UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() + INTERVAL 3 HOUR,4)`);
@@ -347,6 +352,57 @@ async function main() {
     assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver })).length, 1);
   });
 
+  await check('Map + GPS: scope, STRAIGHT without Mapbox token, VMAX, batched positions are idempotent, GPS replaces the estimate, retention purge', async () => {
+    const pointAt = (minutes, extra = {}) => ({ latitude: 10.95, longitude: 106.4, recordedAt: minutesAgo(minutes), ...extra });
+    await expectStatus(403, 'GET', '/trips/100/map', { as: ids.customer });
+    await expectStatus(404, 'GET', '/trips/100/map', { as: ids.driver2 });
+    await expectStatus(404, 'GET', '/trips/100/map', { as: ids.coordB });
+    const before = await expectStatus(200, 'GET', '/trips/100/map', { as: ids.driver });
+    assert.deepEqual(before.stops.map(stop => [stop.locationId, stop.lat, stop.lng]), [['1', 10.85, 106.6], ['2', 11.076, 106.158], ['3', 1.3644, 103.9915]]);
+    assert.deepEqual(before.legs.map(leg => [leg.id, leg.status, leg.mode, leg.coordinates.length]), [['10', 'MOVING', 'STRAIGHT', 2], ['11', 'NOT_STARTED', 'STRAIGHT', 2]]);
+    assert.ok(before.totalKm > 1000, 'HCM → border → Singapore');
+    assert.equal(before.speedLimitKmh, 80, 'VMAX from migration 1800000009000');
+    assert.equal(before.latestPosition, null);
+    assert.equal(before.position.source, 'ESTIMATED');
+    assert.match(before.position.label, /^Ước tính theo kế hoạch, không phải GPS/);
+    assert.ok(before.warnings.some(w => w.startsWith('Chặng 1: chưa có tuyến đường bộ')));
+    assert.equal(await count('SELECT COUNT(*) AS n FROM location_routes'), 0, 'no token: nothing cached, retried once a token exists');
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/map', { as: ids.specialist })).legs.length, 2);
+    await q("DELETE FROM system_parameters WHERE param_code='VMAX'");
+    try { assert.equal((await expectStatus(200, 'GET', '/trips/100/map', { as: ids.manager })).speedLimitKmh, null, 'no VMAX row → null'); }
+    finally { await q("INSERT INTO system_parameters(param_code,param_value,description) VALUES ('VMAX','80','test')"); }
+
+    // Gửi vị trí: chỉ người được phân công, chuyến đang chạy, dữ liệu hợp lệ
+    await expectStatus(403, 'POST', '/trips/100/positions', { as: ids.coordA, body: { points: [pointAt(1)] } });
+    await expectStatus(404, 'POST', '/trips/100/positions', { as: ids.driver2, body: { points: [pointAt(1)] } });
+    await expectStatus(409, 'POST', '/trips/101/positions', { as: ids.driver2, body: { points: [pointAt(1)] } }); // đơn 51 vẫn READY
+    await expectStatus(400, 'POST', '/trips/100/positions', { as: ids.driver, body: { points: [pointAt(-5)] } });
+    await expectStatus(400, 'POST', '/trips/100/positions', { as: ids.driver, body: { points: [pointAt(1, { latitude: 91 })] } });
+    await expectStatus(400, 'POST', '/trips/100/positions', { as: ids.driver, body: { points: Array.from({ length: 21 }, (_, i) => pointAt(i + 1)) } });
+    const batch = { points: [pointAt(2, { speedMps: 15, accuracyM: 8 }), pointAt(1, { latitude: 10.96, longitude: 106.39, speedMps: 17.8, headingDeg: 300 })] };
+    assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.driver, body: batch }), { legId: '10', accepted: 2, duplicates: 0 });
+    assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.driver, body: batch }), { legId: '10', accepted: 0, duplicates: 2 }, 'resend after a network error is idempotent');
+    assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.escort, body: { points: [pointAt(1)] } }), { legId: '10', accepted: 1, duplicates: 0 }, 'same second, different sender');
+    const stored = await q('SELECT CAST(user_id AS CHAR) AS u, CAST(leg_id AS CHAR) AS l, CAST(latitude AS CHAR) AS lat, speed_mps AS s FROM trip_positions ORDER BY recorded_at, user_id');
+    assert.deepEqual(stored.map(r => [r.u, r.l, r.lat]), [['6', '10', '10.950000'], ['6', '10', '10.960000'], ['10', '10', '10.950000']]);
+
+    const after = await expectStatus(200, 'GET', '/trips/100/map', { as: ids.coordA });
+    assert.equal(after.position.source, 'GPS');
+    assert.equal(after.latestPosition.freshness, 'LIVE');
+    assert.ok(after.remainingKm > 0 && after.remainingKm < after.totalKm);
+    const track = await expectStatus(200, 'GET', '/trips/100/positions', { as: ids.manager });
+    assert.equal(track.length, 3);
+    assert.ok(Date.parse(track[0].recordedAt) <= Date.parse(track[2].recordedAt), 'oldest first');
+    assert.equal(track.find(p => p.lat === 10.96).speedKmh, 64.1);
+    assert.equal((await expectStatus(200, 'GET', `/trips/100/positions?since=${encodeURIComponent(minutesAgo(1.5))}`, { as: ids.specialist })).length, 2);
+    await expectStatus(403, 'GET', '/trips/100/positions', { as: ids.customer });
+
+    // Dọn dữ liệu cá nhân cũ hơn TRACK_POSITION_RETENTION_DAYS (mặc định 30)
+    await q("INSERT INTO trip_positions(trip_id,leg_id,user_id,latitude,longitude,recorded_at) VALUES (100,10,6,10.9,106.4,UTC_TIMESTAMP() - INTERVAL 31 DAY)");
+    assert.equal(await new TrackingService(new TrackingRepository(db)).purgeOldPositions(), 1);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM trip_positions'), 3, 'recent points kept');
+  });
+
   await check('Leg flow with border: complete is blocked until customs, last leg only via DELIVERED, order becomes DELIVERED', async () => {
     assert.equal((await milestone(10, 'ARRIVED_AT_STOP', 50)).status, 201);
     assert.equal((await call('POST', '/legs/10/complete', { as: ids.driver, body: { occurredAt: minutesAgo(48) } })).status, 409, 'border needs customs first');
@@ -372,6 +428,8 @@ async function main() {
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_DELIVERED'"), 1);
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_LEG_PROGRESS'"), 4);
     await expectStatus(409, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'LONG_TRAFFIC_JAM', description: 'Sau khi giao', severity: 'YELLOW', damageTarget: 'VEHICLE' } });
+    await expectStatus(409, 'POST', '/trips/100/positions', { as: ids.driver, body: { points: [{ latitude: 1.36, longitude: 103.99, recordedAt: minutesAgo(1) }] } });
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/map', { as: ids.manager })).remainingKm, 0, 'delivered → nothing left');
     await expectStatus(409, 'POST', '/trips/100/alerts', { as: ids.coordA, body: { alertType: 'TRAFFIC', content: 'Sau khi giao hàng' } });
   });
 

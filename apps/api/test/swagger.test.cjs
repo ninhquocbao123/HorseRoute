@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),57);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),60);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -142,6 +142,7 @@ test('Flow 4 tracking contract documents every implemented endpoint with securit
   ['/api/v1/tracking/trips/{tripId}/alerts', 'post'], ['/api/v1/tracking/trips/{tripId}/alerts', 'get'],
   ['/api/v1/tracking/attachments/{id}', 'get'],
   ['/api/v1/tracking/orders/{orderId}/timeline', 'get'], ['/api/v1/tracking/trips/{tripId}/timeline', 'get'], ['/api/v1/tracking/operations/active-trips', 'get'],
+  ['/api/v1/tracking/trips/{tripId}/map', 'get'], ['/api/v1/tracking/trips/{tripId}/positions', 'post'], ['/api/v1/tracking/trips/{tripId}/positions', 'get'],
  ];
  for (const [path, method] of expected) {
   const op = doc.paths[path][method];

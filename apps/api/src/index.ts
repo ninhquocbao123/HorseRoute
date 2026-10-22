@@ -45,6 +45,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
         // Stop scheduling jobs immediately, drain active work before closing MySQL.
         await Promise.all([
           cleanup('expiry_job', () => services?.documents.stopExpiryJob()),
+          cleanup('position_retention_job', () => services?.tracking.stopPositionRetentionJob()),
           cleanup('http', () => new Promise<void>((resolve, reject) => {
             if (!server?.listening) { resolve(); return; }
             server.close(error => error ? reject(error) : resolve());
@@ -98,6 +99,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
       server!.listen(env.PORT);
     }));
     await step('expiry_job', () => services!.documents.startExpiryJob());
+    await step('position_retention_job', () => services!.tracking.startPositionRetentionJob());
     logger.info('api_listening', { port: env.PORT });
     process.once('SIGINT', shutdownOnSignal);
     process.once('SIGTERM', shutdownOnSignal);

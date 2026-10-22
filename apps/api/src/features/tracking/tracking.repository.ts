@@ -2,7 +2,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import { LegStatus, MilestoneType, CrewRole, OrderStatus, PlanStatus } from '@my-project/shared';
 import { checkCrewReadiness } from '../trips/trips.crew';
 import { DEFAULT_MAX_RETROACTIVE_MINUTES } from './tracking.validation';
-import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip, TripCrewRow, TripContactsRow, TripVehicleRow } from './tracking.dto';
+import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip, TripCrewRow, TripContactsRow, TripVehicleRow, TripMapLegRow, PositionRow } from './tracking.dto';
+import type { RouteMode } from '@my-project/shared';
+import type { CachedRoute } from './trackmap.routes-provider';
+import type { LngLat } from './trackmap.geo';
 
 const coordinate = (value: unknown) => value === null || value === undefined ? null : Number(value);
 
@@ -764,5 +767,101 @@ export class TrackingRepository {
     );
     return String(result.insertId);
   }
-}
 
+  // ─── Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6) ──────────────────────────────
+
+  /** Chặng kèm tọa độ hai đầu và loại xe (để chọn ROAD/AIR). */
+  async getTripMapLegs(tripId: string): Promise<TripMapLegRow[]> {
+    return this.db.query(
+      `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo, l.status,
+        l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
+        l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
+        CAST(f.id AS CHAR) AS fromId, f.name AS fromName, f.location_type AS fromType, f.latitude AS fromLat, f.longitude AS fromLng,
+        CAST(t.id AS CHAR) AS toId, t.name AS toName, t.location_type AS toType, t.latitude AS toLat, t.longitude AS toLng,
+        v.vehicle_type AS vehicleType
+      FROM legs l
+      JOIN locations f ON f.id = l.from_location_id
+      JOIN locations t ON t.id = l.to_location_id
+      LEFT JOIN vehicles v ON v.id = l.vehicle_id
+      WHERE l.trip_id = ?
+      ORDER BY l.seq_no ASC, l.id ASC`,
+      [tripId]
+    );
+  }
+
+  async findRoutes(fromId: string, toId: string): Promise<CachedRoute[]> {
+    const rows: { mode: RouteMode; coordinates: unknown; distanceM: number | null; fetchedAt: Date }[] = await this.db.query(
+      `SELECT mode, coordinates, distance_m AS distanceM, fetched_at AS fetchedAt
+      FROM location_routes WHERE from_location_id = ? AND to_location_id = ?`,
+      [fromId, toId]
+    );
+    // mysql2 trả cột JSON đã parse; một số driver trả chuỗi.
+    return rows.map(row => ({ ...row, coordinates: (typeof row.coordinates === 'string' ? JSON.parse(row.coordinates) : row.coordinates) as LngLat[] }));
+  }
+
+  async saveRoute(fromId: string, toId: string, route: { mode: RouteMode; coordinates: LngLat[]; distanceM: number | null; durationS: number | null }): Promise<void> {
+    await this.db.query(
+      `INSERT INTO location_routes (from_location_id, to_location_id, mode, coordinates, distance_m, duration_s, fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
+      ON DUPLICATE KEY UPDATE coordinates = VALUES(coordinates), distance_m = VALUES(distance_m), duration_s = VALUES(duration_s), fetched_at = UTC_TIMESTAMP()`,
+      [fromId, toId, route.mode, JSON.stringify(route.coordinates), route.distanceM, route.durationS]
+    );
+  }
+
+  async deleteRoute(fromId: string, toId: string, mode: RouteMode): Promise<void> {
+    await this.db.query(`DELETE FROM location_routes WHERE from_location_id = ? AND to_location_id = ? AND mode = ?`, [fromId, toId, mode]);
+  }
+
+  /** Giới hạn tốc độ (km/h) từ system_parameters.VMAX; thiếu hoặc không hợp lệ → null. */
+  async getSpeedLimitKmh(): Promise<number | null> {
+    const [row] = await this.db.query(`SELECT param_value AS value FROM system_parameters WHERE param_code = 'VMAX'`);
+    const value = Number(row?.value);
+    return Number.isFinite(value) && value > 0 && value <= 300 ? value : null;
+  }
+
+  /** Điểm GPS mới nhất của chuyến (bất kỳ thành viên tổ lái nào gửi). */
+  async getLatestPosition(tripId: string): Promise<PositionRow | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(leg_id AS CHAR) AS legId, latitude, longitude, accuracy_m AS accuracyM, speed_mps AS speedMps,
+        heading_deg AS headingDeg, recorded_at AS recordedAt
+      FROM trip_positions WHERE trip_id = ?
+      ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+      [tripId]
+    );
+    return row;
+  }
+
+  /** Vệt đường: tối đa `limit` điểm mới nhất sau `since`, trả theo thời gian tăng dần. */
+  async getTrackPoints(tripId: string, since: Date | null, limit: number): Promise<PositionRow[]> {
+    const rows: PositionRow[] = await this.db.query(
+      `SELECT CAST(leg_id AS CHAR) AS legId, latitude, longitude, accuracy_m AS accuracyM, speed_mps AS speedMps,
+        heading_deg AS headingDeg, recorded_at AS recordedAt
+      FROM trip_positions WHERE trip_id = ? AND (? IS NULL OR recorded_at > ?)
+      ORDER BY recorded_at DESC, id DESC LIMIT ?`,
+      [tripId, since, since, limit]
+    );
+    return rows.reverse();
+  }
+
+  /** Ghi lô vị trí; trùng (trip, người gửi, recorded_at) thì bỏ qua. Trả số dòng thực sự thêm. */
+  async insertPositions(tripId: string, legId: string, userId: string, points: {
+    latitude: number; longitude: number; accuracyM: number | null; speedMps: number | null; headingDeg: number | null; recordedAt: Date;
+  }[]): Promise<number> {
+    if (!points.length) return 0;
+    const result = await this.db.query(
+      `INSERT IGNORE INTO trip_positions (trip_id, leg_id, user_id, latitude, longitude, accuracy_m, speed_mps, heading_deg, recorded_at)
+      VALUES ${points.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+      points.flatMap(p => [tripId, legId, userId, p.latitude, p.longitude, p.accuracyM, p.speedMps, p.headingDeg, p.recordedAt])
+    );
+    return Number(result.affectedRows ?? 0);
+  }
+
+  /** Xóa vị trí cũ hơn `days` ngày theo từng lô để không khóa bảng lâu. Trả số dòng đã xóa trong lô. */
+  async deletePositionsOlderThan(days: number, batch: number): Promise<number> {
+    const result = await this.db.query(
+      `DELETE FROM trip_positions WHERE recorded_at < UTC_TIMESTAMP() - INTERVAL ? DAY ORDER BY recorded_at LIMIT ?`,
+      [days, batch]
+    );
+    return Number(result.affectedRows ?? 0);
+  }
+}

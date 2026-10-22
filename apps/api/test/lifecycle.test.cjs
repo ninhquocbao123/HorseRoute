@@ -14,6 +14,7 @@ function fixture() {
   const db = { isInitialized: false, async initialize() { calls.push('mysql.connect'); this.isInitialized = true; }, async destroy() { calls.push('mysql.close'); this.isInitialized = false; } };
   const redis = { async connect() { calls.push('redis.connect'); }, disconnect() { calls.push('redis.close'); } };
   const documents = { startExpiryJob() { calls.push('job.start'); }, async stopExpiryJob() { calls.push('job.stop'); } };
+  const tracking = { startPositionRetentionJob() { calls.push('positions.start'); }, async stopPositionRetentionJob() { calls.push('positions.stop'); } };
   const server = new EventEmitter();
   server.listening = false;
   server.listen = () => { calls.push('http.listen'); server.listening = true; queueMicrotask(() => server.emit('listening')); };
@@ -21,7 +22,7 @@ function fixture() {
   const dependencies = {
     loadEnvironment: () => ({ PORT: 0, JWT_SECRET: 'test-secret', CORS_ORIGIN: 'http://localhost' }),
     createDatabase: () => db, createRedis: () => redis,
-    createServices: () => ({ documents }), createApp: () => (_req, res) => res.end(), createServer: () => server,
+    createServices: () => ({ documents, tracking }), createApp: () => (_req, res) => res.end(), createServer: () => server,
   };
   return { calls, db, redis, documents, server, dependencies };
 }

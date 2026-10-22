@@ -341,7 +341,8 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ✅ Xong 23/10 (PR #7, CI #26 pass) |
 | **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ✅ Xong 23/10 (PR #7, CI #26 pass) |
 | **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
-| **H** | **GPS và bản đồ**: `/map`, `/positions`, `useGpsSharing`, `DriverRouteMap`, `VMAX`, reverse geocode | G | Lớn | ⬜ Chưa làm |
+| **H1** | **Backend bản đồ + GPS** (= Bước 4 trong [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md)): `GET /trips/:tripId/map`, `POST/GET /trips/:tripId/positions`, dọn vị trí cũ, `VMAX` | G | Vừa | 🟡 Xong code 23/10, chờ CI + chạy migration 1800000009000 trên Aiven |
+| **H2** | **FE bản đồ + chia sẻ GPS**: `useGpsSharing`, `DriverRouteMap` (bản đồ thật thay `MapFallback`), km còn lại, tốc độ/VMAX trên D1b. **Không** reverse geocode (điều khoản Mapbox) | H1 | Lớn | ⬜ Chưa làm |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
 
 Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
@@ -436,6 +437,11 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
   - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú của **người khác** tài khoản đang đăng nhập (5.5: chưa lọc được theo vai trò escort). Không có thì ẩn.
 - Mốc DELIVERED cuối cùng giữ luồng cũ; xong thì trang quay về "Chuyến vận chuyển", badge "Đã giao xong", thông báo "Tất cả các chặng đã hoàn thành".
 - Còn lệch Figma: không có "Còn … km", badge GPS, tốc độ thật (bước H); ghi chú "Nghỉ đêm" (không có dữ liệu); font và icon như D1; khung "Cảnh báo từ điều phối viên" không có trên Figma.
+
+**Ghi chú bước H1 (23/10/2026)**
+- Chi tiết ở [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md) mục "Bước 4". Chỉ backend; màn tài xế chưa đổi.
+- **Cần làm trước khi chuyển ✅**: chạy migration [1800000009000-VmaxParam.ts](../apps/api/src/database/migrations/1800000009000-VmaxParam.ts) trên Aiven (`INSERT IGNORE` dòng `VMAX = 80`; `down` xóa đúng dòng đó); đặt `MAPBOX_ACCESS_TOKEN` cho API nếu muốn tuyến đường bộ thật (thiếu token → đường thẳng ước lượng, không lỗi); xem kết quả CI flow4.
+- **Đổi so với dự kiến ở mục 5.6/2.3**: không reverse geocode và không lưu địa chỉ Mapbox vào DB (điều khoản Mapbox). `incidents` chỉ lưu `latitude/longitude`; `location_text` chỉ là chữ người dùng gõ.
 
 ### 6.2 Bổ sung để không vướng D2
 
