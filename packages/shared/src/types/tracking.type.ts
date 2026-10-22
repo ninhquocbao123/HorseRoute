@@ -182,6 +182,8 @@ export interface IDriverTripDetail {
   recipient: ITripContact | null;
   /** Người lập kế hoạch chuyến (trips.planned_by) */
   coordinator: ITripContact | null;
+  /** Số cứu hộ 24/7 (system_parameters.HOTLINE); null khi chưa cấu hình */
+  emergencyHotline: string | null;
   /** Các xe khác nhau dùng trong các chặng, theo thứ tự chặng đầu tiên dùng xe */
   vehicles: ITripVehicle[];
   horses: ITripHorse[];
@@ -308,13 +310,16 @@ export interface IIncidentCreateInput {
   description: string;
   legId?: string;
   horseId?: string;
-  /** Tùy chọn cho tới bước F (màn D2 bắt buộc severity) */
-  severity?: IncidentSeverity;
+  severity: IncidentSeverity;
+  /** Mã trong INCIDENT_SUB_TYPES[incidentType] */
   subType?: string;
-  damageTarget?: DamageTarget;
+  damageTarget: DamageTarget;
+  /** Gửi cả hai hoặc không gửi */
   latitude?: number;
   longitude?: number;
   locationText?: string;
+  /** Nhãn ảnh, cùng thứ tự với `photos` (multipart: lặp field `captions`) */
+  captions?: string[];
 }
 
 // ─── Incident patch request (from Coordinator) ───────────────────────────────

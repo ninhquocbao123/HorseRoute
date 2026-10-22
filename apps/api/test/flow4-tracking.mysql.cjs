@@ -117,6 +117,10 @@ async function main() {
     assert.deepEqual(driverView.coordinator, { name: 'Điều Phối A', phone: '0900000003' });
     assert.deepEqual(driverView.customer, { name: 'Khách Một' });
     assert.deepEqual(driverView.recipient, { name: 'Người Nhận SG', phone: '+6560000050' });
+    assert.equal(driverView.emergencyHotline, '1900 1080', 'HOTLINE from migration 1800000008000');
+    await q("DELETE FROM system_parameters WHERE param_code='HOTLINE'");
+    try { assert.equal((await expectStatus(200, 'GET', '/trips/100', { as: ids.driver })).emergencyHotline, null, 'no HOTLINE row → null'); }
+    finally { await q("INSERT INTO system_parameters(param_code,param_value,description) VALUES ('HOTLINE','1900 1080','test')"); }
     const specialistView = await expectStatus(200, 'GET', '/trips/100', { as: ids.specialist });
     assert.deepEqual(specialistView.crew.map(c => [c.userId, c.phone]), [['6', null], ['10', null]]);
     assert.deepEqual(specialistView.coordinator, { name: 'Điều Phối A', phone: null });
@@ -257,10 +261,16 @@ async function main() {
   });
 
   await check('Incident: HORSE_MEDICAL is HIGH and notifies managers and the trip coordinator; dashboard counts open incidents', async () => {
-    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng' } });
-    await expectStatus(404, 'POST', '/trips/100/incidents', { as: ids.driver2, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng' } });
-    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', legId: '12' } });
-    const incident = await expectStatus(201, 'POST', '/trips/100/incidents', { as: ids.driver, body: photoForm({ incidentType: 'HORSE_MEDICAL', description: 'Ngựa đau bụng', horseId: '21', legId: '10' }) });
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', severity: 'RED', damageTarget: 'HORSE' } });
+    await expectStatus(404, 'POST', '/trips/100/incidents', { as: ids.driver2, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', severity: 'ORANGE', damageTarget: 'VEHICLE' } });
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', legId: '12', severity: 'ORANGE', damageTarget: 'VEHICLE' } });
+    // D2 (bước F): thiếu mức độ / đối tượng hư hại, loại con sai loại, tọa độ thiếu cặp → 400, không tạo bản ghi.
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', damageTarget: 'VEHICLE' } });
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', severity: 'RED' } });
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', subType: 'COLIC', severity: 'ORANGE', damageTarget: 'VEHICLE' } });
+    await expectStatus(400, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng xe nặng', latitude: 10.5, severity: 'ORANGE', damageTarget: 'VEHICLE' } });
+    assert.equal(await count('SELECT COUNT(*) AS n FROM incidents'), 0);
+    const incident = await expectStatus(201, 'POST', '/trips/100/incidents', { as: ids.driver, body: photoForm({ incidentType: 'HORSE_MEDICAL', description: 'Ngựa đau bụng', horseId: '21', legId: '10', severity: 'YELLOW', damageTarget: 'HORSE', subType: 'COLIC' }) });
     assert.equal(incident.urgency, 'HIGH');
     assert.equal(incident.status, 'NEW');
     assert.equal(incident.attachments.length, 1);
@@ -268,8 +278,23 @@ async function main() {
     assert.deepEqual({ ...row }, { urgency: 'HIGH', status: 'NEW' });
     const recipients = await q("SELECT recipient_id AS r FROM notifications WHERE event_type='INCIDENT_REPORTED' ORDER BY recipient_id");
     assert.deepEqual(recipients.map(r => r.r), ['2', '3']);
-    const minor = await expectStatus(201, 'POST', '/trips/100/incidents', { as: ids.escort, body: { incidentType: 'LONG_TRAFFIC_JAM', description: 'Kẹt xe 40 phút' } });
-    assert.equal(minor.urgency, 'NORMAL');
+    // Ca D2 đầy đủ: vị trí GPS + mô tả vị trí, 2 ảnh có nhãn (field `captions` lặp theo thứ tự ảnh).
+    const located = new FormData();
+    for (const [key, value] of Object.entries({ incidentType: 'LONG_TRAFFIC_JAM', description: 'Kẹt xe 40 phút', severity: 'ORANGE', damageTarget: 'VEHICLE', subType: 'ROAD_WORKS', latitude: '18.342100', longitude: '105.905700', locationText: 'Km 742 QL1A, Hà Tĩnh' })) located.set(key, value);
+    located.append('captions', 'Toàn xe');
+    located.append('captions', 'Lốp sau');
+    located.append('photos', new Blob([PNG], { type: 'image/png' }), 'xe.png');
+    located.append('photos', new Blob([PNG], { type: 'image/png' }), 'lop.png');
+    const minor = await expectStatus(201, 'POST', '/trips/100/incidents', { as: ids.escort, body: located });
+    assert.equal(minor.urgency, 'NORMAL', 'ORANGE + VEHICLE is NORMAL');
+    assert.deepEqual([minor.severity, minor.subType, minor.damageTarget, minor.latitude, minor.longitude, minor.locationText],
+      ['ORANGE', 'ROAD_WORKS', 'VEHICLE', 18.3421, 105.9057, 'Km 742 QL1A, Hà Tĩnh']);
+    const [locatedRow] = await q('SELECT severity, sub_type AS subType, damage_target AS damageTarget, CAST(latitude AS CHAR) AS lat, CAST(longitude AS CHAR) AS lng, location_text AS locationText FROM incidents WHERE id=?', [minor.id]);
+    assert.deepEqual({ ...locatedRow }, { severity: 'ORANGE', subType: 'ROAD_WORKS', damageTarget: 'VEHICLE', lat: '18.342100', lng: '105.905700', locationText: 'Km 742 QL1A, Hà Tĩnh' });
+    const captions = await q('SELECT caption FROM attachments WHERE incident_id=? ORDER BY id', [minor.id]);
+    assert.deepEqual(captions.map(r => r.caption), ['Toàn xe', 'Lốp sau']);
+    const [medicalRow] = await q('SELECT severity, sub_type AS subType, damage_target AS damageTarget, latitude FROM incidents WHERE id=?', [incident.id]);
+    assert.deepEqual({ ...medicalRow }, { severity: 'YELLOW', subType: 'COLIC', damageTarget: 'HORSE', latitude: null }, 'HORSE_MEDICAL stays HIGH even when YELLOW');
 
     const dash = await expectStatus(200, 'GET', '/operations/active-trips', { as: ids.manager });
     assert.deepEqual(dash.summary, { inTransit: 1, openIncidents: 2, overdueTrips: 1 });
@@ -346,7 +371,7 @@ async function main() {
     assert.deepEqual(snap.legs.map(l => l.status), ['COMPLETED', 'COMPLETED']);
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_DELIVERED'"), 1);
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_LEG_PROGRESS'"), 4);
-    await expectStatus(409, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'LONG_TRAFFIC_JAM', description: 'Sau khi giao' } });
+    await expectStatus(409, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'LONG_TRAFFIC_JAM', description: 'Sau khi giao', severity: 'YELLOW', damageTarget: 'VEHICLE' } });
     await expectStatus(409, 'POST', '/trips/100/alerts', { as: ids.coordA, body: { alertType: 'TRAFFIC', content: 'Sau khi giao hàng' } });
   });
 

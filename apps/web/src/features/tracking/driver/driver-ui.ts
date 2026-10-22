@@ -1,4 +1,4 @@
-import type { ILegTracking } from '@my-project/shared';
+import { INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
 import type { NextAction } from '../tracking.format';
 
 // antd preset colors: every status and action has its own color so the driver reads state at a glance.
@@ -35,3 +35,86 @@ export const tripProgress = (legs: ILegTracking[]) => {
   const done = legs.filter(leg => leg.status === 'COMPLETED').length;
   return { done, total: legs.length, percent: legs.length ? Math.round((done / legs.length) * 100) : 0 };
 };
+
+export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean };
+
+const STOP_NOTE: Record<string, string> = {
+  REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
+};
+
+const localDay = (iso: string) => {
+  const date = new Date(iso);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+};
+
+/**
+ * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
+ * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
+ */
+export function tripStops(legs: ILegTracking[], horseCount: number): TripStop[] {
+  if (!legs.length) return [];
+  const first = legs[0];
+  const startDay = localDay(first.plannedDepartureAt);
+  const start: TripStop = {
+    key: 'start', name: first.fromLocationName, note: `Nhận ${horseCount} ngựa`,
+    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED',
+  };
+  return [start, ...legs.map((leg, index) => ({
+    key: leg.id,
+    name: leg.toLocationName,
+    note: index === legs.length - 1 ? 'Bàn giao' : STOP_NOTE[leg.toLocationType] ?? 'Điểm dừng',
+    plannedAt: leg.plannedArrivalAt,
+    dayOffset: localDay(leg.plannedArrivalAt) - startDay,
+    reached: leg.status === 'AT_STOP' || leg.status === 'COMPLETED',
+  }))];
+}
+
+/** 5 mục kiểm tra trước khi chạy (Figma D1); tick lưu ở client theo chuyến (quyết định 5.3). */
+export const PRE_DEPARTURE_CHECKS = [
+  { id: 'vehicle', label: 'Lốp, phanh, đèn đã kiểm tra' },
+  { id: 'stall', label: 'Khoang ngựa vệ sinh, có lót sàn' },
+  { id: 'supplies', label: 'Nước 120 L, thức ăn đủ 3 ngày' },
+  { id: 'papers', label: 'Giấy kiểm dịch mang theo' },
+  { id: 'loaded', label: 'Ngựa đã lên xe và cố định' },
+];
+
+/** Mức độ sự cố (Figma D2). RED → urgency HIGH ở backend (quyết định 5.1). */
+export const SEVERITIES: { value: IncidentSeverity; label: string; hint: string }[] = [
+  { value: 'RED' as IncidentSeverity, label: 'Đỏ · Nghiêm trọng', hint: 'Tai nạn, ngựa bị thương, xe không thể chạy tiếp' },
+  { value: 'ORANGE' as IncidentSeverity, label: 'Cam · Trung bình', hint: 'Hỏng hóc nhỏ, ngựa có dấu hiệu bất thường' },
+  { value: 'YELLOW' as IncidentSeverity, label: 'Vàng · Nhẹ', hint: 'Kẹt xe, chậm lịch trình, thời tiết xấu' },
+];
+export const SEVERITY_SHORT: Record<string, string> = { RED: 'Đỏ', ORANGE: 'Cam', YELLOW: 'Vàng' };
+
+export const DAMAGE_TARGETS: { value: DamageTarget; label: string }[] = [
+  { value: 'VEHICLE' as DamageTarget, label: 'Xe' },
+  { value: 'HORSE' as DamageTarget, label: 'Ngựa' },
+  { value: 'BOTH' as DamageTarget, label: 'Cả hai' },
+];
+
+const TYPE_LABEL: Record<IncidentType, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa' } as Record<IncidentType, string>;
+
+/** Dropdown "Loại sự cố" gộp loại + loại con, giá trị dạng `TYPE:SUB_TYPE`. */
+export const INCIDENT_KIND_GROUPS = (Object.keys(INCIDENT_SUB_TYPES) as IncidentType[]).map(type => ({
+  label: TYPE_LABEL[type],
+  options: INCIDENT_SUB_TYPES[type].map(sub => ({ value: `${type}:${sub.code}`, label: `${TYPE_LABEL[type]} · ${sub.label}` })),
+}));
+
+export function splitIncidentKind(kind: string): { incidentType: IncidentType; subType: string } | null {
+  const [incidentType, subType] = kind.split(':');
+  return incidentType && subType ? { incidentType: incidentType as IncidentType, subType } : null;
+}
+
+export function incidentKindLabel(type: string, subType: string | null) {
+  const sub = subType ? INCIDENT_SUB_TYPES[type as IncidentType]?.find(item => item.code === subType)?.label : null;
+  return [TYPE_LABEL[type as IncidentType] ?? type, sub].filter(Boolean).join(' · ');
+}
+
+/** 3 việc an toàn trong lúc chờ (Figma D2, nội dung tĩnh). */
+export const WAITING_STEPS = [
+  { id: 'hazard', label: 'Bật đèn khẩn cấp, đặt biển cảnh báo' },
+  { id: 'horses', label: 'Kiểm tra ngựa cùng hộ tống' },
+  { id: 'stall', label: 'Không mở khoang trên đường cao tốc' },
+];
+
+export const CAPTION_SUGGESTIONS = ['Lốp sau', 'Toàn xe', 'Khoang ngựa'];

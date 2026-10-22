@@ -559,22 +559,37 @@ export class TrackingRepository {
 
   // ─── Stage 2: Incidents ────────────────────────────────────────────────────
 
-  async insertIncident(
-    tripId: string,
-    legId: string | null,
-    horseId: string | null,
-    incidentType: import('@my-project/shared').IncidentType,
-    description: string,
-    urgency: import('@my-project/shared').IncidentUrgency,
-    reportedBy: string,
-    reportedAt: string
-  ): Promise<string> {
+  async insertIncident(input: {
+    tripId: string;
+    legId: string | null;
+    horseId: string | null;
+    incidentType: import('@my-project/shared').IncidentType;
+    description: string;
+    urgency: import('@my-project/shared').IncidentUrgency;
+    severity: import('@my-project/shared').IncidentSeverity;
+    subType: string | null;
+    damageTarget: import('@my-project/shared').DamageTarget;
+    latitude: number | null;
+    longitude: number | null;
+    locationText: string | null;
+    reportedBy: string;
+    reportedAt: string;
+  }): Promise<string> {
     const result = await this.db.query(
-      `INSERT INTO incidents (trip_id, leg_id, horse_id, incident_type, description, urgency, status, reported_by, reported_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'NEW', ?, ?)`,
-      [tripId, legId, horseId, incidentType, description, urgency, reportedBy, new Date(reportedAt)]
+      `INSERT INTO incidents (trip_id, leg_id, horse_id, incident_type, sub_type, severity, damage_target, description, urgency,
+        latitude, longitude, location_text, status, reported_by, reported_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?)`,
+      [input.tripId, input.legId, input.horseId, input.incidentType, input.subType, input.severity, input.damageTarget, input.description,
+        input.urgency, input.latitude, input.longitude, input.locationText, input.reportedBy, new Date(input.reportedAt)]
     );
     return String(result.insertId);
+  }
+
+  /** Số cứu hộ 24/7 (system_parameters.HOTLINE); chưa cấu hình thì null. */
+  async getEmergencyHotline(): Promise<string | null> {
+    const [row] = await this.db.query(`SELECT param_value AS value FROM system_parameters WHERE param_code = 'HOTLINE'`);
+    const value = typeof row?.value === 'string' ? row.value.trim() : '';
+    return value || null;
   }
 
   async findIncident(incidentId: string): Promise<{
@@ -739,12 +754,13 @@ export class TrackingRepository {
     storagePath: string,
     uploadedBy: string,
     horseLogId: string | null = null,
-    incidentId: string | null = null
+    incidentId: string | null = null,
+    caption: string | null = null
   ): Promise<string> {
     const result = await this.db.query(
-      `INSERT INTO attachments (original_name, file_type, size_bytes, storage_path, uploaded_by, horse_log_id, incident_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [originalName, fileType, sizeBytes, storagePath, uploadedBy, horseLogId, incidentId]
+      `INSERT INTO attachments (original_name, file_type, size_bytes, storage_path, uploaded_by, horse_log_id, incident_id, caption)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [originalName, fileType, sizeBytes, storagePath, uploadedBy, horseLogId, incidentId, caption]
     );
     return String(result.insertId);
   }

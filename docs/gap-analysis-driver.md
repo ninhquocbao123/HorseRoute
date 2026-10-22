@@ -335,11 +335,11 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | # | Việc | Phụ thuộc | Ước lượng | Trạng thái |
 |---|---|---|---|---|
 | **A** | **Làm ngay**: cho báo sự cố khi `READY` (5.4): BE, FE, thêm test ca `READY` → 201 | – | Nhỏ | ✅ Xong 22/10 |
-| **B** | **Nền dữ liệu**: 1 migration (`incidents`: severity, sub_type, lat/lng/location_text, damage_target · `attachments.caption` · `orders`: recipient_name/phone). Shared: enum `IncidentSeverity`, `DamageTarget`, hằng `INCIDENT_SUB_TYPES`, kiểu `IDriverTripDetail`. FE bỏ `TripDetail` tự khai báo | – | Vừa | 🟡 Xong code 22/10, migration chưa chạy trên Aiven |
-| **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicles[] {id, code, type, capacityStalls}` + test + openapi | B | Vừa | 🟡 Xong code 22/10, chờ CI flow4 |
-| **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | ⬜ Chưa làm |
-| **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ⬜ Chưa làm |
-| **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ⬜ Chưa làm |
+| **B** | **Nền dữ liệu**: 1 migration (`incidents`: severity, sub_type, lat/lng/location_text, damage_target · `attachments.caption` · `orders`: recipient_name/phone). Shared: enum `IncidentSeverity`, `DamageTarget`, hằng `INCIDENT_SUB_TYPES`, kiểu `IDriverTripDetail`. FE bỏ `TripDetail` tự khai báo | – | Vừa | ✅ Xong 22/10 (CI flow4 pass, PR #6) |
+| **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicles[] {id, code, type, capacityStalls}` + test + openapi | B | Vừa | ✅ Xong 22/10 (CI flow4 pass, PR #6) |
+| **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | 🟡 Xong code 22/10, chờ review UI |
+| **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | 🟡 Xong code 22/10, chờ review UI |
+| **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | 🟡 Xong code 23/10, chờ CI flow4 + chạy migration 1800000008000 trên Aiven |
 | **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | ⬜ Chưa làm |
 | **H** | **GPS và bản đồ**: `/map`, `/positions`, `useGpsSharing`, `DriverRouteMap`, `VMAX`, reverse geocode | G | Lớn | ⬜ Chưa làm |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
@@ -393,6 +393,40 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - OpenAPI: schema `TrackingCrewMember`, `TrackingVehicle`, `recipient`/`coordinator` inline (nullable) + ví dụ đầy đủ.
 - Test: 3 unit test mới trong `tracking.test.cjs`. `flow4-tracking.mysql.cjs` thêm check GET `/trips/100` với tài xế (crew DRIVER+ESCORT kèm SĐT, `vehicles[0].capacityStalls = 4`, coordinator "Điều Phối A" kèm SĐT, recipient đúng giá trị fixture) và Specialist (phone của crew/coordinator/recipient đều null). Fixture thêm SĐT cho user 3, 6 và người nhận cho order 50.
 - Còn lại để chuyển ✅: xem kết quả CI flow4.
+
+**Ghi chú bước D + E (22/10/2026)**
+- Khung riêng cho Driver/Escort ([DriverShell.tsx](../apps/web/src/features/tracking/driver/DriverShell.tsx), `driver-shell.css`). `DashboardShell` của các vai trò khác giữ nguyên.
+  - Sidebar 2 mục `?view=trip` / `?view=incident`. View cũ (`assignments`, `milestones`, `horse-logs`, `overview`…) tự chuyển về `trip`.
+  - Topbar: breadcrumb, tiêu đề đổi theo trạng thái ("Chuyến vận chuyển" / "Chuyến đang chạy" / "Báo cáo sự cố"), ô tìm kiếm lọc client theo mã đơn hoặc tên khách, chuông mở `NotificationsPanel` trong Drawer, ngày hôm nay.
+  - Bảng màu teal/gold của Figma khai báo một lần thành biến `--drs-*`, chỉ có hiệu lực trong `.drs`.
+- Màn D1: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist`, bản đồ tạm là `MapFallback` cao 400px.
+  - Logic ghi mốc của `MilestonePanel` tách thành hook [useLegAction.tsx](../apps/web/src/features/tracking/driver/useLegAction.tsx). Nút "Bắt đầu chuyến đi" và `MilestonePanel` đều dùng hook này.
+  - Checklist lưu bằng `useDraft` theo `tripId`. Thiếu mục thì hộp thoại hiện "Còn X mục chưa kiểm tra", không khóa nút.
+  - `IN_TRANSIT`: giữ nút hành động của chặng hiện tại và các chặng. Phần còn lại của D1b làm ở bước G.
+  - `?view=incident`: tạm mở `IncidentDialog`, đóng hoặc gửi xong thì về `trip`.
+- Đã bỏ: thẻ thống kê, `TripList`, `TripOverview`, Tabs. `HorseLogForm` giữ file nhưng không hiện (5.5).
+- `apps/web/test/flow2.browser.cjs` hỏng ở dòng 15 (phần upload hồ sơ, `DocumentsWorkspace`): **lỗi có sẵn, không sửa**. Đã chạy trên `origin/dev` (8b2e241) bằng worktree riêng: cũng hỏng ở dòng 15, mỗi lần dừng ở một bước khác nhau. Code documents và `flow2-harness` của dev và `long` giống hệt nhau.
+- Còn lệch Figma: khoảng cách km, nhãn tuyến, bản đồ thật, ghi chú "Nghỉ đêm" (không có dữ liệu); font Be Vietnam Pro chưa nạp; icon dùng `@ant-design/icons` thay vì SVG của Figma; khung cảnh báo của điều phối viên không có trên Figma.
+
+**Ghi chú bước F (23/10/2026)**
+- **Cần làm trước khi chuyển ✅**:
+  - Chạy migration [1800000008000-HotlineParam.ts](../apps/api/src/database/migrations/1800000008000-HotlineParam.ts) trên Aiven. Migration chỉ `INSERT IGNORE` dòng `HOTLINE = '1900 1080'`; `down` xóa đúng dòng đó.
+  - Xem kết quả CI flow4 (máy local không có MySQL).
+- BE `POST /tracking/trips/:tripId/incidents`:
+  - Bắt buộc `severity` (RED/ORANGE/YELLOW) và `damageTarget` (VEHICLE/HORSE/BOTH).
+  - Tùy chọn: `subType` (phải thuộc `INCIDENT_SUB_TYPES` của loại, sai → 400), `latitude` + `longitude` (đủ cặp, đúng phạm vi), `locationText` (≤ 255), `captions[]` (≤ 100 ký tự, số nhãn ≤ số ảnh, gắn theo thứ tự ảnh).
+  - `urgency` theo 5.1: RED hoặc `HORSE_MEDICAL` → HIGH, còn lại NORMAL. Audit ghi thêm `severity`, `subType`, `damageTarget`.
+  - Multer nâng giới hạn số field chữ từ 10 lên 20 (form sự cố có tới 13 field).
+  - **Client cũ không gửi `severity`/`damageTarget` sẽ nhận 400.** Trong repo chỉ còn màn D2 gọi API này.
+- `GET /tracking/trips/:id` trả thêm `emergencyHotline` (đọc `system_parameters.HOTLINE`, không có dòng → `null`).
+- FE: trang riêng [IncidentReportPage.tsx](../apps/web/src/features/tracking/driver/IncidentReportPage.tsx) ở `?view=incident` thay cho modal `IncidentDialog` (đã xóa).
+  - Thành phần: `SeverityPicker`, `DamageTargetChips`, `LabeledPhotoGrid` (dùng lại `PhotoPicker`, thêm kiểu ô lớn + nhãn ảnh), `IncidentSidePanel` (Trong lúc chờ, Liên hệ nhanh, banner đỏ, sự cố đã báo).
+  - Vị trí: GPS tự điền `lat, lng`; người dùng sửa ô thành chữ thì gửi `locationText`. Không có GPS thì để trống, không chặn gửi.
+  - Ô chọn ngựa hiện khi chọn "Ngựa"/"Cả hai" hoặc loại "Y tế ngựa" (Figma thiếu ô này, xem 2.3).
+  - Nháp (trừ ảnh) lưu theo chuyến; gửi xong xóa nháp, về `?view=trip` và hiện thông báo khẩn/thường.
+- flow4: các POST sự cố đều gửi thêm `severity` + `damageTarget`. Ca sự cố của hộ tống đổi thành ca có vị trí + 2 ảnh có nhãn (thay vì thêm sự cố mới, để không làm lệch số đếm dashboard ở các check sau). Thêm các ca 400 và kiểm tra `emergencyHotline` (có dòng / không có dòng).
+- **Màn Ops chưa sửa**: [IncidentsTab.tsx](../apps/web/src/features/tracking/ops/IncidentsTab.tsx) và [TripDetailPanel.tsx](../apps/web/src/features/tracking/ops/TripDetailPanel.tsx) chưa hiện mức độ, loại con, đối tượng hư hại, vị trí và nhãn ảnh. Dữ liệu đã có trong `IIncident`, cần làm ở một bước sau.
+- Còn lệch Figma: font Be Vietnam Pro chưa nạp; icon dùng `@ant-design/icons`; ô ảnh dùng ảnh thật kèm ô nhãn thay vì ô màu có icon camera; dropdown "Loại sự cố" cho gõ để tìm.
 
 ### 6.2 Bổ sung để không vướng D2
 

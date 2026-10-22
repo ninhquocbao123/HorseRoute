@@ -17,7 +17,8 @@ module.exports = async function loadSchema(db) {
     const { LocationCoordinates1800000005000 } = require('../src/database/migrations/1800000005000-LocationCoordinates');
     const { TrackMap1800000006000 } = require('../src/database/migrations/1800000006000-TrackMap');
     const { DriverIncidentDetails1800000007000 } = require('../src/database/migrations/1800000007000-DriverIncidentDetails');
-    for (const Migration of [OrderRequirements1800000004000, LocationCoordinates1800000005000, TrackMap1800000006000, DriverIncidentDetails1800000007000]) await new Migration().up(runner);
+    const { HotlineParam1800000008000 } = require('../src/database/migrations/1800000008000-HotlineParam');
+    for (const Migration of [OrderRequirements1800000004000, LocationCoordinates1800000005000, TrackMap1800000006000, DriverIncidentDetails1800000007000, HotlineParam1800000008000]) await new Migration().up(runner);
   } finally {
     try { await runner.query('SET FOREIGN_KEY_CHECKS=1'); } finally { await runner.release(); }
   }

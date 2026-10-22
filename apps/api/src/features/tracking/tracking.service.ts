@@ -27,6 +27,7 @@ import {
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
+  IncidentSeverity,
   AlertType,
   IHorseLog,
   IIncident,
@@ -207,12 +208,13 @@ export class TrackingService {
       }
     }
 
-    const [legs, horses, crew, contacts, vehicles] = await Promise.all([
+    const [legs, horses, crew, contacts, vehicles, emergencyHotline] = await Promise.all([
       this.repository.getTripLegs(tripId),
       this.repository.getTripHorses(trip.orderId),
       this.repository.getTripCrew(tripId),
       this.repository.getTripContacts(tripId),
       this.repository.getTripVehicles(tripId),
+      this.repository.getEmergencyHotline(),
     ]);
 
     const legIds = legs.map(l => l.id);
@@ -237,6 +239,7 @@ export class TrackingService {
         : null,
       coordinator: contacts?.coordinatorName ? { name: contacts.coordinatorName, phone: phone(contacts.coordinatorPhone) } : null,
       vehicles: vehicles.map(v => ({ id: v.id, code: v.code, type: v.type, capacityStalls: Number(v.capacityStalls) })),
+      emergencyHotline,
       horses,
       legs: legs.map(l => mapLegWithMilestones(l, milestones)),
     };
@@ -692,6 +695,9 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createIncidentSchema, normalizeForm(body));
     assertPhotos(files);
+    if (input.captions.length > files.length) {
+      throw new BadRequestException('Số nhãn ảnh không được nhiều hơn số ảnh.');
+    }
 
     const saved: StoredFile[] = [];
     try {
@@ -709,17 +715,25 @@ export class TrackingService {
           throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
         }
 
-        // BR-INC: sự cố y tế ngựa luôn khẩn cấp cao; không tự đổi lộ trình/chặng (BR-INC-03).
-        const urgency = input.incidentType === IncidentType.HORSE_MEDICAL ? IncidentUrgency.HIGH : IncidentUrgency.NORMAL;
-        const incidentId = await repo.insertIncident(
-          tripId, input.legId ?? null, input.horseId ?? null, input.incidentType, input.description, urgency, String(account.id), new Date().toISOString()
-        );
-        for (const file of saved) {
-          await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, incidentId);
+        // 5.1: mức đỏ hoặc y tế ngựa là khẩn cấp cao; không tự đổi lộ trình/chặng (BR-INC-03).
+        const urgency = input.severity === IncidentSeverity.RED || input.incidentType === IncidentType.HORSE_MEDICAL
+          ? IncidentUrgency.HIGH : IncidentUrgency.NORMAL;
+        const subType = input.subType || null;
+        const incidentId = await repo.insertIncident({
+          tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, description: input.description,
+          urgency, severity: input.severity, subType, damageTarget: input.damageTarget,
+          latitude: input.latitude ?? null, longitude: input.longitude ?? null, locationText: input.locationText || null,
+          reportedBy: String(account.id), reportedAt: new Date().toISOString(),
+        });
+        for (const [index, file] of saved.entries()) {
+          await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, incidentId, input.captions[index] || null);
         }
         await repo.audit(
           String(account.id), 'INCIDENT', incidentId, 'REPORT_INCIDENT', null,
-          JSON.stringify({ tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, urgency })
+          JSON.stringify({
+            tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, urgency,
+            severity: input.severity, subType, damageTarget: input.damageTarget,
+          })
         );
         await repo.notifyManagersAndCoordinators(
           tripId,
