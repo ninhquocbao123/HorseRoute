@@ -143,6 +143,28 @@ export interface ITripHorse {
   orderStatus: string;
 }
 
+/** `phone` là null khi người dùng chưa khai báo, hoặc khi người gọi là Specialist (ẩn SĐT nội bộ). */
+export interface ITripCrewMember {
+  userId: string;
+  name: string;
+  phone: string | null;
+  role: CrewRole;
+}
+
+export interface ITripContact {
+  name: string;
+  phone: string | null;
+}
+
+export interface ITripVehicle {
+  id: string;
+  /** vehicles.plate_or_code */
+  code: string;
+  /** vehicles.vehicle_type: TRUCK | AIRCRAFT_HOLD | CRATE */
+  type: string;
+  capacityStalls: number;
+}
+
 export interface IDriverTripDetail {
   id: string;               // tripId
   orderId: string;
@@ -153,6 +175,15 @@ export interface IDriverTripDetail {
   plannedArrivalAt: string | null;
   /** Chỉ có khi người gọi là Driver/Escort được phân công */
   crewRole?: CrewRole;
+  /** Tài xế trước, hộ tống sau */
+  crew: ITripCrewMember[];
+  customer: { name: string };
+  /** null khi đơn chưa có cả tên lẫn SĐT người nhận */
+  recipient: ITripContact | null;
+  /** Người lập kế hoạch chuyến (trips.planned_by) */
+  coordinator: ITripContact | null;
+  /** Các xe khác nhau dùng trong các chặng, theo thứ tự chặng đầu tiên dùng xe */
+  vehicles: ITripVehicle[];
   horses: ITripHorse[];
   legs: ILegTracking[];
 }

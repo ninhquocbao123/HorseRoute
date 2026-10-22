@@ -2,7 +2,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { LegStatus, MilestoneType, CrewRole, OrderStatus, PlanStatus } from '@my-project/shared';
 import { checkCrewReadiness } from '../trips/trips.crew';
 import { DEFAULT_MAX_RETROACTIVE_MINUTES } from './tracking.validation';
-import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip } from './tracking.dto';
+import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip, TripCrewRow, TripContactsRow, TripVehicleRow } from './tracking.dto';
 
 const coordinate = (value: unknown) => value === null || value === undefined ? null : Number(value);
 
@@ -127,6 +127,46 @@ export class TrackingRepository {
       `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus
       FROM horses WHERE order_id = ? AND order_status = 'NORMAL' ORDER BY id ASC`,
       [orderId]
+    );
+  }
+
+  /** Driver/Escort được phân công; DRIVER trước ESCORT. */
+  async getTripCrew(tripId: string): Promise<TripCrewRow[]> {
+    return this.db.query(
+      `SELECT CAST(a.user_id AS CHAR) AS userId, u.full_name AS name, u.phone, a.role
+      FROM trip_assignments a
+      JOIN users u ON u.id = a.user_id
+      WHERE a.trip_id = ?
+      ORDER BY FIELD(a.role, 'DRIVER', 'ESCORT'), a.user_id ASC`,
+      [tripId]
+    );
+  }
+
+  /** Khách hàng, người nhận (orders) và điều phối viên lập kế hoạch (trips.planned_by). */
+  async getTripContacts(tripId: string): Promise<TripContactsRow | undefined> {
+    const [row] = await this.db.query(
+      `SELECT c.full_name AS customerName, o.recipient_name AS recipientName, o.recipient_phone AS recipientPhone,
+        p.full_name AS coordinatorName, p.phone AS coordinatorPhone
+      FROM trips t
+      JOIN orders o ON o.id = t.order_id
+      JOIN users c ON c.id = o.customer_id
+      LEFT JOIN users p ON p.id = t.planned_by
+      WHERE t.id = ?`,
+      [tripId]
+    );
+    return row;
+  }
+
+  /** Các xe khác nhau dùng trong chặng, theo chặng đầu tiên dùng xe. */
+  async getTripVehicles(tripId: string): Promise<TripVehicleRow[]> {
+    return this.db.query(
+      `SELECT CAST(v.id AS CHAR) AS id, v.plate_or_code AS code, v.vehicle_type AS type, v.capacity_stalls AS capacityStalls
+      FROM legs l
+      JOIN vehicles v ON v.id = l.vehicle_id
+      WHERE l.trip_id = ?
+      GROUP BY v.id, v.plate_or_code, v.vehicle_type, v.capacity_stalls
+      ORDER BY MIN(l.seq_no) ASC, v.id ASC`,
+      [tripId]
     );
   }
 

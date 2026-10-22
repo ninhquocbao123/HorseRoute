@@ -38,14 +38,14 @@ async function main() {
   const count = async (sql, params) => Number((await q(sql, params))[0].n);
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
-  await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES
-    (1,'customer@t.local','!','Khách Một','CUSTOMER','ACTIVE'),(2,'manager@t.local','!','Quản Lý','MANAGER','ACTIVE'),
-    (3,'coorda@t.local','!','Điều Phối A','COORDINATOR','ACTIVE'),(4,'coordb@t.local','!','Điều Phối B','COORDINATOR','ACTIVE'),
-    (6,'driver@t.local','!','Tài Xế','DRIVER_ESCORT','ACTIVE'),(7,'specialist@t.local','!','Chuyên Viên','SPECIALIST','ACTIVE'),
-    (8,'customer2@t.local','!','Khách Hai','CUSTOMER','ACTIVE'),(9,'driver2@t.local','!','Tài Xế Hai','DRIVER_ESCORT','ACTIVE'),
-    (10,'escort@t.local','!','Hộ Tống','DRIVER_ESCORT','ACTIVE')`);
-  await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status) VALUES
-    (50,'WDP-F4-50',1,'A','VN','B','SG','2026-10-20','READY'),(51,'WDP-F4-51',8,'A','VN','B','SG','2026-10-20','READY')`);
+  await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status,phone) VALUES
+    (1,'customer@t.local','!','Khách Một','CUSTOMER','ACTIVE',NULL),(2,'manager@t.local','!','Quản Lý','MANAGER','ACTIVE',NULL),
+    (3,'coorda@t.local','!','Điều Phối A','COORDINATOR','ACTIVE','0900000003'),(4,'coordb@t.local','!','Điều Phối B','COORDINATOR','ACTIVE',NULL),
+    (6,'driver@t.local','!','Tài Xế','DRIVER_ESCORT','ACTIVE','0900000006'),(7,'specialist@t.local','!','Chuyên Viên','SPECIALIST','ACTIVE',NULL),
+    (8,'customer2@t.local','!','Khách Hai','CUSTOMER','ACTIVE',NULL),(9,'driver2@t.local','!','Tài Xế Hai','DRIVER_ESCORT','ACTIVE',NULL),
+    (10,'escort@t.local','!','Hộ Tống','DRIVER_ESCORT','ACTIVE',NULL)`);
+  await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status,recipient_name,recipient_phone) VALUES
+    (50,'WDP-F4-50',1,'A','VN','B','SG','2026-10-20','READY','Người Nhận SG','+6560000050'),(51,'WDP-F4-51',8,'A','VN','B','SG','2026-10-20','READY',NULL,NULL)`);
   await q(`INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES (21,50,1,'Bạch Mã','T-21'),(22,50,1,'Hắc Mã','T-22'),(23,51,8,'Xích Thố','T-23')`);
   await q(`INSERT INTO locations(id,name,location_type,country,timezone) VALUES
     (1,'Kho HCM','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'Cửa khẩu','BORDER','VN','Asia/Ho_Chi_Minh'),(3,'Sân bay đích','AIRPORT','SG','Asia/Singapore')`);
@@ -111,6 +111,16 @@ async function main() {
     const own = await expectStatus(200, 'GET', '/trips/100', { as: ids.coordA });
     assert.equal(own.horses.length, 2);
     assert.equal(own.legs[1].toLocationType, 'AIRPORT');
+    const driverView = await expectStatus(200, 'GET', '/trips/100', { as: ids.driver });
+    assert.deepEqual(driverView.crew.map(c => [c.userId, c.role, c.phone]), [['6', 'DRIVER', '0900000006'], ['10', 'ESCORT', null]]);
+    assert.deepEqual(driverView.vehicles, [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }]);
+    assert.deepEqual(driverView.coordinator, { name: 'Điều Phối A', phone: '0900000003' });
+    assert.deepEqual(driverView.customer, { name: 'Khách Một' });
+    assert.deepEqual(driverView.recipient, { name: 'Người Nhận SG', phone: '+6560000050' });
+    const specialistView = await expectStatus(200, 'GET', '/trips/100', { as: ids.specialist });
+    assert.deepEqual(specialistView.crew.map(c => [c.userId, c.phone]), [['6', null], ['10', null]]);
+    assert.deepEqual(specialistView.coordinator, { name: 'Điều Phối A', phone: null });
+    assert.deepEqual(specialistView.recipient, { name: 'Người Nhận SG', phone: null });
     assert.equal((await expectStatus(200, 'GET', '/driver/trips', { as: ids.driver })).length, 1);
     assert.equal((await expectStatus(200, 'GET', '/driver/trips', { as: ids.driver2 }))[0].id, '101');
   });
