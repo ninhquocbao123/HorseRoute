@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Empty, Input, Select, Tag } from 'antd';
 import { EditOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
-import type { IDriverTripSummary, IHorseLog } from '@my-project/shared';
-import { CONDITIONS, errorMessage, trackingApi, type TripDetail } from '../tracking.api';
+import type { IDriverTripDetail, IDriverTripSummary, IHorseLog } from '@my-project/shared';
+import { CONDITIONS, errorMessage, trackingApi } from '../tracking.api';
 import { CONDITION_LABEL, LEG_STATUS_LABEL, currentLeg, formatDateTime } from '../tracking.format';
 import { useDraft } from './useDraft';
 import PhotoPicker from './PhotoPicker';
@@ -13,7 +13,7 @@ type Draft = { legId: string; horseId: string; condition: string; note: string; 
 const EMPTY: Draft = { legId: '', horseId: '', condition: '', note: '', correctsLogId: '' };
 
 /** Tab "Nhật ký ngựa": form ghi tình trạng (trái) và nhật ký của chuyến (phải). */
-export default function HorseLogForm({ trip, detail }: { trip: IDriverTripSummary; detail: TripDetail | undefined }) {
+export default function HorseLogForm({ trip, detail }: { trip: IDriverTripSummary; detail: IDriverTripDetail | undefined }) {
   const [draft, setDraft, clearDraft] = useDraft<Draft>(`horse-log:${trip.id}`, EMPTY);
   const [photos, setPhotos] = useState<File[]>([]);
   const [logs, setLogs] = useState<IHorseLog[]>([]);

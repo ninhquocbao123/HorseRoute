@@ -421,6 +421,14 @@ test('Incident: HORSE_MEDICAL needs a horse and is HIGH urgency; managers and co
   await assert.rejects(() => new TrackingService(stage2Repo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.DELIVERED, plannedBy: '3' }) })).createIncident(driver, '100', base), e => e.getStatus() === 409);
   await assert.rejects(() => new TrackingService(stage2Repo({ legBelongsToTrip: async () => false })).createIncident(driver, '100', { ...base, legId: '999' }), e => e.getStatus() === 400);
 
+  // 5.4: chuyến READY (chưa xuất phát) vẫn được báo sự cố.
+  const readyCalls = {};
+  const readyRepo = stage2Repo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.READY, plannedBy: '3', customerId: '2' }) }, readyCalls);
+  const readyIncident = await new TrackingService(readyRepo).createIncident(driver, '100', base);
+  assert.equal(readyIncident.id, '701');
+  assert.equal(readyCalls.incident[5], 'NORMAL');
+  assert.ok(readyCalls.notifiedIncident, 'coordinator and managers are notified for a READY trip too');
+
   const calls = {};
   const medical = await new TrackingService(stage2Repo({}, calls)).createIncident(driver, '100', { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', horseId: '21', legId: '' });
   assert.equal(medical.urgency, 'HIGH');

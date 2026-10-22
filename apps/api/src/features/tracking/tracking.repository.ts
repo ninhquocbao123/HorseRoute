@@ -4,6 +4,8 @@ import { checkCrewReadiness } from '../trips/trips.crew';
 import { DEFAULT_MAX_RETROACTIVE_MINUTES } from './tracking.validation';
 import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip } from './tracking.dto';
 
+const coordinate = (value: unknown) => value === null || value === undefined ? null : Number(value);
+
 export class TrackingRepository {
   constructor(private readonly db: DataSource | EntityManager) {}
 
@@ -505,6 +507,7 @@ export class TrackingRepository {
         file_type AS fileType,
         size_bytes AS sizeBytes,
         uploaded_at AS uploadedAt,
+        caption,
         CAST(horse_log_id AS CHAR) AS horseLogId,
         CAST(incident_id AS CHAR) AS incidentId
       FROM attachments
@@ -575,7 +578,7 @@ export class TrackingRepository {
   }
 
   async getTripIncidents(tripId: string): Promise<import('./tracking.dto').IncidentRow[]> {
-    return this.db.query(
+    const rows = await this.db.query(
       `SELECT CAST(i.id AS CHAR) AS id,
         CAST(i.trip_id AS CHAR) AS tripId,
         CAST(i.leg_id AS CHAR) AS legId,
@@ -584,6 +587,12 @@ export class TrackingRepository {
         i.incident_type AS incidentType,
         i.description,
         i.urgency,
+        i.severity,
+        i.sub_type AS subType,
+        i.damage_target AS damageTarget,
+        i.latitude,
+        i.longitude,
+        i.location_text AS locationText,
         i.status,
         CAST(i.reported_by AS CHAR) AS reportedBy,
         u1.full_name AS reportedByName,
@@ -598,6 +607,10 @@ export class TrackingRepository {
       ORDER BY i.reported_at ASC, i.id ASC`,
       [tripId]
     );
+    // DECIMAL comes back as a string (bigNumberStrings); old incidents have no coordinates.
+    return rows.map((row: import('./tracking.dto').IncidentRow) => ({
+      ...row, latitude: coordinate(row.latitude), longitude: coordinate(row.longitude),
+    }));
   }
 
   async getIncidentAttachments(incidentIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
@@ -608,6 +621,7 @@ export class TrackingRepository {
         file_type AS fileType,
         size_bytes AS sizeBytes,
         uploaded_at AS uploadedAt,
+        caption,
         CAST(horse_log_id AS CHAR) AS horseLogId,
         CAST(incident_id AS CHAR) AS incidentId
       FROM attachments

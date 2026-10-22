@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Empty, Progress, Spin, Tabs, Tag, Tooltip } from 'antd';
 import { AlertOutlined, ReloadOutlined } from '@ant-design/icons';
-import type { IAlert, IDriverTripSummary } from '@my-project/shared';
-import { errorMessage, trackingApi, type TripDetail } from '../tracking.api';
+import type { IAlert, IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
+import { errorMessage, trackingApi } from '../tracking.api';
 import { ALERT_LABEL, formatDateTime } from '../tracking.format';
 import TripList from './TripList';
 import TripOverview from './TripOverview';
@@ -30,7 +30,7 @@ function storedTrip() {
 /** Không gian làm việc của Driver/Escort trên web: danh sách chuyến bên trái, chi tiết chuyến đang chọn bên phải. */
 export default function DriverWorkspace({ view, onNavigate }: { view: string; onNavigate: (view: string) => void }) {
   const [trips, setTrips] = useState<IDriverTripSummary[]>([]);
-  const [details, setDetails] = useState<Record<string, TripDetail>>({});
+  const [details, setDetails] = useState<Record<string, IDriverTripDetail>>({});
   const [selectedId, setSelectedId] = useState<string | null>(storedTrip);
   const [alerts, setAlerts] = useState<IAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function DriverWorkspace({ view, onNavigate }: { view: string; on
 
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
-  const canReport = selected?.orderStatus === 'IN_TRANSIT';
+  const canReport = selected?.orderStatus === 'READY' || selected?.orderStatus === 'IN_TRANSIT';
   const detail = selected ? details[selected.id] : undefined;
   const progress = selected ? tripProgress(selected.legs) : null;
   const tab = TABS.some(t => t.key === view) ? view : 'assignments';
@@ -131,7 +131,7 @@ export default function DriverWorkspace({ view, onNavigate }: { view: string; on
                 <div className="drv-head-actions">
                   <Tag color={ORDER_TAG[selected.orderStatus]?.color} className="drv-status-tag">{ORDER_TAG[selected.orderStatus]?.label ?? selected.orderStatus}</Tag>
                   <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={refreshing}>Làm mới</Button>
-                  <Tooltip title={canReport ? '' : 'Chỉ báo sự cố khi chuyến đang vận chuyển.'}>
+                  <Tooltip title={canReport ? '' : 'Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển.'}>
                     <Button type="primary" danger size="large" icon={<AlertOutlined />} disabled={!canReport} onClick={() => setIncidentOpen(true)}>
                       Báo sự cố khẩn cấp
                     </Button>

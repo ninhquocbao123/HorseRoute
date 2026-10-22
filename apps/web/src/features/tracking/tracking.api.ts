@@ -1,9 +1,9 @@
 import { isAxiosError } from 'axios';
 import type {
+  IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
   IIncident,
-  ILegTracking,
   IAlert,
   IActiveTrips,
   IOrderTimeline,
@@ -16,20 +16,11 @@ import type {
 } from '@my-project/shared';
 import { api } from '../../lib/axios';
 
-export type TripHorse = { id: string; name: string; passportNo: string; orderStatus: string };
-export type TripDetail = {
-  id: string;
-  orderId: string;
-  orderCode: string;
-  orderStatus: string;
-  horses: TripHorse[];
-  legs: ILegTracking[];
-};
 export type MilestoneResult = { milestoneId: string; legId: string; milestoneType: MilestoneType; legStatus: string; orderStatus: string };
 
 export const trackingApi = {
   driverTrips: () => api.get<IDriverTripSummary[]>('/tracking/driver/trips').then(r => r.data),
-  tripDetail: (tripId: string) => api.get<TripDetail>(`/tracking/trips/${tripId}`).then(r => r.data),
+  tripDetail: (tripId: string) => api.get<IDriverTripDetail>(`/tracking/trips/${tripId}`).then(r => r.data),
   recordMilestone: (legId: string, milestoneType: MilestoneType, occurredAt: string) =>
     api.post<MilestoneResult>(`/tracking/legs/${legId}/milestones`, { milestoneType, occurredAt }).then(r => r.data),
   completeLeg: (legId: string, occurredAt: string) =>

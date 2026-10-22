@@ -1,7 +1,6 @@
 import { Button, Steps, Table, Tag } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
-import type { IDriverTripSummary } from '@my-project/shared';
-import type { TripDetail, TripHorse } from '../tracking.api';
+import type { IDriverTripDetail, IDriverTripSummary, ITripHorse } from '@my-project/shared';
 import { currentLeg, formatDateTime, nextAction } from '../tracking.format';
 import { LEG_TAG, LOCATION_TYPE_LABEL, actionColor } from './driver-ui';
 
@@ -10,7 +9,7 @@ const HORSE_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 /** Tab "Tổng quan chuyến": lộ trình từng chặng, việc cần làm tiếp theo, danh sách ngựa. */
-export default function TripOverview({ trip, detail, onOpen }: { trip: IDriverTripSummary; detail: TripDetail | undefined; onOpen: (view: string) => void }) {
+export default function TripOverview({ trip, detail, onOpen }: { trip: IDriverTripSummary; detail: IDriverTripDetail | undefined; onOpen: (view: string) => void }) {
   const leg = currentLeg(trip.legs);
   const action = leg ? nextAction(leg, trip.legs, trip.orderStatus) : null;
   const finished = trip.legs.length > 0 && trip.legs.every(l => l.status === 'COMPLETED');
@@ -65,7 +64,7 @@ export default function TripOverview({ trip, detail, onOpen }: { trip: IDriverTr
 
         <section className="drv-block">
           <h3>Ngựa trên chuyến</h3>
-          <Table<TripHorse>
+          <Table<ITripHorse>
             rowKey="id" size="small" pagination={false} loading={!detail}
             dataSource={detail?.horses ?? []}
             locale={{ emptyText: 'Chưa có ngựa.' }}

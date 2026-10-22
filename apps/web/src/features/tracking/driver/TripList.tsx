@@ -1,13 +1,12 @@
 import { Tag } from 'antd';
-import type { IDriverTripSummary } from '@my-project/shared';
-import type { TripDetail } from '../tracking.api';
+import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { formatDateTime } from '../tracking.format';
 import { ORDER_TAG, routeStops, tripProgress } from './driver-ui';
 
 /** Cột trái: mọi chuyến được giao, chuyến đang chạy lên đầu. */
 export default function TripList({ trips, details, selectedId, onSelect }: {
   trips: IDriverTripSummary[];
-  details: Record<string, TripDetail>;
+  details: Record<string, IDriverTripDetail>;
   selectedId: string;
   onSelect: (tripId: string) => void;
 }) {

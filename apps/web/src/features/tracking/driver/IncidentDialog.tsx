@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Modal, Select, Tag } from 'antd';
 import { AlertOutlined } from '@ant-design/icons';
-import type { IDriverTripSummary, IIncident } from '@my-project/shared';
-import { INCIDENT_TYPES, errorMessage, trackingApi, type TripDetail } from '../tracking.api';
+import type { IDriverTripDetail, IDriverTripSummary, IIncident } from '@my-project/shared';
+import { INCIDENT_TYPES, errorMessage, trackingApi } from '../tracking.api';
 import { INCIDENT_STATUS_LABEL, INCIDENT_TYPE_LABEL, currentLeg, formatDateTime } from '../tracking.format';
 import { useDraft } from './useDraft';
 import PhotoPicker from './PhotoPicker';
@@ -13,7 +13,7 @@ const EMPTY: Draft = { incidentType: '', description: '', legId: '', horseId: ''
 
 export default function IncidentDialog({ trip, detail, onClose, onReported }: {
   trip: IDriverTripSummary;
-  detail: TripDetail | undefined;
+  detail: IDriverTripDetail | undefined;
   onClose: () => void;
   onReported: (message: string) => void;
 }) {

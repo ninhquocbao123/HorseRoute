@@ -270,9 +270,14 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
   - Khi có actor này, thẻ "Ghi chú từ hộ tống" ở D1b sẽ lọc được chính xác. Hiện tại thì chưa (xem mục 3.1).
 - **Thời điểm**: kế hoạch riêng, sau.
 
-### 5.6 Giới hạn tốc độ → `system_parameters`, mặc định 80
-- **Quyết định**: thêm tham số vào `system_parameters`, đề xuất mã `SPEED_LIMIT_KMH`, giá trị mặc định `80`.
-- **Thời điểm**: không gấp. Làm cùng Bước 4 (GPS), vì phải có GPS mới hiện được tốc độ.
+### 5.6 Giới hạn tốc độ và số cứu hộ → `system_parameters`
+- **Quyết định**:
+  - Giới hạn tốc độ: mã **`VMAX`**, giá trị mặc định `80` (km/h).
+  - Số cứu hộ 24/7 ("Cứu hộ 24/7: 1900 1080" ở D2): mã **`HOTLINE`**.
+- **Lý do đổi tên mã** (trước đây đề xuất `SPEED_LIMIT_KMH`): cột `system_parameters.param_code` là `varchar(10)`, không chứa được tên dài. Đặt mã ngắn giống `LEG_BACK` đang dùng.
+- **Thời điểm**:
+  - `HOTLINE` làm ở Bước F (D2).
+  - `VMAX` không gấp, làm cùng Bước H (GPS), vì phải có GPS mới hiện được tốc độ.
 
 ### 5.7 Cỡ xe "Medium" → hiển thị số chuồng
 - **Quyết định**: hiển thị `capacity_stalls`, ví dụ **"51C-482.19 · 4 chuồng"**. Không cần migration.
@@ -313,10 +318,78 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | Làm ngay | 5.4: cho báo sự cố khi `READY` (BE + FE + test), thay đổi nhỏ |
 | Bước 2 (D1) | Checklist có cảnh báo trong modal (5.3). Hiện `capacity_stalls` (5.7). Đọc người nhận sau khi flow 1 thêm cột (5.2) |
 | Bước 3 (D2) | Một migration cho `severity` + `sub_type` (5.1, 5.9). Danh sách loại con ở shared. Sửa câu banner (5.8) |
-| Bước 4 (D1b/GPS) | Thêm tham số `SPEED_LIMIT_KMH` (5.6) |
+| Bước 4 (D1b/GPS) | Thêm tham số `VMAX` (5.6) |
 | Để sau / backlog | Lưu checklist lên BE (5.3), actor Escort + nhật ký ngựa (5.5), cuộc gọi tự động (5.8) |
 
 **Cần báo nhóm thiết kế**:
 - Đổi "Medium" thành số chuồng (5.7).
 - Sửa câu banner mức đỏ (5.8).
 - Thêm ô chọn loại con trong D2 nếu dropdown hiện tại chưa thể hiện (5.9).
+
+---
+
+## 6. Kế hoạch thực hiện (chốt 22/10/2026)
+
+### 6.1 Các bước
+
+| # | Việc | Phụ thuộc | Ước lượng | Trạng thái |
+|---|---|---|---|---|
+| **A** | **Làm ngay**: cho báo sự cố khi `READY` (5.4): BE, FE, thêm test ca `READY` → 201 | – | Nhỏ | ✅ Xong 22/10 |
+| **B** | **Nền dữ liệu**: 1 migration (`incidents`: severity, sub_type, lat/lng/location_text, damage_target · `attachments.caption` · `orders`: recipient_name/phone). Shared: enum `IncidentSeverity`, `DamageTarget`, hằng `INCIDENT_SUB_TYPES`, kiểu `IDriverTripDetail`. FE bỏ `TripDetail` tự khai báo | – | Vừa | 🟡 Xong code 22/10, migration chưa chạy trên Aiven |
+| **C** | **API trip detail**: `GET /tracking/trips/:id` trả thêm `crew[]`, `customer`, `recipient`, `coordinator {name, phone}`, `vehicle {code, type, capacityStalls}` + test + openapi | B | Vừa | ⬜ Chưa làm |
+| **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | ⬜ Chưa làm |
+| **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ⬜ Chưa làm |
+| **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ⬜ Chưa làm |
+| **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | ⬜ Chưa làm |
+| **H** | **GPS và bản đồ**: `/map`, `/positions`, `useGpsSharing`, `DriverRouteMap`, `VMAX`, reverse geocode | G | Lớn | ⬜ Chưa làm |
+| – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
+
+Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
+
+**Ghi chú bước A (22/10/2026)**
+- BE `createIncident` ([tracking.service.ts](../apps/api/src/features/tracking/tracking.service.ts)): nhận `READY | IN_TRANSIT`, câu lỗi 409 mới: "Chỉ báo sự cố khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT)."
+- FE `canReport` + tooltip ([DriverWorkspace.tsx](../apps/web/src/features/tracking/driver/DriverWorkspace.tsx)).
+- OpenAPI: mô tả `POST /tracking/trips/:tripId/incidents` đổi thành "Order phải READY hoặc IN_TRANSIT (409)".
+- Test `tracking.test.cjs`: thêm ca READY → tạo được, urgency NORMAL, có gửi thông báo. Ca 409 (đơn `DELIVERED`) giữ nguyên.
+- Browser test `apps/web/test/driver.browser.cjs`: đảo assertion khi đơn READY (trước đây kiểm tra nút "Báo sự cố khẩn cấp" bị khóa, nay kiểm tra nút bật).
+- `flow4-tracking.mysql.cjs` chưa thêm ca READY, vì thêm sự cố vào chuyến 101 sẽ làm đổi các số đếm dashboard ở các check sau.
+
+**Ghi chú bước B (22/10/2026)**
+- Migration [1800000007000-DriverIncidentDetails.ts](../apps/api/src/database/migrations/1800000007000-DriverIncidentDetails.ts):
+  - `incidents`: thêm `severity`, `sub_type`, `damage_target`, `latitude`, `longitude`, `location_text`, cùng 3 CHECK cho tọa độ.
+  - `attachments`: thêm `caption`.
+  - `orders`: thêm `recipient_name`, `recipient_phone`.
+  - Mọi cột đều NULLABLE, không DEFAULT. Đã thêm vào `test/load-schema.cjs`.
+  - **Chưa chạy `migration:run`**, vì `.env` đang trỏ tới DB Aiven dùng chung.
+- Shared:
+  - Thêm enum `IncidentSeverity`, `DamageTarget`.
+  - Thêm `constants/incident.constants.ts` (`INCIDENT_SUB_TYPES`, `isValidSubType`).
+  - `IIncident`, `ILogAttachment` có thêm các trường mới (nullable). `IIncidentCreateInput` thêm các trường tùy chọn.
+  - Thêm `ITripHorse`, `IDriverTripDetail`.
+- BE:
+  - `TrackingTripDetail` / `HorseInTrip` giờ là alias của kiểu shared.
+  - Câu SELECT sự cố và ảnh trả thêm các cột mới. Tọa độ đổi sang number.
+  - OpenAPI cập nhật schema `Incident` và `LogAttachment`.
+  - **Chưa đổi** `createIncident` và `createIncidentSchema` (để Bước F).
+- FE: bỏ `TripDetail` / `TripHorse` tự khai báo. 5 file driver dùng `IDriverTripDetail` / `ITripHorse`, giao diện không đổi.
+- CI: thêm bước chạy `flow4-tracking.mysql.cjs`.
+- Còn lại để chuyển ✅:
+  - Chạy migration trên Aiven.
+  - Xem kết quả CI flow4 (máy local không có MySQL nên chưa chạy test MySQL).
+
+### 6.2 Bổ sung để không vướng D2
+
+**1. Chốt thêm các cột D2 cần.** Mục 5 mới chốt `severity` và `sub_type`. D2 còn cần thêm các cột sau:
+
+| Cột | Dùng cho |
+|---|---|
+| `incidents.latitude`, `incidents.longitude`, `incidents.location_text` | Ô "Vị trí (GPS tự động)" |
+| `incidents.damage_target` (`VEHICLE \| HORSE \| BOTH`) | "Hư hại liên quan tới: Xe / Ngựa / Cả hai" |
+| `attachments.caption` | Nhãn ảnh ("Lốp sau", "Toàn xe", "Khoang ngựa") |
+
+Các cột này gộp vào **cùng migration** với `severity` + `sub_type` (bước B), để chỉ phải đụng bảng `incidents` một lần.
+
+**2. Cột người nhận không phải chờ flow 1.**
+- API driver không SELECT được cột chưa tồn tại, nên phải chốt tên cột **ngay hôm nay** với bạn làm flow 1: `recipient_name`, `recipient_phone`.
+- Migration thêm 2 cột này (nullable) do người làm lô driver viết luôn trong bước B. Bạn làm flow 1 chỉ cần làm form.
+- Như vậy không ai phải chờ ai.

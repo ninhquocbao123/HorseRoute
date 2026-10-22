@@ -13,6 +13,8 @@ import {
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
+  IncidentSeverity,
+  DamageTarget,
   AlertType,
 } from '../enums/tracking.enum';
 import { CrewRole, OrderStatus, PlanStatus } from '../enums/order.enum';
@@ -73,6 +75,8 @@ export interface ILogAttachment {
   fileType: 'PDF' | 'JPG' | 'PNG';
   sizeBytes: number;
   uploadedAt: string;
+  /** Nhãn ảnh, ví dụ "Lốp sau"; null với ảnh cũ */
+  caption: string | null;
 }
 
 // ─── Incident (incidents + attachments) ──────────────────────────────────────
@@ -86,6 +90,14 @@ export interface IIncident {
   incidentType: IncidentType;
   description: string;
   urgency: IncidentUrgency;
+  /** Các trường dưới đây null với sự cố báo trước khi có màn D2 */
+  severity: IncidentSeverity | null;
+  /** Mã trong INCIDENT_SUB_TYPES[incidentType] */
+  subType: string | null;
+  damageTarget: DamageTarget | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationText: string | null;
   status: IncidentStatus;
   reportedBy: string;
   reportedByName: string;
@@ -119,6 +131,29 @@ export interface IDriverTripSummary {
   plannedDepartureAt: string | null;
   plannedArrivalAt: string | null;
   crewRole: CrewRole;       // DRIVER or ESCORT (this user's role in the assignment)
+  legs: ILegTracking[];
+}
+
+// ─── Trip detail (GET /tracking/trips/:id) ───────────────────────────────────
+
+export interface ITripHorse {
+  id: string;
+  name: string;
+  passportNo: string;
+  orderStatus: string;
+}
+
+export interface IDriverTripDetail {
+  id: string;               // tripId
+  orderId: string;
+  orderCode: string;
+  orderStatus: OrderStatus;
+  planStatus: PlanStatus;
+  plannedDepartureAt: string | null;
+  plannedArrivalAt: string | null;
+  /** Chỉ có khi người gọi là Driver/Escort được phân công */
+  crewRole?: CrewRole;
+  horses: ITripHorse[];
   legs: ILegTracking[];
 }
 
@@ -242,6 +277,13 @@ export interface IIncidentCreateInput {
   description: string;
   legId?: string;
   horseId?: string;
+  /** Tùy chọn cho tới bước F (màn D2 bắt buộc severity) */
+  severity?: IncidentSeverity;
+  subType?: string;
+  damageTarget?: DamageTarget;
+  latitude?: number;
+  longitude?: number;
+  locationText?: string;
 }
 
 // ─── Incident patch request (from Coordinator) ───────────────────────────────

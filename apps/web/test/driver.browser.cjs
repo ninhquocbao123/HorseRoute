@@ -109,7 +109,7 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.getByRole('tab', { name: 'Tổng quan chuyến' }).getAttribute('aria-selected'), 'true');
     await page.getByText('Việc cần làm tiếp theo').waitFor();
     await page.getByRole('cell', { name: 'Bạch Mã' }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Báo sự cố khẩn cấp' }).isDisabled(), true, 'chưa vận chuyển: khóa báo sự cố');
+    assert.equal(await page.getByRole('button', { name: 'Báo sự cố khẩn cấp' }).isDisabled(), false, 'READY: vẫn được báo sự cố (5.4)');
     await noOverflow('assignments');
     await page.screenshot({ path: 'test-results/driver-overview-desktop.png', fullPage: true });
 

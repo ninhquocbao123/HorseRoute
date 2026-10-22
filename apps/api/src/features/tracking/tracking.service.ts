@@ -102,13 +102,14 @@ function assertPhotos(files: Upload[]) {
   }
 }
 
-function toAttachment(row: { id: string; originalName: string; fileType: 'PDF' | 'JPG' | 'PNG'; sizeBytes: number; uploadedAt: Date }): ILogAttachment {
+function toAttachment(row: { id: string; originalName: string; fileType: 'PDF' | 'JPG' | 'PNG'; sizeBytes: number; uploadedAt: Date; caption?: string | null }): ILogAttachment {
   return {
     id: row.id,
     originalName: row.originalName,
     fileType: row.fileType,
     sizeBytes: Number(row.sizeBytes),
     uploadedAt: row.uploadedAt.toISOString(),
+    caption: row.caption ?? null,
   };
 }
 
@@ -684,8 +685,9 @@ export class TrackingService {
       for (const file of files) saved.push(await saveFile(file));
       return await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
-        if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
-          throw new ConflictException('Chỉ báo sự cố khi chuyến đang vận chuyển (IN_TRANSIT).');
+        // 5.4: cho báo sự cố cả lúc chuẩn bị khởi hành (chất ngựa lên xe, trước giờ chạy).
+        if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+          throw new ConflictException('Chỉ báo sự cố khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT).');
         }
         if (input.legId && !(await repo.legBelongsToTrip(input.legId, tripId))) {
           throw new BadRequestException('Chặng không thuộc chuyến này.');
@@ -976,6 +978,13 @@ export class TrackingService {
     const attachments = await repo.getIncidentAttachments(rows.map(row => row.id));
     return rows.map(row => ({
       ...row,
+      // Rows written before the D2 fields existed (and test doubles) may lack them entirely.
+      severity: row.severity ?? null,
+      subType: row.subType ?? null,
+      damageTarget: row.damageTarget ?? null,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+      locationText: row.locationText ?? null,
       reportedAt: row.reportedAt.toISOString(),
       closedAt: row.closedAt ? row.closedAt.toISOString() : null,
       attachments: attachments.filter(a => a.incidentId === row.id).map(toAttachment),

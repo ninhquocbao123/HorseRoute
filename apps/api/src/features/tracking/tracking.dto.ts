@@ -4,6 +4,8 @@ import {
   ILegMilestone,
   ILegTracking,
   IDriverTripSummary,
+  IDriverTripDetail,
+  ITripHorse,
   CrewRole,
   OrderStatus,
   PlanStatus,
@@ -48,25 +50,9 @@ export interface MilestoneRow {
   recordedByName: string;
 }
 
-export interface HorseInTrip {
-  id: string;
-  name: string;
-  passportNo: string;
-  orderStatus: string;
-}
-
-export interface TrackingTripDetail {
-  id: string;
-  orderId: string;
-  orderCode: string;
-  orderStatus: OrderStatus;
-  planStatus: PlanStatus;
-  plannedDepartureAt: string | null;
-  plannedArrivalAt: string | null;
-  crewRole?: CrewRole;
-  horses: HorseInTrip[];
-  legs: ILegTracking[];
-}
+/** Response GET /tracking/trips/:id; kiểu dùng chung với web nằm trong packages/shared. */
+export type HorseInTrip = ITripHorse;
+export type TrackingTripDetail = IDriverTripDetail;
 
 export interface HorseLogRow {
   id: string;
@@ -87,6 +73,7 @@ export interface AttachmentRow {
   fileType: 'PDF' | 'JPG' | 'PNG';
   sizeBytes: number;
   uploadedAt: Date;
+  caption: string | null;
   horseLogId: string | null;
   incidentId: string | null;
 }
@@ -100,6 +87,12 @@ export interface IncidentRow {
   incidentType: import('@my-project/shared').IncidentType;
   description: string;
   urgency: import('@my-project/shared').IncidentUrgency;
+  severity: import('@my-project/shared').IncidentSeverity | null;
+  subType: string | null;
+  damageTarget: import('@my-project/shared').DamageTarget | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationText: string | null;
   status: import('@my-project/shared').IncidentStatus;
   reportedBy: string;
   reportedByName: string;

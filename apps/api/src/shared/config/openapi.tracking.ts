@@ -49,7 +49,10 @@ export const trackingSchemas = {
   }, ['status', 'reason']),
   LegCorrectResult: object({ legId: id, status: legStatus, reason: { type: 'string' }, orderStatus }),
 
-  LogAttachment: object({ id, originalName: { type: 'string' }, fileType: { type: 'string', enum: ['PDF', 'JPG', 'PNG'] }, sizeBytes: { type: 'integer', minimum: 1 }, uploadedAt: time }),
+  LogAttachment: object({
+    id, originalName: { type: 'string' }, fileType: { type: 'string', enum: ['PDF', 'JPG', 'PNG'] }, sizeBytes: { type: 'integer', minimum: 1 }, uploadedAt: time,
+    caption: nullable({ type: 'string', maxLength: 100, description: 'Nhãn ảnh (ví dụ "Lốp sau"); null với ảnh cũ.' }),
+  }),
   HorseLogFields: object({
     horseId: id, conditionStatus,
     note: { type: 'string', maxLength: 1000 },
@@ -68,7 +71,14 @@ export const trackingSchemas = {
   }, ['incidentType', 'description']),
   Incident: object({
     id, tripId: id, legId: nullable(id), horseId: nullable(id), horseName: nullable({ type: 'string' }),
-    incidentType, description: { type: 'string' }, urgency: { type: 'string', enum: ['NORMAL', 'HIGH'] }, status: incidentStatus,
+    incidentType, description: { type: 'string' }, urgency: { type: 'string', enum: ['NORMAL', 'HIGH'] },
+    severity: nullable({ type: 'string', enum: ['RED', 'ORANGE', 'YELLOW'], description: 'Mức độ do tài xế chọn; null với sự cố cũ.' }),
+    subType: nullable({ type: 'string', maxLength: 40, description: 'Mã loại con theo INCIDENT_SUB_TYPES (packages/shared).' }),
+    damageTarget: nullable({ type: 'string', enum: ['VEHICLE', 'HORSE', 'BOTH'] }),
+    latitude: nullable({ type: 'number', minimum: -90, maximum: 90 }),
+    longitude: nullable({ type: 'number', minimum: -180, maximum: 180 }),
+    locationText: nullable({ type: 'string', maxLength: 255 }),
+    status: incidentStatus,
     reportedBy: id, reportedByName: { type: 'string' }, reportedAt: time, receivedBy: nullable(id),
     handlingNote: nullable({ type: 'string' }), closedAt: nullable(time), attachments: { type: 'array', items: ref('LogAttachment') },
   }),
@@ -170,11 +180,12 @@ const leg1 = {
   actualDepartureAt: t0, actualArrivalAt: null, updatedAt: t0, updatedByName: 'Tài xế mẫu',
   milestones: [{ id: '901', legId: '301', milestoneType: 'DEPARTED', occurredAt: t0, recordedBy: '7', recordedByName: 'Tài xế mẫu' }],
 };
-const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1 };
+const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1, caption: 'Khoang ngựa' };
 const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Tài xế mẫu', correctsLogId: null, attachments: [attachment] };
 const incident = {
   id: '701', tripId: '200', legId: '301', horseId: '21', horseName: 'Ngựa mẫu', incidentType: 'HORSE_MEDICAL', description: 'Ngựa có dấu hiệu đau bụng',
-  urgency: 'HIGH', status: 'NEW', reportedBy: '7', reportedByName: 'Tài xế mẫu', reportedAt: t1, receivedBy: null, handlingNote: null, closedAt: null, attachments: [attachment],
+  urgency: 'HIGH', severity: 'RED', subType: 'COLIC', damageTarget: 'HORSE', latitude: 18.3421, longitude: 105.9057, locationText: 'Km 742 QL1A, Hà Tĩnh',
+  status: 'NEW', reportedBy: '7', reportedByName: 'Tài xế mẫu', reportedAt: t1, receivedBy: null, handlingNote: null, closedAt: null, attachments: [attachment],
 };
 const alert = { id: '801', tripId: '200', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ', sentBy: '4', sentByName: 'Điều phối mẫu', sentAt: t1 };
 
@@ -234,7 +245,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
     responses: { ...ok(200, list('HorseLog'), [horseLog]), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/incidents': {
     post: { ...common, operationId: 'createIncident', summary: 'Driver/Escort: báo sự cố khẩn cấp (kèm ảnh)', parameters: [tripId],
-      description: `Order phải IN_TRANSIT (409). \`HORSE_MEDICAL\` bắt buộc \`horseId\` và tự đặt \`urgency=HIGH\`. Thông báo IN_APP ngay cho Coordinator phụ trách và mọi Manager ACTIVE. **Sự cố không tự đổi lộ trình/chặng** (BR-INC-03). \`legId\`/\`horseId\` phải thuộc chuyến.`,
+      description: `Order phải READY hoặc IN_TRANSIT (409). \`HORSE_MEDICAL\` bắt buộc \`horseId\` và tự đặt \`urgency=HIGH\`. Thông báo IN_APP ngay cho Coordinator phụ trách và mọi Manager ACTIVE. **Sự cố không tự đổi lộ trình/chặng** (BR-INC-03). \`legId\`/\`horseId\` phải thuộc chuyến.`,
       requestBody: multipart('IncidentFields', { incidentType: 'HORSE_MEDICAL', description: 'Ngựa có dấu hiệu đau bụng', legId: '301', horseId: '21' }),
       responses: { ...ok(201, ref('Incident'), incident, 'Đã ghi nhận sự cố.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } },
     get: { ...common, operationId: 'getTripIncidents', summary: 'Xem sự cố của chuyến', parameters: [tripId],
