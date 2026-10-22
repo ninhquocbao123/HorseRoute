@@ -134,3 +134,34 @@ export interface AlertRow {
   sentAt: Date;
 }
 
+/** Chặng cho bản đồ: tọa độ hai đầu (DECIMAL → chuỗi hoặc null) và loại xe. */
+export interface TripMapLegRow {
+  id: string;
+  seqNo: number;
+  status: LegStatus;
+  plannedDepartureAt: Date;
+  plannedArrivalAt: Date;
+  actualDepartureAt: Date | null;
+  actualArrivalAt: Date | null;
+  fromId: string;
+  fromName: string;
+  fromType: string;
+  fromLat: string | number | null;
+  fromLng: string | number | null;
+  toId: string;
+  toName: string;
+  toType: string;
+  toLat: string | number | null;
+  toLng: string | number | null;
+  vehicleType: string | null;
+}
+
+export interface PositionRow {
+  legId: string | null;
+  latitude: string | number;
+  longitude: string | number;
+  accuracyM: number | null;
+  speedMps: string | number | null;
+  headingDeg: number | null;
+  recordedAt: Date;
+}

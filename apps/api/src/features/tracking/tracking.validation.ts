@@ -177,3 +177,38 @@ export const createAlertSchema = z.object({
 }).strict();
 export type CreateAlertInput = z.infer<typeof createAlertSchema>;
 
+
+// GPS (kế hoạch Bước 6): lô 1–20 điểm để gửi bù khi mất mạng.
+export const MAX_POSITIONS_PER_BATCH = 20;
+const MAX_POSITION_AGE_MS = 24 * 60 * 60_000;
+
+const positionPointSchema = z.object({
+  latitude: z.number({ invalid_type_error: 'Vĩ độ phải là số.' }).min(-90, 'Vĩ độ phải trong khoảng -90..90.').max(90, 'Vĩ độ phải trong khoảng -90..90.'),
+  longitude: z.number({ invalid_type_error: 'Kinh độ phải là số.' }).min(-180, 'Kinh độ phải trong khoảng -180..180.').max(180, 'Kinh độ phải trong khoảng -180..180.'),
+  recordedAt: milestoneTimeSchema,
+  accuracyM: z.number().int().min(0).max(1_000_000).optional(),
+  speedMps: z.number().min(0).max(150, 'Tốc độ không hợp lệ.').optional(),
+  headingDeg: z.number().min(0).lt(360).optional(),
+}).strict().superRefine((point, context) => {
+  // (0, 0) là giá trị rác thường gặp khi thiết bị chưa có tín hiệu.
+  if (point.latitude === 0 && point.longitude === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['latitude'], message: 'Tọa độ (0, 0) không hợp lệ.' });
+  }
+  const timestamp = Date.parse(point.recordedAt);
+  if (timestamp > Date.now() + CLOCK_SKEW_MS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['recordedAt'], message: 'Thời điểm ghi vị trí không được ở tương lai.' });
+  }
+  if (Date.now() - timestamp > MAX_POSITION_AGE_MS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['recordedAt'], message: 'Vị trí cũ hơn 24 giờ không được nhận.' });
+  }
+});
+
+export const positionsBatchSchema = z.object({
+  points: z.array(positionPointSchema)
+    .min(1, 'Cần ít nhất 1 điểm vị trí.')
+    .max(MAX_POSITIONS_PER_BATCH, `Tối đa ${MAX_POSITIONS_PER_BATCH} điểm mỗi lần gửi.`),
+}).strict();
+export type PositionsBatchInput = z.infer<typeof positionsBatchSchema>;
+
+/** `?since=` của vệt đường: UTC ISO tùy chọn. */
+export const trackQuerySchema = z.object({ since: milestoneTimeSchema.optional() });

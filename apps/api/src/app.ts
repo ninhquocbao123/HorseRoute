@@ -7,7 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { Services } from './shared/config/services';
 import { TokenService } from './shared/utils/jwt.util';
 import { apiRoutes } from './routes';
-import { createRateLimiter } from './shared/middlewares/rateLimiter.middleware';
+import { createRateLimiter, TRACKMAP_PATH } from './shared/middlewares/rateLimiter.middleware';
 import { errorHandler } from './shared/middlewares/error.middleware';
 import { NotFoundException } from './shared/core/error.response';
 import { openApiDocument } from './shared/config/openapi';
@@ -20,7 +20,8 @@ export function createApp(options: { services: Services; tokens: TokenService; c
   app.use(compression());
   app.use(cors({ origin: options.corsOrigin.split(',').map(value => value.trim()).filter(Boolean), credentials: true, exposedHeaders: ['X-Request-ID'] }));
   app.use(express.json({ limit: '1mb' }));
-  app.use('/api/v1', createRateLimiter(options.requestLimit), apiRoutes(options.services, options.tokens));
+  // Bản đồ/GPS có limiter riêng theo người dùng (tracking.routes.ts), không tính vào giới hạn chung theo IP.
+  app.use('/api/v1', createRateLimiter(options.requestLimit, { skip: req => TRACKMAP_PATH.test(req.path) }), apiRoutes(options.services, options.tokens));
   if (!options.production) {
     app.get('/docs-json', (_req, res) => { res.json(openApiDocument); });
     app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));

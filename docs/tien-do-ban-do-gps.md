@@ -1,6 +1,6 @@
 # Tiến độ: Bản đồ theo dõi đơn + GPS (Mapbox)
 
-Cập nhật: 20/10/2026 · Nhánh: `feature/trackmap` · Kế hoạch gốc: [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) · Thiết kế: [thiet-ke-theo-doi-ban-do-mapbox.md](thiet-ke-theo-doi-ban-do-mapbox.md)
+Cập nhật: 23/10/2026 · Nhánh: `long` (trước đó `feature/trackmap`) · Kế hoạch gốc: [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) · Thiết kế: [thiet-ke-theo-doi-ban-do-mapbox.md](thiet-ke-theo-doi-ban-do-mapbox.md)
 
 ## Tóm tắt
 
@@ -10,9 +10,9 @@ Cập nhật: 20/10/2026 · Nhánh: `feature/trackmap` · Kế hoạch gốc: [k
 | 1 | Dữ liệu: tọa độ địa điểm, bảng `location_routes`, `trip_positions` | ✅ Xong, **đã chạy trên Aiven** |
 | 2 | API quản lý địa điểm cho Specialist | ✅ Xong |
 | 3 | Giao diện "Địa điểm & cửa khẩu" + lớp bản đồ dùng chung | ✅ Xong, đã kiểm với Mapbox thật |
-| 4 | Backend bản đồ (hình học, cache tuyến, 3 API `/map`) | ⏳ Chưa làm (bước tiếp theo) |
+| 4 | Backend bản đồ chuyến + nhận GPS (gộp phần API của Bước 6) | 🟡 Xong code 23/10 (bước H1 màn tài xế); chờ CI + migration VMAX trên Aiven |
 | 5 | Giao diện bản đồ cho các vai trò | ⏳ Chưa làm |
-| 6 | GPS thời gian thực (desktop + mô phỏng) | ⏳ Chưa làm |
+| 6 | GPS thời gian thực (desktop + mô phỏng) | ⏳ API đã có ở Bước 4; còn giao diện chia sẻ vị trí + trình mô phỏng |
 | 7 | Kiểm thử tổng, tài liệu | ⏳ Chưa làm |
 
 Trạng thái git: Bước 0 đã commit; đã merge `origin/main` (commit `d0269ae`). **Bước 1–3 và phần thiết kế lại giao diện Driver chưa commit** (đang nằm trong thư mục làm việc của nhánh).
@@ -64,6 +64,52 @@ Code nhánh này đọc cột `locations.latitude/longitude` (cả ở `GET /tri
 - Màn Specialist `?view=locations` ("Địa điểm & cửa khẩu"): bảng lọc theo tên/loại/quốc gia/tọa độ, cảnh báo số địa điểm thiếu tọa độ, modal thêm/sửa có bản đồ, gợi ý múi giờ theo quốc gia, dán "vĩ độ, kinh độ" để điền nhanh.
 - `CountrySelect.tsx` thêm prop `label`, `allowClear`, `placeholder` (mặc định giữ nguyên hành vi cũ).
 - Kiểm chứng bằng Edge headless trên DB demo local: Mapbox thật (85 request thành công), chặn mạng Mapbox → dự phòng vẫn lưu được, `VITE_MAP_ENABLED=false` → không có request Mapbox nào, vẫn lưu được.
+
+## Bước 4. Backend bản đồ chuyến + GPS 🟡 (23/10/2026, bước H1 của màn tài xế)
+
+Làm theo [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) Bước 4, gộp luôn phần **API** của Bước 6 (nhận GPS, vệt đường, rate limit theo người dùng, dọn dữ liệu). Các quyết định đã hỏi lại trước khi code (23/10):
+
+| Câu hỏi | Chốt |
+|---|---|
+| Làm API `/map` nào | Chỉ `GET /tracking/trips/:tripId/map`. `/orders/:orderId/map` (Customer) và `/operations/map` để sau |
+| Vị trí xe | Trả cả `latestPosition` (GPS thô + LIVE/STALE/OLD) và `position` (GPS hoặc **ước tính theo mốc**, có nhãn) |
+| Specialist | Thấy GPS như Manager (quyết định #4); `/map` không có sự cố nên không phải lọc thêm |
+| Quy tắc Bước 6 | Làm luôn: luật POST chặt, rate limit theo người dùng, `GET /positions?since=` |
+
+**Mã nguồn** (`apps/api/src/features/tracking/`):
+- `trackmap.geo.ts`: haversine, chiều dài polyline, nội suy theo tỉ lệ, chiếu điểm GPS lên tuyến, cung tròn lớn (giữ kinh độ liên tục qua kinh tuyến 180), chọn mode theo loại xe.
+- `trackmap.routes-provider.ts`: đọc cache `location_routes` (hạn 30 ngày); thiếu thì gọi Mapbox Directions `driving` (`geometries=geojson&overview=simplified`, **timeout 5 giây**, token `MAPBOX_ACCESS_TOKEN`). Khóa chống gọi trùng khi nhiều người mở cùng lúc.
+  - Thiếu token → STRAIGHT, **không cache** (có token rồi sẽ lấy đường thật).
+  - Mapbox trả `NoRoute`/`NoSegment` → cache STRAIGHT (không gọi lại mỗi lần xem).
+  - Timeout, lỗi mạng, HTTP lỗi → STRAIGHT, **không cache** (lần sau thử lại). Lỗi đọc/ghi cache cũng không làm API lỗi.
+  - Chặng `AIRCRAFT_HOLD` → AIR (cung tròn lớn), không gọi Mapbox.
+- `trackmap.build.ts`: dựng phản hồi `/map` (hàm thuần): điểm dừng, tuyến, `totalKm`, `remainingKm`, `position`, `latestPosition`, cảnh báo.
+  - `position`: GPS khi điểm mới nhất < 10 phút và chặng hiện tại không phải chặng bay; ngược lại ước tính theo thiết kế mục 8 (MOVING: theo thời gian, kẹp 0–0.95). Nhãn ước tính luôn bắt đầu "Ước tính theo kế hoạch, không phải GPS".
+  - `remainingKm`: GPS được chiếu lên tuyến chặng hiện tại + các chặng sau. Có chặng thiếu tọa độ → `totalKm`/`remainingKm` = null kèm cảnh báo "Chưa có tọa độ cho …".
+- `tracking.service.ts`: `getTripMap`, `recordPositions`, `getTrackPoints`, `startPositionRetentionJob`/`stopPositionRetentionJob` (mỗi giờ, xóa theo lô 5.000 dòng, không chạy chồng; đăng ký trong `src/index.ts` như `startExpiryJob`).
+- Rate limit: limiter chung theo IP **bỏ qua** `/tracking/trips/:id/map|positions`; limiter theo tài khoản: map + vệt đường 60/phút, gửi vị trí 30/phút (`createUserRateLimiter`).
+
+**API:**
+
+| API | Ai gọi | Quy tắc |
+|---|---|---|
+| `GET /tracking/trips/:tripId/map` | Driver/Escort được phân công, Coordinator chuyến mình, Manager, Specialist | Như `GET /tracking/trips/:id`: Customer 403, ngoài phạm vi 404 |
+| `POST /tracking/trips/:tripId/positions` | Driver/Escort được phân công | Lô 1–20 điểm; Order `IN_TRANSIT`, có chặng `MOVING`/`AT_STOP`, không phải chặng bay (409); vĩ độ/kinh độ trong khoảng, không nhận (0, 0); `recordedAt` không tương lai quá 60 giây, không cũ hơn 24 giờ (400). `INSERT IGNORE` theo `(trip_id, user_id, recorded_at)`: gửi lại trả `duplicates`, không lỗi |
+| `GET /tracking/trips/:tripId/positions?since=` | Như `/map` | Tối đa 500 điểm mới nhất, sắp tăng dần |
+
+**Dữ liệu:** migration `1800000009000-VmaxParam.ts` (`INSERT IGNORE` `VMAX = 80`; `down` xóa đúng dòng đó), thêm vào `load-schema.cjs` và `seed-flow4-demo.cjs` (seed demo cũng được bổ sung migration 7000/8000 còn thiếu). `speedLimitKmh` = null khi không có dòng.
+
+**Điều khoản Mapbox:** không gọi geocoding/reverse geocode, không lưu địa chỉ Mapbox vào DB. Chỉ lưu hình học tuyến Directions có hạn dùng (`fetched_at`, 30 ngày). `incidents` chỉ lưu lat/lng; `location_text` là chữ người dùng gõ.
+
+**Kiểm thử:**
+- `test/trackmap.test.cjs` (12 test): hình học, provider với fetch giả (không token, cache, gọi trùng, NoRoute, timeout, HTTP 401, lỗi DB, hết hạn cache, chặng bay), vị trí ước tính/GPS/LIVE/STALE/OLD, thiếu tọa độ, phân quyền `/map`, luật `POST/GET positions`, job dọn dữ liệu.
+- `test/tracking.http.test.cjs`: route bản đồ/GPS không bị tính vào giới hạn theo IP, bị giới hạn 60/phút theo tài khoản, tài khoản khác không ảnh hưởng.
+- `test/flow4-tracking.mysql.cjs`: thêm 1 check (MySQL thật, **không token** → STRAIGHT, không cache), 18/18 đạt trên MySQL Docker tạm; flow2 / flow3-read / locations / vehicles vẫn đạt.
+- Swagger: 57 → 60 operation.
+
+**Khác thiết kế (đã biết từ trước):** hình học lưu JSON `[[lng,lat],…]` thay vì polyline6; biến môi trường `MAPBOX_ACCESS_TOKEN` / `TRACK_POSITION_RETENTION_DAYS` thay vì `MAPBOX_SERVER_TOKEN` / `MAP_POSITION_RETENTION_DAYS`; vị trí mới nhất đọc thẳng DB (index `trip_id, recorded_at`), không cache Redis.
+
+**Còn lại:** `/orders/:orderId/map`, `/operations/map`; giao diện (Bước 5, H2 màn tài xế); trình mô phỏng `simulate-gps.cjs`; chạy migration VMAX trên Aiven; đặt `MAPBOX_ACCESS_TOKEN` cho API.
 
 ## Việc làm thêm ngoài kế hoạch
 

@@ -13,6 +13,8 @@ const incidentType = { type: 'string', enum: ['VEHICLE_BREAKDOWN', 'LONG_TRAFFIC
 const incidentStatus = { type: 'string', enum: ['NEW', 'ACKNOWLEDGED', 'CLOSED'] };
 const locationType = { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'], description: 'BORDER yêu cầu mốc CUSTOMS_CLEARED trước khi hoàn tất chặng.' };
 const contact = (description: string, phone: string) => nullable({ ...object({ name: { type: 'string' }, phone: nullable({ type: 'string', description: phone }) }), description });
+const routeMode = { type: 'string', enum: ['ROAD', 'AIR', 'STRAIGHT'], description: 'ROAD: đường thật (Mapbox Directions, cache); AIR: cung tròn lớn (chặng bay); STRAIGHT: đường thẳng ước lượng.' };
+const lngLat = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } };
 const alertType = { type: 'string', enum: ['TRAFFIC', 'WEATHER', 'BORDER'] };
 
 export const trackingSchemas = {
@@ -158,6 +160,47 @@ export const trackingSchemas = {
     summary: object({ inTransit: { type: 'integer', minimum: 0 }, openIncidents: { type: 'integer', minimum: 0 }, overdueTrips: { type: 'integer', minimum: 0 } }),
     items: { type: 'array', items: ref('ActiveTripItem') },
   }),
+  // Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6)
+  TripMapStop: object({
+    locationId: id, name: { type: 'string' }, locationType,
+    lat: nullable({ type: 'number', minimum: -90, maximum: 90 }), lng: nullable({ type: 'number', minimum: -180, maximum: 180 }),
+  }),
+  TripMapLeg: object({
+    id, seqNo: { type: 'integer', minimum: 1 }, status: legStatus, fromLocationId: id, toLocationId: id, mode: routeMode,
+    coordinates: nullable({ type: 'array', items: lngLat, description: '[[lng, lat], ...]; null khi thiếu tọa độ một đầu.' }),
+    distanceKm: nullable({ type: 'number', minimum: 0 }),
+    plannedDepartureAt: time, plannedArrivalAt: time, actualDepartureAt: nullable(time), actualArrivalAt: nullable(time), isOverdue: { type: 'boolean' },
+  }),
+  TripMapPosition: object({
+    source: { type: 'string', enum: ['GPS', 'ESTIMATED'] }, lat: { type: 'number' }, lng: { type: 'number' }, asOf: time, legId: nullable(id),
+    label: nullable({ type: 'string', description: 'ESTIMATED luôn có chữ "Ước tính theo kế hoạch, không phải GPS"; GPS STALE: "Mất tín hiệu GPS…".' }),
+  }),
+  TripLatestPosition: object({
+    lat: { type: 'number' }, lng: { type: 'number' }, speedKmh: nullable({ type: 'number', minimum: 0 }),
+    accuracyM: nullable({ type: 'integer', minimum: 0 }), headingDeg: nullable({ type: 'integer', minimum: 0, maximum: 359 }),
+    recordedAt: time, legId: nullable(id), freshness: { type: 'string', enum: ['LIVE', 'STALE', 'OLD'], description: 'LIVE < 2 phút, STALE 2–10 phút, OLD > 10 phút.' },
+  }),
+  TripMap: object({
+    tripId: id, orderCode: { type: 'string' }, orderStatus,
+    stops: { type: 'array', items: ref('TripMapStop') }, legs: { type: 'array', items: ref('TripMapLeg') },
+    totalKm: nullable({ type: 'number', minimum: 0, description: 'null khi có chặng thiếu tọa độ.' }),
+    remainingKm: nullable({ type: 'number', minimum: 0, description: 'Tính từ `position`; null khi không xác định.' }),
+    position: nullable({ ...ref('TripMapPosition') }),
+    latestPosition: nullable({ ...ref('TripLatestPosition') }),
+    speedLimitKmh: nullable({ type: 'number', minimum: 1, description: 'system_parameters.VMAX; null khi chưa cấu hình.' }),
+    warnings: { type: 'array', items: { type: 'string' } },
+  }),
+  PositionPoint: object({
+    latitude: { type: 'number', minimum: -90, maximum: 90 }, longitude: { type: 'number', minimum: -180, maximum: 180 },
+    recordedAt: { ...time, description: 'Giờ trên thiết bị (UTC). Không ở tương lai (cho lệch 60 giây), không cũ hơn 24 giờ.' },
+    accuracyM: { type: 'integer', minimum: 0 }, speedMps: { type: 'number', minimum: 0, maximum: 150 }, headingDeg: { type: 'number', minimum: 0, exclusiveMaximum: 360 },
+  }, ['latitude', 'longitude', 'recordedAt']),
+  PositionsInput: object({ points: { type: 'array', minItems: 1, maxItems: 20, items: ref('PositionPoint') } }),
+  PositionsResult: object({
+    legId: id, accepted: { type: 'integer', minimum: 0 },
+    duplicates: { type: 'integer', minimum: 0, description: 'Điểm đã gửi trước đó (cùng người, cùng recordedAt): bỏ qua.' },
+  }),
+  TrackPoint: object({ lat: { type: 'number' }, lng: { type: 'number' }, speedKmh: nullable({ type: 'number', minimum: 0 }), recordedAt: time, legId: nullable(id) }),
 };
 
 export const trackingTag = { name: 'Flow 4 - Tracking' };
@@ -205,6 +248,22 @@ const leg1 = {
 };
 const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1, caption: 'Khoang ngựa' };
 const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Tài xế mẫu', correctsLogId: null, attachments: [attachment] };
+const tripMap = {
+  tripId: '200', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT',
+  stops: [
+    { locationId: '10', name: 'Trạm kiểm dịch Củ Chi', locationType: 'QUARANTINE_STATION', lat: 10.9733, lng: 106.4933 },
+    { locationId: '11', name: 'Cửa khẩu Mộc Bài', locationType: 'BORDER', lat: 11.076, lng: 106.158 },
+  ],
+  legs: [{
+    id: '301', seqNo: 1, status: 'MOVING', fromLocationId: '10', toLocationId: '11', mode: 'ROAD',
+    coordinates: [[106.4933, 10.9733], [106.35, 11.02], [106.158, 11.076]], distanceKm: 45.2,
+    plannedDepartureAt: t0, plannedArrivalAt: t1, actualDepartureAt: t0, actualArrivalAt: null, isOverdue: false,
+  }],
+  totalKm: 45.2, remainingKm: 18.6,
+  position: { source: 'GPS', lat: 11.02, lng: 106.35, asOf: t1, legId: '301', label: null },
+  latestPosition: { lat: 11.02, lng: 106.35, speedKmh: 64.1, accuracyM: 12, headingDeg: 310, recordedAt: t1, legId: '301', freshness: 'LIVE' },
+  speedLimitKmh: 80, warnings: [],
+};
 const incident = {
   id: '701', tripId: '200', legId: '301', horseId: '21', horseName: 'Ngựa mẫu', incidentType: 'HORSE_MEDICAL', description: 'Ngựa có dấu hiệu đau bụng',
   urgency: 'HIGH', severity: 'RED', subType: 'COLIC', damageTarget: 'HORSE', latitude: 18.3421, longitude: 105.9057, locationText: 'Km 742 QL1A, Hà Tĩnh',
@@ -302,4 +361,18 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
   '/api/v1/tracking/operations/active-trips': { get: { ...common, operationId: 'getActiveTrips', summary: 'Dashboard vận hành: chuyến đang chạy hoặc còn sự cố chưa đóng',
     description: 'Manager và Specialist (chỉ đọc) xem tất cả; Coordinator chỉ chuyến mình lập. Gồm chuyến đã duyệt có Order IN_TRANSIT hoặc còn sự cố chưa đóng (tối đa 200 chuyến). Sắp xếp: sự cố khẩn cấp lên đầu, rồi chuyến trễ, rồi chuyến mới nhất. `isOverdue` chỉ tính cho chuyến IN_TRANSIT có chặng quá giờ đến dự kiến mà chưa hoàn thành.',
     responses: { ...ok(200, ref('ActiveTrips'), { summary: { inTransit: 1, openIncidents: 1, overdueTrips: 0 }, items: [activeItem] }), ...errors([401, 403, 429, 500]) } } },
+  '/api/v1/tracking/trips/{tripId}/map': { get: { ...common, operationId: 'getTripMap', summary: 'Bản đồ chuyến: tuyến từng chặng, điểm dừng, km, vị trí xe', parameters: [tripId],
+    description: `Driver (được phân công), Coordinator (chuyến mình lập), Manager, Specialist (thấy GPS như Manager, quyết định #4). Customer không gọi API này.
+- Tuyến: \`AIRCRAFT_HOLD\` → AIR (cung tròn lớn); xe khác → ROAD từ cache \`location_routes\` (30 ngày) hoặc Mapbox Directions (timeout 5 giây). Không có token / lỗi / không có đường → STRAIGHT; không bao giờ trả 500 vì Mapbox.
+- \`position\`: GPS khi điểm mới nhất < 10 phút và chặng hiện tại không phải chặng bay; ngược lại ước tính theo mốc (MOVING: theo thời gian, kẹp 0–0.95).
+- Không reverse geocode, không lưu địa chỉ từ Mapbox. Giới hạn 60 request/phút/người dùng.`,
+    responses: { ...ok(200, ref('TripMap'), tripMap), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/trips/{tripId}/positions': {
+    post: { ...common, operationId: 'recordPositions', summary: 'Driver/Escort: gửi lô vị trí GPS', parameters: [tripId],
+      description: 'Chỉ người được phân công; Order IN_TRANSIT, có chặng MOVING/AT_STOP và không phải chặng bay (409). Lô 1–20 điểm; gửi lại cùng `recordedAt` không tạo bản ghi trùng (`duplicates`). Tự xóa sau TRACK_POSITION_RETENTION_DAYS. Giới hạn 30 request/phút/người dùng.',
+      requestBody: json('PositionsInput', { points: [{ latitude: 10.9733, longitude: 106.4933, recordedAt: t1, accuracyM: 12, speedMps: 17.8, headingDeg: 310 }] }),
+      responses: { ...ok(201, ref('PositionsResult'), { legId: '301', accepted: 1, duplicates: 0 }, 'Đã nhận vị trí.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } },
+    get: { ...common, operationId: 'getTrackPoints', summary: 'Vệt đường đã đi (tối đa 500 điểm mới nhất)', parameters: [tripId, { name: 'since', in: 'query', required: false, description: 'Chỉ lấy điểm sau thời điểm này (UTC ISO).', schema: time }],
+      description: 'Cùng quyền với bản đồ chuyến. Sắp theo thời gian tăng dần.',
+      responses: { ...ok(200, list('TrackPoint'), [{ lat: 10.9733, lng: 106.4933, speedKmh: 64.1, recordedAt: t1, legId: '301' }]), ...errors([400, 401, 403, 404, 429, 500]) } } },
 };

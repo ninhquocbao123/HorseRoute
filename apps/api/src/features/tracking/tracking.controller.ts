@@ -74,4 +74,16 @@ export class TrackingController {
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(file.buffer);
   };
+
+  tripMap: RequestHandler = async (req, res) => {
+    res.json(await this.service.getTripMap(req.account, String(req.params.tripId)));
+  };
+
+  recordPositions: RequestHandler = async (req, res) => {
+    res.status(201).json(await this.service.recordPositions(req.account, String(req.params.tripId), req.body));
+  };
+
+  trackPoints: RequestHandler = async (req, res) => {
+    res.json(await this.service.getTrackPoints(req.account, String(req.params.tripId), req.query));
+  };
 }

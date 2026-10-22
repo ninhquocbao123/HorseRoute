@@ -10,6 +10,8 @@ import {
   createIncidentSchema,
   patchIncidentSchema,
   createAlertSchema,
+  positionsBatchSchema,
+  trackQuerySchema,
 } from './tracking.validation';
 import { Upload, fileType, saveFile, removeFile, loadFile } from '../documents/file-storage';
 import { parse } from '../../shared/utils/validation.util';
@@ -41,8 +43,15 @@ import {
   IDriverTripSummary,
   ILegMilestone,
   ILegTracking,
+  ITripMap,
+  ITripPositionBatchResult,
+  ITripTrackPoint,
 } from '@my-project/shared';
 import { TrackingTripDetail, LegDetailRow, MilestoneRow } from './tracking.dto';
+import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
+import { Logger } from '../../shared/utils/logger.util';
+import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
+import { modeForVehicle } from './trackmap.geo';
 
 function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[]): ILegTracking {
   const legMilestones: ILegMilestone[] = milestones
@@ -116,11 +125,6 @@ function toAttachment(row: { id: string; originalName: string; fileType: 'PDF' |
 
 const ACTIVE_TRIPS_LIMIT = 200;
 
-/** Chặng chưa hoàn thành mà đã quá giờ đến dự kiến. */
-function isLegOverdue(leg: { status: LegStatus; plannedArrivalAt: Date }, now: number): boolean {
-  return leg.status !== LegStatus.COMPLETED && leg.plannedArrivalAt.getTime() < now;
-}
-
 /** Cập nhật gần nhất (FR-TRK-08): lấy theo chặng có `updated_at` mới nhất. */
 function latestUpdate(legs: { updatedAt: Date | null; updatedByName: string | null }[]): { at: string | null; byName: string | null } {
   let latest: { updatedAt: Date; updatedByName: string | null } | null = null;
@@ -156,8 +160,24 @@ function milestonesRequired(status: LegStatus, isBorder: boolean, isLast: boolea
   return required;
 }
 
+const MAX_TRACK_POINTS = 500;
+const RETENTION_INTERVAL_MS = 60 * 60_000;
+const RETENTION_BATCH = 5_000;
+const retentionLogger = new Logger('TrackPositions');
+/** TRACK_POSITION_RETENTION_DAYS (đã kiểm 1..365 lúc khởi động); thiếu thì 30. */
+function retentionDays() {
+  const days = Number(process.env.TRACK_POSITION_RETENTION_DAYS);
+  return Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30;
+}
+
 export class TrackingService {
-  constructor(private readonly repository: TrackingRepository) {}
+  private readonly routes: RoutesProvider;
+  private retentionTimer?: NodeJS.Timeout;
+  private retentionRun?: Promise<number>;
+
+  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider) {
+    this.routes = routes ?? new RoutesProvider(repository);
+  }
 
   async getDriverTrips(account: User): Promise<IDriverTripSummary[]> {
     if (account.role !== Role.DRIVER_ESCORT) {
@@ -1021,5 +1041,106 @@ export class TrackingService {
   private async loadAlerts(repo: TrackingRepository, tripId: string): Promise<IAlert[]> {
     const rows = await repo.getTripAlerts(tripId);
     return rows.map(row => ({ ...row, sentAt: row.sentAt.toISOString() }));
+  }
+
+  // ─── Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6) ──────────────────────────────
+
+  /**
+   * Bản đồ một chuyến: Driver/Escort được phân công, Coordinator chuyến mình lập, Manager, Specialist (quyết định #4:
+   * Specialist và Manager xem GPS mọi chuyến). Customer không gọi API này. Không trả sự cố, nên Specialist không bị lọc thêm.
+   */
+  async getTripMap(account: User, rawTripId: string): Promise<ITripMap> {
+    const tripId = parse(legIdSchema, rawTripId);
+    const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER, Role.SPECIALIST]);
+    const [legs, latest, speedLimitKmh] = await Promise.all([
+      this.repository.getTripMapLegs(tripId),
+      this.repository.getLatestPosition(tripId),
+      this.repository.getSpeedLimitKmh(),
+    ]);
+    const routes = new Map<string, ResolvedRoute | null>();
+    await Promise.all(legs.map(async leg => {
+      const { from, to } = legEnds(leg);
+      routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
+    }));
+    return buildTripMap({ trip: { id: trip.id, orderCode: trip.orderCode, orderStatus: trip.orderStatus }, legs, routes, latest, speedLimitKmh, now: Date.now() });
+  }
+
+  /**
+   * Nhận lô vị trí từ Driver/Escort được phân công. Chỉ khi đơn IN_TRANSIT, có chặng đang MOVING/AT_STOP và chặng đó
+   * không phải chặng bay (409). Gửi lại cùng `recordedAt` không tạo bản ghi trùng (INSERT IGNORE theo khóa duy nhất).
+   */
+  async recordPositions(account: User, rawTripId: string, body: unknown): Promise<ITripPositionBatchResult> {
+    if (account.role !== Role.DRIVER_ESCORT) {
+      throw new ForbiddenException('Chỉ tài xế / người hộ tống được phân công mới gửi vị trí.');
+    }
+    const tripId = parse(legIdSchema, rawTripId);
+    const input = parse(positionsBatchSchema, body);
+    const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
+    if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+      throw new ConflictException('Chỉ nhận vị trí khi chuyến đang vận chuyển (IN_TRANSIT).');
+    }
+    const legs = await this.repository.getTripMapLegs(tripId);
+    const leg = legs.find(item => item.status === LegStatus.MOVING || item.status === LegStatus.AT_STOP);
+    if (!leg) throw new ConflictException('Chưa có chặng nào đang chạy để gắn vị trí.');
+    if (modeForVehicle(leg.vehicleType) === 'AIR') {
+      throw new ConflictException('Chặng bay không nhận GPS; vị trí được ước tính theo kế hoạch.');
+    }
+    const accepted = await this.repository.insertPositions(tripId, leg.id, String(account.id), input.points.map(point => ({
+      latitude: point.latitude,
+      longitude: point.longitude,
+      accuracyM: point.accuracyM ?? null,
+      speedMps: point.speedMps ?? null,
+      headingDeg: point.headingDeg ?? null,
+      recordedAt: new Date(point.recordedAt),
+    })));
+    return { legId: leg.id, accepted, duplicates: input.points.length - accepted };
+  }
+
+  /** Vệt đường đã đi (tối đa 500 điểm mới nhất sau `since`). Cùng quyền với bản đồ chuyến. */
+  async getTrackPoints(account: User, rawTripId: string, query: unknown): Promise<ITripTrackPoint[]> {
+    const tripId = parse(legIdSchema, rawTripId);
+    const { since } = parse(trackQuerySchema, query);
+    await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER, Role.SPECIALIST]);
+    const rows = await this.repository.getTrackPoints(tripId, since ? new Date(since) : null, MAX_TRACK_POINTS);
+    return rows.map(row => {
+      const point = toLatestPosition(row, Date.now())!;
+      return { lat: point.lat, lng: point.lng, speedKmh: point.speedKmh, recordedAt: point.recordedAt, legId: point.legId };
+    });
+  }
+
+  /** Xóa vị trí cũ hơn TRACK_POSITION_RETENTION_DAYS (dữ liệu cá nhân); chạy mỗi giờ, không chạy chồng. */
+  startPositionRetentionJob() {
+    if (this.retentionTimer) return;
+    this.retentionTimer = setInterval(() => void this.purgeOldPositions(), RETENTION_INTERVAL_MS);
+    this.retentionTimer.unref();
+    void this.purgeOldPositions();
+  }
+
+  async stopPositionRetentionJob() {
+    if (this.retentionTimer) clearInterval(this.retentionTimer);
+    this.retentionTimer = undefined;
+    await this.retentionRun;
+  }
+
+  purgeOldPositions(): Promise<number> {
+    if (this.retentionRun) return this.retentionRun;
+    this.retentionRun = this.runRetention().finally(() => { this.retentionRun = undefined; });
+    return this.retentionRun;
+  }
+
+  private async runRetention(): Promise<number> {
+    let removed = 0;
+    try {
+      // Xóa theo lô để không khóa bảng lâu; giới hạn số lô mỗi lần chạy.
+      for (let i = 0; i < 20; i++) {
+        const batch = await this.repository.deletePositionsOlderThan(retentionDays(), RETENTION_BATCH);
+        removed += batch;
+        if (batch < RETENTION_BATCH) break;
+      }
+      if (removed) retentionLogger.info('positions_purged', { removed, days: retentionDays() });
+    } catch (error) {
+      retentionLogger.error('positions_purge_failed', { message: error instanceof Error ? error.message : String(error) });
+    }
+    return removed;
   }
 }
