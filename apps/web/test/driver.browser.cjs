@@ -241,6 +241,11 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.getByText(/Còn .* km|Đang chia sẻ GPS/).count(), 0, 'chưa có km / GPS (bước H)');
     const stat = label => page.locator('.drv-stat-card', { hasText: label });
     assert.equal(await stat('Chặng tiếp').locator('strong').innerText(), 'Trạm Đồng Nai');
+    // Tên điểm một dòng (ellipsis), title có tên đầy đủ; ba thẻ cao bằng nhau
+    assert.equal(await stat('Chặng tiếp').locator('strong').getAttribute('title'), 'Trạm Đồng Nai');
+    assert.ok(await stat('Chặng tiếp').locator('strong').evaluate(el => el.getClientRects().length === 1 && getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis'), 'tên điểm 1 dòng');
+    const heights = await page.locator('.drv-stat-card').evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().height)));
+    assert.equal(new Set(heights).size, 1, 'ba thẻ cao bằng nhau: ' + heights.join(','));
     assert.equal(await stat('Tốc độ').locator('strong').innerText(), '—');
     assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'Có ở bước bật GPS');
     assert.match(await stat('Đã chạy').locator('strong').innerText(), /^[01] phút$/, 'vừa xuất phát');
@@ -260,11 +265,24 @@ const { pathToFileURL } = require('node:url');
     await open('trip');
     const hhmm = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(new Date(noteAt));
     assert.equal(await page.locator('.drv-escort-note p').innerText(), `${hhmm} · Hai ngựa đã uống 20 L nước, ăn uống bình thường.`);
+    // Tự tải lại mỗi 2 phút khi tab đang hiển thị (đồng hồ giả của Playwright để không phải chờ thật)
+    await page.clock.install();
+    await open('trip');
+    await page.locator('.drv-escort-note p', { hasText: 'Hai ngựa đã uống' }).waitFor();
+    const newerAt = new Date(Date.now() + 60e3).toISOString();
+    state.horseLogs.push(log('5', '7', 'Đã cho ngựa nghỉ 15 phút.', newerAt));
+    await page.clock.fastForward('01:00');
+    assert.match(await page.locator('.drv-escort-note p').innerText(), /Hai ngựa đã uống/, 'chưa tới 2 phút: chưa tải lại');
+    await page.clock.fastForward('01:05');
+    await page.locator('.drv-escort-note p', { hasText: 'Đã cho ngựa nghỉ 15 phút.' }).waitFor();
+    state.horseLogs.pop();
     // "Đã chạy" tính từ giờ xuất phát thực tế; quá giờ đến dự kiến của chặng → "trễ" màu cảnh báo
     const firstLeg = trips[100].legs[0];
     const saved = { dep: firstLeg.actualDepartureAt, arr: firstLeg.plannedArrivalAt };
-    firstLeg.actualDepartureAt = new Date(Date.now() - (6 * 60 + 40) * 60e3 - 20e3).toISOString();
-    firstLeg.plannedArrivalAt = new Date(Date.now() - 25 * 60e3 - 20e3).toISOString();
+    // Tính theo giờ trong trang (đồng hồ giả ở trên đã đẩy giờ trang lên trước).
+    const pageNow = await page.evaluate(() => Date.now());
+    firstLeg.actualDepartureAt = new Date(pageNow - (6 * 60 + 40) * 60e3 - 20e3).toISOString();
+    firstLeg.plannedArrivalAt = new Date(pageNow - 25 * 60e3 - 20e3).toISOString();
     await open('trip');
     assert.equal(await stat('Đã chạy').locator('strong').innerText(), '6 giờ 40');
     assert.equal(await stat('Đã chạy').locator('small.is-warn').innerText(), 'trễ 25 phút');

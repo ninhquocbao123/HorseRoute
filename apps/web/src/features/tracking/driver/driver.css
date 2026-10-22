@@ -248,11 +248,12 @@
 .drs .drv-header-actions .drv-btn-checkin:disabled { background: var(--drs-soft) !important; border-color: var(--drs-line) !important; color: var(--drs-muted) !important; }
 
 /* Ba thẻ dưới bản đồ */
-.drv-stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.drv-stat-card { display: grid; gap: 6px; min-width: 0; padding: 20px; border: 1px solid var(--drs-line); border-radius: 18px; background: var(--drs-card); }
+.drv-stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.drv-stat-card { display: grid; grid-template-rows: auto auto 1fr; align-content: start; gap: 6px; min-width: 0; height: 100%; padding: 20px; border: 1px solid var(--drs-line); border-radius: 18px; background: var(--drs-card); }
 .drv-stat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--drs-muted); }
 .drv-stat-head .drv-icon-box { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; }
-.drv-stat-card > strong { font-size: 26px; font-weight: 800; letter-spacing: -.52px; line-height: 1.2; overflow-wrap: anywhere; color: var(--drs-ink); }
+.drv-stat-card strong { font-size: 26px; font-weight: 800; letter-spacing: -.52px; line-height: 1.2; overflow-wrap: anywhere; color: var(--drs-ink); }
+.drv-stat-card strong.is-clamped { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; overflow-wrap: normal; }
 .drv-stat-card > small { font-size: 12px; color: var(--drs-muted); }
 .drv-stat-card > small.is-muted { color: #9db0b2; }
 .drv-stat-card > small.is-warn { color: var(--drs-red-text); font-weight: 600; }

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Tooltip } from 'antd';
 import { ClockCircleOutlined, DashboardOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import type { ILegTracking } from '@my-project/shared';
 import { formatDayTime, formatDuration } from './driver-ui';
@@ -16,14 +17,16 @@ export function useNow(intervalMs = 60_000) {
   return now;
 }
 
-function Stat({ label, icon, value, sub, tone }: { label: string; icon: ReactNode; value: string; sub: string; tone?: 'muted' | 'warn' }) {
+function Stat({ label, icon, value, sub, tone, clamp }: { label: string; icon: ReactNode; value: string; sub: string; tone?: 'muted' | 'warn'; clamp?: boolean }) {
   return (
     <div className="drv-stat-card">
       <div className="drv-stat-head">
         <span>{label}</span>
         <span className="drv-icon-box" aria-hidden="true">{icon}</span>
       </div>
-      <strong>{value}</strong>
+      {clamp
+        ? <Tooltip title={value}><strong className="is-clamped" title={value}>{value}</strong></Tooltip>
+        : <strong>{value}</strong>}
       <small className={tone ? 'is-' + tone : undefined}>{sub}</small>
     </div>
   );
@@ -41,7 +44,7 @@ export default function LiveStatsCards({ legs, leg }: { legs: ILegTracking[]; le
   return (
     <div className="drv-stats-row" aria-label="Tình hình chuyến">
       <Stat
-        label="Chặng tiếp" icon={<EnvironmentOutlined />} value={leg?.toLocationName ?? '—'}
+        label="Chặng tiếp" icon={<EnvironmentOutlined />} value={leg?.toLocationName ?? '—'} clamp
         sub={arrival ? (sameDay(arrival, new Date(now)) ? time.format(arrival) : formatDayTime(arrival)) : '—'}
       />
       <Stat label="Tốc độ" icon={<DashboardOutlined />} value="—" sub="Có ở bước bật GPS" tone="muted" />

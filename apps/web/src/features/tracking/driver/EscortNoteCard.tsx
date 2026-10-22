@@ -4,6 +4,7 @@ import type { IHorseLog } from '@my-project/shared';
 import { trackingApi } from '../tracking.api';
 
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
+const REFRESH_MS = 2 * 60_000;
 
 /** Nhật ký mới nhất có ghi chú, do người khác (không phải tài khoản đang đăng nhập) ghi. */
 export function latestPartnerNote(logs: IHorseLog[], userId: string) {
@@ -14,14 +15,24 @@ export function latestPartnerNote(logs: IHorseLog[], userId: string) {
 
 /**
  * "Ghi chú từ hộ tống" (D1b). Quyết định 5.5: chưa có vai trò crew của người ghi nên chỉ lọc được "người khác mình".
- * Không có ghi chú nào thì ẩn thẻ.
+ * Tải lại khi `refreshKey` đổi và mỗi 2 phút khi tab đang hiển thị. Không có ghi chú nào thì ẩn thẻ.
  */
 export default function EscortNoteCard({ tripId, userId, refreshKey }: { tripId: string; userId: string; refreshKey?: unknown }) {
   const [note, setNote] = useState<IHorseLog | null>(null);
   useEffect(() => {
     let active = true;
-    trackingApi.horseLogs(tripId).then(logs => active && setNote(latestPartnerNote(logs, userId))).catch(() => active && setNote(null));
-    return () => { active = false; };
+    const load = () => {
+      trackingApi.horseLogs(tripId).then(logs => active && setNote(latestPartnerNote(logs, userId))).catch(() => active && setNote(null));
+    };
+    load();
+    // Hộ tống có thể ghi chú bất cứ lúc nào: tải lại mỗi 2 phút, chỉ khi tab đang hiển thị.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [tripId, userId, refreshKey]);
 
   if (!note) return null;
