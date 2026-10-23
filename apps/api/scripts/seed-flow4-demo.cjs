@@ -54,8 +54,9 @@ async function main() {
     const { DriverIncidentDetails1800000007000 } = require('../src/database/migrations/1800000007000-DriverIncidentDetails');
     const { HotlineParam1800000008000 } = require('../src/database/migrations/1800000008000-HotlineParam');
     const { VmaxParam1800000009000 } = require('../src/database/migrations/1800000009000-VmaxParam');
+    const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800000010000-RouteCacheFull');
     for (const Migration of [OrderRequirements1800000004000, LocationCoordinates1800000005000, TrackMap1800000006000,
-      DriverIncidentDetails1800000007000, HotlineParam1800000008000, VmaxParam1800000009000]) await new Migration().up(runner);
+      DriverIncidentDetails1800000007000, HotlineParam1800000008000, VmaxParam1800000009000, RouteCacheFull1800000010000]) await new Migration().up(runner);
     await runner.query('SET FOREIGN_KEY_CHECKS=1');
 
     const hash = await bcrypt.hash(PASSWORD, 10);

@@ -25,7 +25,9 @@
 
 /* Bản đồ lộ trình màn tài xế (Figma D1/D1b) */
 .drm-stop { position: relative; display: block; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid #14606a; box-shadow: 0 1px 4px rgb(13 42 46 / 30%); }
-.drm-stop.is-end { width: 20px; height: 20px; border-width: 4px; background: #2f9e5b; border-color: #fff; }
+.drm-stop.is-start, .drm-stop.is-end { width: 20px; height: 20px; border: 3px solid var(--drs-navy, #0b3b42); }
+.drm-stop.is-start { background: var(--drs-gold, #f4b942); }
+.drm-stop.is-end { background: var(--drs-map-end, #16a34a); }
 .drm-label { position: absolute; left: 26px; top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 6px 10px; border-radius: 10px; background: #fff;
   color: #0d2a2e; font-size: 12px; font-weight: 700; box-shadow: 0 10px 22px rgb(18 56 43 / 16%); pointer-events: none; }
 .drm-vehicle { display: block; width: 38px; height: 38px; border-radius: 50%; border: 3px solid #fff; background: #0b3b42 center / 18px no-repeat

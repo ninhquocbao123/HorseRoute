@@ -78,11 +78,14 @@ Làm theo [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) Bước 4, gộp luô
 
 **Mã nguồn** (`apps/api/src/features/tracking/`):
 - `trackmap.geo.ts`: haversine, chiều dài polyline, nội suy theo tỉ lệ, chiếu điểm GPS lên tuyến, cung tròn lớn (giữ kinh độ liên tục qua kinh tuyến 180), chọn mode theo loại xe.
-- `trackmap.routes-provider.ts`: đọc cache `location_routes` (hạn 30 ngày); thiếu thì gọi Mapbox Directions `driving` (`geometries=geojson&overview=simplified`, **timeout 5 giây**, token `MAPBOX_ACCESS_TOKEN`). Khóa chống gọi trùng khi nhiều người mở cùng lúc.
+- `trackmap.routes-provider.ts`: đọc cache `location_routes` (hạn 30 ngày); thiếu thì gọi Mapbox Directions `driving` (`geometries=geojson&overview=full`, **timeout 5 giây**, token `MAPBOX_ACCESS_TOKEN`). Khóa chống gọi trùng khi nhiều người mở cùng lúc.
   - Thiếu token → STRAIGHT, **không cache** (có token rồi sẽ lấy đường thật).
   - Mapbox trả `NoRoute`/`NoSegment` → cache STRAIGHT (không gọi lại mỗi lần xem).
   - Timeout, lỗi mạng, HTTP lỗi → STRAIGHT, **không cache** (lần sau thử lại). Lỗi đọc/ghi cache cũng không làm API lỗi.
   - Chặng `AIRCRAFT_HOLD` → AIR (cung tròn lớn), không gọi Mapbox.
+  - **Tuyến bám đường (23/10/2026):** đổi `overview=simplified` → `overview=full`. Với `simplified`, Mapbox trả rất ít điểm nên tuyến cắt góc (chặng Long An → Mộc Bài 81 km chỉ 21 điểm; `full` là 1.022 điểm). Chặng rất dài có hàng chục nghìn điểm (Mộc Bài → Changi bằng đường bộ: 23.477 điểm) nên giản lược phía server bằng Douglas–Peucker (`simplifyLine` trong `trackmap.geo.ts`, chạy bằng stack): quá 2.000 điểm → dung sai **8 m** (giữa 5–10 m; nhỏ hơn 1 pixel ở mức zoom xem cả chặng, không làm đổi khúc cua); nếu vẫn hơn 4.000 điểm thì thêm một lượt 25 m. Chặng Mộc Bài → Changi còn 3.910 điểm; `distanceKm` vẫn lấy từ Mapbox, không tính lại từ đường đã giản lược.
+  - **Vô hiệu cache ROAD cũ:** migration `1800000010000-RouteCacheFull.ts` chạy `DELETE FROM location_routes WHERE mode='ROAD'`. Chọn xóa thay vì thêm cột phiên bản vì `location_routes` chỉ là cache dùng một lần (hết hạn theo `fetched_at`, cascade khi xóa địa điểm) và mọi dòng ROAD hiện có đều là bản `simplified`, nên không cần đổi schema; lần xem kế tiếp tự lấy lại bản `full`. STRAIGHT giữ nguyên (đó là câu trả lời "không có đường bộ" của Mapbox, không phụ thuộc kiểu overview). `down` không làm gì (không có gì để khôi phục). **Cần chạy migration này trên Aiven.**
+- **Chỉ vận chuyển đường bộ:** nhóm chỉ hoạt động đường bộ. Code chặng bay (`AIR`, cung tròn lớn, không nhận GPS cho `AIRCRAFT_HOLD`) được **giữ nguyên**, chỉ kiểm tra: khi mọi xe là `TRUCK`/`CRATE` thì `/map` luôn trả `ROAD` hoặc `STRAIGHT`, không bao giờ `AIR` (có test). Việc chặn không cho chọn xe `AIRCRAFT_HOLD` thuộc **Flow 3** (danh mục xe và lập kế hoạch chuyến), cần hỏi người phụ trách Flow 3; không làm ở đây.
 - `trackmap.build.ts`: dựng phản hồi `/map` (hàm thuần): điểm dừng, tuyến, `totalKm`, `remainingKm`, `position`, `latestPosition`, cảnh báo.
   - `position`: GPS khi điểm mới nhất < 10 phút và chặng hiện tại không phải chặng bay; ngược lại ước tính theo thiết kế mục 8 (MOVING: theo thời gian, kẹp 0–0.95). Nhãn ước tính luôn bắt đầu "Ước tính theo kế hoạch, không phải GPS".
   - `remainingKm`: GPS được chiếu lên tuyến chặng hiện tại + các chặng sau. Có chặng thiếu tọa độ → `totalKm`/`remainingKm` = null kèm cảnh báo "Chưa có tọa độ cho …".
@@ -102,7 +105,7 @@ Làm theo [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) Bước 4, gộp luô
 **Điều khoản Mapbox:** không gọi geocoding/reverse geocode, không lưu địa chỉ Mapbox vào DB. Chỉ lưu hình học tuyến Directions có hạn dùng (`fetched_at`, 30 ngày). `incidents` chỉ lưu lat/lng; `location_text` là chữ người dùng gõ.
 
 **Kiểm thử:**
-- `test/trackmap.test.cjs` (12 test): hình học, provider với fetch giả (không token, cache, gọi trùng, NoRoute, timeout, HTTP 401, lỗi DB, hết hạn cache, chặng bay), vị trí ước tính/GPS/LIVE/STALE/OLD, thiếu tọa độ, phân quyền `/map`, luật `POST/GET positions`, job dọn dữ liệu.
+- `test/trackmap.test.cjs` (16 test): hình học, provider với fetch giả (không token, cache, gọi trùng, NoRoute, timeout, HTTP 401, lỗi DB, hết hạn cache, chặng bay), vị trí ước tính/GPS/LIVE/STALE/OLD, thiếu tọa độ, phân quyền `/map`, luật `POST/GET positions`, job dọn dữ liệu.
 - `test/tracking.http.test.cjs`: route bản đồ/GPS không bị tính vào giới hạn theo IP, bị giới hạn 60/phút theo tài khoản, tài khoản khác không ảnh hưởng.
 - `test/flow4-tracking.mysql.cjs`: thêm 1 check (MySQL thật, **không token** → STRAIGHT, không cache), 18/18 đạt trên MySQL Docker tạm; flow2 / flow3-read / locations / vehicles vẫn đạt.
 - Swagger: 57 → 60 operation.
@@ -147,6 +150,11 @@ Chỉ màn tài xế (D1 khi READY, D1b khi IN_TRANSIT). Bản đồ cho Custome
 **Kiểm thử:**
 - `apps/web/test/driver.browser.cjs` (Mapbox tắt bằng `VITE_MAP_ENABLED=false`, kiểm phần dữ liệu quanh bản đồ): km trên header/góc thẻ/Chặng tiếp, cảnh báo tuyến ước lượng, hộp thoại đồng ý, gửi lô sau 30 giây (đồng hồ giả của Playwright + `context.setGeolocation`), hàng đợi `localStorage` khi mất mạng và gửi bù sau khi tải lại, tốc độ vượt giới hạn / GPS cũ, 409 dừng gửi, badge 3 trạng thái.
 - Chụp bản đồ Mapbox thật (token trong `apps/web/.env`) trên harness với API giả lập: D1 và D1b hiển thị đúng; chưa chụp với API thật vì không có tài khoản driver trên DB demo/Aiven trong phiên này.
+
+**Màu bản đồ tài xế (23/10/2026):** giữ style nền `light-v11`; sau khi map tải xong `trackmap/driver-map-theme.ts` đổi màu từng layer bằng `setPaintProperty`, chỉ khi gọi từ `DriverRouteMap` nên bản đồ "Địa điểm & cửa khẩu" của Specialist không đổi. Màu lấy từ Figma (node 57:4995 / 57:5179, đọc từ các SVG của thiết kế) và khai báo thành biến CSS `--drs-map-*` trong `driver-shell.css`; file theme đọc biến đó (có giá trị dự phòng).
+- Nền đất `#e2efe8`; nước `#c9e3ec`; công viên `#d3e9d9` (xanh hơn nền một chút); đường trắng, đường lớn (`motorway|trunk|primary`) `#fbf8ec` hơi ấm/đậm hơn; viền đường lớn `#cddbd4`; nhãn xám xanh `#546d71` (nhạt dần theo cấp địa danh); ẩn POI, sân bay, địa hình, tòa nhà, số hiệu đường.
+- Tuyến: vàng `#f4b942`; khi đang chạy, đoạn đã đi vàng đậm `#d18e12`, phần còn lại vàng nhạt `#f7d98b`; viền trắng + quầng teal `#0b3b42` 18% (đúng Figma) để nổi trên nền và đường trắng. Marker: điểm dừng trắng viền teal, điểm gửi vàng, điểm nhận xanh lá (viền navy), xe nền navy.
+- Test: `apps/web/test/driver-map-theme.cjs` (map giả, không cần WebGL): màu, layer thiếu hoặc lỗi không làm hỏng bản đồ.
 
 **Còn lại:** bản đồ cho Customer (`/orders/:orderId/map`) và Ops (`/operations/map`, hiện GPS + "mất tín hiệu"); audit bật/tắt chia sẻ; thử GPS trên điện thoại thật (cần HTTPS).
 

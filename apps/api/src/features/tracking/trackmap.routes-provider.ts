@@ -2,7 +2,7 @@
 // Directions (timeout 5 giây). Mọi lỗi đều rơi về STRAIGHT để bản đồ không bao giờ làm API lỗi 500.
 // Chỉ lưu hình học tuyến có hạn dùng (fetched_at); KHÔNG gọi geocoding và KHÔNG lưu địa chỉ từ Mapbox.
 import type { RouteMode } from '@my-project/shared';
-import { greatCircle, haversineKm, lineLengthKm, type LngLat } from './trackmap.geo';
+import { greatCircle, haversineKm, lineLengthKm, simplifyLine, type LngLat } from './trackmap.geo';
 import { Logger } from '../../shared/utils/logger.util';
 
 export type CachedRoute = { mode: RouteMode; coordinates: LngLat[]; distanceM: number | null; fetchedAt: Date };
@@ -24,6 +24,25 @@ type Options = {
 };
 
 const DIRECTIONS_URL = 'https://api.mapbox.com/directions/v5/mapbox/driving/';
+
+/**
+ * `overview=full` trả đúng hình học đường (bám từng khúc cua) thay cho bản `simplified` hay cắt góc.
+ * Một chặng dài có thể có hàng chục nghìn điểm nên giản lược phía server, dung sai NHỎ để không đổi hình dạng tuyến:
+ * - quá MAX_POINTS (2.000) điểm → Douglas–Peucker 8 m (nằm trong khoảng 5–10 m; bề rộng một làn đường ~3,5 m, vẽ trên bản đồ
+ *   ở mức zoom xem cả chặng 8 m nhỏ hơn 1 pixel);
+ * - nếu sau đó vẫn hơn COARSE_THRESHOLD (4.000 điểm, chỉ với chặng dài hàng nghìn km nhiều khúc cua) → thêm một lượt 25 m cho nhẹ
+ *   phản hồi/DB. Đây là giảm thêm chứ không phải trần cứng: không có tuyến thật nào bị cắt cụt hay đổi hình dạng đáng kể.
+ */
+export const MAX_POINTS = 2_000;
+export const SIMPLIFY_TOLERANCE_M = 8;
+export const COARSE_THRESHOLD = 4_000;
+export const COARSE_TOLERANCE_M = 25;
+
+export function limitRoutePoints(line: LngLat[]): LngLat[] {
+  if (line.length <= MAX_POINTS) return line;
+  const simplified = simplifyLine(line, SIMPLIFY_TOLERANCE_M);
+  return simplified.length > COARSE_THRESHOLD ? simplifyLine(simplified, COARSE_TOLERANCE_M) : simplified;
+}
 const logger = new Logger('TrackMap');
 
 const straight = (from: LngLat, to: LngLat): ResolvedRoute => ({ mode: 'STRAIGHT', coordinates: [from, to], distanceKm: haversineKm(from, to) });
@@ -81,7 +100,7 @@ export class RoutesProvider {
     let response: Response;
     let body: { code?: string; routes?: { geometry?: { coordinates?: LngLat[] }; distance?: number; duration?: number }[] } = {};
     try {
-      const url = `${DIRECTIONS_URL}${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&overview=simplified&access_token=${encodeURIComponent(token)}`;
+      const url = `${DIRECTIONS_URL}${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&overview=full&access_token=${encodeURIComponent(token)}`;
       response = await this.fetchImpl(url, { signal: controller.signal });
       try { body = await response.json(); } catch { /* thân không phải JSON */ }
     } catch (error) {
@@ -94,9 +113,10 @@ export class RoutesProvider {
     const best = body.routes?.[0];
     const coordinates = best?.geometry?.coordinates;
     if (response.ok && body.code === 'Ok' && coordinates && coordinates.length >= 2) {
+      const line = limitRoutePoints(coordinates);
       const distanceM = typeof best.distance === 'number' ? Math.round(best.distance) : null;
-      await this.persist(fromId, toId, { mode: 'ROAD', coordinates, distanceM, durationS: typeof best.duration === 'number' ? Math.round(best.duration) : null });
-      return { mode: 'ROAD', coordinates, distanceKm: distanceM != null ? distanceM / 1000 : lineLengthKm(coordinates) };
+      await this.persist(fromId, toId, { mode: 'ROAD', coordinates: line, distanceM, durationS: typeof best.duration === 'number' ? Math.round(best.duration) : null });
+      return { mode: 'ROAD', coordinates: line, distanceKm: distanceM != null ? distanceM / 1000 : lineLengthKm(coordinates) };
     }
     if (response.ok && (body.code === 'NoRoute' || body.code === 'NoSegment')) {
       // Câu trả lời chắc chắn "không có đường bộ" (qua biển, quá xa): nhớ lại để không gọi lại mỗi lần xem.

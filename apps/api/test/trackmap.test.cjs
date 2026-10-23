@@ -5,7 +5,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Role, OrderStatus, LegStatus } = require('@my-project/shared');
 const geo = require('../src/features/tracking/trackmap.geo');
-const { RoutesProvider } = require('../src/features/tracking/trackmap.routes-provider');
+const { RoutesProvider, limitRoutePoints, MAX_POINTS } = require('../src/features/tracking/trackmap.routes-provider');
+const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800000010000-RouteCacheFull');
 const { buildTripMap } = require('../src/features/tracking/trackmap.build');
 const { TrackingService } = require('../src/features/tracking/tracking.service');
 
@@ -82,7 +83,7 @@ test('routes provider: Mapbox route is cached; concurrent and later views do not
   assert.equal(a.mode, 'ROAD');
   assert.equal(b.coordinates.length, 3);
   assert.equal(a.distanceKm, 45.21);
-  assert.match(url, /\/driving\/106\.4933,10\.9733;106\.158,11\.076\?geometries=geojson&overview=simplified&access_token=pk\.test$/);
+  assert.match(url, /\/driving\/106\.4933,10\.9733;106\.158,11\.076\?geometries=geojson&overview=full&access_token=pk\.test$/);
   assert.deepEqual(store.calls.saved.map(r => [r.mode, r.distanceM, r.durationS]), [['ROAD', 45210, 3600]]);
   assert.deepEqual(store.calls.deleted, [{ fromId: '1', toId: '2', mode: 'STRAIGHT' }], 'an older "no road" entry is dropped');
   const again = await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
@@ -315,4 +316,69 @@ test('position retention: deletes in batches older than TRACK_POSITION_RETENTION
   } finally {
     if (previous === undefined) delete process.env.TRACK_POSITION_RETENTION_DAYS; else process.env.TRACK_POSITION_RETENTION_DAYS = previous;
   }
+});
+
+// Đường cong 1 km: các điểm cách nhau ~1 m, cong nhẹ; thêm "nhiễu" vài cm như dữ liệu GPS thật.
+const curve = count => Array.from({ length: count }, (_, i) => {
+  const t = i / (count - 1);
+  return [106.5 + t * 0.01, 10.9 + 0.003 * Math.sin(t * Math.PI * 2) + (i % 2 ? 2e-7 : 0)];
+});
+
+test('Douglas-Peucker: keeps both ends and the shape within tolerance, drops redundant points', () => {
+  const line = curve(5000);
+  const simplified = geo.simplifyLine(line, 8);
+  assert.deepEqual(simplified[0], line[0]);
+  assert.deepEqual(simplified.at(-1), line.at(-1));
+  assert.ok(simplified.length < 200, 'a smooth 1 km curve needs very few points: ' + simplified.length);
+  // Mọi điểm gốc nằm cách tuyến đã giản lược không quá dung sai (cộng sai số làm tròn của phép chiếu phẳng).
+  const worst = Math.max(...line.map(p => geo.projectOnLine(simplified, p).offsetKm * 1000));
+  assert.ok(worst <= 8.5, 'max deviation ' + worst.toFixed(2) + ' m');
+  const sharp = [[0, 0], [0.001, 0], [0.001, 0.001], [0.002, 0.001]];
+  assert.deepEqual(geo.simplifyLine(sharp, 8), sharp, 'real corners are kept');
+  assert.deepEqual(geo.simplifyLine([[0, 0], [0.5, 0.0000001], [1, 0]], 8), [[0, 0], [1, 0]], 'collinear middle point is dropped');
+  assert.equal(geo.simplifyLine([[0, 0], [1, 1]], 8).length, 2);
+  const huge = curve(60_000);
+  assert.ok(geo.simplifyLine(huge, 8).length > 0, 'tens of thousands of points do not overflow the stack');
+});
+
+test('routes provider: overview=full, routes over 2000 points are simplified, small routes are stored untouched', async () => {
+  const requested = [];
+  const small = curve(1500);
+  const smallStore = memoryStore();
+  const keep = await new RoutesProvider(smallStore, { token: () => 'pk.test', fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: small }, distance: 1200 }] })(); } })
+    .route('1', '2', small[0], small.at(-1), 'ROAD');
+  assert.equal(keep.coordinates.length, 1500, '≤ 2000 points: kept as Mapbox returned them');
+  assert.equal(smallStore.calls.saved[0].coordinates.length, 1500);
+  const many = curve(30_000);
+  const store = memoryStore();
+  const route = await new RoutesProvider(store, { token: () => 'pk.test', fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: many }, distance: 1200 }] })(); } })
+    .route('1', '2', many[0], many.at(-1), 'ROAD');
+  assert.ok(route.coordinates.length <= MAX_POINTS, 'simplified to ' + route.coordinates.length);
+  assert.deepEqual(route.coordinates[0], many[0]);
+  assert.deepEqual(route.coordinates.at(-1), many.at(-1));
+  assert.equal(store.calls.saved[0].coordinates.length, route.coordinates.length, 'the simplified line is what gets cached');
+  assert.equal(route.distanceKm, 1.2, 'distance comes from Mapbox, not from the simplified line');
+  assert.ok(requested.length === 2 && requested.every(url => url.includes('overview=full') && !url.includes('overview=simplified')));
+  // Chặng dài hàng nghìn km nhiều khúc cua: nếu lượt 8 m vẫn còn trên 4.000 điểm thì có thêm lượt 25 m (nhẹ hơn, vẫn giữ hai đầu).
+  const long = Array.from({ length: 40_000 }, (_, i) => [100 + i * 0.0006, 10 + Math.sin(i / 40) * 0.2]);
+  const fine = geo.simplifyLine(long, 8);
+  assert.ok(fine.length > 4_000, 'precondition: the 8 m pass alone is still heavy (' + fine.length + ')');
+  const coarse = limitRoutePoints(long);
+  assert.ok(coarse.length < fine.length, 'second pass lightens it: ' + coarse.length + ' < ' + fine.length);
+  assert.deepEqual([coarse[0], coarse.at(-1)], [long[0], long.at(-1)]);
+});
+
+test('migration 1800000010000 drops only the ROAD (simplified) cache rows', async () => {
+  const queries = [];
+  await new RouteCacheFull1800000010000().up({ query: async sql => { queries.push(sql); } });
+  assert.deepEqual(queries, ["DELETE FROM location_routes WHERE mode = 'ROAD'"]);
+  await new RouteCacheFull1800000010000().down(); // không có gì để khôi phục, không được lỗi
+});
+
+test('map mode: with trucks only, /map is always ROAD or STRAIGHT (never AIR); only AIRCRAFT_HOLD legs use the great circle', async () => {
+  const trucks = [legRow({ id: '10', status: LegStatus.MOVING, actualDepartureAt: at(-30) }), legRow({ id: '11', seqNo: 2, fromId: '2', fromName: 'Mộc Bài', toId: '3', toName: 'Sân bay', toLat: '1.364400', toLng: '103.991500' })];
+  const modes = async legs => (await new TrackingService(mapRepo({ getTripMapLegs: async () => legs })).getTripMap(driver, '100')).legs.map(leg => leg.mode);
+  assert.deepEqual(await modes(trucks), ['STRAIGHT', 'STRAIGHT'], 'no Mapbox token in tests → STRAIGHT, and TRUCK never AIR');
+  assert.deepEqual(await modes([...trucks, legRow({ id: '12', seqNo: 3, vehicleType: 'CRATE' })]), ['STRAIGHT', 'STRAIGHT', 'STRAIGHT']);
+  assert.deepEqual(await modes([trucks[0], legRow({ id: '11', seqNo: 2, vehicleType: 'AIRCRAFT_HOLD' })]), ['STRAIGHT', 'AIR'], 'air-leg code path is kept');
 });

@@ -95,3 +95,42 @@ export function modeForVehicle(vehicleType: string | null | undefined): Exclude<
 }
 
 export const roundKm = (km: number) => Math.round(km * 10) / 10;
+
+/** Khoảng cách (mét) từ điểm `p` tới đoạn a–b, tính trên mặt phẳng cục bộ (đủ chính xác cho đoạn ngắn của tuyến đường). */
+function distanceToSegmentM(p: LngLat, a: LngLat, b: LngLat): number {
+  const metersPerDegLat = (Math.PI / 180) * EARTH_RADIUS_KM * 1000;
+  const metersPerDegLng = metersPerDegLat * Math.cos(toRad((a[1] + b[1]) / 2));
+  const [ax, ay] = [0, 0];
+  const [bx, by] = [(b[0] - a[0]) * metersPerDegLng, (b[1] - a[1]) * metersPerDegLat];
+  const [px, py] = [(p[0] - a[0]) * metersPerDegLng, (p[1] - a[1]) * metersPerDegLat];
+  const lengthSq = (bx - ax) ** 2 + (by - ay) ** 2;
+  const t = lengthSq === 0 ? 0 : Math.min(1, Math.max(0, (px * bx + py * by) / lengthSq));
+  return Math.hypot(px - t * bx, py - t * by);
+}
+
+/**
+ * Douglas–Peucker: bỏ các điểm lệch khỏi đường nối hai điểm giữ lại không quá `toleranceM` mét. Luôn giữ điểm đầu và cuối.
+ * Dùng stack thay đệ quy vì một chặng dài có thể có hàng chục nghìn điểm. Với dung sai vài mét, hình dạng tuyến
+ * (khúc cua, ngã rẽ) không đổi nên vẫn bám đường; chỉ giảm số điểm.
+ */
+export function simplifyLine(line: LngLat[], toleranceM: number): LngLat[] {
+  if (line.length <= 2 || toleranceM <= 0) return line;
+  const keep = new Uint8Array(line.length);
+  keep[0] = 1;
+  keep[line.length - 1] = 1;
+  const stack: [number, number][] = [[0, line.length - 1]];
+  while (stack.length) {
+    const [start, end] = stack.pop()!;
+    let worst = 0;
+    let index = -1;
+    for (let i = start + 1; i < end; i++) {
+      const distance = distanceToSegmentM(line[i], line[start], line[end]);
+      if (distance > worst) { worst = distance; index = i; }
+    }
+    if (index !== -1 && worst > toleranceM) {
+      keep[index] = 1;
+      stack.push([start, index], [index, end]);
+    }
+  }
+  return line.filter((_, i) => keep[i] === 1);
+}
