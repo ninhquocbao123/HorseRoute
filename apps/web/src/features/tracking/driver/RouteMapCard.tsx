@@ -32,7 +32,7 @@ export default function RouteMapCard({ trip, map, track, running, gps, children 
         <span>{corner}</span>
       </div>
       <div className="drv-map-wrap">
-        <MapView height={400} label="Bản đồ lộ trình chuyến đi" hint="Xem thứ tự điểm dừng ở thẻ “Các chặng”.">
+        <MapView height="var(--drv-map-h)" label="Bản đồ lộ trình chuyến đi" hint="Xem thứ tự điểm dừng ở thẻ “Các chặng”.">
           {map && <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} />}
         </MapView>
         {gps && <GpsBadge gps={gps} />}

@@ -40,6 +40,9 @@ const { pathToFileURL } = require('node:url');
       },
       200: { orderCode: 'WDP-TEST-2', orderStatus: 'DELIVERED', customer: 'Khách Hai', legs: [leg('20', 1, 'COMPLETED', 'Kho HN', 'Sân bay Nội Bài', 'AIRPORT')] },
     };
+    // Chặng 2, 3 dùng xe thứ hai: ô "Xe" chỉ hiện xe của chặng hiện tại / đầu / cuối.
+    for (const l of trips[100].legs.slice(1)) { l.vehicleId = '6'; l.vehicleCode = 'XE-02'; }
+    const extraIds = []; // chuyến thêm động (nhiều chuyến đã giao để thử phân trang, chuyến sắp tới)
     const state = { incidents: [], horseLogs: [], track: [], latest: null, positionsMode: null };
     const calls = { milestones: [], complete: [], incidents: [], positions: [], maps: 0 };
     // /map giả lập: km cố định để kiểm định dạng (tổng 1.720 km), chặng 3 là đường thẳng ước lượng.
@@ -47,7 +50,7 @@ const { pathToFileURL } = require('node:url');
       'Kho HCM': [106.6, 10.85], 'Trạm Đồng Nai': [106.95, 10.95], 'Trạm Phan Thiết': [108.1, 10.93], 'Cửa khẩu Mộc Bài': [106.158, 11.076],
       'Kho HN': [105.8, 21.0], 'Sân bay Nội Bài': [105.807, 21.219],
     };
-    const KM = { 10: 210, 11: 160, 12: 1350, 20: 30 };
+    const KM = new Proxy({ 10: 210, 11: 160, 12: 1350, 20: 30 }, { get: (target, key) => target[key] ?? 30 });
     const mapFor = id => {
       const t = trips[id];
       const legs = t.legs.map(l => ({
@@ -69,12 +72,12 @@ const { pathToFileURL } = require('node:url');
     const fail = { next: 0 };
     const conflict = { next: 0, apply: null };
     const horses = [{ id: '21', name: 'Bạch Mã', passportNo: 'PP-1', orderStatus: 'NORMAL' }, { id: '22', name: 'Hắc Mã', passportNo: 'PP-2', orderStatus: 'NORMAL' }];
-    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: 'DRIVER', legs: trips[id].legs });
+    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: trips[id].dep ?? iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: 'DRIVER', legs: trips[id].legs });
     const detail = id => ({
       ...summary(id), horses,
       crew: [{ userId: 'test', name: 'Phan Thị Lan', phone: '0901', role: 'DRIVER' }, { userId: '7', name: 'Lê Hộ Tống', phone: '0902', role: 'ESCORT' }],
       customer: { name: trips[id].customer }, recipient: id === '100' ? { name: 'Người Nhận SG', phone: '+6560000050' } : null,
-      coordinator: { name: 'Điều Phối A', phone: '0903' }, emergencyHotline: '1900 1080', vehicles: [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }],
+      coordinator: { name: 'Điều Phối A', phone: '0903' }, emergencyHotline: '1900 1080', vehicles: [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }, { id: '6', code: 'XE-02', type: 'TRUCK', capacityStalls: 2 }],
     });
     const allLegs = () => Object.values(trips).flatMap(t => t.legs);
     const tripOf = legId => Object.values(trips).find(t => t.legs.some(l => l.id === legId));
@@ -98,7 +101,7 @@ const { pathToFileURL } = require('node:url');
         return route.fulfill({ status: 409, json: { message: 'Trạng thái chặng đã thay đổi.' } });
       }
       if (p === '/notifications') return route.fulfill({ json: [{ id: '1', content: 'Chuyến WDP-TEST-1 đã được phân công cho bạn.', is_read: 0 }] });
-      if (p === '/tracking/driver/trips') return route.fulfill({ json: ['100', '200'].map(summary) });
+      if (p === '/tracking/driver/trips') return route.fulfill({ json: ['100', '200', ...extraIds].map(summary) });
       const mapGet = /^\/tracking\/trips\/(\d+)\/map$/.exec(p);
       if (mapGet) { calls.maps++; return route.fulfill({ json: mapFor(mapGet[1]) }); }
       if (/^\/tracking\/trips\/\d+\/positions$/.test(p) && method === 'GET') return route.fulfill({ json: state.track });
@@ -184,7 +187,7 @@ const { pathToFileURL } = require('node:url');
     await open('assignments');
     await heading('Chuyến vận chuyển').waitFor();
     assert.match(page.url(), /view=trip$/, 'view cũ chuyển về trip');
-    assert.equal(await page.locator('.drs-sidebar nav button').count(), 2, 'sidebar chỉ 2 mục');
+    assert.deepEqual(await page.locator('.drs-sidebar nav button').allInnerTexts(), ['Chuyến vận chuyển', 'Lịch sử giao hàng', 'Báo cáo sự cố'], 'sidebar 3 mục');
     assert.equal(await page.locator('.drs-sidebar nav button[aria-current=page]').innerText(), 'Chuyến vận chuyển');
     await page.locator('.drs-role', { hasText: 'DRIVER · Tài xế' }).waitFor();
     await page.locator('.drs-user', { hasText: 'Phan Thị Lan' }).waitFor();
@@ -201,7 +204,7 @@ const { pathToFileURL } = require('node:url');
     assert.match(await stops().nth(2).innerText(), /Trạm Phan Thiết[\s\S]*Tiếp nhiên liệu/);
     assert.match(await stops().nth(3).innerText(), /Cửa khẩu Mộc Bài[\s\S]*Bàn giao[\s\S]*\+1$/);
     assert.equal(await page.locator('.drv-stops li.is-reached').count(), 0);
-    await page.getByText('Cảnh báo từ điều phối viên').waitFor();
+    assert.equal(await page.getByText('Cảnh báo từ điều phối viên').count(), 0, 'UI-1: bỏ khung cảnh báo khỏi trang');
     await page.getByText('Bản đồ đang tạm tắt.').waitFor();
     await page.locator('.drv-header-title p', { hasText: 'Kho HCM → Cửa khẩu Mộc Bài · 1.720 km · ' }).waitFor();
     assert.equal(await page.locator('.drv-route-card .drv-card-head > span').innerText(), '1.720 km', 'D1: tổng km thay cho số chặng');
@@ -220,7 +223,6 @@ const { pathToFileURL } = require('node:url');
     for (const scrolled of [false, true]) {
       if (scrolled) await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       const s = await sidebar();
-      assert.ok(s.page > s.viewport, 'nội dung dài hơn viewport');
       assert.equal(Math.round(s.aside), s.page, 'nền sidebar phủ hết trang');
       assert.equal(Math.round(s.inner), s.viewport, 'sidebar cao đúng viewport');
       assert.equal(Math.round(s.innerTop), 0, 'sidebar dính đầu màn hình');
@@ -236,19 +238,25 @@ const { pathToFileURL } = require('node:url');
     await page.getByText('Chuyến WDP-TEST-1 đã được phân công cho bạn.').waitFor();
     await page.locator('.ant-drawer-close').click();
 
-    // Tìm kiếm theo khách hàng + dropdown chọn chuyến
-    await page.getByLabel('Tìm chuyến theo mã đơn hoặc khách hàng').fill('zzz');
-    await page.getByText('Không có chuyến nào khớp “zzz”.').waitFor();
-    await page.getByLabel('Tìm chuyến theo mã đơn hoặc khách hàng').fill('khách hai');
-    await pick('Chọn chuyến', 'WDP-TEST-2');
-    await page.getByRole('heading', { name: 'WDP-TEST-2' }).waitFor();
-    await page.locator('.drv-badge', { hasText: 'Đã giao xong' }).waitFor();
-    assert.equal(await reportButton().isDisabled(), true, 'chuyến đã giao: khóa báo sự cố');
-    assert.equal(await fact('Người nhận').innerText(), '—', 'không có người nhận');
-    assert.equal(await page.locator('.drv-checklist').count(), 0, 'checklist chỉ khi READY');
-    await page.getByLabel('Tìm chuyến theo mã đơn hoặc khách hàng').fill('');
-    await pick('Chọn chuyến', 'WDP-TEST-1');
-    await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
+    // UI-1: chỉ chuyến đang hoạt động, không dropdown chọn chuyến, không ô tìm kiếm ở màn chuyến, không dòng "chuyến sắp tới"
+    assert.equal(await page.locator('.drv-trip-select, .drs-search').count(), 0);
+    assert.equal(await page.locator('.drv-upcoming').count(), 0);
+    assert.equal(await page.getByText('WDP-TEST-2').count(), 0, 'chuyến đã giao không hiện ở màn chuyến');
+    assert.equal(await fact('Xe').innerText(), 'XE-01 · 4 chuồng', 'READY: xe của chặng đầu');
+    // Thu gọn: 4 ô thông tin ≤ 56px một dòng, bản đồ nằm trọn trong màn hình ở cả 1440×900 và 1366×768
+    for (const size of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(size);
+      const m = await page.evaluate(() => {
+        const box = selector => document.querySelector(selector).getBoundingClientRect();
+        return { mapBottom: box('.drv-map-wrap').bottom, mapHeight: box('.drv-map-wrap').height, factHeights: [...document.querySelectorAll('.drv-header-facts > div')].map(el => el.getBoundingClientRect().height), viewport: innerHeight };
+      });
+      assert.ok(m.mapBottom <= m.viewport, `D1 ${size.width}×${size.height}: mép dưới bản đồ ${Math.round(m.mapBottom)} phải ≤ ${m.viewport}`);
+      assert.ok(m.mapHeight >= 380, 'bản đồ cao tối thiểu 380px: ' + m.mapHeight);
+      assert.ok(m.factHeights.every(h => h <= 56), '4 ô thông tin ≤ 56px: ' + m.factHeights.join(','));
+      await page.screenshot({ path: `test-results/driver-d1-${size.width}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    assert.ok(await fact('Xe').evaluate(el => getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis'), 'ô Xe một dòng, ellipsis');
 
     // 2. Checklist lưu theo chuyến; chưa đủ thì hộp thoại cảnh báo nhưng không khóa nút
     await page.locator('.drv-checklist').getByText('Lốp, phanh, đèn đã kiểm tra').click();
@@ -293,7 +301,17 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.locator('.drv-stops li.is-current').count(), 1, 'đúng một điểm đang tới');
     assert.equal(await page.locator('.drv-stops li[aria-current=step]').innerText().then(t => t.split('\n')[0]), 'Trạm Đồng Nai');
     assert.equal(await page.locator('.drv-escort-note').count(), 0, 'chưa có ghi chú → ẩn thẻ');
-    await page.getByText('Cảnh báo từ điều phối viên').waitFor();
+    assert.equal(await page.getByText('Cảnh báo từ điều phối viên').count(), 0);
+    assert.equal(await fact('Xe').innerText(), 'XE-01 · 4 chuồng', 'IN_TRANSIT: xe của chặng đang chạy');
+    // Thông báo "Đã ghi nhận…" (tạm thời, đóng được) làm trang cao thêm: đóng trước khi đo
+    while (await page.locator('.drv-alert-notice .ant-alert-close-icon, .ant-alert-close-icon').count()) await page.locator('.ant-alert-close-icon').first().click();
+    for (const size of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(size);
+      const bottom = await page.evaluate(() => document.querySelector('.drv-map-wrap').getBoundingClientRect().bottom);
+      assert.ok(bottom <= size.height, `D1b ${size.width}×${size.height}: mép dưới bản đồ ${Math.round(bottom)} ≤ ${size.height}`);
+      await page.screenshot({ path: `test-results/driver-d1b-${size.width}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
     // Ghi chú của chính mình không hiện; ghi chú mới nhất của người khác thì hiện "HH:mm · nội dung"
     const log = (id, createdBy, note, at) => ({ id, horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'STABLE', note, loggedAt: at, createdBy, createdByName: createdBy === 'test' ? 'Phan Thị Lan' : 'Lê Hộ Tống', correctsLogId: null, attachments: [] });
     state.horseLogs = [log('1', 'test', 'Ghi chú của tôi', iso(-10 * 60e3))];
@@ -526,6 +544,7 @@ const { pathToFileURL } = require('node:url');
     await page.getByText('Trạng thái chặng đã thay đổi. Đã tải lại dữ liệu mới nhất.').waitFor();
     await modalClosed(); // hộp thoại đóng sau 409
     await page.locator('.drv-stops li.is-current', { hasText: 'Trạm Phan Thiết' }).waitFor();
+    assert.equal(await fact('Xe').innerText(), 'XE-02 · 2 chuồng', 'xe đổi theo chặng hiện tại');
 
     // Các chặng còn lại: đến, hoàn thành; chặng cuối là cửa khẩu: xuất phát, đến, thông quan, giao
     const steps = [
@@ -538,18 +557,87 @@ const { pathToFileURL } = require('node:url');
       await modalClosed();
       if (expected) assert.equal(calls.milestones.at(-1).milestoneType, expected);
     }
-    await page.getByText('Tất cả các chặng đã hoàn thành').first().waitFor();
-    await heading('Chuyến vận chuyển').waitFor();
-    await page.locator('.drv-badge', { hasText: 'Đã giao xong' }).waitFor();
+    assert.equal(await page.getByText('Tất cả các chặng đã hoàn thành').count(), 0, 'UI-1: bỏ banner hoàn thành');
     assert.equal(calls.complete.length, 2);
-    assert.equal(await page.locator('.drv-action').count(), 0);
-    assert.equal(await page.locator('.drv-stops li.is-reached').count(), 4, 'mọi điểm dừng đã qua');
-    await noOverflow('delivered');
-    await page.screenshot({ path: 'test-results/driver-delivered-desktop.png', fullPage: true });
-
-    // 6. Chuyến không còn vận chuyển: nút báo sự cố bị khóa
+    // Giao xong: không còn chuyến hoạt động → trạng thái trống + nút sang Lịch sử
+    await page.getByText('Bạn chưa có chuyến được phân công').waitFor();
+    assert.equal(await page.locator('.drv-header').count(), 0);
+    await noOverflow('empty');
+    await page.screenshot({ path: 'test-results/driver-empty-desktop.png', fullPage: true });
+    // Báo sự cố khi không có chuyến hoạt động: cũng là trạng thái trống
+    await open('incident');
+    await page.getByText('Bạn chưa có chuyến được phân công').waitFor();
     await open('trip');
-    assert.equal(await reportButton().isDisabled(), true);
+    await page.getByRole('button', { name: 'Xem lịch sử giao hàng' }).click();
+    await heading('Lịch sử giao hàng').waitFor();
+    assert.match(page.url(), /view=history$/);
+
+    // 6. Lịch sử giao hàng (?view=history): bảng chuyến đã giao mới nhất trước, lọc bằng ô tìm kiếm trên topbar
+    const histRows = () => page.locator('.drv-history .ant-table-tbody > tr:not([aria-hidden])');
+    await histRows().first().waitFor();
+    assert.equal(await page.locator('.drs-sidebar nav button[aria-current=page]').innerText(), 'Lịch sử giao hàng');
+    assert.deepEqual(await page.locator('.drv-history th').allInnerTexts(), ['Mã đơn', 'Tuyến', 'Khởi hành', 'Giao thực tế', 'Km', 'Xe', 'Ngựa', 'Sự cố']);
+    const first = histRows().filter({ hasText: 'WDP-TEST-1' });
+    await first.waitFor();
+    await page.waitForFunction(() => !document.querySelector('.drv-history tbody')?.innerText.includes('…'));
+    const cells = await first.locator('td').allInnerTexts();
+    assert.match(cells[1], /Kho HCM → Cửa khẩu Mộc Bài/);
+    assert.equal(cells[4], '1.720', 'km dùng dấu chấm nghìn');
+    assert.equal(cells[5], 'XE-02 · 2 chuồng', 'xe của chặng cuối');
+    assert.equal(cells[6], '2', 'số ngựa');
+    assert.equal(cells[7], String(state.incidents.length), 'số sự cố');
+    await page.locator('.drs-search input').fill('khách hai');
+    await page.waitForFunction(() => document.querySelectorAll('.drv-history tbody tr:not([aria-hidden])').length === 1);
+    assert.match(await histRows().first().innerText(), /WDP-TEST-2/);
+    await page.locator('.drs-search input').fill('zzz');
+    await page.getByText('Không có chuyến nào khớp “zzz”.').waitFor();
+    await page.locator('.drs-search input').fill('');
+    // Phân trang client 10 dòng
+    for (let n = 0; n < 12; n++) {
+      const id = String(300 + n);
+      trips[id] = { orderCode: 'WDP-OLD-' + String(n).padStart(2, '0'), orderStatus: 'DELIVERED', customer: 'Khách Cũ', legs: trips[200].legs.map(l => ({ ...l, id: id + l.id })) };
+      extraIds.push(id);
+    }
+    await open('history');
+    await histRows().first().waitFor();
+    assert.equal(await histRows().count(), 10, 'trang 1: 10 dòng');
+    await page.locator('.drv-history .ant-pagination-item-2').click();
+    await page.waitForFunction(() => document.querySelectorAll('.drv-history tbody tr:not([aria-hidden])').length === 4);
+    extraIds.length = 0;
+    await open('history');
+    await histRows().first().waitFor();
+    await noOverflow('history');
+    for (const size of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(size);
+      await page.screenshot({ path: `test-results/driver-history-${size.width}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // 6b. Chi tiết chỉ xem (?view=history&trip=ID): header gọn, bản đồ, các chặng giờ thực tế, sự cố, không nút hành động
+    await histRows().filter({ hasText: 'WDP-TEST-1' }).click();
+    await page.getByRole('button', { name: 'Quay lại danh sách' }).waitFor();
+    assert.match(page.url(), /view=history&trip=\d+$/);
+    assert.equal(await page.locator('.drv-history-header h2').innerText(), 'WDP-TEST-1');
+    assert.equal(await page.locator('.drv-action, .drv-btn-report, .drv-gps-badge, .drv-gps-controls').count(), 0, 'chỉ xem: không nút hành động, không chia sẻ GPS');
+    assert.equal(await page.locator('.drv-history-legs li').count(), 3);
+    assert.match(await page.locator('.drv-history-legs li').first().innerText(), /1\. Kho HCM → Trạm Đồng Nai[\s\S]*XE-01/);
+    assert.match(await page.locator('.drv-history-legs li').nth(2).innerText(), /3\. Trạm Phan Thiết → Cửa khẩu Mộc Bài[\s\S]*XE-02/);
+    assert.equal(await page.locator('.drv-route-card').count(), 1, 'có thẻ bản đồ toàn tuyến');
+    assert.match(await page.locator('.drv-history-header p').innerText(), /1\.720 km/);
+    assert.ok(await page.locator('.drv-reported-list li').count() >= 1, 'liệt kê sự cố của chuyến');
+    await noOverflow('history-detail');
+    for (const size of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(size);
+      const bottom = await page.evaluate(() => document.querySelector('.drv-map-wrap').getBoundingClientRect().bottom);
+      assert.ok(bottom <= size.height, `chi tiết lịch sử ${size.width}×${size.height}: mép dưới bản đồ ${Math.round(bottom)}`);
+      await page.screenshot({ path: `test-results/driver-history-detail-${size.width}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Quay lại danh sách' }).click();
+    await histRows().first().waitFor();
+    assert.match(page.url(), /view=history$/);
+    await open('history&trip=999');
+    await page.getByText('Không tìm thấy chuyến này trong lịch sử giao hàng.').waitFor();
 
     // 7. Đang chạy nhưng chưa có mốc nào ghi được (ví dụ điều phối vừa hiệu chỉnh chặng 1 về chưa bắt đầu): nút Check-in bị khóa, có giải thích
     trips[100].orderStatus = 'IN_TRANSIT';
@@ -559,6 +647,19 @@ const { pathToFileURL } = require('node:url');
     await checkInButton().hover({ force: true });
     await page.getByRole('tooltip', { name: /Chưa có mốc nào cần ghi/ }).waitFor();
     assert.equal(await page.locator('.drv-stat-card', { hasText: 'Đã chạy' }).locator('strong').innerText(), '—', 'chưa xuất phát → chưa tính giờ chạy');
+
+    // 8. Dữ liệu sai quy tắc "một tài xế một chuyến hoạt động": chuyến IN_TRANSIT + 1 dòng nhỏ về chuyến sắp tới (không dropdown)
+    trips['400'] = { orderCode: 'WDP-TEST-3', orderStatus: 'READY', customer: 'Khách Ba', dep: iso(-7200e3), legs: trips[200].legs.map(l => ({ ...l, id: '400' + l.id, status: 'NOT_STARTED' })) };
+    extraIds.push('400');
+    await open('trip');
+    await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-3');
+    assert.equal(await page.locator('.drv-trip-select, .ant-select').count(), 0, 'không có dropdown chọn chuyến');
+    // Không có IN_TRANSIT thì chọn READY khởi hành sớm nhất (WDP-TEST-3 sớm hơn WDP-TEST-1)
+    trips[100].orderStatus = 'READY';
+    await open('trip');
+    await page.getByRole('heading', { name: 'WDP-TEST-3' }).waitFor();
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-1');
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');

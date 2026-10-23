@@ -343,6 +343,7 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
 | **H1** | **Backend bản đồ + GPS** (= Bước 4 trong [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md)): `GET /trips/:tripId/map`, `POST/GET /trips/:tripId/positions`, dọn vị trí cũ, `VMAX` | G | Vừa | 🟡 Xong code 23/10, chờ CI + chạy migration 1800000009000 trên Aiven |
 | **H2** | **FE bản đồ + chia sẻ GPS**: `useGpsSharing`, `DriverRouteMap` (bản đồ thật thay `MapFallback`), km còn lại, tốc độ/VMAX trên D1b. **Không** reverse geocode (điều khoản Mapbox) | H1 | Lớn | 🟡 Xong code 23/10, chờ review UI + thử GPS thật |
+| **UI-1** | **Chỉnh giao diện tài xế theo phản hồi (trước H3)**: màn chuyến chỉ hiện chuyến đang hoạt động (bỏ dropdown), trang **Lịch sử giao hàng** + chi tiết chỉ xem, ô Xe 1 xe, thu gọn phần trên để thấy bản đồ ngay, sửa số km/nhãn tràn khung bản đồ | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
 
 Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
@@ -449,6 +450,15 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Chia sẻ GPS: công tắc "Chia sẻ vị trí" + hộp thoại đồng ý lần đầu (thiết kế mục 10), gửi lô 30 giây, hàng đợi offline, Wake Lock. **Chỉ chia sẻ khi trang đang mở** (giới hạn của web), tự dừng khi chuyến giao xong hoặc ở chặng bay.
 - Còn thiếu so với thiết kế: audit bật/tắt chia sẻ (cần API mới, đã chọn không làm ở bước này).
 - **Cải tiến bản đồ tài xế (23/10)**: tuyến bám đường (`overview=full` + giản lược 8 m), màu bản đồ theo Figma, viền trắng cho tuyến. **Cần chạy migration `1800000010000-RouteCacheFull` trên Aiven** (xóa cache tuyến ROAD cũ). Chi tiết ở [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md) Bước 4 và Bước 5–6.
+
+**Ghi chú bước UI-1 (23/10/2026)**
+- Chuyến hiển thị: IN_TRANSIT, không có thì READY khởi hành sớm nhất. Chuyến READY/IN_TRANSIT khác (nếu có) chỉ hiện một dòng "Còn N chuyến sắp tới: …" dưới header. **Quy tắc "một tài xế một chuyến hoạt động" cần chặn ở Flow 3 (phân công/duyệt kế hoạch)**; UI-1 không sửa Flow 3, cần hỏi người phụ trách Flow 3.
+- Không có chuyến hoạt động: trạng thái trống "Bạn chưa có chuyến được phân công" + nút sang Lịch sử giao hàng.
+- `?view=history`: bảng chuyến DELIVERED (API `driver/trips` hiện chỉ trả READY/IN_TRANSIT/DELIVERED nên chưa có CANCELLED; code đã chịu được nếu sau này API trả), phân trang 10 dòng, lọc bằng ô tìm kiếm trên topbar (mã đơn, khách hàng, tên điểm). Km lấy từ `/map`, số sự cố từ `/incidents`, chỉ gọi cho các dòng đang hiện (tối đa 20 request mỗi trang, trong giới hạn 60/phút của `/map`). "Giao thực tế" = giờ đến thực tế của chặng cuối (— nếu chưa có).
+- `?view=history&trip=ID`: chi tiết chỉ xem, dùng lại thẻ bản đồ nhưng không GPS và không nút hành động.
+- Ô "Xe": xe của chặng đang chạy / chặng đầu / chặng cuối, dạng "{biển số} · {n} chuồng".
+- Bỏ banner "Tất cả các chặng đã hoàn thành" và khung "Cảnh báo từ điều phối viên" khỏi trang; hook `useTripAlerts` và component `DispatcherAlerts` được giữ lại để chuyển thành thông báo nổi.
+- Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
 
 ### 6.2 Bổ sung để không vướng D2
 
