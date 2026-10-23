@@ -4,17 +4,18 @@ import { ReloadOutlined } from '@ant-design/icons';
 import type { IAlert, IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { trackingApi } from '../tracking.api';
 import { ALERT_LABEL, currentLeg, formatDateTime } from '../tracking.format';
-import MapFallback from '../../trackmap/MapFallback';
-import '../../trackmap/trackmap.css';
 import IncidentReportPage from './IncidentReportPage';
 import TripHeaderCard from './TripHeaderCard';
 import StopTimeline from './StopTimeline';
 import PreDepartureChecklist from './PreDepartureChecklist';
 import LiveStatsCards from './LiveStatsCards';
 import EscortNoteCard from './EscortNoteCard';
+import RouteMapCard from './RouteMapCard';
+import { useTripMap } from './useTripMap';
+import { useGpsSharing } from './useGpsSharing';
 import { useDraft } from './useDraft';
 import { isTripStart, useLegAction } from './useLegAction';
-import { ALERT_COLOR, PRE_DEPARTURE_CHECKS, checkInTitle, formatDayTime } from './driver-ui';
+import { ALERT_COLOR, PRE_DEPARTURE_CHECKS, checkInTitle } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
 
@@ -112,7 +113,10 @@ function TripScreen({ trip, detail, trips, onSelect, onChanged, onNavigate, flas
   const canReport = ready || running;
   const leg = currentLeg(trip.legs);
   const seqNo = leg?.seqNo;
-  const lastLeg = trip.legs[trip.legs.length - 1];
+  const { map, track } = useTripMap(trip.id, running, trip.legs);
+  // GPS chỉ khi chặng đang chạy không phải chặng bay (API cũng trả 409 cho chặng bay).
+  const runningLeg = map?.legs.find(item => item.status === 'MOVING' || item.status === 'AT_STOP');
+  const gps = useGpsSharing({ tripId: trip.id, userId, eligible: running && !!runningLeg && runningLeg.mode !== 'AIR' });
 
   // D1b: nút chung "Check-in chặng", hộp thoại ghi rõ hành động cụ thể của chặng hiện tại.
   const legAction = useLegAction(trip, onChanged, {
@@ -133,7 +137,7 @@ function TripScreen({ trip, detail, trips, onSelect, onChanged, onNavigate, flas
   return (
     <>
       <TripHeaderCard
-        trip={trip} detail={detail} trips={trips} onSelect={onSelect}
+        trip={trip} detail={detail} trips={trips} onSelect={onSelect} totalKm={map?.totalKm ?? null}
         actions={<>
           {running && (
             <Tooltip title={action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
@@ -183,14 +187,9 @@ function TripScreen({ trip, detail, trips, onSelect, onChanged, onNavigate, flas
       )}
 
       <div className="drv-columns">
-        <section className="drv-card drv-route-card" aria-labelledby="drv-route-title">
-          <div className="drv-card-head">
-            <h3 id="drv-route-title" className="drv-card-title">Lộ trình chuyến đi</h3>
-            <span>{running && lastLeg ? `ETA ${formatDayTime(lastLeg.plannedArrivalAt)}` : `${trip.legs.length} chặng`}</span>
-          </div>
-          <MapFallback reason="disabled" height={400}>Bản đồ lộ trình sẽ có ở bước sau. Xem thứ tự điểm dừng ở thẻ “Các chặng”.</MapFallback>
-          {running && <LiveStatsCards legs={trip.legs} leg={leg} />}
-        </section>
+        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null}>
+          {running && <LiveStatsCards legs={trip.legs} leg={leg} map={map} />}
+        </RouteMapCard>
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} currentLegId={running ? leg?.id ?? null : null} />
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}

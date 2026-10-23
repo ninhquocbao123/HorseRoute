@@ -8,6 +8,7 @@ const { pathToFileURL } = require('node:url');
   const web = path.resolve(__dirname, '..');
   const { createServer } = await import(pathToFileURL(path.join(path.dirname(require.resolve('vite', { paths: [web] })), 'dist/node/index.js')).href);
   const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
+  process.env.VITE_MAP_ENABLED = 'false'; // không gọi Mapbox trong test; bản đồ rơi về khung dự phòng
   const server = await createServer({ root: web, server: { host: '127.0.0.1', port: 5190, strictPort: true } });
   await server.listen();
   let browser, page;
@@ -39,8 +40,32 @@ const { pathToFileURL } = require('node:url');
       },
       200: { orderCode: 'WDP-TEST-2', orderStatus: 'DELIVERED', customer: 'Khách Hai', legs: [leg('20', 1, 'COMPLETED', 'Kho HN', 'Sân bay Nội Bài', 'AIRPORT')] },
     };
-    const state = { incidents: [], horseLogs: [] };
-    const calls = { milestones: [], complete: [], incidents: [] };
+    const state = { incidents: [], horseLogs: [], track: [], latest: null, positionsMode: null };
+    const calls = { milestones: [], complete: [], incidents: [], positions: [], maps: 0 };
+    // /map giả lập: km cố định để kiểm định dạng (tổng 1.720 km), chặng 3 là đường thẳng ước lượng.
+    const COORDS = {
+      'Kho HCM': [106.6, 10.85], 'Trạm Đồng Nai': [106.95, 10.95], 'Trạm Phan Thiết': [108.1, 10.93], 'Cửa khẩu Mộc Bài': [106.158, 11.076],
+      'Kho HN': [105.8, 21.0], 'Sân bay Nội Bài': [105.807, 21.219],
+    };
+    const KM = { 10: 210, 11: 160, 12: 1350, 20: 30 };
+    const mapFor = id => {
+      const t = trips[id];
+      const legs = t.legs.map(l => ({
+        id: l.id, seqNo: l.seqNo, status: l.status, fromLocationId: l.fromLocationName, toLocationId: l.toLocationName,
+        mode: l.id === '12' ? 'STRAIGHT' : 'ROAD', coordinates: [COORDS[l.fromLocationName], COORDS[l.toLocationName]], distanceKm: KM[l.id],
+        plannedDepartureAt: l.plannedDepartureAt, plannedArrivalAt: l.plannedArrivalAt, actualDepartureAt: l.actualDepartureAt, actualArrivalAt: l.actualArrivalAt, isOverdue: false,
+      }));
+      const totalKm = legs.reduce((sum, l) => sum + l.distanceKm, 0);
+      const running = t.orderStatus === 'IN_TRANSIT';
+      return {
+        tripId: id, orderCode: t.orderCode, orderStatus: t.orderStatus,
+        stops: [t.legs[0].fromLocationName, ...t.legs.map(l => l.toLocationName)].map(name => ({ locationId: name, name, locationType: 'REST_STOP', lat: COORDS[name][1], lng: COORDS[name][0] })),
+        legs, totalKm, remainingKm: t.orderStatus === 'DELIVERED' ? 0 : running ? totalKm - 10 : totalKm,
+        position: { source: 'ESTIMATED', lat: 10.85, lng: 106.6, asOf: iso(0), legId: t.legs[0].id, label: 'Ước tính theo kế hoạch, không phải GPS: chưa xuất phát, đang ở Kho HCM' },
+        latestPosition: state.latest, speedLimitKmh: 80,
+        warnings: id === '100' ? ['Chặng 3: chưa có tuyến đường bộ, đang vẽ đường thẳng ước lượng'] : [],
+      };
+    };
     const fail = { next: 0 };
     const conflict = { next: 0, apply: null };
     const horses = [{ id: '21', name: 'Bạch Mã', passportNo: 'PP-1', orderStatus: 'NORMAL' }, { id: '22', name: 'Hắc Mã', passportNo: 'PP-2', orderStatus: 'NORMAL' }];
@@ -74,6 +99,16 @@ const { pathToFileURL } = require('node:url');
       }
       if (p === '/notifications') return route.fulfill({ json: [{ id: '1', content: 'Chuyến WDP-TEST-1 đã được phân công cho bạn.', is_read: 0 }] });
       if (p === '/tracking/driver/trips') return route.fulfill({ json: ['100', '200'].map(summary) });
+      const mapGet = /^\/tracking\/trips\/(\d+)\/map$/.exec(p);
+      if (mapGet) { calls.maps++; return route.fulfill({ json: mapFor(mapGet[1]) }); }
+      if (/^\/tracking\/trips\/\d+\/positions$/.test(p) && method === 'GET') return route.fulfill({ json: state.track });
+      if (/^\/tracking\/trips\/\d+\/positions$/.test(p) && method === 'POST') {
+        const points = request.postDataJSON().points;
+        if (state.positionsMode === 'offline') return route.abort('internetdisconnected');
+        calls.positions.push(points);
+        if (typeof state.positionsMode === 'number') return route.fulfill({ status: state.positionsMode, json: { message: 'mock ' + state.positionsMode } });
+        return route.fulfill({ status: 201, json: { legId: '10', accepted: points.length, duplicates: 0 } });
+      }
       const tripGet = /^\/tracking\/trips\/(\d+)$/.exec(p);
       if (tripGet && method === 'GET') return route.fulfill({ json: detail(tripGet[1]) });
       if (/^\/tracking\/trips\/\d+\/alerts$/.test(p)) return route.fulfill({ json: [{ id: '1', tripId: '100', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến', sentBy: '4', sentByName: 'Điều phối', sentAt: iso(-60e3) }] });
@@ -168,6 +203,10 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.locator('.drv-stops li.is-reached').count(), 0);
     await page.getByText('Cảnh báo từ điều phối viên').waitFor();
     await page.getByText('Bản đồ đang tạm tắt.').waitFor();
+    await page.locator('.drv-header-title p', { hasText: 'Kho HCM → Cửa khẩu Mộc Bài · 1.720 km · ' }).waitFor();
+    assert.equal(await page.locator('.drv-route-card .drv-card-head > span').innerText(), '1.720 km', 'D1: tổng km thay cho số chặng');
+    await page.locator('.drv-map-warnings', { hasText: 'Chặng 3: chưa có tuyến đường bộ' }).waitFor();
+    assert.equal(await page.locator('.drv-gps-badge, .drv-gps-controls').count(), 0, 'D1 (READY): chưa chia sẻ GPS');
     assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper').count(), 5);
     assert.equal(await reportButton().isDisabled(), false, 'READY: vẫn được báo sự cố (5.4)');
     await noOverflow('trip');
@@ -237,17 +276,18 @@ const { pathToFileURL } = require('node:url');
     const eta = new Date(trips[100].legs[2].plannedArrivalAt);
     const two = n => String(n).padStart(2, '0');
     const etaText = `${two(eta.getDate())}/${two(eta.getMonth() + 1)} ${two(eta.getHours())}:${two(eta.getMinutes())}`;
-    assert.equal(await page.locator('.drv-route-card .drv-card-head > span').innerText(), `ETA ${etaText}`);
-    assert.equal(await page.getByText(/Còn .* km|Đang chia sẻ GPS/).count(), 0, 'chưa có km / GPS (bước H)');
+    assert.equal(await page.locator('.drv-route-card .drv-card-head > span').innerText(), `Còn 1.710 km · ETA ${etaText}`);
+    assert.equal(await page.locator('.drv-gps-badge').innerText(), 'Chưa bật vị trí', 'chưa đồng ý chia sẻ → chưa gửi');
     const stat = label => page.locator('.drv-stat-card', { hasText: label });
     assert.equal(await stat('Chặng tiếp').locator('strong').innerText(), 'Trạm Đồng Nai');
+    assert.match(await stat('Chặng tiếp').locator('small').innerText(), /^còn 200 km · \d{2}:\d{2}$/, '1.710 − (160 + 1.350) = 200 km tới điểm kế');
     // Tên điểm một dòng (ellipsis), title có tên đầy đủ; ba thẻ cao bằng nhau
     assert.equal(await stat('Chặng tiếp').locator('strong').getAttribute('title'), 'Trạm Đồng Nai');
     assert.ok(await stat('Chặng tiếp').locator('strong').evaluate(el => el.getClientRects().length === 1 && getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis'), 'tên điểm 1 dòng');
     const heights = await page.locator('.drv-stat-card').evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().height)));
     assert.equal(new Set(heights).size, 1, 'ba thẻ cao bằng nhau: ' + heights.join(','));
     assert.equal(await stat('Tốc độ').locator('strong').innerText(), '—');
-    assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'Có ở bước bật GPS');
+    assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'Chưa có tín hiệu GPS');
     assert.match(await stat('Đã chạy').locator('strong').innerText(), /^[01] phút$/, 'vừa xuất phát');
     assert.match(await stat('Đã chạy').locator('small').innerText(), /^nghỉ tiếp sau \d+ phút$/);
     assert.equal(await page.locator('.drv-stops li.is-current').count(), 1, 'đúng một điểm đang tới');
@@ -289,6 +329,88 @@ const { pathToFileURL } = require('node:url');
     await noOverflow('in-transit');
     await page.screenshot({ path: 'test-results/driver-intransit-desktop.png', fullPage: true });
     Object.assign(firstLeg, { actualDepartureAt: saved.dep, plannedArrivalAt: saved.arr });
+    await open('trip');
+    await checkInButton().waitFor();
+
+    // 2c. Chia sẻ GPS (D1b): đồng ý lần đầu, gửi lô mỗi 30 giây, hàng đợi khi mất mạng, 409 dừng; tốc độ so với VMAX
+    const badge = () => page.locator('.drv-gps-badge');
+    const gpsSwitch = () => page.getByRole('switch', { name: 'Chia sẻ vị trí' });
+    // Chờ điều kiện phía Node (mock đếm request) mà không dùng sleep cố định.
+    const waitFor = async (predicate, label) => {
+      for (let i = 0; i < 100 && !predicate(); i++) await new Promise(resolve => setImmediate(resolve)).then(() => page.evaluate(() => 0));
+      assert.ok(predicate(), label);
+    };
+    const queueLength = () => page.evaluate(() => JSON.parse(localStorage.getItem('wdp:tracking:gps-queue:100:test') || '[]').length);
+    const moveTo = async (latitude, longitude) => {
+      await context.setGeolocation({ latitude, longitude });
+      await page.clock.fastForward('00:06'); // lấy mẫu tối đa 1 điểm/5 giây
+    };
+    assert.equal(await badge().innerText(), 'Chưa bật vị trí');
+    assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
+    await gpsSwitch().click();
+    await dialog().getByText('Chia sẻ vị trí với điều phối viên?').waitFor();
+    await dialog().getByText(/chỉ khi chuyến đang chạy và trang này đang mở/).waitFor();
+    await dialog().getByRole('button', { name: 'Đồng ý và bật' }).click();
+    await badge().filter({ hasText: 'Đang chia sẻ GPS với điều phối' }).waitFor();
+    assert.equal(calls.positions.length, 0, 'chưa tới 30 giây: chưa gửi');
+    await moveTo(10.9, 106.7);
+    await moveTo(10.92, 106.75);
+    await page.clock.fastForward('00:31');
+    await waitFor(() => calls.positions.length >= 1, 'gửi lô sau 30 giây');
+    const firstBatch = calls.positions.flat();
+    assert.ok(firstBatch.length >= 2 && firstBatch.length <= 20, 'lô 2–20 điểm: ' + firstBatch.length);
+    assert.ok(firstBatch.some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
+    assert.ok(firstBatch.every(point => /Z$/.test(point.recordedAt)), 'recordedAt dạng UTC ISO');
+    assert.equal(await queueLength(), 0, 'gửi xong thì xóa hàng đợi');
+    await page.locator('.drv-gps-controls small', { hasText: /^Đã gửi lúc \d{2}:\d{2}/ }).waitFor();
+
+    // Mất mạng: giữ hàng đợi trong localStorage, badge "Mất mạng – sẽ gửi bù"; tải lại trang thì gửi bù (đã đồng ý nên tự bật lại)
+    state.positionsMode = 'offline';
+    await moveTo(10.95, 106.8);
+    await page.clock.fastForward('00:31');
+    await badge().filter({ hasText: /^Mất mạng – sẽ gửi bù/ }).waitFor();
+    assert.ok(await queueLength() >= 1, 'điểm chưa gửi nằm trong localStorage');
+    const sentBefore = calls.positions.length;
+    state.positionsMode = null;
+    await open('trip');
+    await badge().filter({ hasText: 'Đang chia sẻ GPS với điều phối' }).waitFor();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('wdp:tracking:gps-queue:100:test') || '[]').length === 0);
+    assert.ok(calls.positions.length > sentBefore, 'gửi bù sau khi có mạng');
+    assert.ok(calls.positions.slice(sentBefore).flat().some(point => point.latitude === 10.95), 'điểm lúc mất mạng được gửi bù');
+
+    // Tốc độ: GPS LIVE vượt VMAX → cảnh báo; GPS cũ → "GPS cũ n phút"
+    const speedNow = await page.evaluate(() => Date.now());
+    state.latest = { lat: 10.95, lng: 106.8, speedKmh: 92.4, accuracyM: 8, headingDeg: 90, recordedAt: new Date(speedNow - 30e3).toISOString(), legId: '10', freshness: 'LIVE' };
+    await open('trip');
+    assert.equal(await stat('Tốc độ').locator('strong.is-warn').innerText(), '92 km/h');
+    assert.equal(await stat('Tốc độ').locator('small.is-warn').innerText(), 'giới hạn 80 km/h');
+    state.latest = { ...state.latest, speedKmh: 64, recordedAt: new Date(speedNow - 5 * 60e3).toISOString(), freshness: 'STALE' };
+    await open('trip');
+    assert.equal(await stat('Tốc độ').locator('strong').innerText(), '—');
+    assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'GPS cũ 5 phút');
+    state.latest = { ...state.latest, speedKmh: 64, recordedAt: new Date(speedNow - 10e3).toISOString(), freshness: 'LIVE' };
+    await open('trip');
+    assert.equal(await stat('Tốc độ').locator('strong').innerText(), '64 km/h');
+    assert.equal(await stat('Tốc độ').locator('strong.is-warn').count(), 0, 'dưới giới hạn: không cảnh báo');
+    await badge().filter({ hasText: 'Đang chia sẻ GPS với điều phối' }).waitFor();
+    await noOverflow('gps');
+    await page.screenshot({ path: 'test-results/driver-gps-desktop.png', fullPage: true });
+
+    // 409 (chuyến không còn nhận vị trí): dừng gửi, tắt công tắc, giải thích; không gửi thêm
+    state.positionsMode = 409;
+    await moveTo(10.97, 106.85);
+    await page.clock.fastForward('00:31');
+    await page.locator('.drv-gps-controls small', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
+    assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
+    assert.equal(await badge().innerText(), 'Chưa bật vị trí');
+    const after409 = calls.positions.length;
+    await moveTo(10.99, 106.9);
+    await page.clock.fastForward('01:05');
+    assert.equal(calls.positions.length, after409, 'đã dừng: không gửi thêm');
+    state.positionsMode = null;
+    state.latest = null;
+    await page.evaluate(() => localStorage.setItem('wdp:tracking:gps-enabled:test', 'false')); // các bước sau không cần GPS
+    await context.setGeolocation({ latitude: 18.3421, longitude: 105.9057 }); // trả lại vị trí giả lập mà màn D2 dùng
     await open('trip');
     await checkInButton().waitFor();
 
