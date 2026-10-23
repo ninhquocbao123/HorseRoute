@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Layer, Marker, Source, type MapRef } from 'react-map-gl/mapbox';
 import type { ITripMap, ITripTrackPoint } from '@my-project/shared';
 import BaseMap from './BaseMap';
@@ -7,6 +7,10 @@ import { DEFAULT_VIEW } from './map-style';
 import { OFF_ROUTE_KM, travelledRoute } from './route-progress';
 
 type LngLat = [number, number];
+/** Lề khi fit toàn tuyến: đủ chỗ cho chấm lớn và nhãn ở các cạnh. */
+const FIT_PADDING = 80;
+/** Bề rộng ước lượng của nhãn (chữ 12px đậm ≈ 7px/ký tự) + lề 26px từ chấm + padding. */
+const labelWidth = (stop: { name: string }, first: boolean) => 26 + 22 + (stop.name.length + (first ? ' · điểm gửi' : ' · điểm nhận').length) * 7;
 export type OwnFix = { lng: number; lat: number; at: string };
 
 /**
@@ -36,12 +40,14 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
 
   const vehicle = useMemo(() => {
     const position = map.position;
+    // Chuyến đã giao (xem lại lịch sử): không còn xe để hiện.
+    if (!running && map.orderStatus === 'DELIVERED') return null;
     if (ownFix && (!position || Date.parse(ownFix.at) >= Date.parse(position.asOf))) {
       return { lng: ownFix.lng, lat: ownFix.lat, estimated: false, label: 'Vị trí của bạn (GPS)' };
     }
     if (!position) return null;
     return { lng: position.lng, lat: position.lat, estimated: position.source === 'ESTIMATED', label: position.label ?? 'Vị trí xe (GPS)' };
-  }, [map.position, ownFix]);
+  }, [map.position, map.orderStatus, running, ownFix]);
 
   // Đoạn đã đi = phần TUYẾN ĐƯỜNG từ đầu chuyến tới điểm chiếu của xe (marker xe vẫn đặt đúng tọa độ GPS, không bắt dính).
   const { travelled, offRoute } = useMemo(() => {
@@ -72,8 +78,24 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
     if (!points.length) return;
     const lngs = points.map(p => p[0]);
     const lats = points.map(p => p[1]);
-    instance.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 56, maxZoom: 12, duration: 0 });
+    instance.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: FIT_PADDING, maxZoom: 12, duration: 0 });
     fittedFor.current = map.tripId;
+    updateFlips();
+  }
+
+  // Nhãn điểm gửi/nhận mặc định nằm bên phải chấm; chấm sát mép phải thì đổi sang bên trái để nhãn không bị cắt.
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  function updateFlips() {
+    const instance = ref.current;
+    if (!instance) return;
+    const width = instance.getContainer().clientWidth;
+    const next: Record<string, boolean> = {};
+    stops.forEach((stop, index) => {
+      if (index !== 0 && index !== stops.length - 1) return;
+      const x = instance.project([stop.lng!, stop.lat!]).x;
+      next[stop.locationId] = x + labelWidth(stop, index === 0) > width - 8;
+    });
+    setFlipped(previous => (JSON.stringify(previous) === JSON.stringify(next) ? previous : next));
   }
 
   // Đổi chuyến (hoặc dữ liệu tới sau khi bản đồ đã tải): fit lại; các lần làm mới 60 giây thì giữ khung người dùng đang xem.
@@ -85,7 +107,7 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
   const dashed = ['!=', ['get', 'mode'], 'ROAD'] as const;
 
   return (
-    <BaseMap ref={ref} initialViewState={DEFAULT_VIEW} onLoad={event => { applyDriverMapTheme(event.target, colors); fit(); }}>
+    <BaseMap ref={ref} initialViewState={DEFAULT_VIEW} onLoad={event => { applyDriverMapTheme(event.target, colors); fit(); }} onMoveEnd={updateFlips}>
       <Source id="driver-legs" type="geojson" data={legs}>
         {/* Quầng teal mờ + viền trắng để tuyến nổi trên nền đất và đường trắng (Figma: quầng #0B3B42 18%). */}
         <Layer id="legs-halo" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeHalo, 'line-width': 11, 'line-opacity': 0.18 }} />
@@ -113,7 +135,7 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         return (
           <Marker key={stop.locationId} longitude={stop.lng!} latitude={stop.lat!} anchor="center">
             <span className={'drm-stop' + (first ? ' is-start' : last ? ' is-end' : '')} role="img" aria-label={label}>
-              {(first || last) && <span className="drm-label">{label}</span>}
+              {(first || last) && <span className={'drm-label' + (flipped[stop.locationId] ? ' is-left' : '')}>{label}</span>}
             </span>
           </Marker>
         );

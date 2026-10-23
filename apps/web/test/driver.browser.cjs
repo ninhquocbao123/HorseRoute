@@ -16,6 +16,15 @@ const { pathToFileURL } = require('node:url');
     browser = await chromium.launch({ channel: 'msedge', headless: true });
     // GPS giả lập cho màn D2 (ô vị trí tự điền tọa độ).
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 18.3421, longitude: 105.9057 }, permissions: ['geolocation'] });
+    // Đếm các lần trình duyệt giao vị trí cho trang: vị trí tới BẤT ĐỒNG BỘ (thật) sau setGeolocation, trong khi đồng hồ giả chạy ngay.
+    // Test chờ đúng tín hiệu này thay vì đoán bằng fastForward (nguyên nhân flaky cũ: mẫu tới sau khi lô 30 giây đã chạy).
+    await context.addInitScript(() => {
+      const watch = navigator.geolocation.watchPosition.bind(navigator.geolocation);
+      navigator.geolocation.watchPosition = (success, error, options) => watch(position => {
+        window.__gps = { n: (window.__gps?.n ?? 0) + 1, lat: position.coords.latitude };
+        success(position);
+      }, error, options);
+    });
     page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -307,10 +316,21 @@ const { pathToFileURL } = require('node:url');
     while (await page.locator('.drv-alert-notice .ant-alert-close-icon, .ant-alert-close-icon').count()) await page.locator('.ant-alert-close-icon').first().click();
     for (const size of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
       await page.setViewportSize(size);
-      const bottom = await page.evaluate(() => document.querySelector('.drv-map-wrap').getBoundingClientRect().bottom);
-      assert.ok(bottom <= size.height, `D1b ${size.width}×${size.height}: mép dưới bản đồ ${Math.round(bottom)} ≤ ${size.height}`);
+      const m = await page.evaluate(() => {
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const cards = [...document.querySelectorAll('.drv-stat-card')].map(card => card.getBoundingClientRect());
+        return { mapBottom: rect('.drv-map-wrap').bottom, mapRight: rect('.drv-route-card').right, cardsLeft: Math.min(...cards.map(c => c.left)), lastBottom: Math.max(...cards.map(c => c.bottom)), cardHeights: cards.map(c => Math.round(c.height)), stopsBottom: rect('.drv-stops').bottom, firstTop: Math.min(...cards.map(c => c.top)) };
+      });
+      assert.ok(m.mapBottom <= size.height, `D1b ${size.width}×${size.height}: mép dưới bản đồ ${Math.round(m.mapBottom)} ≤ ${size.height}`);
+      assert.ok(m.lastBottom <= size.height, `D1b ${size.width}×${size.height}: mép dưới thẻ cuối ${Math.round(m.lastBottom)} ≤ ${size.height}`);
+      assert.ok(m.cardsLeft >= m.mapRight && m.firstTop >= m.stopsBottom, 'ba thẻ nằm ở cột phải, ngay dưới "Các chặng"');
+      assert.ok(m.cardHeights.every(h => h <= 72), 'mỗi thẻ gọn ~1 hàng: ' + m.cardHeights.join(','));
       await page.screenshot({ path: `test-results/driver-d1b-${size.width}.png` });
     }
+    // < 1200px: ba thẻ về dưới bản đồ
+    await page.setViewportSize({ width: 1100, height: 900 });
+    const narrow = await page.evaluate(() => ({ mapBottom: document.querySelector('.drv-map-wrap').getBoundingClientRect().bottom, cardsTop: document.querySelector('.drv-stat-card').getBoundingClientRect().top, stopsTop: document.querySelector('.drv-stops').getBoundingClientRect().top }));
+    assert.ok(narrow.cardsTop >= narrow.mapBottom && narrow.cardsTop < narrow.stopsTop, 'màn hẹp: ba thẻ dưới bản đồ, trước "Các chặng"');
     await page.setViewportSize({ width: 1440, height: 900 });
     // Ghi chú của chính mình không hiện; ghi chú mới nhất của người khác thì hiện "HH:mm · nội dung"
     const log = (id, createdBy, note, at) => ({ id, horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'STABLE', note, loggedAt: at, createdBy, createdByName: createdBy === 'test' ? 'Phan Thị Lan' : 'Lê Hộ Tống', correctsLogId: null, attachments: [] });
@@ -359,9 +379,27 @@ const { pathToFileURL } = require('node:url');
       assert.ok(predicate(), label);
     };
     const queueLength = () => page.evaluate(() => JSON.parse(localStorage.getItem('wdp:tracking:gps-queue:100:test') || '[]').length);
+    // Chờ thật (setTimeout của Node, không bị đồng hồ giả của trang ảnh hưởng) tới khi điều kiện đúng.
+    const until = async (check, label, ms = 10_000) => {
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        if (await check()) return;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      assert.fail('hết giờ chờ: ' + label);
+    };
     const moveTo = async (latitude, longitude) => {
+      await page.clock.fastForward('00:06'); // mở lại ngưỡng lấy mẫu 1 điểm/5 giây TRƯỚC khi vị trí mới tới
       await context.setGeolocation({ latitude, longitude });
-      await page.clock.fastForward('00:06'); // lấy mẫu tối đa 1 điểm/5 giây
+      await until(() => page.evaluate(lat => window.__gps?.lat === lat, latitude), `trang nhận vị trí ${latitude}`);
+    };
+    // Đẩy đồng hồ qua nhịp gửi 30 giây rồi chờ kết quả; lặp lại nếu nhịp kế chưa kịp đặt lại (flush là bất đồng bộ).
+    const runBatch = async (check, label) => {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        await page.clock.fastForward('00:31');
+        try { await until(check, label, 1500); return; } catch { /* thử nhịp kế */ }
+      }
+      assert.fail('hết giờ chờ: ' + label);
     };
     assert.equal(await badge().innerText(), 'Chưa bật vị trí');
     assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
@@ -373,20 +411,18 @@ const { pathToFileURL } = require('node:url');
     assert.equal(calls.positions.length, 0, 'chưa tới 30 giây: chưa gửi');
     await moveTo(10.9, 106.7);
     await moveTo(10.92, 106.75);
-    await page.clock.fastForward('00:31');
-    await waitFor(() => calls.positions.length >= 1, 'gửi lô sau 30 giây');
+    await runBatch(() => calls.positions.length >= 1, 'gửi lô sau 30 giây');
     const firstBatch = calls.positions.flat();
     assert.ok(firstBatch.length >= 2 && firstBatch.length <= 20, 'lô 2–20 điểm: ' + firstBatch.length);
     assert.ok(firstBatch.some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
     assert.ok(firstBatch.every(point => /Z$/.test(point.recordedAt)), 'recordedAt dạng UTC ISO');
-    assert.equal(await queueLength(), 0, 'gửi xong thì xóa hàng đợi');
+    await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
     await page.locator('.drv-gps-controls small', { hasText: /^Đã gửi lúc \d{2}:\d{2}/ }).waitFor();
 
     // Mất mạng: giữ hàng đợi trong localStorage, badge "Mất mạng – sẽ gửi bù"; tải lại trang thì gửi bù (đã đồng ý nên tự bật lại)
     state.positionsMode = 'offline';
     await moveTo(10.95, 106.8);
-    await page.clock.fastForward('00:31');
-    await badge().filter({ hasText: /^Mất mạng – sẽ gửi bù/ }).waitFor();
+    await runBatch(async () => (await badge().innerText()).startsWith('Mất mạng – sẽ gửi bù'), 'badge mất mạng');
     assert.ok(await queueLength() >= 1, 'điểm chưa gửi nằm trong localStorage');
     const sentBefore = calls.positions.length;
     state.positionsMode = null;
@@ -416,13 +452,15 @@ const { pathToFileURL } = require('node:url');
 
     // 409 (chuyến không còn nhận vị trí): dừng gửi, tắt công tắc, giải thích; không gửi thêm
     state.positionsMode = 409;
+    const before409 = calls.positions.length;
     await moveTo(10.97, 106.85);
-    await page.clock.fastForward('00:31');
+    await runBatch(() => calls.positions.length > before409, 'lô bị từ chối 409');
     await page.locator('.drv-gps-controls small', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
     assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
     assert.equal(await badge().innerText(), 'Chưa bật vị trí');
     const after409 = calls.positions.length;
-    await moveTo(10.99, 106.9);
+    await context.setGeolocation({ latitude: 10.99, longitude: 106.9 }); // đã dừng theo dõi: không có gì tới trang để chờ
+    await page.clock.fastForward('00:06');
     await page.clock.fastForward('01:05');
     assert.equal(calls.positions.length, after409, 'đã dừng: không gửi thêm');
     state.positionsMode = null;

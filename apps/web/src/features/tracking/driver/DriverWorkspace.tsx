@@ -173,11 +173,11 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       )}
 
       <div className="drv-columns">
-        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null}>
-          {running && <LiveStatsCards legs={trip.legs} leg={leg} map={map} />}
-        </RouteMapCard>
+        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} />
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} currentLegId={running ? leg?.id ?? null : null} />
+          {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
+          {running && <LiveStatsCards legs={trip.legs} leg={leg} map={map} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
           {running && <EscortNoteCard tripId={trip.id} userId={userId} refreshKey={trip.legs} />}
         </div>

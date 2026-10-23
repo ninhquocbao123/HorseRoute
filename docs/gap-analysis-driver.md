@@ -458,6 +458,7 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - `?view=history&trip=ID`: chi tiết chỉ xem, dùng lại thẻ bản đồ nhưng không GPS và không nút hành động.
 - Ô "Xe": xe của chặng đang chạy / chặng đầu / chặng cuối, dạng "{biển số} · {n} chuồng".
 - Bỏ banner "Tất cả các chặng đã hoàn thành" và khung "Cảnh báo từ điều phối viên" khỏi trang; hook `useTripAlerts` và component `DispatcherAlerts` được giữ lại để chuyển thành thông báo nổi.
+- D1b: ba thẻ Chặng tiếp / Tốc độ / Đã chạy nằm ở cột phải ngay dưới "Các chặng" (màn < 1200px về lại dưới bản đồ). Bản đồ fit với lề 80px, nhãn điểm gửi/nhận tự đổi sang bên trái khi chấm sát mép phải; chuyến đã giao (xem lại lịch sử) không hiện marker xe.
 - Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
 
 ### 6.2 Bổ sung để không vướng D2
