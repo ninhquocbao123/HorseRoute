@@ -4,6 +4,7 @@ import type { ITripMap, ITripTrackPoint } from '@my-project/shared';
 import BaseMap from './BaseMap';
 import { applyDriverMapTheme, driverMapColors } from './driver-map-theme';
 import { DEFAULT_VIEW } from './map-style';
+import { OFF_ROUTE_KM, travelledRoute } from './route-progress';
 
 type LngLat = [number, number];
 export type OwnFix = { lng: number; lat: number; at: string };
@@ -28,19 +29,10 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
     type: 'FeatureCollection' as const,
     features: map.legs.filter(leg => leg.coordinates).map(leg => ({
       type: 'Feature' as const,
-      properties: { id: leg.id, mode: leg.mode, done: leg.status === 'COMPLETED' },
+      properties: { id: leg.id, mode: leg.mode },
       geometry: { type: 'LineString' as const, coordinates: leg.coordinates! },
     })),
   }), [map.legs]);
-
-  // Đoạn đã đi: các chặng đã hoàn thành + vệt GPS thật.
-  const travelled = useMemo(() => ({
-    type: 'FeatureCollection' as const,
-    features: [
-      ...legs.features.filter(feature => feature.properties.done),
-      ...(track.length > 1 ? [{ type: 'Feature' as const, properties: { id: 'track', mode: 'ROAD', done: true }, geometry: { type: 'LineString' as const, coordinates: track.map(p => [p.lng, p.lat]) } }] : []),
-    ],
-  }), [legs, track]);
 
   const vehicle = useMemo(() => {
     const position = map.position;
@@ -50,6 +42,26 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
     if (!position) return null;
     return { lng: position.lng, lat: position.lat, estimated: position.source === 'ESTIMATED', label: position.label ?? 'Vị trí xe (GPS)' };
   }, [map.position, ownFix]);
+
+  // Đoạn đã đi = phần TUYẾN ĐƯỜNG từ đầu chuyến tới điểm chiếu của xe (marker xe vẫn đặt đúng tọa độ GPS, không bắt dính).
+  const { travelled, offRoute } = useMemo(() => {
+    const result = travelledRoute(map.legs, vehicle ? [vehicle.lng, vehicle.lat] : null);
+    return {
+      offRoute: result.offsetKm !== null && result.offsetKm > OFF_ROUTE_KM,
+      travelled: {
+        type: 'FeatureCollection' as const,
+        features: result.lines.map((line, i) => ({ type: 'Feature' as const, properties: { id: String(i), mode: line.mode }, geometry: { type: 'LineString' as const, coordinates: line.coordinates } })),
+      },
+    };
+  }, [map.legs, vehicle]);
+
+  // Vệt GPS thô chỉ hiện (rất mảnh) khi xe lệch tuyến > 300 m, để thấy xe đã đi đường nào ngoài tuyến.
+  const offTrack = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: offRoute && track.length > 1
+      ? [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: track.map(p => [p.lng, p.lat]) } }]
+      : [],
+  }), [offRoute, track]);
 
   const stops = map.stops.filter(stop => stop.lat !== null && stop.lng !== null);
 
@@ -87,6 +99,11 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         <Source id="driver-travelled" type="geojson" data={travelled}>
           <Layer id="travelled-solid" type="line" filter={solid as never} layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeDone, 'line-width': 5 }} />
           <Layer id="travelled-dashed" type="line" filter={dashed as never} paint={{ 'line-color': colors.routeDone, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
+        </Source>
+      )}
+      {running && (
+        <Source id="driver-off-track" type="geojson" data={offTrack}>
+          <Layer id="off-track" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeDone, 'line-width': 1.5, 'line-opacity': 0.8 }} />
         </Source>
       )}
       {stops.map((stop, index) => {
