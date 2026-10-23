@@ -11,8 +11,8 @@ Cập nhật: 23/10/2026 · Nhánh: `long` (trước đó `feature/trackmap`) ·
 | 2 | API quản lý địa điểm cho Specialist | ✅ Xong |
 | 3 | Giao diện "Địa điểm & cửa khẩu" + lớp bản đồ dùng chung | ✅ Xong, đã kiểm với Mapbox thật |
 | 4 | Backend bản đồ chuyến + nhận GPS (gộp phần API của Bước 6) | 🟡 Xong code 23/10 (bước H1 màn tài xế); chờ CI + migration VMAX trên Aiven |
-| 5 | Giao diện bản đồ cho các vai trò | ⏳ Chưa làm |
-| 6 | GPS thời gian thực (desktop + mô phỏng) | ⏳ API đã có ở Bước 4; còn giao diện chia sẻ vị trí + trình mô phỏng |
+| 5 | Giao diện bản đồ cho các vai trò | 🟡 Màn tài xế xong 23/10 (H2); Customer, Ops chưa làm |
+| 6 | GPS thời gian thực (desktop + mô phỏng) | 🟡 Xong 23/10: API (Bước 4), chia sẻ vị trí của tài xế, trình mô phỏng; còn hiện GPS ở màn Ops |
 | 7 | Kiểm thử tổng, tài liệu | ⏳ Chưa làm |
 
 Trạng thái git: Bước 0 đã commit; đã merge `origin/main` (commit `d0269ae`). **Bước 1–3 và phần thiết kế lại giao diện Driver chưa commit** (đang nằm trong thư mục làm việc của nhánh).
@@ -110,6 +110,45 @@ Làm theo [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) Bước 4, gộp luô
 **Khác thiết kế (đã biết từ trước):** hình học lưu JSON `[[lng,lat],…]` thay vì polyline6; biến môi trường `MAPBOX_ACCESS_TOKEN` / `TRACK_POSITION_RETENTION_DAYS` thay vì `MAPBOX_SERVER_TOKEN` / `MAP_POSITION_RETENTION_DAYS`; vị trí mới nhất đọc thẳng DB (index `trip_id, recorded_at`), không cache Redis.
 
 **Còn lại:** `/orders/:orderId/map`, `/operations/map`; giao diện (Bước 5, H2 màn tài xế); trình mô phỏng `simulate-gps.cjs`; chạy migration VMAX trên Aiven; đặt `MAPBOX_ACCESS_TOKEN` cho API.
+
+## Bước 5–6 (phần tài xế). Bản đồ thật + chia sẻ GPS 🟡 (23/10/2026, bước H2 của màn tài xế)
+
+Chỉ màn tài xế (D1 khi READY, D1b khi IN_TRANSIT). Bản đồ cho Customer/Ops và GPS trên màn Ops để bước sau. Không sửa API. Các quyết định hỏi lại trước khi code (23/10):
+
+| Câu hỏi | Chốt |
+|---|---|
+| Bật chia sẻ | **Công tắc "Chia sẻ vị trí" + hộp thoại đồng ý lần đầu** (đúng thiết kế mục 10). Đồng ý được nhớ theo tài khoản; các lần sau tự bật lại; tắt được bất cứ lúc nào |
+| Nhịp gửi | Lô mỗi **30 giây** (kế hoạch ghi 10 giây) |
+| Nhịp tải lại `/map` | **60 giây** khi tab đang hiển thị (kế hoạch ghi 15 giây). Marker xe của chính tài xế cập nhật ngay từ GPS trên máy |
+| Bổ sung | **Screen Wake Lock** khi đang chia sẻ. **Không** làm audit bật/tắt (cần API mới) |
+
+**Mã nguồn web:**
+- `features/trackmap/DriverRouteMap.tsx` (lazy chunk riêng như `LocationPickerMap`, bọc trong `MapView` nên vẫn rơi về khung dự phòng khi tắt cờ/thiếu token/không WebGL/lỗi tải): tuyến từng chặng (ROAD nét liền; STRAIGHT và AIR nét đứt), chấm điểm dừng, nhãn "{tên} · điểm gửi" / "{tên} · điểm nhận", marker xe (ước tính: mờ, viền đứt, nhãn của API). READY: tuyến vàng; IN_TRANSIT: đoạn đã đi (chặng xong + vệt GPS) vàng đậm, phần còn lại nhạt. Tự fit theo tuyến khi đổi chuyến; nút +/− của `BaseMap`.
+- `features/tracking/driver/useTripMap.ts`: `GET /map` mỗi 60 giây khi tab hiển thị (quay lại tab sau hơn 60 giây thì tải ngay; ghi mốc xong cũng tải lại); D1b nối dần vệt đường bằng `GET /positions?since=`.
+- `features/tracking/driver/useGpsSharing.ts`: `watchPosition` (`enableHighAccuracy`), lấy mẫu tối đa 1 điểm/5 giây, gửi lô ≤ 20 điểm mỗi 30 giây (tối đa 3 lô một lần để không vượt 30 request/phút).
+  - Hàng đợi trong `localStorage` theo chuyến + tài khoản; mất mạng thì giữ, có mạng (sự kiện `online`, lần gửi kế, hoặc mở lại trang) thì gửi bù. API chống trùng theo `recordedAt`. Bỏ điểm cũ hơn 23 giờ trước khi gửi.
+  - 409 / 403 / 404 → dừng, tắt công tắc, giải thích; 429 → lùi gấp đôi tới tối đa 5 phút; 400 → bỏ lô hỏng để không kẹt hàng đợi.
+  - Chỉ chạy khi đơn IN_TRANSIT, chặng đang chạy không phải chặng bay (`mode` từ `/map`), tài xế đã bật công tắc và **trang đang mở**.
+- `features/tracking/driver/RouteMapCard.tsx`: thẻ "Lộ trình chuyến đi", badge trên bản đồ (xanh "Đang chia sẻ GPS với điều phối" / xám "Chưa bật vị trí", "Đang chờ tín hiệu GPS…" / vàng "Mất mạng – sẽ gửi bù"), công tắc + hướng dẫn cấp quyền khi trình duyệt chặn vị trí, cảnh báo tuyến ước lượng, nhãn vị trí ước tính.
+- Số liệu: header thêm "· {totalKm} km"; góc thẻ D1 "{totalKm} km", D1b "Còn {remainingKm} km · ETA …" (null thì bỏ phần km); thẻ "Chặng tiếp" thêm "còn X km" (= km còn lại − km các chặng sau); thẻ "Tốc độ": GPS LIVE + "giới hạn {VMAX} km/h", vượt giới hạn tô màu cảnh báo, GPS cũ → "GPS cũ n phút", chưa có GPS → "—".
+
+**Giới hạn cần nói rõ khi demo:**
+- **Chỉ chia sẻ khi trang đang mở.** Đóng tab, khóa máy hoặc tắt màn hình thì trình duyệt ngừng gửi; Wake Lock chỉ giữ màn hình sáng khi trang đang hiển thị. Muốn chạy nền phải có ứng dụng di động (ngoài phạm vi).
+- **Tự dừng khi chuyến giao xong** (API trả 409) hoặc khi chặng hiện tại là chặng bay.
+- Máy tính để bàn không di chuyển: muốn thấy xe chạy phải mô phỏng (dưới đây).
+
+**Mô phỏng GPS (chỉ môi trường dev):**
+- Script `apps/api/scripts/simulate-gps.cjs`: từ chối chạy khi `NODE_ENV=production` và chỉ gửi tới API trên máy này (trừ khi thêm `--remote yes`). Đăng nhập bằng tài khoản Driver, lấy tuyến chặng đang chạy từ `/map`, gửi điểm dọc tuyến:
+  ```powershell
+  node apps/api/scripts/simulate-gps.cjs --trip 200 --email driver@example.com --password Demo@12345 --speed 60 --every 10
+  ```
+- Hoặc dùng trình duyệt: DevTools (`F12`) → `⋮` → More tools → **Sensors** → Location: chọn sẵn hoặc nhập vĩ độ/kinh độ; đổi giá trị để giả lập xe di chuyển (công tắc "Chia sẻ vị trí" phải đang bật).
+
+**Kiểm thử:**
+- `apps/web/test/driver.browser.cjs` (Mapbox tắt bằng `VITE_MAP_ENABLED=false`, kiểm phần dữ liệu quanh bản đồ): km trên header/góc thẻ/Chặng tiếp, cảnh báo tuyến ước lượng, hộp thoại đồng ý, gửi lô sau 30 giây (đồng hồ giả của Playwright + `context.setGeolocation`), hàng đợi `localStorage` khi mất mạng và gửi bù sau khi tải lại, tốc độ vượt giới hạn / GPS cũ, 409 dừng gửi, badge 3 trạng thái.
+- Chụp bản đồ Mapbox thật (token trong `apps/web/.env`) trên harness với API giả lập: D1 và D1b hiển thị đúng; chưa chụp với API thật vì không có tài khoản driver trên DB demo/Aiven trong phiên này.
+
+**Còn lại:** bản đồ cho Customer (`/orders/:orderId/map`) và Ops (`/operations/map`, hiện GPS + "mất tín hiệu"); audit bật/tắt chia sẻ; thử GPS trên điện thoại thật (cần HTTPS).
 
 ## Việc làm thêm ngoài kế hoạch
 

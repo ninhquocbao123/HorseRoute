@@ -147,3 +147,9 @@ export function formatDayTime(value: string | Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+const kmFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+/** "1.720" (làm tròn, dấu chấm nghìn); dưới 10 km giữ 1 chữ số lẻ để "còn 0,8 km" không thành "1". */
+export function formatKm(km: number) {
+  return km < 10 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(km) : kmFormat.format(Math.round(km));
+}

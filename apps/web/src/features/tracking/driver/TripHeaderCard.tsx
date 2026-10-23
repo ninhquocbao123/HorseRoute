@@ -2,18 +2,20 @@ import type { ReactNode } from 'react';
 import { Select } from 'antd';
 import { CarOutlined, HeartOutlined, PhoneOutlined, TeamOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
-import { ORDER_TAG, routeStops } from './driver-ui';
+import { ORDER_TAG, formatKm, routeStops } from './driver-ui';
 
 const day = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 /** Thẻ đầu trang D1/D1b: mã đơn, trạng thái, tuyến, ngày khởi hành, nút thao tác và 4 ô thông tin. */
-export default function TripHeaderCard({ trip, detail, trips, onSelect, actions }: {
+export default function TripHeaderCard({ trip, detail, trips, onSelect, actions, totalKm = null }: {
   trip: IDriverTripSummary;
   detail: IDriverTripDetail | undefined;
   /** Các chuyến chọn được (đã lọc theo ô tìm kiếm); có từ 2 chuyến thì hiện dropdown. */
   trips: IDriverTripSummary[];
   onSelect: (tripId: string) => void;
   actions: ReactNode;
+  /** Tổng km từ /map; null thì bỏ phần km */
+  totalKm?: number | null;
 }) {
   const stops = routeStops(trip.legs);
   const route = stops.length ? `${stops[0]} → ${stops[stops.length - 1]}` : 'Chưa có chặng';
@@ -42,7 +44,7 @@ export default function TripHeaderCard({ trip, detail, trips, onSelect, actions 
               />
             )}
           </div>
-          <p>{route} · {trip.plannedDepartureAt ? day.format(new Date(trip.plannedDepartureAt)) : '—'}</p>
+          <p>{[route, totalKm !== null && `${formatKm(totalKm)} km`, trip.plannedDepartureAt ? day.format(new Date(trip.plannedDepartureAt)) : '—'].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="drv-header-actions">{actions}</div>
       </div>
