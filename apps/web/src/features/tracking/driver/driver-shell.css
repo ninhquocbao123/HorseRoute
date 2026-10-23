@@ -6,6 +6,9 @@
   --drs-muted: #546d71; --drs-ink: #0d2a2e; --drs-soft: #e7f1f1; --drs-red: #dc2626; --drs-red-bg: #fef2f2;
   --drs-red-soft: #fee2e2; --drs-red-text: #b91c1c; --drs-orange: #ea580c; --drs-yellow: #ca8a04;
   --drs-green: #166534; --drs-green-bg: #dcfce7; --drs-radius: 12px; --drs-radius-card: 20px;
+  /* Màu bản đồ lộ trình (Figma D1/D1b: nền đất, nước, đường, tuyến); đọc bởi trackmap/driver-map-theme.ts */
+  --drs-map-land: #e2efe8; --drs-map-water: #c9e3ec; --drs-map-park: #d3e9d9; --drs-map-road: #ffffff; --drs-map-road-major: #fbf8ec;
+  --drs-map-road-case: #cddbd4; --drs-map-label: #546d71; --drs-map-label-faint: #8fa3a6; --drs-route-rest: #f7d98b; --drs-route-done: #d18e12; --drs-route-halo: #0b3b42; --drs-map-end: #16a34a;
   display: flex; min-height: 100svh; background: var(--drs-bg); color: var(--drs-ink);
   font-family: var(--font-sans, "Segoe UI", Arial, sans-serif); font-size: 14px;
 }

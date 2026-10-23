@@ -397,6 +397,14 @@ async function main() {
     assert.equal((await expectStatus(200, 'GET', `/trips/100/positions?since=${encodeURIComponent(minutesAgo(1.5))}`, { as: ids.specialist })).length, 2);
     await expectStatus(403, 'GET', '/trips/100/positions', { as: ids.customer });
 
+    // Migration 1800000010000: cache tuyến ROAD (bản simplified cũ) bị xóa, STRAIGHT ("không có đường bộ") giữ nguyên.
+    await q("INSERT INTO location_routes(from_location_id,to_location_id,mode,coordinates) VALUES (1,2,'ROAD','[[106.6,10.85],[106.158,11.076]]'),(2,3,'STRAIGHT','[[106.158,11.076],[103.9915,1.3644]]')");
+    const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800000010000-RouteCacheFull');
+    const runner = db.createQueryRunner();
+    try { await new RouteCacheFull1800000010000().up(runner); } finally { await runner.release(); }
+    assert.deepEqual((await q('SELECT mode FROM location_routes ORDER BY id')).map(r => r.mode), ['STRAIGHT']);
+    await q('DELETE FROM location_routes');
+
     // Dọn dữ liệu cá nhân cũ hơn TRACK_POSITION_RETENTION_DAYS (mặc định 30)
     await q("INSERT INTO trip_positions(trip_id,leg_id,user_id,latitude,longitude,recorded_at) VALUES (100,10,6,10.9,106.4,UTC_TIMESTAMP() - INTERVAL 31 DAY)");
     assert.equal(await new TrackingService(new TrackingRepository(db)).purgeOldPositions(), 1);

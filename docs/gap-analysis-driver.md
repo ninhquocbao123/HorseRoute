@@ -448,6 +448,7 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Bản đồ thật thay `MapFallback` ở thẻ "Lộ trình chuyến đi" (D1 + D1b); km trên header và góc thẻ; "còn X km" ở thẻ Chặng tiếp; thẻ Tốc độ dùng GPS + `VMAX`.
 - Chia sẻ GPS: công tắc "Chia sẻ vị trí" + hộp thoại đồng ý lần đầu (thiết kế mục 10), gửi lô 30 giây, hàng đợi offline, Wake Lock. **Chỉ chia sẻ khi trang đang mở** (giới hạn của web), tự dừng khi chuyến giao xong hoặc ở chặng bay.
 - Còn thiếu so với thiết kế: audit bật/tắt chia sẻ (cần API mới, đã chọn không làm ở bước này).
+- **Cải tiến bản đồ tài xế (23/10)**: tuyến bám đường (`overview=full` + giản lược 8 m), màu bản đồ theo Figma, viền trắng cho tuyến. **Cần chạy migration `1800000010000-RouteCacheFull` trên Aiven** (xóa cache tuyến ROAD cũ). Chi tiết ở [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md) Bước 4 và Bước 5–6.
 
 ### 6.2 Bổ sung để không vướng D2
 

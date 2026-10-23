@@ -2,15 +2,11 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Layer, Marker, Source, type MapRef } from 'react-map-gl/mapbox';
 import type { ITripMap, ITripTrackPoint } from '@my-project/shared';
 import BaseMap from './BaseMap';
+import { applyDriverMapTheme, driverMapColors } from './driver-map-theme';
 import { DEFAULT_VIEW } from './map-style';
 
 type LngLat = [number, number];
 export type OwnFix = { lng: number; lat: number; at: string };
-
-// Màu theo Figma D1/D1b: tuyến vàng; khi đang chạy, đoạn đã đi vàng đậm, phần còn lại nhạt.
-const GOLD = '#f4b942';
-const GOLD_DARK = '#d18e12';
-const PALE = '#e6dcc0';
 
 /**
  * Bản đồ lộ trình của màn tài xế (D1 khi READY, D1b khi IN_TRANSIT). Chỉ import qua lazy chunk.
@@ -25,6 +21,8 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
 }) {
   const ref = useRef<MapRef>(null);
   const fittedFor = useRef<string | null>(null);
+  // Màu từ biến CSS --drs-* (xem driver-map-theme.ts): đọc một lần khi dựng bản đồ.
+  const colors = useMemo(() => driverMapColors(document.querySelector('.drs')), []);
 
   const legs = useMemo(() => ({
     type: 'FeatureCollection' as const,
@@ -75,18 +73,20 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
   const dashed = ['!=', ['get', 'mode'], 'ROAD'] as const;
 
   return (
-    <BaseMap ref={ref} initialViewState={DEFAULT_VIEW} onLoad={fit}>
+    <BaseMap ref={ref} initialViewState={DEFAULT_VIEW} onLoad={event => { applyDriverMapTheme(event.target, colors); fit(); }}>
       <Source id="driver-legs" type="geojson" data={legs}>
-        <Layer id="legs-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.9 }} />
+        {/* Quầng teal mờ + viền trắng để tuyến nổi trên nền đất và đường trắng (Figma: quầng #0B3B42 18%). */}
+        <Layer id="legs-halo" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeHalo, 'line-width': 11, 'line-opacity': 0.18 }} />
+        <Layer id="legs-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.95 }} />
         <Layer id="legs-solid" type="line" filter={solid as never} layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-          paint={{ 'line-color': running ? PALE : GOLD, 'line-width': 5 }} />
+          paint={{ 'line-color': running ? colors.routeRest : colors.route, 'line-width': 5 }} />
         <Layer id="legs-dashed" type="line" filter={dashed as never} layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
-          paint={{ 'line-color': running ? PALE : GOLD, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
+          paint={{ 'line-color': running ? colors.routeRest : colors.route, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
       </Source>
       {running && (
         <Source id="driver-travelled" type="geojson" data={travelled}>
-          <Layer id="travelled-solid" type="line" filter={solid as never} layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': GOLD_DARK, 'line-width': 5 }} />
-          <Layer id="travelled-dashed" type="line" filter={dashed as never} paint={{ 'line-color': GOLD_DARK, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
+          <Layer id="travelled-solid" type="line" filter={solid as never} layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeDone, 'line-width': 5 }} />
+          <Layer id="travelled-dashed" type="line" filter={dashed as never} paint={{ 'line-color': colors.routeDone, 'line-width': 4, 'line-dasharray': [2, 1.5] }} />
         </Source>
       )}
       {stops.map((stop, index) => {
@@ -95,7 +95,7 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         const label = first ? `${stop.name} · điểm gửi` : last ? `${stop.name} · điểm nhận` : stop.name;
         return (
           <Marker key={stop.locationId} longitude={stop.lng!} latitude={stop.lat!} anchor="center">
-            <span className={'drm-stop' + (first || last ? ' is-end' : '')} role="img" aria-label={label}>
+            <span className={'drm-stop' + (first ? ' is-start' : last ? ' is-end' : '')} role="img" aria-label={label}>
               {(first || last) && <span className="drm-label">{label}</span>}
             </span>
           </Marker>
