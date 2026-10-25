@@ -1,0 +1,124 @@
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+(async()=>{
+ const web=path.resolve(__dirname,'..');const {createServer}=await import(pathToFileURL(path.join(path.dirname(require.resolve('vite',{paths:[web]})),'dist/node/index.js')).href);
+ const server=await createServer({root:web,server:{host:'127.0.0.1',port:5190,strictPort:true}});await server.listen();let browser;
+ try{
+ const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE||'playwright');browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page.setDefaultNavigationTimeout(60000);
+ await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
+ await page.addInitScript(()=>{if(location.protocol==='http:')localStorage.setItem('accessToken','customer-test');});
+ const orders=[{id:'1',order_code:'VCN-2610-018',status:'NEED_INFO',origin_address:'TP. Hồ Chí Minh',destination_address:'Hà Nội',origin_country:'VN',destination_country:'VN',horse_count:1,desired_departure_date:'2026-11-20',created_at:'2026-10-20',quote_total:30000000,paid:9000000},{id:'2',order_code:'VCN-2610-011',status:'IN_TRANSIT',origin_address:'Hà Nội',destination_address:'Nam Ninh',origin_country:'VN',destination_country:'CN',horse_count:1,created_at:'2026-10-19',quote_total:20000000,paid:20000000}];
+ orders.push({...orders[1],id:'4',order_code:'VCN-20261023-0004',status:'DELIVERED',quote_total:29000000,paid:29000000});
+ const horses=[{id:'1',order_id:'1',name:'Thunder Bolt',passport_no:'VN-001',breed:'Thoroughbred',sex:'Đực',birth_date:'2021-03-12',order_code:orders[0].order_code,document_count:3,missing_documents:1,pending_documents:0},{id:'2',order_id:'2',name:'Silver Moon',passport_no:'VN-002',breed:'Arabian',sex:'Cái',order_code:orders[1].order_code,document_count:3,missing_documents:0,pending_documents:0}];let saved,submitted=false;
+ const profiles=horses.map((h,i)=>({id:h.id,revision:1,name:h.name,passportNo:h.passport_no,breed:h.breed,birthDate:'2021-03-12',sex:h.sex,coatColor:'Nâu',microchip:'98511200438122'+i,ownerName:'Phạm Trường Long',feed:'Cỏ khô',note:'',documentNote:'',files:[],documents:[]}));
+ const estimate={versionId:'1',total:7201000,deposit:2160300,depositPercent:30,quoteValidityHours:24,items:[{code:'TRANSPORT',label:'Cước vận chuyển',amount:4515000},{code:'CREW',label:'Tài xế + hộ tống',amount:1890000},{code:'FUEL',label:'Nhiên liệu, cầu đường',amount:496000},{code:'INTERNATIONAL',label:'Kiểm dịch quốc tế',amount:300000}]};
+ await page.route('**/api/v1/**',async route=>{const req=route.request(),p=new URL(req.url()).pathname.replace('/api/v1','');let data={};
+ if(p==='/users/me')data={id:'10',role:'CUSTOMER',accountStatus:'ACTIVE',fullName:'Phạm Trường Long',email:'customer@example.com',phone:'0901234567',address:'TP. Hồ Chí Minh'};
+ else if(p==='/orders/customer-workspace')data={orders,horses};
+ else if(p==='/customer/profiles')data=profiles;
+ else if(p==='/customer/document-types')data=[{id:'1',name:'Hộ chiếu ngựa (FEI Passport)'},{id:'2',name:'Kết quả xét nghiệm EIA (Coggins)'}];
+ else if(/^\/customer\/profiles\/\d+$/.test(p)&&req.method()==='PUT'){Object.assign(profiles.find(x=>x.id===p.split('/')[3]),req.postDataJSON());data={id:p.split('/')[3]};}
+ else if(p==='/customer/route-distance'){const body=req.postDataJSON();assert.deepEqual(Object.keys(body.from).sort(),['city','country','ward']);assert.deepEqual(Object.keys(body.to).sort(),['city','country','ward']);data={distanceKm:230,precision:'ward'};}
+ else if(p==='/pricing/estimate'){assert.equal(req.postDataJSON().distanceKm,230);data=estimate;}
+ else if(p==='/orders/3/submit'){submitted=true;data={id:'3',status:'PENDING'};}
+ else if(p==='/notifications')data=[{id:'1',content:'Bổ sung giấy tờ cho Thunder Bolt',is_read:0}];
+ else if(p==='/orders'&&req.method()==='POST'){saved=req.postDataJSON();data={id:'3'};}
+ else if(p==='/orders')data={items:orders,total:orders.length};
+ else if(p.endsWith('/quote'))data=null;
+ else if(/^\/orders\/\d+$/.test(p))data={...(orders.find(o=>o.id===p.split('/')[2])||{id:'3',order_code:'VCN-NEW',status:'DRAFT'}),customer:{full_name:'Phạm Trường Long',email:'customer@example.com'},horses:[],documents:[],history:[],draft:p.endsWith('/3')?saved:null};
+ else if(p==='/documents/orders')data={items:[{...orders[0],customer_name:'Phạm Trường Long'}],total:1};
+ else if(p==='/documents/orders/1')data={order:orders[0],documents:[],versions:[],dossiers:[],history:[]};
+ else if(p.startsWith('/tracking'))data=[];
+ return route.fulfill({json:data});});
+ await page.goto('http://127.0.0.1:5190/dashboard');await page.getByText('Bổ sung thông tin đơn VCN-2610-018',{exact:true}).waitFor();await page.evaluate(()=>document.fonts.ready);
+ for(const selector of ['.customer h1','.customer-nav nav button','.customer-stats strong'])assert.ok((await page.locator(selector).first().evaluate(el=>getComputedStyle(el).fontFamily)).includes('Be Vietnam Pro'));
+ await page.screenshot({path:'test-results/customer-home.png',fullPage:true});
+ await page.locator('nav').getByRole('button',{name:'Hồ sơ ngựa',exact:true}).click();await page.getByRole('heading',{name:'Thunder Bolt',exact:true}).waitFor();assert.ok(await page.locator('.customer-horse-grid article').first().evaluate(el=>el.getBoundingClientRect().width)>250);await page.screenshot({path:'test-results/customer-horses.png',fullPage:true});
+ assert.equal(await page.getByRole('button',{name:/Theo dõi thẩm định/}).count(),0);
+ await page.goto('http://127.0.0.1:5190/dashboard?view=documents');await page.getByRole('heading',{name:'Hồ sơ ngựa',exact:true,level:2}).waitFor();
+ assert.equal(await page.getByRole('heading',{name:'Giấy tờ kiểm dịch',exact:true}).count(),0);
+ await page.locator('nav').getByRole('button',{name:'Lịch sử giao dịch',exact:true}).click();await page.locator('.history-stats').getByText('29.000.000 đ',{exact:true}).waitFor();const download=page.waitForEvent('download');await page.getByRole('button',{name:'Xuất danh sách'}).click();assert.equal((await download).suggestedFilename(),'lich-su-giao-dich.csv');await page.screenshot({path:'test-results/customer-history.png',fullPage:true});
+ await page.locator('nav').getByRole('button',{name:'Đặt chuyến',exact:true}).click();await page.getByRole('heading',{name:'Đặt chuyến vận chuyển'}).waitFor();
+ await page.getByRole('button',{name:'Quốc tế',exact:true}).click();
+ await page.getByRole('combobox',{name:'Nước đến *',exact:true}).click();
+ await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().waitFor();
+ assert.equal(await page.locator('.ant-select-dropdown:visible .ant-select-item-option').count(),2);
+ await page.locator('.ant-select-dropdown:visible').getByText('Thái Lan',{exact:true}).click();
+ assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).nth(1).isDisabled(),true);
+ await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).nth(1).selectOption('Bangkok · กรุงเทพมหานคร');
+ await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).nth(1).selectOption('Bang Kapi · บางกะปิ');
+ await page.getByRole('button',{name:'Đảo chiều hành trình',exact:true}).click();
+ assert.equal(await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).first().inputValue(),'');
+ assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().isDisabled(),true);
+ assert.ok(await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).first().locator('option').filter({hasText:'Bangkok'}).count());
+ await page.getByRole('button',{name:'Đảo chiều hành trình',exact:true}).click();
+ await page.getByRole('combobox',{name:'Nước đến *',exact:true}).click();await page.locator('.ant-select-dropdown:visible').getByText('Trung Quốc',{exact:true}).click();
+ assert.equal(await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).nth(1).inputValue(),'');
+ assert.equal(await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).nth(1).locator('option').filter({hasText:'Bangkok'}).count(),0);
+ assert.ok(await page.locator('.bc-country-route svg.bc-flag').count()>=2);
+ await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).fill('Người Nhận');await page.getByLabel('Số điện thoại người nhận *',{exact:true}).fill('0901234568');
+ await page.getByLabel('Tên trang trại / Địa chỉ cụ thể *',{exact:true}).nth(1).fill('Trại ngựa Nam Ninh');
+ await page.getByLabel('Ngày khởi hành *',{exact:true}).fill('2027-12-20');
+ assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().isDisabled(),true);
+ await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).first().selectOption('Thành phố Hà Nội');
+ await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().selectOption('Phường Ba Đình');
+ await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).first().selectOption('Thành phố Hồ Chí Minh');
+ assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().inputValue(),'');
+ assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().locator('option').filter({hasText:'Phường Ba Đình'}).count(),0);
+ await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).first().selectOption('Thành phố Hà Nội');await page.getByLabel('Tỉnh / Thành phố *',{exact:true}).nth(1).selectOption('Quảng Tây · 广西壮族自治区');
+ await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).first().selectOption('Phường Tây Hồ');await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).nth(1).selectOption('Nam Ninh · 南宁市 / 青秀区');
+ await page.getByLabel('CCCD / MST / Hộ chiếu *',{exact:true}).first().fill('012345678901');await page.getByLabel('CCCD / MST / Hộ chiếu *',{exact:true}).nth(1).fill('P1234567');
+ await page.screenshot({path:'test-results/booking-contacts.png',fullPage:true});
+ await page.getByRole('button',{name:'Tiếp tục: Chọn ngựa →',exact:true}).click();await page.getByRole('checkbox',{name:'Thunder Bolt',exact:true}).check();
+ await page.getByRole('textbox',{name:'Tìm ngựa trong hồ sơ'}).fill('no matching horse');
+ await page.getByText('Không tìm thấy ngựa phù hợp.',{exact:true}).waitFor();
+ await page.getByRole('textbox',{name:'Tìm ngựa trong hồ sơ'}).fill('Thunder');
+ assert.equal(await page.getByRole('checkbox',{name:'Thunder Bolt',exact:true}).isChecked(),true);
+ await page.screenshot({path:'test-results/booking-horse-picker.png',fullPage:true});
+ await page.getByRole('textbox',{name:'Tìm ngựa trong hồ sơ'}).fill('');
+ assert.equal(await page.locator('.booking-progress [aria-current=step]').innerText(),'2\nChọn ngựa');
+ await page.getByRole('button',{name:'Tiếp tục: Dịch vụ & bảo hiểm →',exact:true}).click();
+ assert.equal(await page.locator('.booking-progress [aria-current=step]').innerText(),'3\nDịch vụ & bảo hiểm');
+ await page.getByRole('radio',{name:/Gói thể thao/}).check();
+ await page.getByRole('radio',{name:/^Mỗi giờ/}).check();
+ await page.getByLabel('Số cữ nước bổ sung / ngựa',{exact:true}).fill('2');
+ await page.getByRole('radio',{name:/Khoang đơn mở rộng/}).check();
+ await page.getByText('Khoảng 230 km',{exact:true}).waitFor();assert.equal(await page.getByLabel('Thời gian (ngày)',{exact:true}).count(),0);assert.equal(await page.getByLabel('Quãng đường (km)',{exact:true}).count(),0);await page.getByText('7.201.000 đ',{exact:true}).waitFor();await page.screenshot({path:'test-results/customer-booking.png',fullPage:true,animations:'disabled'});
+ assert.ok(await page.locator('.cj-sheet').evaluate(el=>el.getBoundingClientRect().width)>1000);
+ await page.evaluate(()=>window.scrollTo(0,650));await page.waitForTimeout(200);
+ const pinned=await page.locator('.cj-estimate').evaluate(el=>({top:el.getBoundingClientRect().top,position:getComputedStyle(el).position}));assert.equal(pinned.position,'sticky');assert.ok(Math.abs(pinned.top-20)<3);
+ await page.screenshot({path:'test-results/booking-estimate-sticky.png'});
+ await page.setViewportSize({width:1440,height:600});
+ assert.ok(await page.locator('.cj-estimate').evaluate(el=>el.getBoundingClientRect().height<=562));
+ await page.locator('.be-continue').scrollIntoViewIfNeeded();assert.equal(await page.locator('.be-continue').isVisible(),true);
+ await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.scrollTo(0,0));
+ await page.locator('nav').getByRole('button',{name:'Lịch sử giao dịch',exact:true}).click();await page.locator('.customer-history').waitFor();
+ assert.equal(await page.getByText('Bạn có thay đổi chưa lưu',{exact:true}).count(),0);
+ await page.locator('nav').getByRole('button',{name:'Hồ sơ ngựa',exact:true}).click();await page.getByRole('heading',{name:'Thunder Bolt',exact:true}).waitFor();
+ await page.locator('nav').getByRole('button',{name:'Đặt chuyến',exact:true}).click();
+ assert.equal(await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).inputValue(),'Người Nhận');
+ assert.equal(await page.getByLabel('Ngày khởi hành *',{exact:true}).inputValue(),'2027-12-20');
+ assert.ok(await page.locator('.bc-country-route').getByText('Trung Quốc',{exact:true}).count());assert.equal(await page.getByLabel('Xã / Phường / Khu vực *',{exact:true}).nth(1).inputValue(),'Nam Ninh · 南宁市 / 青秀区');
+ await page.locator('.booking-progress').getByRole('button',{name:'2 Chọn ngựa',exact:true}).click();
+ assert.equal(await page.getByRole('checkbox',{name:'Thunder Bolt',exact:true}).isChecked(),true);
+ await page.getByRole('button',{name:'Tiếp tục: Dịch vụ & bảo hiểm →',exact:true}).click();
+ await page.getByRole('button',{name:'Tiếp tục: Xác nhận & gửi →',exact:true}).click();await page.getByRole('heading',{name:'Xác nhận đơn hàng',level:2}).waitFor();assert.equal(await page.locator('.booking-progress [aria-current=step]').innerText(),'4\nXác nhận & gửi');await page.screenshot({path:'test-results/customer-confirm.png',fullPage:true});
+ await page.getByLabel('Tôi đã đọc và đồng ý').check();await page.getByRole('button',{name:'Gửi đơn chờ duyệt',exact:true}).click();await page.locator('.customer-orders-list').waitFor();assert.equal(submitted,true);assert.equal(saved.booking.distanceKm,230);assert.equal(saved.booking.feed,'SPORT');assert.equal(saved.booking.water,'EVERY_HOUR');assert.equal(saved.booking.waterRounds,2);assert.equal(saved.booking.extraStall,true);assert.equal(saved.booking.recipient.name,'Người Nhận');assert.equal(saved.horses[0].profileId,'1');assert.equal(saved.destinationCountry,'CN');assert.equal(saved.booking.recipient.ward,'Nam Ninh · 南宁市 / 青秀区');assert.equal(saved.booking.recipient.identityNumber,'P1234567');assert.equal(saved.destinationAddress,'Trại ngựa Nam Ninh, Nam Ninh · 南宁市 / 青秀区, Quảng Tây · 广西壮族自治区');
+
+ await page.locator('nav').getByRole('button',{name:'Đặt chuyến',exact:true}).click();
+ assert.equal(await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).inputValue(),'');
+ await page.getByRole('button',{name:'Quốc tế',exact:true}).click();await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).fill('Bản sẽ hủy');
+ await page.getByRole('button',{name:'Hủy chuyến đang đặt',exact:true}).click();
+ assert.equal(await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).inputValue(),'');assert.equal(await page.locator('.bc-country-route').count(),0);
+ await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).fill('Bản trước khi thoát');
+ let unloadDialogs=0;page.on('dialog',async d=>{unloadDialogs++;await d.dismiss();});
+ await page.goto('about:blank');await page.goto('http://127.0.0.1:5190/dashboard?view=booking');
+ await page.getByRole('heading',{name:'Đặt chuyến vận chuyển'}).waitFor();assert.equal(unloadDialogs,0);assert.equal(await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).inputValue(),'');
+
+ await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).fill('Bản trước đăng xuất');
+ await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.locator('.ant-modal-confirm').getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.waitForURL('**/login');
+ await page.goto('http://127.0.0.1:5190/dashboard?view=booking');await page.getByRole('heading',{name:'Đặt chuyến vận chuyển'}).waitFor();assert.equal(await page.getByLabel('Họ tên người nhận / Tên trại đích *',{exact:true}).inputValue(),'');
+ for(const view of ['overview','horses','orders','history','booking','documents']){await page.setViewportSize({width:390,height:844});await page.goto('http://127.0.0.1:5190/dashboard?view='+view);await page.locator('.customer-main').waitFor();await page.waitForTimeout(350);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile overflow '+view);}
+ await page.screenshot({path:'test-results/customer-mobile.png',fullPage:true});assert.deepEqual(errors,[]);console.log('PASS Customer C0-C5, fonts, profile cards, document list, history/export, international booking, confirmation, submitted contacts/profile metadata, silent navigation, retained booking draft, cancel/exit reset and mobile layout');
+ }finally{if(browser)await browser.close();await server.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

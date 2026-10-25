@@ -5,3 +5,4 @@ export * from './types/user.type';
 export * from './types/tracking.type';
 export * from './constants';
 export * from './countries';
+export * from './types/pricing.type';

@@ -13,7 +13,7 @@ export class DocumentsController {
   dossier: RequestHandler = async (req, res) => { res.status(201).json(await this.service.updateDossier(req.account, parse(idSchema, req.params.orderId), parse(idSchema, req.params.id), parse(dossierUpdateSchema, req.body), req.file)); };
   download: RequestHandler = async (req, res) => {
     const f = await this.service.download(req.account, parse(idSchema, req.params.orderId), parse(idSchema, req.params.id));
-    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Type', ({PDF:'application/pdf',PNG:'image/png',JPG:'image/jpeg',JPEG:'image/jpeg'} as Record<string,string>)[f.file_type] || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="document"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`);
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(f.buffer);

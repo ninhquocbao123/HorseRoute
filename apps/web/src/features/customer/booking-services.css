@@ -1,0 +1,18 @@
+.booking-services header { padding-bottom:18px; border-bottom:1px solid #dce5eb; margin-bottom:20px; }
+.booking-services header p { margin:6px 0; color:#253e46; font-weight:600; overflow-wrap:anywhere; }
+.booking-services header small { color:#647985; font-size:12px; }
+.customer .cj .bs-group { padding:0 0 22px; margin:0 0 20px; border:0; border-bottom:1px solid #dce5eb; min-width:0; }
+.bs-group legend { float:none; width:auto; padding:0; margin:0 0 10px; font-size:13px; font-weight:600; color:#253e46; }
+.bs-options { display:grid; gap:10px; }
+.bs-options-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.bs-options-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.customer .cj .bs-options label { display:flex; flex-direction:row; align-items:flex-start; gap:9px; padding:13px 12px; border:1px solid #dce5eb; border-radius:6px; background:white; cursor:pointer; min-width:0; }
+.customer .cj .bs-options label.selected { background:#f0f8f5; border-color:#0c655b; }
+.customer .cj .bs-options input { flex-shrink:0; width:15px; height:15px; min-height:15px; padding:0; margin:2px 0 0; accent-color:#0c655b; }
+.bs-options strong { display:block; font-size:13px; color:#253e46; }
+.bs-options small,.bs-options em { display:block; font-size:12px; line-height:1.6; color:#647985; font-style:normal; font-weight:400; margin-top:5px; }
+.bs-options .selected em { color:#0c655b; }
+.customer .cj .bs-extra-field { display:flex; flex-direction:column; gap:8px; max-width:300px; margin:0 0 22px; font-size:12px; color:#253e46; }
+@media(max-width:700px) { .bs-options-3 { grid-template-columns:1fr; }.bs-options-2 { grid-template-columns:1fr; } }
+.customer .cj .booking-services .bs-options input { accent-color:#0c655b!important; background:transparent; }
+.bs-back-action { margin-top:20px; }

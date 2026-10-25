@@ -15,6 +15,10 @@ module.exports = async function loadSchema(db) {
     for (const statement of statements) await runner.query(statement);
     const { OrderRequirements1800000004000 } = require('../src/database/migrations/1800000004000-OrderRequirements');
     await new OrderRequirements1800000004000().up(runner);
+    const {CustomerProfiles1800000009000}=require('../src/database/migrations/1800000009000-CustomerProfiles');
+    await new CustomerProfiles1800000009000().up(runner);
+    const {SpecialistAssessments1800000010000}=require('../src/database/migrations/1800000010000-SpecialistAssessments');
+    await new SpecialistAssessments1800000010000().up(runner);
   } finally {
     try { await runner.query('SET FOREIGN_KEY_CHECKS=1'); } finally { await runner.release(); }
   }

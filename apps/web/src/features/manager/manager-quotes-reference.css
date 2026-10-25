@@ -1,0 +1,18 @@
+.mgr .mgr-quotes.mq-reference{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.mq-reference>aside>h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14px}
+.mq-queue-count{background:#144650;color:#fff;border-radius:12px;font-size:11px;padding:2px 7px}
+.mq-reference .mgr-queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,330px));gap:10px;max-height:220px;overflow:auto;padding:1px}
+.mq-reference .mgr-queue button{margin:0;display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding:15px;border-radius:12px;border:1px solid #deeaed;box-shadow:none}
+.mq-reference .mgr-queue button.selected{background:#fff9e9;border-color:#ffbc28}
+.mq-reference .mgr-queue button b{font-size:14px}.mq-reference .mgr-queue button .mq-queue-route{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;color:#193e47}.mq-reference .mgr-queue button small{font-size:11px;color:#6e858c}
+.mgr .mq-reference>.mgr-card{padding:24px;border-radius:16px}
+.mgr .mq-reference .mgr-detail-title h2{font-size:20px}.mq-reference .mgr-trip-summary{font-size:12px;margin:0 0 18px}.mq-reference .mgr-trip-summary .ant-btn{text-decoration:underline}
+.mgr .mq-reference .mq-items table{width:100%;table-layout:fixed;border:1px solid #dce8eb;border-radius:12px}
+.mgr .mq-reference .mq-items thead th{font-size:11px;background:#e7eff1;padding:14px 20px;text-transform:uppercase;color:#62787e}
+.mq-items thead th:first-child{width:42%}.mq-items thead th:nth-child(2){width:23%}.mq-items thead th:nth-child(3){width:13%}.mq-items thead th:last-child{width:22%}
+.mgr .mq-reference .mq-items td{height:auto;padding:15px 20px;font-size:13px;line-height:1.5;border-bottom:1px solid #e5edef;overflow-wrap:anywhere}
+.mgr .mq-reference .mq-items .mq-group th,.mgr .mq-reference .mq-items .mq-group td{background:#f3f7f7;padding:11px 20px;font-size:13px;font-weight:700;color:#174752;border-bottom:1px solid #e4edef}
+.mq-items .mq-group th{text-transform:uppercase;text-align:left}.mq-items .mq-group td{text-align:right;white-space:nowrap}.mq-items .mq-group span{font-size:12px;font-weight:400;color:#667c83;margin-left:10px}.mq-items .mq-group i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#3973f5;margin-right:10px}.mq-items .mq-care i{background:#20a17b}.mq-items .mq-procedure i{background:#f28b33}.mq-items .mq-insurance i{background:#9471bf}
+.mgr .mq-reference .mgr-quote-adjustment{gap:18px;margin-bottom:18px}.mq-reference .mgr-quote-adjustment label{font-size:12px}.mq-reference .mgr-quote-adjustment .ant-input,.mq-reference .mgr-quote-adjustment .ant-input-number{min-height:42px;border-radius:10px;background:#f6f9f9}
+.mgr .mq-reference .mgr-totals{background:#eaf3f4;padding:20px 22px;margin:0 0 18px;border-radius:14px}.mgr .mq-reference .mgr-totals>div{margin:8px 0}.mgr .mq-reference .mgr-totals dt,.mgr .mq-reference .mgr-totals dd{font-size:13px}.mgr .mq-reference .mgr-totals .grand{padding-top:18px;margin-top:16px;border-top:1px solid #d3e2e6}.mgr .mq-reference .mgr-totals .grand dd{font-size:32px}.mq-reference .mgr-actions{justify-content:flex-end}.mq-reference .mgr-actions .mgr-gold{background:#ffb91d;border-color:#ffb91d;color:#173d45}
+@media(max-width:650px){.mq-reference .mgr-queue{grid-template-columns:1fr;max-height:250px}.mgr .mq-reference>.mgr-card{padding:14px}.mgr .mq-reference .mq-items table{min-width:620px}.mgr .mq-reference .mgr-quote-adjustment{grid-template-columns:1fr}.mgr .mq-reference .mgr-totals .grand dd{font-size:24px}}

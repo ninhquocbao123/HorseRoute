@@ -1,0 +1,72 @@
+.customer .bc-section { background:#fff; border:1px solid #dce4eb; border-radius:8px; padding:16px; margin-bottom:16px; box-shadow:none; }
+.customer .bc-section header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid #dce4eb; }
+.customer .cj .bc-section h3 { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#243743; margin:0; }
+.bc-section h3 .anticon { color:#0c655b; }
+.bc-section h3 small { font-size:12px; font-weight:400; color:#6c8190; }
+.bc-section header .ant-btn { font-size:11px; flex-shrink:0; }
+.bc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.bc-full { grid-column:1/-1; }
+.bc-field { display:flex; flex-direction:column; gap:8px; min-width:0; font-size:12px; font-weight:600; color:#243743; }
+.customer .cj .booking-contacts .bc-field :is(input,select) { border:1px solid #dce4eb; border-radius:6px; background:white; min-height:38px; padding:8px 10px; font-size:13px; color:#243743; }
+.customer .cj .bc-field :is(input,select):focus { border-color:#0c655b; box-shadow:0 0 0 2px #0c655b12; }
+.bc-date { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.bc-date .bc-field { width:280px; max-width:100%; }
+.bc-date small { font-size:11px; color:#6c8190; }
+.bc-address { display:flex; align-items:center; gap:8px; border:1px solid #dce4eb; border-radius:6px; padding:10px 12px; background:#f8fafb; color:#647985; font-size:12px; overflow-wrap:anywhere; }
+.bc-address b { color:#344a57; font-weight:500; }
+.customer .cj .bc-shell { max-width:1160px; margin:0 auto; }
+.booking-contacts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.booking-contacts > .bc-section:first-child { grid-column:1/-1; }
+.customer .booking-contacts > .bc-section { min-width:0; margin-bottom:0; }
+.customer .booking-contacts > .bc-section:not(:first-child) header { min-height:44px; flex-wrap:nowrap; }
+.customer .booking-contacts .bc-section h3 { flex-wrap:wrap; }
+.booking-contacts + .cj-border { margin-top:18px; }
+.customer .cj .bc-step-footer { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
+.customer .cj .bc-step-footer .ant-btn { border-radius:6px; }
+.customer .cj .booking-step[hidden] { display:none; }
+.customer .cj .bc-summary { margin:18px 0; padding:12px 16px; background:#f8fafb; border:1px solid #dce4eb; border-radius:6px; font-size:12px; color:#647985; }
+.customer .customer-booking-form.cj-sheet { background:transparent; border:0; border-radius:0; padding:0; box-shadow:none; }
+.customer-booking-form > .customer-heading { max-width:1160px; margin:0 auto 24px; }
+@media(max-width:900px) { .booking-contacts { grid-template-columns:1fr; }.customer .booking-contacts > .bc-section:not(:first-child) header { min-height:0; } }
+@media(max-width:600px) { .bc-grid { grid-template-columns:1fr; gap:16px; }.customer .bc-section { padding:16px; }.bc-section header { flex-wrap:wrap; }.customer .cj .bc-section h3 { flex-wrap:wrap; }.bc-date { align-items:flex-start; flex-direction:column; gap:8px; }.bc-date .bc-field { width:100%; }.customer .cj .bc-field :is(input,select) { font-size:16px; } }
+.customer .cj .cj-segment[hidden] { display:none; }
+
+.customer .customer-booking-form .cj-border { border-radius:8px; padding:16px; }
+/* Match field rows across both contact panels, including the sender shortcut. */
+@media(min-width:901px) {
+  .customer .booking-contacts > .bc-section:not(:first-child) header { height:54px; min-height:54px; box-sizing:border-box; }
+}
+.customer .cj .customer-booking-form .booking-contacts .bc-section .bc-field :is(input,select) {
+  min-height:38px; padding:8px 10px; background:#fff; border-radius:5px;
+}
+.customer .cj .bc-trip-type { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:620px; max-width:100%; margin:0; gap:10px; flex-shrink:0; }
+.customer .cj .bc-trip-type[hidden] { display:none; }
+.customer .cj .bc-trip-type button { display:flex; align-items:center; gap:10px; min-width:0; padding:14px; border:1px solid #cddcda; border-radius:8px; background:#fff; color:#244642; text-align:left; cursor:pointer; font:inherit; box-shadow:none; }
+.customer .cj .bc-trip-type button.active { border-color:#0c655b; background:#0c655b; color:#fff; }
+.bc-type-icon { display:flex; align-items:center; font-size:21px; }
+.bc-type-copy { flex:1; min-width:0; }
+.bc-type-copy strong { display:block; font-size:16px; font-weight:600; margin-bottom:5px; }
+.bc-type-copy small { display:block; font-size:12px; line-height:1.5; color:#647d79; }
+.active .bc-type-copy small { color:#dceeea; }
+.customer .cj .bc-trip-type button:hover { border-color:#0c655b; background:#f1f7f5; }
+.customer .cj .bc-trip-type button.active:hover { background:#08554c; }
+.customer .cj .bc-trip-type button:focus-visible { outline:2px solid #0c655b; outline-offset:3px; }
+@media(max-width:600px) { .customer .cj .bc-trip-type { gap:8px; }.customer .cj .bc-trip-type button { position:relative; flex-direction:column; align-items:flex-start; padding:14px 12px; gap:10px; }.bc-type-copy strong { font-size:14px; }.bc-type-copy small { font-size:11px; } }
+.customer .cj .customer-booking-form .booking-contacts .bc-section .bc-field :is(input,select):disabled { background:#f1f4f6; color:#84939b; cursor:not-allowed; }
+.bc-flag { display:inline-block; width:25px; height:17px; border-radius:2px; flex-shrink:0; vertical-align:middle; box-shadow:0 0 0 1px #0000000d; }
+.bc-country-label { display:inline-flex; align-items:center; gap:9px; color:#243743; }
+.bc-country-route { display:grid; grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr); gap:14px; align-items:end; margin-bottom:22px; }
+.bc-country-route .ant-select { width:100%; height:42px; font-size:14px; }
+.bc-fixed-country { display:flex; align-items:center; min-height:42px; border:1px solid #dce4eb; border-radius:6px; padding:8px 12px; background:#f8fafb; box-sizing:border-box; font-size:14px; font-weight:400; }
+.bc-country-route .bc-swap { width:42px; height:42px; border-radius:6px; color:#0c655b; }
+.customer .bc-section h3 .bc-contact-country { display:inline-flex; align-items:center; gap:6px; }
+.bc-contact-country .bc-flag { width:20px; height:14px; }
+@media(max-width:600px) { .bc-country-route { grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr); gap:8px; }.bc-country-route .bc-swap { width:34px; }.bc-country-route .bc-field { font-size:11px; }.bc-country-route .ant-select,.bc-fixed-country { font-size:12px; }.bc-country-label { gap:6px; }.bc-country-label .bc-flag { width:20px; height:14px; } }
+/* The country Select uses an invisible search input; keep form input styles off it. */
+.customer .cj .bc-country-route .ant-select input {
+  background:transparent!important; border:0!important; padding:0!important;
+  min-height:0!important; box-shadow:none!important;
+}
+
+@media(min-width:601px) and (max-width:1100px) { .customer .customer-booking-form > .customer-heading { flex-wrap:wrap; gap:18px; }.customer .cj .bc-trip-type { width:100%; } }
+@media(max-width:600px) { .customer .cj .bc-trip-type { width:100%; }.customer .customer-booking-form > .customer-heading { align-items:stretch; } }

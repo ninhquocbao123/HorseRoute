@@ -1,0 +1,50 @@
+.customer .cj .cj-panel.cj-estimate { border-radius:10px; padding:16px; border-color:#d5e3df; }
+.be-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid #e2eae7; padding-bottom:14px; margin-bottom:18px; }
+.customer .cj .be-heading h3 { margin:0; font-size:16px; }
+.be-heading > span { font-size:10px; color:#647985; white-space:nowrap; }
+.be-route { display:grid; gap:18px; position:relative; }
+.be-route::before { content:''; position:absolute; top:13px; bottom:22px; left:5px; border-left:1px dashed #a5bdb5; }
+.be-route > div { display:flex; align-items:flex-start; gap:12px; }
+.be-route i { width:11px; height:11px; margin-top:5px; border:2px solid #0c655b; border-radius:50%; background:#fff; flex-shrink:0; z-index:1; }
+.be-route > div:last-child i { background:#0c655b; }
+.be-route small { display:block; color:#6f8588; font-size:11px; margin-bottom:4px; }
+.be-route strong { display:block; font-size:13px; font-weight:600; color:#213e43; overflow-wrap:anywhere; }
+.be-trip-meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:16px; padding:10px 0; border-top:1px solid #e2eae7; border-bottom:1px solid #e2eae7; color:#647985; font-size:11px; }
+.customer .cj .cj-estimate .cj-grid { margin:16px 0 10px; }
+.customer .cj .cj-estimate .cj-total { background:#f0f7f4; border:0; border-radius:6px; padding:14px 12px; color:#0c554a; }
+.customer .cj .cj-estimate dl dt,.customer .cj .cj-estimate dl dd { font-size:12px; }
+.customer .cj .cj-estimate .be-continue { background:#0c655b; border-color:#0c655b; color:#fff; min-height:42px; border-radius:6px; box-shadow:none; }
+.customer .cj .cj-estimate .be-continue:hover { background:#084f47; border-color:#084f47; }
+.customer .cj .cj-estimate .be-continue:disabled { background:#e9eeec; border-color:#dce5e1; color:#82948d; }
+.customer .cj .cj-estimate > .ant-btn-dangerous { min-height:38px; border-radius:6px; }
+.customer .cj .cj-estimate .ant-alert { font-size:12px; border-radius:6px; }
+@media(min-width:901px) {
+  .customer .cj .cj-panel.cj-estimate { position:sticky; top:20px; align-self:start; max-height:calc(100dvh - 40px); overflow-y:auto; scrollbar-width:thin; scrollbar-color:#becfc8 transparent; }
+}
+.customer .cj .cj-estimate .be-heading { padding-bottom:10px; margin-bottom:12px; }
+.customer .cj .cj-estimate .be-route { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.customer .cj .cj-estimate .be-route::before { display:none; }
+.customer .cj .cj-estimate .be-route > div { gap:8px; }
+.customer .cj .cj-estimate .be-route small { margin-bottom:2px; }
+.customer .cj .cj-estimate .be-trip-meta { margin-top:10px; padding:8px 0; }
+.customer .cj .cj-estimate .cj-grid { margin:10px 0 6px; }
+.customer .cj .cj-estimate .cj-field { gap:5px; }
+.customer .cj .cj-estimate input { min-height:34px; padding:7px 10px; }
+.customer .cj .cj-estimate .cj-muted { margin:8px 0; line-height:1.5; }
+.customer .cj .cj-estimate dl { margin:10px 0; }
+.customer .cj .cj-estimate dl > div { padding:3px 0; }
+.customer .cj .cj-estimate .cj-total { margin-top:10px; padding:10px; }
+.customer .cj .cj-estimate .cj-total strong { font-size:21px; }
+.customer .cj .cj-estimate > .ant-btn { margin-top:8px; min-height:34px; padding:6px 12px; }
+@media(min-width:901px) and (max-height:750px) {
+  .customer .cj .cj-panel.cj-estimate { padding:12px 14px; }
+  .customer .cj .cj-estimate .be-heading { padding-bottom:8px; margin-bottom:8px; }
+  .customer .cj .cj-estimate .be-trip-meta { margin-top:8px; padding:6px 0; }
+  .customer .cj .cj-estimate dl { margin:6px 0; }
+  .customer .cj .cj-estimate dl dt,.customer .cj .cj-estimate dl dd { font-size:11px; }
+  .customer .cj .cj-estimate .cj-muted { font-size:10px; margin:6px 0; }
+}
+@media(max-width:900px) {
+  .customer .cj .cj-panel.cj-estimate { position:static; max-height:none; }
+}
+.be-distance { display:flex; flex-direction:column; gap:6px; margin:12px 0; padding:10px 12px; border:1px solid #dce7e2; border-radius:6px; background:#f7faf8; }.be-distance>span { font-size:11px; color:#647985; }.be-distance>strong { font-size:16px; color:#0c655b; }.be-distance>small { font-size:10px; line-height:1.5; color:#647985; }.be-distance .ant-btn { align-self:flex-start; padding:0; }

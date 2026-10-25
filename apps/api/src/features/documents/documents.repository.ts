@@ -1,6 +1,16 @@
 // SQL stays here; callers pass the transaction manager when holding row locks.
 type QueryExecutor = { query(sql: string, parameters?: any[]): Promise<any> };
 export class DocumentsRepository {
+  private async changed(db:QueryExecutor,documentId:unknown){
+    await db.query("UPDATE specialist_assessments a JOIN horses h ON h.order_id=a.order_id JOIN documents d ON d.horse_id=h.id SET a.note=IF(a.status='NEED_INFO',NULL,a.note),a.status='IN_REVIEW',a.concluded_at=NULL,a.revision=a.revision+1 WHERE d.id=? AND a.status<>'REJECTED'",[documentId]);
+  }
+  async requestSupplement(db: QueryExecutor, parameters: any[] = []) {
+    const result=await db.query("UPDATE documents SET status='INVALID',invalid_reason=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?", parameters);
+    await this.changed(db,parameters[2]);return result;
+  }
+  notifyDocument(db: QueryExecutor, parameters: any[] = []) {
+    return db.query("INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel) VALUES (?,'DOCUMENT_SUPPLEMENT',?,'DOCUMENT',?,'IN_APP')", parameters);
+  }
   insertAudit(db: QueryExecutor, parameters: any[] = []) {
     return db.query('INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason) VALUES (?,?,?,?,?,?,?)', parameters);
   }
@@ -8,13 +18,14 @@ export class DocumentsRepository {
     return db.query("INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel) VALUES (?,'DOCUMENT_UPDATE',?,'ORDER',?,'IN_APP')", parameters);
   }
   lockOrder(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('SELECT * FROM orders WHERE id=? FOR UPDATE', parameters);
+    return db.query('SELECT o.*,(SELECT a.status FROM specialist_assessments a WHERE a.order_id=o.id) assessment_status,(SELECT a.specialist_id FROM specialist_assessments a WHERE a.order_id=o.id) assigned_specialist_id FROM orders o WHERE o.id=? FOR UPDATE', parameters);
   }
   lockExpiredDocuments(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT d.* FROM documents d JOIN horses h ON h.id=d.horse_id WHERE h.order_id=? AND d.status='VALID' AND d.expiry_date<UTC_DATE() FOR UPDATE", parameters);
   }
-  markExpired(db: QueryExecutor, parameters: any[] = []) {
-    return db.query("UPDATE documents SET status='EXPIRED' WHERE id=?", parameters);
+  async markExpired(db: QueryExecutor, parameters: any[] = []) {
+    const result=await db.query("UPDATE documents SET status='EXPIRED' WHERE id=?", parameters);
+    await this.changed(db,parameters[0]);return result;
   }
   findOrdersWithExpiredDocuments(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT DISTINCT h.order_id FROM documents d JOIN horses h ON h.id=d.horse_id WHERE d.status='VALID' AND d.expiry_date<UTC_DATE()", parameters);
@@ -55,8 +66,9 @@ export class DocumentsRepository {
   insertVersion(db: QueryExecutor, parameters: any[] = []) {
     return db.query('INSERT INTO document_versions(document_id,version_no,attachment_id,uploaded_by,uploaded_at) VALUES (?,?,?,?,UTC_TIMESTAMP())', parameters);
   }
-  markSubmitted(db: QueryExecutor, parameters: any[] = []) {
-    return db.query("UPDATE documents SET status='SUBMITTED',expiry_date=NULL,invalid_reason=NULL,reviewed_by=NULL,reviewed_at=NULL WHERE id=?", parameters);
+  async markSubmitted(db: QueryExecutor, parameters: any[] = []) {
+    const result=await db.query("UPDATE documents SET status='SUBMITTED',expiry_date=NULL,invalid_reason=NULL,reviewed_by=NULL,reviewed_at=NULL WHERE id=?", parameters);
+    await this.changed(db,parameters[0]);return result;
   }
   findSpecialists(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT id FROM users WHERE role='SPECIALIST' AND account_status='ACTIVE'", parameters);
@@ -67,8 +79,9 @@ export class DocumentsRepository {
   findLatestVersion(db: QueryExecutor, parameters: any[] = []) {
     return db.query('SELECT id FROM document_versions WHERE document_id=? ORDER BY version_no DESC LIMIT 1', parameters);
   }
-  recordReview(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('UPDATE documents SET status=?,expiry_date=?,invalid_reason=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?', parameters);
+  async recordReview(db: QueryExecutor, parameters: any[] = []) {
+    const result=await db.query('UPDATE documents SET status=?,expiry_date=?,invalid_reason=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?', parameters);
+    await this.changed(db,parameters[4]);return result;
   }
   lockDossier(db: QueryExecutor, parameters: any[] = []) {
     return db.query('SELECT s.* FROM dossiers s JOIN horses h ON h.id=s.horse_id WHERE s.id=? AND h.order_id=? FOR UPDATE', parameters);

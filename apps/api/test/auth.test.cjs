@@ -8,3 +8,12 @@ test('registration persists profile, hashes password and forces Customer',async(
 test('duplicate email race returns Conflict',async()=>{const service=new AuthService({findByEmailWithPassword:async()=>null,create:async()=>{throw {code:'ER_DUP_ENTRY'}}},{sign:()=>''});await assert.rejects(()=>service.register(input),e=>e.getStatus()===409);});
 test('UTF8 passwords cannot exceed bcrypt 72-byte boundary',async()=>{const service=new AuthService({},{});await assert.rejects(()=>service.register({...input,password:'ế'.repeat(30)}),e=>e.getStatus()===400);});
 test('login rejects incorrect password and locked accounts',async()=>{const hash=await bcrypt.hash('correct-password',4);for(const accountStatus of ['ACTIVE','LOCKED']){const service=new AuthService({findByEmailWithPassword:async()=>({accountStatus,passwordHash:hash})},{});await assert.rejects(()=>service.login('a@b.com','wrong'),e=>e.getStatus()===401);}});
+
+test('club registration requires and persists organization without changing role',async()=>{
+ assert.equal(registerSchema.safeParse({...input,customerType:'CLUB'}).success,false);
+ assert.equal(registerSchema.safeParse({...input,customerType:'ADMIN'}).success,false);
+ let saved;
+ const service=new AuthService({findByEmailWithPassword:async()=>null,create:async data=>(saved={id:'2',...data})},{sign:()=> 'test-token'});
+ await service.register(registerSchema.parse({...input,customerType:'CLUB',organizationName:'  CLB Ngựa  '}));
+ assert.equal(saved.customerType,'CLUB');assert.equal(saved.organizationName,'CLB Ngựa');assert.equal(saved.role,'CUSTOMER');
+});

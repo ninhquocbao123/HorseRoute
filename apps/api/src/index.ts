@@ -7,6 +7,7 @@ import { createRedis } from './shared/config/redis';
 import { createServices } from './shared/config/services';
 import { TokenService } from './shared/utils/jwt.util';
 import { Logger, safeError } from './shared/utils/logger.util';
+import { socketService } from './shared/socket/socket.service';
 
 const logger = new Logger('API');
 const defaults = { loadEnvironment, createDatabase, createRedis, createServices, createServer, createApp };
@@ -81,6 +82,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
       server = dependencies.createServer(dependencies.createApp({
         services, tokens, corsOrigin: env.CORS_ORIGIN, production: env.NODE_ENV === 'production',
       }));
+      socketService.attach(server, tokens, env.CORS_ORIGIN);
     });
     await step('mysql', () => db!.initialize());
     await step('redis', () => redis!.connect());

@@ -1,3 +1,4 @@
+import BrandLogo from '../BrandLogo';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { IUser } from '@my-project/shared';
@@ -69,7 +70,7 @@ export default function DashboardShell({
           aria-label="WDP Equine – Về Tổng quan"
           onClick={event => { event.preventDefault(); go('/dashboard'); }}
         >
-          <span>W</span><div>WDP EQUINE<small>TRANSPORT MANAGEMENT</small></div>
+          <BrandLogo /><div>WDP EQUINE<small>TRANSPORT MANAGEMENT</small></div>
         </Link>
         <div className="portal-role">KHÔNG GIAN LÀM VIỆC<strong>{config.name}</strong></div>
         <nav aria-label="Điều hướng nghiệp vụ">

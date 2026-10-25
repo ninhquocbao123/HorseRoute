@@ -1,3 +1,4 @@
+import { profileSchema } from '../../features/customer/customer.validation';
 import { tripPaths, tripSchemas, tripsTag } from './openapi.trips';
 import { trackingPaths, trackingSchemas, trackingTag } from './openapi.tracking';
 import { z } from 'zod';
@@ -6,15 +7,20 @@ import { loginSchema, registerSchema } from '../../features/auth/auth.validation
 import { draftOrderSchema, orderSchema, reviewSchema, orderQuerySchema, draftHorseSchema, horseSchema } from '../../features/orders/orders.validation';
 import { documentReviewSchema, supplementSchema, dossierUpdateSchema } from '../../features/documents/documents.validation';
 import { paginationSchema } from '../utils/pagination.util';
+import { draftPricingSchema, updatePricingSchema, publishPricingSchema, estimateSchema } from '../../features/pricing/pricing.validation';
+import { quoteSchema,quoteReviewSchema,receiptSchema,reportSchema } from '../../features/manager/manager.validation';
 
 // Runtime schema conversion does not need recursive inference of every DTO union.
 const toJsonSchema = zodToJsonSchema as (schema: unknown, options: Record<string, unknown>) => Record<string, any>;
 
 const definitions = {
+  CustomerProfile:profileSchema,
+  QuoteDto:quoteSchema,QuoteReviewDto:quoteReviewSchema,ReceiptDto:receiptSchema,
   LoginDto: loginSchema, RegisterDto: registerSchema, DraftHorseDto: draftHorseSchema, HorseDto: horseSchema,
   DraftOrderDto: draftOrderSchema, OrderDto: orderSchema, ReviewDto: reviewSchema, OrderQueryDto: orderQuerySchema,
   DocumentReviewDto: documentReviewSchema, SupplementDto: supplementSchema, DossierUpdateDto: dossierUpdateSchema,
   PaginationDto: paginationSchema,
+  DraftPricingDto: draftPricingSchema, UpdatePricingDto: updatePricingSchema, PublishPricingDto: publishPricingSchema, EstimateDto: estimateSchema,
 };
 const schemas: Record<string, any> = {};
 for (const [name, schema] of Object.entries(definitions)) {
@@ -43,12 +49,25 @@ function route(method: string, path: string, summary: string, tag: string, optio
   if (options.body || options.multipart) operation.requestBody = { required: true, content: options.multipart ? { 'multipart/form-data': { schema: options.multipart } } : { 'application/json': { schema: { $ref: '#/components/schemas/' + options.body } } } };
   (paths['/api/v1' + path] ||= {})[method] = operation;
 }
+route('get','/customer/profiles','Hồ sơ ngựa của Customer','Customer');
+route('post','/customer/profiles','Tạo hồ sơ ngựa','Customer',{body:'CustomerProfile',status:201});
+route('put','/customer/profiles/{id}','Cập nhật hồ sơ theo revision','Customer',{body:'CustomerProfile'});
+route('get','/customer/document-types','Danh mục giấy tờ','Customer');
+route('post','/customer/profiles/{id}/files','Nộp ảnh hoặc giấy tờ riêng tư','Customer',{status:201,multipart:{type:'object',required:['file','kind','slot'],properties:{file:{type:'string',format:'binary'},kind:{type:'string',enum:['PHOTO','DOCUMENT']},slot:{type:'string'}}}});
+route('get','/customer/files/{id}','Đọc tệp thuộc sở hữu','Customer',{binary:true});
 route('post', '/auth/login', 'Đăng nhập bằng email và mật khẩu', 'Authentication', { public: true, body: 'LoginDto' });
 route('post', '/auth/register', 'Đăng ký Customer: tên, email, số điện thoại, mật khẩu, địa chỉ', 'Authentication', { public: true, body: 'RegisterDto', status: 201 });
 route('get', '/health', 'Kiểm tra kết nối MySQL', 'Health', { public: true });
+route('get', '/pricing/current', 'Bảng giá đang hiệu lực, không trả bản nháp hoặc bản tương lai', 'Pricing', { public: true });
+route('post', '/pricing/estimate', 'Dự toán đầy đủ, tính trên server từ bảng giá hiện hành', 'Pricing', { public: true, body: 'EstimateDto' });
+route('get', '/manager/pricing', 'Manager: lịch sử phiên bản bảng giá', 'Pricing');
+route('post', '/manager/pricing', 'Manager: tạo bản nháp', 'Pricing', { body: 'DraftPricingDto', status: 201 });
+route('put', '/manager/pricing/{id}', 'Manager: sửa bản nháp với revision, xung đột trả 409', 'Pricing', { body: 'UpdatePricingDto' });
+route('post', '/manager/pricing/{id}/publish', 'Manager: áp dụng phiên bản bất biến, có thể hẹn ngày hiệu lực', 'Pricing', { body: 'PublishPricingDto' });
 route('get', '/users/me', 'Tài khoản hiện tại', 'Users');
 route('get', '/users', 'Admin: danh sách người dùng', 'Users', { query: paginationSchema });
 route('get', '/orders', 'Customer xem đơn của mình; Manager xem đơn đã gửi, theo nhóm và thứ tự tạo tăng dần', 'Flow 1 - Orders', { query: orderQuerySchema });
+route('get', '/orders/customer-workspace', 'Customer: tổng quan đơn, hồ sơ ngựa và khoản đã thu của tài khoản hiện tại', 'Flow 1 - Orders');
 route('post', '/orders', 'Customer: lưu nháp, requestId chống tạo trùng', 'Flow 1 - Orders', { body: 'DraftOrderDto', status: 201 });
 route('get', '/orders/{id}', 'Chi tiết đơn và lịch sử', 'Flow 1 - Orders');
 route('delete', '/orders/{id}', 'Customer: xóa đơn DRAFT của chính mình; đơn đã gửi trả 409', 'Flow 1 - Orders');
@@ -67,6 +86,14 @@ route('post', '/documents/orders/{orderId}/dossiers/{id}', 'Specialist: cập nh
 route('get', '/documents/orders/{orderId}/files/{id}', 'Tải file sau khi kiểm tra quyền', 'Flow 2 - Documents', { binary: true });
 
 Object.assign(paths, tripPaths, trackingPaths);
+route('get','/manager/overview','Manager: thống kê tiếp nhận đơn','Manager');
+route('get','/manager/quote-orders','Manager: đơn đã duyệt để lập giá','Manager');
+route('get','/manager/orders/{id}/quotes','Manager: lịch sử dự toán và khoản thu','Manager');
+route('post','/manager/orders/{id}/quotes','Manager: lập dự toán theo bảng giá hiện hành','Manager',{body:'QuoteDto',status:201});
+route('post','/manager/quotes/{id}/review','Manager: duyệt giá hoặc yêu cầu điều chỉnh','Manager',{body:'QuoteReviewDto'});
+route('post','/manager/quotes/{id}/receipts','Manager: ghi sổ khoản tiền thực tế đã nhận','Manager',{body:'ReceiptDto',status:201});
+route('get','/manager/revenue','Manager: đơn đã giao và thu đủ tiền, theo kỳ Việt Nam','Manager',{query:reportSchema});
+route('get','/orders/{id}/quote','Customer: báo giá chính thức và số tiền đã thanh toán của đơn mình','Manager');
 
 export const openApiDocument = {
   tags: [tripsTag, trackingTag],

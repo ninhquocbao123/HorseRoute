@@ -1,3 +1,4 @@
+import '../../styles/feedback.css';
 import type { ReactNode } from 'react';
 import { App as AntApp, ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
@@ -39,7 +40,7 @@ export default function AntDesignProvider({ children }: AntDesignProviderProps) 
         },
       }}
     >
-      <AntApp>{children}</AntApp>
+      <AntApp message={{top:24,maxCount:3,duration:4}} notification={{placement:'topRight',duration:5,maxCount:3}}>{children}</AntApp>
     </ConfigProvider>
   );
 }

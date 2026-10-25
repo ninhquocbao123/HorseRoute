@@ -1,0 +1,76 @@
+.booking-horses { margin-top:24px; }
+.booking-horses header { display:flex; justify-content:space-between; align-items:center; gap:16px; border-bottom:1px solid #dce5eb; padding-bottom:14px; margin-bottom:18px; }
+.customer .cj .booking-horses h3 { margin:0 0 6px; font-size:16px; }
+.booking-horses header p { margin:0; color:#647985; font-size:13px; }
+.booking-horses header strong { color:#0c655b; }
+.customer .cj .booking-horse-search { background:white; border-radius:6px; padding:8px 12px; margin-bottom:16px; }
+.customer .cj .booking-horse-search input { min-height:24px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.booking-horse-search .ant-input-prefix { color:#0c655b; margin-right:10px; }
+.booking-horse-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.booking-horse-list article { padding:14px; min-width:0; border:1px solid #dce5eb; border-radius:8px; background:white; }
+.booking-horse-list article.is-selected { border-color:#0c655b; background:#f0f8f5; }
+.booking-horse-choice { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+.customer .cj .booking-horse-choice input { width:18px; height:18px; min-height:18px; padding:0; margin:3px 0 0; accent-color:#0c655b; flex-shrink:0; }
+.booking-horse-choice span { min-width:0; }
+.booking-horse-choice strong { display:block; font-size:15px; color:#213b43; overflow-wrap:anywhere; }
+.booking-horse-choice small { display:block; margin-top:6px; color:#647985; font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.booking-horse-docs { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
+.booking-horse-docs button { display:flex; align-items:center; gap:6px; padding:5px 9px; border:1px solid #dce5eb; border-radius:5px; background:#f8fafb; color:#74818b; font:inherit; font-size:12px; }
+.booking-horse-docs button.has-file { color:#17624e; border-color:#b9dfcc; background:#f3fcf7; cursor:pointer; }
+.booking-horse-docs button.has-file:hover { background:#e2f3e9; }
+.booking-horse-docs b { font-weight:600; }
+.booking-horses footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; color:#647985; font-size:12px; }
+@media(max-width:600px) { .booking-horse-list article { padding:14px 12px; }.booking-horse-docs { margin-left:0; }.booking-horses footer { flex-wrap:wrap; }.booking-horse-choice small { font-size:12px; } }
+
+@media(max-width:1199px) { .booking-horse-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .booking-horse-list { grid-template-columns:1fr; } }
+
+.customer .cj .booking-horses .booking-horse-choice { display:flex; flex-direction:row; align-items:flex-start; font-weight:400; }
+.customer .cj .booking-horses .booking-horse-choice input { accent-color:#0c655b; }
+.customer .cj .booking-horses .booking-horse-search input { min-height:24px!important; padding:0!important; border:0!important; background:transparent!important; box-shadow:none!important; }
+.customer .cj .booking-horse-docs button:disabled { opacity:1; color:#647985; }
+
+/* Ngựa đã thuộc đơn khác - cảnh báo đỏ */
+.booking-horse-list article.is-occupied {
+  border: 1.5px solid #ef4444 !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.12);
+  position: relative;
+}
+.booking-horse-list article.is-occupied::before {
+  content: 'Đã có đơn';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+.booking-horse-choice.is-disabled {
+  cursor: not-allowed !important;
+}
+.customer .cj .booking-horse-choice.is-disabled input {
+  cursor: not-allowed !important;
+  opacity: 0.5;
+}
+.booking-horse-choice .occupied-warning {
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+  background: #fee2e2;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block !important;
+  margin-top: 5px !important;
+  margin-bottom: 3px !important;
+  border: 1px solid #fecaca;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+.booking-horse-list article.is-occupied .booking-horse-docs button {
+  opacity: 0.75;
+}
