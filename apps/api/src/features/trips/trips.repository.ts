@@ -213,8 +213,8 @@ export class TripsRepository {
       FROM legs l JOIN locations f ON f.id=l.from_location_id JOIN locations dest ON dest.id=l.to_location_id
       LEFT JOIN vehicles v ON v.id=l.vehicle_id WHERE l.trip_id=? ORDER BY l.seq_no ASC, l.id ASC`, [id]);
   }
-  locations(): Promise<TripPlanOptions['locations']> {
-    return this.db.query(`SELECT CAST(id AS CHAR) AS id, name, location_type AS locationType, country, timezone, address
+  locations(): Promise<(Omit<TripPlanOptions['locations'][number], 'latitude' | 'longitude'> & { latitude: string | null; longitude: string | null })[]> {
+    return this.db.query(`SELECT CAST(id AS CHAR) AS id, name, location_type AS locationType, country, timezone, address, latitude, longitude
       FROM locations ORDER BY name ASC, id ASC`);
   }
   vehicles(): Promise<(Omit<TripPlanOptions['vehicles'][number], 'isActive'> & { isActive: number })[]> {

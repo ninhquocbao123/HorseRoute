@@ -1,0 +1,1317 @@
+[
+  {
+    "name": "Amnat Charoen · อำนาจเจริญ",
+    "wards": [
+      "Chanuman · ชานุมาน",
+      "Hua Taphan · หัวตะพาน",
+      "Lue Amnat · ลืออำนาจ",
+      "Mueang Amnat Charoen · เมืองอำนาจเจริญ",
+      "Pathum Ratchawongsa · ปทุมราชวงศา",
+      "Phana · พนา",
+      "Senangkhanikhom · เสนางคนิคม"
+    ]
+  },
+  {
+    "name": "Ang Thong · อ่างทอง",
+    "wards": [
+      "Chaiyo · ไชโย",
+      "Mueang Ang Thong · เมืองอ่างทอง",
+      "Pa Mok · ป่าโมก",
+      "Pho Thong · โพธิ์ทอง",
+      "Samko · สามโก้",
+      "Sawaeng Ha · แสวงหา",
+      "Wiset Chai Chan · วิเศษชัยชาญ"
+    ]
+  },
+  {
+    "name": "Bangkok · กรุงเทพมหานคร",
+    "wards": [
+      "Bang Bon · บางบอน",
+      "Bang Kapi · บางกะปิ",
+      "Bang Khae · บางแค",
+      "Bang Khen · บางเขน",
+      "Bang Kho Laem · บางคอแหลม",
+      "Bang Khun Thian · บางขุนเทียน",
+      "Bang Na · บางนา",
+      "Bang Phlat · บางพลัด",
+      "Bang Rak · บางรัก",
+      "Bang Sue · บางซื่อ",
+      "Bangkok Noi · บางกอกน้อย",
+      "Bangkok Yai · บางกอกใหญ่",
+      "Bueng Kum · บึงกุ่ม",
+      "Chatuchak · จตุจักร",
+      "Chom Thong · จอมทอง",
+      "Din Daeng · ดินแดง",
+      "Don Mueang · ดอนเมือง",
+      "Dusit · ดุสิต",
+      "Huai Khwang · ห้วยขวาง",
+      "Khan Na Yao · คันนายาว",
+      "Khlong Sam Wa · คลองสามวา",
+      "Khlong San · คลองสาน",
+      "Khlong Toei · คลองเตย",
+      "Lak Si · หลักสี่",
+      "Lat Krabang · ลาดกระบัง",
+      "Lat Phrao · ลาดพร้าว",
+      "Min Buri · มีนบุรี",
+      "Nong Chok · หนองจอก",
+      "Nong Khaem · หนองแขม",
+      "Pathum Wan · ปทุมวัน",
+      "Phasi Charoen · ภาษีเจริญ",
+      "Phaya Thai · พญาไท",
+      "Phra Khanong · พระโขนง",
+      "Phra Nakhon · พระนคร",
+      "Pom Prap Sattru Phai · ป้อมปราบศัตรูพ่าย",
+      "Prawet · ประเวศ",
+      "Rat Burana · ราษฎร์บูรณะ",
+      "Ratchathewi · ราชเทวี",
+      "Sai Mai · สายไหม",
+      "Samphanthawong · สัมพันธวงศ์",
+      "Saphan Sung · สะพานสูง",
+      "Sathon · สาทร",
+      "Suan Luang · สวนหลวง",
+      "Taling Chan · ตลิ่งชัน",
+      "Thawi Watthana · ทวีวัฒนา",
+      "Thon Buri · ธนบุรี",
+      "Thung Khru · ทุ่งครุ",
+      "Wang Thonglang · วังทองหลาง",
+      "Watthana · วัฒนา",
+      "Yan Nawa · ยานนาวา"
+    ]
+  },
+  {
+    "name": "Bueng Kan · บึงกาฬ",
+    "wards": [
+      "Bueng Khong Long · บึงโขงหลง",
+      "Bung Khla · บุ่งคล้า",
+      "Mueang Bueng Kan · เมืองบึงกาฬ",
+      "Pak Khat · ปากคาด",
+      "Phon Charoen · พรเจริญ",
+      "Seka · เซกา",
+      "Si Wilai · ศรีวิไล",
+      "So Phisai · โซ่พิสัย"
+    ]
+  },
+  {
+    "name": "Buri Ram · บุรีรัมย์",
+    "wards": [
+      "Ban Dan · บ้านด่าน",
+      "Ban Kruat · บ้านกรวด",
+      "Ban Mai Chaiyaphot · บ้านใหม่ไชยพจน์",
+      "Chaloem Phra Kiat · เฉลิมพระเกียรติ",
+      "Chamni · ชำนิ",
+      "Huai Rat · ห้วยราช",
+      "Khaen Dong · แคนดง",
+      "Khu Mueang · คูเมือง",
+      "Krasang · กระสัง",
+      "Lahan Sai · ละหานทราย",
+      "Lam Plai Mat · ลำปลายมาศ",
+      "Mueang Buri Ram · เมืองบุรีรัมย์",
+      "Na Pho · นาโพธิ์",
+      "Nang Rong · นางรอง",
+      "Non Din Daeng · โนนดินแดง",
+      "Non Suwan · โนนสุวรรณ",
+      "Nong Hong · หนองหงส์",
+      "Nong Ki · หนองกี่",
+      "Pakham · ปะคำ",
+      "Phlapphla Chai · พลับพลาชัย",
+      "Phutthaisong · พุทไธสง",
+      "Prakhon Chai · ประโคนชัย",
+      "Satuek · สตึก"
+    ]
+  },
+  {
+    "name": "Chachoengsao · ฉะเชิงเทรา",
+    "wards": [
+      "Ban Pho · บ้านโพธิ์",
+      "Bang Khla · บางคล้า",
+      "Bang Nam Priao · บางน้ำเปรี้ยว",
+      "Bang Pakong · บางปะกง",
+      "Khlong Khuean · คลองเขื่อน",
+      "Mueang Chachoengsao · เมืองฉะเชิงเทรา",
+      "Phanom Sarakham · พนมสารคาม",
+      "Plaeng Yao · แปลงยาว",
+      "Ratchasan · ราชสาส์น",
+      "Sanam Chai Khet · สนามชัยเขต",
+      "Tha Takiap · ท่าตะเกียบ"
+    ]
+  },
+  {
+    "name": "Chai Nat · ชัยนาท",
+    "wards": [
+      "Hankha · หันคา",
+      "Manorom · มโนรมย์",
+      "Mueang Chai Nat · เมืองชัยนาท",
+      "Noen Kham · เนินขาม",
+      "Nong Mamong · หนองมะโมง",
+      "Sankhaburi · สรรคบุรี",
+      "Sapphaya · สรรพยา",
+      "Wat Sing · วัดสิงห์"
+    ]
+  },
+  {
+    "name": "Chaiyaphum · ชัยภูมิ",
+    "wards": [
+      "Bamnet Narong · บำเหน็จณรงค์",
+      "Ban Khwao · บ้านเขว้า",
+      "Ban Thaen · บ้านแท่น",
+      "Chatturat · จัตุรัส",
+      "Kaeng Khro · แก้งคร้อ",
+      "Kaset Sombun · เกษตรสมบูรณ์",
+      "Khon San · คอนสาร",
+      "Khon Sawan · คอนสวรรค์",
+      "Mueang Chaiyaphum · เมืองชัยภูมิ",
+      "Noen Sa-nga · เนินสง่า",
+      "Nong Bua Daeng · หนองบัวแดง",
+      "Nong Bua Rawe · หนองบัวระเหว",
+      "Phakdi Chumphon · ภักดีชุมพล",
+      "Phu Khiao · ภูเขียว",
+      "Sap Yai · ซับใหญ่",
+      "Thep Sathit · เทพสถิต"
+    ]
+  },
+  {
+    "name": "Chanthaburi · จันทบุรี",
+    "wards": [
+      "Kaeng Hang Maeo · แก่งหางแมว",
+      "Khao Khitchakut · เขาคิชฌกูฏ",
+      "Khlung · ขลุง",
+      "Laem Sing · แหลมสิงห์",
+      "Makham · มะขาม",
+      "Mueang Chanthaburi · เมืองจันทบุรี",
+      "Na Yai Am · นายายอาม",
+      "Pong Nam Ron · โป่งน้ำร้อน",
+      "Soi Dao · สอยดาว",
+      "Tha Mai · ท่าใหม่"
+    ]
+  },
+  {
+    "name": "Chiang Mai · เชียงใหม่",
+    "wards": [
+      "Chai Prakan · ไชยปราการ",
+      "Chiang Dao · เชียงดาว",
+      "Chom Thong · จอมทอง",
+      "Doi Lo · ดอยหล่อ",
+      "Doi Saket · ดอยสะเก็ด",
+      "Doi Tao · ดอยเต่า",
+      "Fang · ฝาง",
+      "Galyani Vadhana · กัลยาณิวัฒนา",
+      "Hang Dong · หางดง",
+      "Hot · ฮอด",
+      "Mae Ai · แม่อาย",
+      "Mae Chaem · แม่แจ่ม",
+      "Mae On · แม่ออน",
+      "Mae Rim · แม่ริม",
+      "Mae Taeng · แม่แตง",
+      "Mae Wang · แม่วาง",
+      "Mueang Chiang Mai · เมืองเชียงใหม่",
+      "Omkoi · อมก๋อย",
+      "Phrao · พร้าว",
+      "Samoeng · สะเมิง",
+      "San Kamphaeng · สันกำแพง",
+      "San Pa Tong · สันป่าตอง",
+      "San Sai · สันทราย",
+      "Saraphi · สารภี",
+      "Wiang Haeng · เวียงแหง"
+    ]
+  },
+  {
+    "name": "Chiang Rai · เชียงราย",
+    "wards": [
+      "Chiang Khong · เชียงของ",
+      "Chiang Saen · เชียงแสน",
+      "Doi Luang · ดอยหลวง",
+      "Khun Tan · ขุนตาล",
+      "Mae Chan · แม่จัน",
+      "Mae Fa Luang · แม่ฟ้าหลวง",
+      "Mae Lao · แม่ลาว",
+      "Mae Sai · แม่สาย",
+      "Mae Suai · แม่สรวย",
+      "Mueang Chiang Rai · เมืองเชียงราย",
+      "Pa Daet · ป่าแดด",
+      "Phan · พาน",
+      "Phaya Mengrai · พญาเม็งราย",
+      "Thoeng · เทิง",
+      "Wiang Chai · เวียงชัย",
+      "Wiang Chiang Rung · เวียงเชียงรุ้ง",
+      "Wiang Kaen · เวียงแก่น",
+      "Wiang Pa Pao · เวียงป่าเป้า"
+    ]
+  },
+  {
+    "name": "Chon Buri · ชลบุรี",
+    "wards": [
+      "Ban Bueng · บ้านบึง",
+      "Bang Lamung · บางละมุง",
+      "Bo Thong · บ่อทอง",
+      "Ko Chan · เกาะจันทร์",
+      "Ko Sichang · เกาะสีชัง",
+      "Mueang Chon Buri · เมืองชลบุรี",
+      "Nong Yai · หนองใหญ่",
+      "Phan Thong · พานทอง",
+      "Phanat Nikhom · พนัสนิคม",
+      "Sattahip · สัตหีบ",
+      "Si Racha · ศรีราชา"
+    ]
+  },
+  {
+    "name": "Chumphon · ชุมพร",
+    "wards": [
+      "Lamae · ละแม",
+      "Lang Suan · หลังสวน",
+      "Mueang Chumphon · เมืองชุมพร",
+      "Pathio · ปะทิว",
+      "Phato · พะโต๊ะ",
+      "Sawi · สวี",
+      "Tha Sae · ท่าแซะ",
+      "Thung Tako · ทุ่งตะโก"
+    ]
+  },
+  {
+    "name": "Kalasin · กาฬสินธุ์",
+    "wards": [
+      "Don Chan · ดอนจาน",
+      "Huai Mek · ห้วยเม็ก",
+      "Huai Phueng · ห้วยผึ้ง",
+      "Kamalasai · กมลาไสย",
+      "Kham Muang · คำม่วง",
+      "Khao Wong · เขาวง",
+      "Khong Chai · ฆ้องชัย",
+      "Kuchinarai · กุฉินารายณ์",
+      "Mueang Kalasin · เมืองกาฬสินธุ์",
+      "Na Khu · นาคู",
+      "Na Mon · นามน",
+      "Nong Kung Si · หนองกุงศรี",
+      "Rong Kham · ร่องคำ",
+      "Sahatsakhan · สหัสขันธ์",
+      "Sam Chai · สามชัย",
+      "Somdet · สมเด็จ",
+      "Tha Khantho · ท่าคันโท",
+      "Yang Talat · ยางตลาด"
+    ]
+  },
+  {
+    "name": "Kamphaeng Phet · กำแพงเพชร",
+    "wards": [
+      "Bueng Samakkhi · บึงสามัคคี",
+      "Khanu Woralaksaburi · ขาณุวรลักษบุรี",
+      "Khlong Khlung · คลองขลุง",
+      "Khlong Lan · คลองลาน",
+      "Kosamphi Nakhon · โกสัมพีนคร",
+      "Lan Krabue · ลานกระบือ",
+      "Mueang Kamphaeng Phet · เมืองกำแพงเพชร",
+      "Pang Sila Thong · ปางศิลาทอง",
+      "Phran Kratai · พรานกระต่าย",
+      "Sai Ngam · ไทรงาม",
+      "Sai Thong Watthana · ทรายทองวัฒนา"
+    ]
+  },
+  {
+    "name": "Kanchanaburi · กาญจนบุรี",
+    "wards": [
+      "Bo Phloi · บ่อพลอย",
+      "Dan Makham Tia · ด่านมะขามเตี้ย",
+      "Huai Krachao · ห้วยกระเจา",
+      "Lao Khwan · เลาขวัญ",
+      "Mueang Kanchanaburi · เมืองกาญจนบุรี",
+      "Nong Prue · หนองปรือ",
+      "Pha Phum · ทองผาภูมิ",
+      "Phanom Thuan · พนมทวน",
+      "Sai Yok · ไทรโยค",
+      "Sangkhla Buri · สังขละบุรี",
+      "Si Sawat · ศรีสวัสดิ์",
+      "Tha Maka · ท่ามะกา",
+      "Tha Muang · ท่าม่วง"
+    ]
+  },
+  {
+    "name": "Khon Kaen · ขอนแก่น",
+    "wards": [
+      "Ban Fang · บ้านฝาง",
+      "Ban Haet · บ้านแฮด",
+      "Ban Phai · บ้านไผ่",
+      "Chonnabot · ชนบท",
+      "Chum Phae · ชุมแพ",
+      "Khao Suan Kwang · เขาสวนกวาง",
+      "Khok Pho Chai · โคกโพธิ์ไชย",
+      "Kranuan · กระนวน",
+      "Mancha Khiri · มัญจาคีรี",
+      "Mueang Khon Kaen · เมืองขอนแก่น",
+      "Nam Phong · น้ำพอง",
+      "Non Sila · โนนศิลา",
+      "Nong Na Kham · หนองนาคำ",
+      "Nong Ruea · หนองเรือ",
+      "Nong Song Hong · หนองสองห้อง",
+      "Phon · พล",
+      "Phra Yuen · พระยืน",
+      "Phu Pha Man · ภูผาม่าน",
+      "Phu Wiang · ภูเวียง",
+      "Pueai Noi · เปือยน้อย",
+      "Sam Sung · ซำสูง",
+      "Si Chomphu · สีชมพู",
+      "Ubolratana · อุบลรัตน์",
+      "Waeng Noi · แวงน้อย",
+      "Waeng Yai · แวงใหญ่",
+      "Wiang Kao · เวียงเก่า"
+    ]
+  },
+  {
+    "name": "Krabi · กระบี่",
+    "wards": [
+      "Ao Luek · อ่าวลึก",
+      "Khao Phanom · เขาพนม",
+      "Khlong Thom · คลองท่อม",
+      "Ko Lanta · เกาะลันตา",
+      "Lam Thap · ลำทับ",
+      "Mueang Krabi · เมืองกระบี่",
+      "Nuea Khlong · เหนือคลอง",
+      "Plai Phraya · ปลายพระยา"
+    ]
+  },
+  {
+    "name": "Lampang · ลำปาง",
+    "wards": [
+      "Chae Hom · แจ้ห่ม",
+      "Hang Chat · ห้างฉัตร",
+      "Ko Kha · เกาะคา",
+      "Mae Mo · แม่เมาะ",
+      "Mae Phrik · แม่พริก",
+      "Mae Tha · แม่ทะ",
+      "Mueang Lampang · เมืองลำปาง",
+      "Mueang Pan · เมืองปาน",
+      "Ngao · งาว",
+      "Soem Ngam · เสริมงาม",
+      "Sop Prap · สบปราบ",
+      "Thoen · เถิน",
+      "Wang Nuea · วังเหนือ"
+    ]
+  },
+  {
+    "name": "Lamphun · ลำพูน",
+    "wards": [
+      "Ban Hong · บ้านโฮ่ง",
+      "Ban Thi · บ้านธิ",
+      "Li · ลี้",
+      "Mae Tha · แม่ทา",
+      "Mueang Lamphun · เมืองลำพูน",
+      "Pa Sang · ป่าซาง",
+      "Thung Hua Chang · ทุ่งหัวช้าง",
+      "Wiang Nong Long · เวียงหนองล่อง"
+    ]
+  },
+  {
+    "name": "Loei · เลย",
+    "wards": [
+      "Chiang Khan · เชียงคาน",
+      "Dan Sai · ด่านซ้าย",
+      "Erawan · เอราวัณ",
+      "Mueang Loei · เมืองเลย",
+      "Na Duang · นาด้วง",
+      "Na Haeo · นาแห้ว",
+      "Nong Hin · หนองหิน",
+      "Pak Chom · ปากชม",
+      "Pha Khao · ผาขาว",
+      "Phu Kradueng · ภูกระดึง",
+      "Phu Luang · ภูหลวง",
+      "Phu Ruea · ภูเรือ",
+      "Tha Li · ท่าลี่",
+      "Wang Saphung · วังสะพุง"
+    ]
+  },
+  {
+    "name": "Lopburi · ลพบุรี",
+    "wards": [
+      "Ban Mi · บ้านหมี่",
+      "Chai Badan · ชัยบาดาล",
+      "Khok Charoen · โคกเจริญ",
+      "Khok Samrong · โคกสำโรง",
+      "Lam Sonthi · ลำสนธิ",
+      "Mueang Lop Buri · เมืองลพบุรี",
+      "Nong Muang · หนองม่วง",
+      "Phatthana Nikhom · พัฒนานิคม",
+      "Sa Bot · สระโบสถ์",
+      "Tha Luang · ท่าหลวง",
+      "Tha Wung · ท่าวุ้ง"
+    ]
+  },
+  {
+    "name": "Mae Hong Son · แม่ฮ่องสอน",
+    "wards": [
+      "Khun Yuam · ขุนยวม",
+      "Mae La Noi · แม่ลาน้อย",
+      "Mae Sariang · แม่สะเรียง",
+      "Mueang Mae Hong Son · เมืองแม่ฮ่องสอน",
+      "Pai · ปาย",
+      "Pang Mapha · ปางมะผ้า",
+      "Sop Moei · สบเมย"
+    ]
+  },
+  {
+    "name": "Maha Sarakham · มหาสารคาม",
+    "wards": [
+      "Borabue · บรบือ",
+      "Chiang Yuen · เชียงยืน",
+      "Chuen Chom · ชื่นชม",
+      "Kae Dam · แกดำ",
+      "Kantharawichai · กันทรวิชัย",
+      "Kosum Phisai · โกสุมพิสัย",
+      "Kut Rang · กุดรัง",
+      "Mueang Maha Sarakham · เมืองมหาสารคาม",
+      "Na Chueak · นาเชือก",
+      "Na Dun · นาดูน",
+      "Phayakkhaphum Phisai · พยัคฆภูมิพิสัย",
+      "Wapi Pathum · วาปีปทุม",
+      "Yang Sisurat · ยางสีสุราช"
+    ]
+  },
+  {
+    "name": "Mukdahan · มุกดาหาร",
+    "wards": [
+      "Don Tan · ดอนตาล",
+      "Dong Luang · ดงหลวง",
+      "Khamcha-i · คำชะอี",
+      "Mueang Mukdahan · เมืองมุกดาหาร",
+      "Nikhom Kham Soi · นิคมคำสร้อย",
+      "Nong Sung · หนองสูง",
+      "Wan Yai · หว้านใหญ่"
+    ]
+  },
+  {
+    "name": "Nakhon Nayok · นครนายก",
+    "wards": [
+      "Ban Na · บ้านนา",
+      "Mueang Nakhon Nayok · เมืองนครนายก",
+      "Ongkharak · องครักษ์",
+      "Pak Phli · ปากพลี"
+    ]
+  },
+  {
+    "name": "Nakhon Pathom · นครปฐม",
+    "wards": [
+      "Bang Len · บางเลน",
+      "Don Tum · ดอนตูม",
+      "Kamphaeng Saen · กำแพงแสน",
+      "Mueang Nakhon Pathom · เมืองนครปฐม",
+      "Nakhon Chai Si · นครชัยศรี",
+      "Phutthamonthon · พุทธมณฑล",
+      "Sam Phran · สามพราน"
+    ]
+  },
+  {
+    "name": "Nakhon Phanom · นครพนม",
+    "wards": [
+      "Ban Phaeng · บ้านแพง",
+      "Mueang Nakhon Phanom · เมืองนครพนม",
+      "Na Kae · นาแก",
+      "Na Thom · นาทม",
+      "Na Wa · นาหว้า",
+      "Phon Sawan · โพนสวรรค์",
+      "Pla Pak · ปลาปาก",
+      "Renu Nakhon · เรณูนคร",
+      "Si Songkhram · ศรีสงคราม",
+      "Tha Uthen · ท่าอุเทน",
+      "That Phanom · ธาตุพนม",
+      "Wang Yang · วังยาง"
+    ]
+  },
+  {
+    "name": "Nakhon Ratchasima · นครราชสีมา",
+    "wards": [
+      "Ban Lueam · บ้านเหลื่อม",
+      "Bua Lai · บัวลาย",
+      "Bua Yai · บัวใหญ่",
+      "Chakkarat · จักราช",
+      "Chaloem Phra Kiat · เฉลิมพระเกียรติ",
+      "Chok Chai · โชคชัย",
+      "Chum Phuang · ชุมพวง",
+      "Dan Khun Thot · ด่านขุนทด",
+      "Huai Thalaeng · ห้วยแถลง",
+      "Kaeng Sanam Nang · แก้งสนามนาง",
+      "Kham Sakaesaeng · ขามสะแกแสง",
+      "Kham Thale So · ขามทะเลสอ",
+      "Khon Buri · ครบุรี",
+      "Khong · คง",
+      "Lam Thamenchai · ลำทะเมนชัย",
+      "Mueang Nakhon Ratchasima · เมืองนครราชสีมา",
+      "Mueang Yang · เมืองยาง",
+      "Non Daeng · โนนแดง",
+      "Non Sung · โนนสูง",
+      "Non Thai · โนนไทย",
+      "Nong Bun Mak · หนองบุญมาก",
+      "Pak Chong · ปากช่อง",
+      "Pak Thong Chai · ปักธงชัย",
+      "Phimai · พิมาย",
+      "Phra Thong Kham · พระทองคำ",
+      "Prathai · ประทาย",
+      "Sida · สีดา",
+      "Sikhio · สีคิ้ว",
+      "Soeng Sang · เสิงสาง",
+      "Sung Noen · สูงเนิน",
+      "Thepharak · เทพารักษ์",
+      "Wang Nam Khiao · วังน้ำเขียว"
+    ]
+  },
+  {
+    "name": "Nakhon Sawan · นครสวรรค์",
+    "wards": [
+      "Banphot Phisai · บรรพตพิสัย",
+      "Chum Saeng · ชุมแสง",
+      "Chum Ta Bong · ชุมตาบง",
+      "Kao Liao · เก้าเลี้ยว",
+      "Krok Phra · โกรกพระ",
+      "Mae Poen · แม่เปิน",
+      "Mae Wong · แม่วงก์",
+      "Mueang Nakhon Sawan · เมืองนครสวรรค์",
+      "Nong Bua · หนองบัว",
+      "Phaisali · ไพศาลี",
+      "Phayuha Khiri · พยุหะคีรี",
+      "Phayuha Khiri · ลาดยาว",
+      "Tak Fa · ตากฟ้า",
+      "Takhli · ตาคลี",
+      "Takhli · ท่าตะโก"
+    ]
+  },
+  {
+    "name": "Nakhon Si Thammarat · นครศรีธรรมราช",
+    "wards": [
+      "Bang Khan · บางขัน",
+      "Cha-uat · ชะอวด",
+      "Chaloem Phra Kiat · เฉลิมพระเกียรติ",
+      "Chang Klang · ช้างกลาง",
+      "Chawang · ฉวาง",
+      "Chian Yai · เชียรใหญ่",
+      "Chulabhorn · จุฬาภรณ์",
+      "Hua Sai · หัวไทร",
+      "Khanom · ขนอม",
+      "Lan Saka · ลานสกา",
+      "Mueang Nakhon Si Thammarat · เมืองนครศรีธรรมราช",
+      "Na Bon · นาบอน",
+      "Nopphitam · นบพิตำ",
+      "Pak Phanang · ปากพนัง",
+      "Phipun · พิปูน",
+      "Phra Phrom · พระพรหม",
+      "Phrom Khiri · พรหมคีรี",
+      "Ron Phibun · ร่อนพิบูลย์",
+      "Sichon · สิชล",
+      "Tha Sala · ท่าศาลา",
+      "Tham Phannara · ถ้ำพรรณรา",
+      "Thung Song · ทุ่งสง",
+      "Thung Yai · ทุ่งใหญ่"
+    ]
+  },
+  {
+    "name": "Nan · น่าน",
+    "wards": [
+      "Ban Luang · บ้านหลวง",
+      "Bo Kluea · บ่อเกลือ",
+      "Chaloem Phra Kiat · เฉลิมพระเกียรติ",
+      "Chiang Klang · เชียงกลาง",
+      "Mae Charim · แม่จริม",
+      "Mueang Nan · เมืองน่าน",
+      "Na Muen · นาหมื่น",
+      "Na Noi · นาน้อย",
+      "Phu Phiang · ภูเพียง",
+      "Pua · ปัว",
+      "Santi Suk · สันติสุข",
+      "Song Khwae · สองแคว",
+      "Tha Wang Pha · ท่าวังผา",
+      "Thung Chang · ทุ่งช้าง",
+      "Wiang Sa · เวียงสา"
+    ]
+  },
+  {
+    "name": "Narathiwat · นราธิวาส",
+    "wards": [
+      "Bacho · บาเจาะ",
+      "Chanae · จะแนะ",
+      "Cho-airong · เจาะไอร้อง",
+      "Mueang Narathiwat · เมืองนราธิวาส",
+      "Ra-ngae · ระแงะ",
+      "Rueso · รือเสาะ",
+      "Si Sakhon · ศรีสาคร",
+      "Su-ngai Kolok · สุไหงโก-ลก",
+      "Su-ngai Padi · สุไหงปาดี",
+      "Sukhirin · สุคิริน",
+      "Tak Bai · ตากใบ",
+      "Waeng · แว้ง",
+      "Yi-ngo · ยี่งอ"
+    ]
+  },
+  {
+    "name": "Nong Bua Lam Phu · หนองบัวลำภู",
+    "wards": [
+      "Mueang Nong Bua Lam Phu · เมืองหนองบัวลำภู",
+      "Na Klang · นากลาง",
+      "Na Wang · นาวัง",
+      "Non Sang · โนนสัง",
+      "Si Bun Rueang · ศรีบุญเรือง",
+      "Suwannakhuha · สุวรรณคูหา"
+    ]
+  },
+  {
+    "name": "Nong Khai · หนองคาย",
+    "wards": [
+      "Fao Rai · เฝ้าไร่",
+      "Mueang Nong Khai · เมืองหนองคาย",
+      "Pho Tak · โพธิ์ตาก",
+      "Phon Phisai · โพนพิสัย",
+      "Rattanawapi · รัตนวาปี",
+      "Sakhrai · สระใคร",
+      "Sangkhom · สังคม",
+      "Si Chiang Mai · ศรีเชียงใหม่",
+      "Tha Bo · ท่าบ่อ"
+    ]
+  },
+  {
+    "name": "Nonthaburi · นนทบุรี",
+    "wards": [
+      "Bang Bua Thong · บางบัวทอง",
+      "Bang Kruai · บางกรวย",
+      "Bang Yai · บางใหญ่",
+      "Mueang Nonthaburi · เมืองนนทบุรี",
+      "Pak Kret · ปากเกร็ด",
+      "Sai Noi · ไทรน้อย"
+    ]
+  },
+  {
+    "name": "Pathum Thani · ปทุมธานี",
+    "wards": [
+      "Khlong Luang · คลองหลวง",
+      "Lam Luk Ka · ลำลูกกา",
+      "Lat Lum Kaeo · ลาดหลุมแก้ว",
+      "Mueang Pathum Thani · เมืองปทุมธานี",
+      "Nong Suea · หนองเสือ",
+      "Sam Khok · สามโคก",
+      "Thanyaburi · ธัญบุรี"
+    ]
+  },
+  {
+    "name": "Pattani · ปัตตานี",
+    "wards": [
+      "Kapho · กะพ้อ",
+      "Khok Pho · โคกโพธิ์",
+      "Mae Lan · แม่ลาน",
+      "Mai Kaen · ไม้แก่น",
+      "Mayo · มายอ",
+      "Mueang Pattani · เมืองปัตตานี",
+      "Nong Chik · หนองจิก",
+      "Panare · ปะนาเระ",
+      "Sai Buri · สายบุรี",
+      "Thung Yang Daeng · ทุ่งยางแดง",
+      "Yarang · ยะรัง",
+      "Yaring · ยะหริ่ง"
+    ]
+  },
+  {
+    "name": "Phangnga · พังงา",
+    "wards": [
+      "Kapong · กะปง",
+      "Khura Buri · คุระบุรี",
+      "Ko Yao · เกาะยาว",
+      "Mueang Phang-nga · เมืองพังงา",
+      "Takua Pa · ตะกั่วป่า",
+      "Takua Thung · ตะกั่วทุ่ง",
+      "Thai Mueang · ท้ายเหมือง",
+      "Thap Put · ทับปุด"
+    ]
+  },
+  {
+    "name": "Phatthalung · พัทลุง",
+    "wards": [
+      "Bang Kaeo · บางแก้ว",
+      "Khao Chaison · เขาชัยสน",
+      "Khuan Khanun · ควนขนุน",
+      "Kong Ra · กงหรา",
+      "Mueang Phatthalung · เมืองพัทลุง",
+      "Pa Bon · ป่าบอน",
+      "Pa Phayom · ป่าพะยอม",
+      "Pak Phayun · ปากพะยูน",
+      "Si Banphot · ศรีบรรพต",
+      "Srinagarindra · ศรีนครินทร์",
+      "Tamot · ตะโหมด"
+    ]
+  },
+  {
+    "name": "Phayao · พะเยา",
+    "wards": [
+      "Chiang Kham · เชียงคำ",
+      "Chiang Muan · เชียงม่วน",
+      "Chun · จุน",
+      "Dok Khamtai · ดอกคำใต้",
+      "Mae Chai · แม่ใจ",
+      "Mueang Phayao · เมืองพะเยา",
+      "Phu Kamyao · ภูกามยาว",
+      "Phu Sang · ภูซาง",
+      "Pong · ปง"
+    ]
+  },
+  {
+    "name": "Phetchabun · เพชรบูรณ์",
+    "wards": [
+      "Bueng Sam Phan · บึงสามพัน",
+      "Chon Daen · ชนแดน",
+      "Khao Kho · เขาค้อ",
+      "Lom Kao · หล่มเก่า",
+      "Lom Sak · หล่มสัก",
+      "Mueang Phetchabun · เมืองเพชรบูรณ์",
+      "Nam Nao · น้ำหนาว",
+      "Nong Phai · หนองไผ่",
+      "Si Thep · ศรีเทพ",
+      "Wang Pong · วังโป่ง",
+      "Wichian Buri · วิเชียรบุรี"
+    ]
+  },
+  {
+    "name": "Phetchaburi · เพชรบุรี",
+    "wards": [
+      "Ban Laem · บ้านแหลม",
+      "Ban Lat · บ้านลาด",
+      "Cha-am · ชะอำ",
+      "Kaeng Krachan · แก่งกระจาน",
+      "Khao Yoi · เขาย้อย",
+      "Mueang Phetchaburi · เมืองเพชรบุรี",
+      "Nong Ya Plong · หนองหญ้าปล้อง",
+      "Tha Yang · ท่ายาง"
+    ]
+  },
+  {
+    "name": "Phichit · พิจิตร",
+    "wards": [
+      "Bang Mun Nak · บางมูลนาก",
+      "Bueng Na Rang · บึงนาราง",
+      "Dong Charoen · ดงเจริญ",
+      "Mueang Phichit · เมืองพิจิตร",
+      "Pho Prathap Chang · โพธิ์ประทับช้าง",
+      "Pho Thale · โพทะเล",
+      "Sak Lek · สากเหล็ก",
+      "Sam Ngam · สามง่าม",
+      "Tap Khlo · ทับคล้อ",
+      "Taphan Hin · ตะพานหิน",
+      "Wachirabarami · วชิรบารมี",
+      "Wang Sai Phun · วังทรายพูน"
+    ]
+  },
+  {
+    "name": "Phitsanulok · พิษณุโลก",
+    "wards": [
+      "Bang Krathum · บางกระทุ่ม",
+      "Bang Rakam · บางระกำ",
+      "Chat Trakan · ชาติตระการ",
+      "Mueang Phitsanulok · เมืองพิษณุโลก",
+      "Nakhon Thai · นครไทย",
+      "Noen Maprang · เนินมะปราง",
+      "Phrom Phiram · พรหมพิราม",
+      "Wang Thong · วังทอง",
+      "Wat Bot · วัดโบสถ์"
+    ]
+  },
+  {
+    "name": "Phra Nakhon Si Ayutthaya · พระนครศรีอยุธยา",
+    "wards": [
+      "Ban Phraek · บ้านแพรก",
+      "Bang Ban · บางบาล",
+      "Bang Pa-in · บางปะอิน",
+      "Bang Pahan · บางปะหัน",
+      "Bang Sai · บางซ้าย",
+      "Bang Sai · บางไทร",
+      "Lat Bua Luang · ลาดบัวหลวง",
+      "Maha Rat · มหาราช",
+      "Nakhon Luang · นครหลวง",
+      "Phachi · ภาชี",
+      "Phak Hai · ผักไห่",
+      "Phra Nakhon Si Ayutthaya · พระนครศรีอยุธยา",
+      "Sena · เสนา",
+      "Tha Ruea · ท่าเรือ",
+      "Uthai · อุทัย",
+      "Wang Noi · วังน้อย"
+    ]
+  },
+  {
+    "name": "Phrae · แพร่",
+    "wards": [
+      "Den Chai · เด่นชัย",
+      "Long · ลอง",
+      "Mueang Phrae · เมืองแพร่",
+      "Nong Muang Khai · หนองม่วงไข่",
+      "Rong Kwang · ร้องกวาง",
+      "Song · สอง",
+      "Sung Men · สูงเม่น",
+      "Wang Chin · วังชิ้น"
+    ]
+  },
+  {
+    "name": "Phuket · ภูเก็ต",
+    "wards": [
+      "Kathu · กะทู้",
+      "Mueang Phuket · เมืองภูเก็ต",
+      "Thalang · ถลาง"
+    ]
+  },
+  {
+    "name": "Prachin Buri · ปราจีนบุรี",
+    "wards": [
+      "Ban Sang · บ้านสร้าง",
+      "Kabin Buri · กบินทร์บุรี",
+      "Mueang Prachin Buri · เมืองปราจีนบุรี",
+      "Na Di · นาดี",
+      "Prachantakham · ประจันตคาม",
+      "Si Maha Phot · ศรีมหาโพธิ",
+      "Si Mahosot · ศรีมโหสถ"
+    ]
+  },
+  {
+    "name": "Prachuap Khiri Khan · ประจวบคีรีขันธ์",
+    "wards": [
+      "Bang Saphan Noi · บางสะพานน้อย",
+      "Bang Saphan · บางสะพาน",
+      "Hua Hin · หัวหิน",
+      "Kui Buri · กุยบุรี",
+      "Mueang Prachuap Khiri Khan · เมืองประจวบคีรีขันธ์",
+      "Pran Buri · ปราณบุรี",
+      "Sam Roi Yot · สามร้อยยอด",
+      "Thap Sakae · ทับสะแก"
+    ]
+  },
+  {
+    "name": "Ranong · ระนอง",
+    "wards": [
+      "Kapoe · กะเปอร์",
+      "Kra Buri · กระบุรี",
+      "La-un · ละอุ่น",
+      "Mueang Ranong · เมืองระนอง",
+      "Suk Samran · สุขสำราญ"
+    ]
+  },
+  {
+    "name": "Ratchaburi · ราชบุรี",
+    "wards": [
+      "Ban Kha · บ้านคา",
+      "Ban Pong · บ้านโป่ง",
+      "Bang Phae · บางแพ",
+      "Chom Bueng · จอมบึง",
+      "Damnoen Saduak · ดำเนินสะดวก",
+      "Mueang Ratchaburi · เมืองราชบุรี",
+      "Pak Tho · ปากท่อ",
+      "Photharam · โพธาราม",
+      "Suan Phueng · สวนผึ้ง",
+      "Tet Saban Ban Kong · ท้องถิ่นเทศบาลตำบลบ้านฆ้อง",
+      "Wat Phleng · วัดเพลง"
+    ]
+  },
+  {
+    "name": "Rayong · ระยอง",
+    "wards": [
+      "Ban Chang · บ้านฉาง",
+      "Ban Khai · บ้านค่าย",
+      "Khao Chamao · เขาชะเมา",
+      "Klaeng · แกลง",
+      "Mueang Rayong · เมืองระยอง",
+      "Nikhom Phatthana · นิคมพัฒนา",
+      "Pluak Daeng · ปลวกแดง",
+      "Wang Chan · วังจันทร์"
+    ]
+  },
+  {
+    "name": "Roi Et · ร้อยเอ็ด",
+    "wards": [
+      "At Samat · อาจสามารถ",
+      "Changhan · จังหาร",
+      "Chaturaphak Phiman · จตุรพักตรพิมาน",
+      "Chiang Khwan · เชียงขวัญ",
+      "Kaset Wisai · เกษตรวิสัย",
+      "Moei Wadi · เมยวดี",
+      "Mueang Roi Et · เมืองร้อยเอ็ด",
+      "Mueang Suang · เมืองสรวง",
+      "Nong Hi · หนองฮี",
+      "Nong Phok · หนองพอก",
+      "Pathum Rat · ปทุมรัตต์",
+      "Phanom Phrai · พนมไพร",
+      "Pho Chai · โพธิ์ชัย",
+      "Phon Sai · โพนทราย",
+      "Phon Thong · โพนทอง",
+      "Selaphum · เสลภูมิ",
+      "Si Somdet · ศรีสมเด็จ",
+      "Suwannaphum · สุวรรณภูมิ",
+      "Thawat Buri · ธวัชบุรี",
+      "Thung Khao Luang · ทุ่งเขาหลวง"
+    ]
+  },
+  {
+    "name": "Sa Kaeo · สระแก้ว",
+    "wards": [
+      "Aranyaprathet · อรัญประเทศ",
+      "Khao Chakan · เขาฉกรรจ์",
+      "Khlong Hat · คลองหาด",
+      "Khok Sung · โคกสูง",
+      "Mueang Sa Kaeo · เมืองสระแก้ว",
+      "Ta Phraya · ตาพระยา",
+      "Wang Nam Yen · วังน้ำเย็น",
+      "Wang Sombun · วังสมบูรณ์",
+      "Watthana Nakhon · วัฒนานคร"
+    ]
+  },
+  {
+    "name": "Sakon Nakhon · สกลนคร",
+    "wards": [
+      "Akat Amnuai · อากาศอำนวย",
+      "Ban Muang · บ้านม่วง",
+      "Charoen Sin · เจริญศิลป์",
+      "Kham Ta Kla · คำตากล้า",
+      "Khok Si Suphan · โคกศรีสุพรรณ",
+      "Kusuman · กุสุมาลย์",
+      "Kut Bak · กุดบาก",
+      "Mueang Sakon Nakhon · เมืองสกลนคร",
+      "Nikhom Nam Un · นิคมน้ำอูน",
+      "Phang Khon · พังโคน",
+      "Phanna Nikhom · พรรณานิคม",
+      "Phon Na Kaeo · โพนนาแก้ว",
+      "Phu Phan · ภูพาน",
+      "Sawang Daen Din · สว่างแดนดิน",
+      "Song Dao · ส่องดาว",
+      "Tao Ngoi · เต่างอย",
+      "Wanon Niwat · วานรนิวาส",
+      "Waritchaphum · วาริชภูมิ"
+    ]
+  },
+  {
+    "name": "Samut Prakan · สมุทรปราการ",
+    "wards": [
+      "Bang Bo · บางบ่อ",
+      "Bang Phli · บางพลี",
+      "Bang Sao Thong · บางเสาธง",
+      "Mueang Samut Prakan · เมืองสมุทรปราการ",
+      "Phra Pradaeng · พระประแดง",
+      "Phra Samut Chedi · พระสมุทรเจดีย์"
+    ]
+  },
+  {
+    "name": "Samut Sakhon · สมุทรสาคร",
+    "wards": [
+      "Ban Phaeo · บ้านแพ้ว",
+      "Krathum Baen · กระทุ่มแบน",
+      "Mueang Samut Sakhon · เมืองสมุทรสาคร"
+    ]
+  },
+  {
+    "name": "Samut Songkhram · สมุทรสงคราม",
+    "wards": [
+      "Amphawa · อัมพวา",
+      "Bang Khonthi · บางคนที",
+      "Mueang Samut Songkhram · เมืองสมุทรสงคราม"
+    ]
+  },
+  {
+    "name": "Saraburi · สระบุรี",
+    "wards": [
+      "Ban Mo · บ้านหมอ",
+      "Chaloem Phra Kiat · เฉลิมพระเกียรติ",
+      "Don Phut · ดอนพุด",
+      "Kaeng Khoi · แก่งคอย",
+      "Muak Lek · มวกเหล็ก",
+      "Mueang Saraburi · เมืองสระบุรี",
+      "Nong Don · หนองโดน",
+      "Nong Khae · หนองแค",
+      "Nong Saeng · หนองแซง",
+      "Phra Phutthabat · พระพุทธบาท",
+      "Sao Hai · เสาไห้",
+      "Wang Muang · วังม่วง",
+      "Wihan Daeng · วิหารแดง"
+    ]
+  },
+  {
+    "name": "Satun · สตูล",
+    "wards": [
+      "Khuan Don · ควนโดน",
+      "Khuan Kalong · ควนกาหลง",
+      "La-ngu · ละงู",
+      "Manang · มะนัง",
+      "Mueang Satun · เมืองสตูล",
+      "Tha Phae · ท่าแพ",
+      "Thung Wa · ทุ่งหว้า"
+    ]
+  },
+  {
+    "name": "Si Sa Ket · ศรีสะเกษ",
+    "wards": [
+      "Benchalak · เบญจลักษ์",
+      "Bueng Bun · บึงบูรพ์",
+      "Huai Thap Than · ห้วยทับทัน",
+      "Kantharalak · กันทรลักษ์",
+      "Kanthararom · กันทรารมย์",
+      "Khukhan · ขุขันธ์",
+      "Khun Han · ขุนหาญ",
+      "Mueang Chan · เมืองจันทร์",
+      "Mueang Si Sa Ket · เมืองศรีสะเกษ",
+      "Nam Kliang · น้ำเกลี้ยง",
+      "Non Khun · โนนคูณ",
+      "Phayu · พยุห์",
+      "Pho Si Suwan · โพธิ์ศรีสุวรรณ",
+      "Phrai Bueng · ไพรบึง",
+      "Phu Sing · ภูสิงห์",
+      "Prang Ku · ปรางค์กู่",
+      "Rasi Salai · ราษีไศล",
+      "Si Rattana · ศรีรัตนะ",
+      "Sila Lat · ศิลาลาด",
+      "Uthumphon Phisai · อุทุมพรพิสัย",
+      "Wang Hin · วังหิน",
+      "Yang Chum Noi · ยางชุมน้อย"
+    ]
+  },
+  {
+    "name": "Sing Buri · สิงห์บุรี",
+    "wards": [
+      "Bang Rachan · บางระจัน",
+      "In Buri · อินทร์บุรี",
+      "Khai Bang Rachan · ค่ายบางระจัน",
+      "Mueang Sing Buri · เมืองสิงห์บุรี",
+      "Phrom Buri · พรหมบุรี",
+      "Tha Chang · ท่าช้าง"
+    ]
+  },
+  {
+    "name": "Songkhla · สงขลา",
+    "wards": [
+      "Bang Klam · บางกล่ำ",
+      "Chana · จะนะ",
+      "Hat Yai · หาดใหญ่",
+      "Khlong Hoi Khong · คลองหอยโข่ง",
+      "Khuan Niang · ควนเนียง",
+      "Krasae Sin · กระแสสินธุ์",
+      "Mueang Songkhla · เมืองสงขลา",
+      "Na Mom · นาหม่อม",
+      "Na Thawi · นาทวี",
+      "Ranot · ระโนด",
+      "Rattaphum · รัตภูมิ",
+      "Saba Yoi · สะบ้าย้อย",
+      "Sadao · สะเดา",
+      "Sathing Phra · สทิงพระ",
+      "Singhanakhon · สิงหนคร",
+      "Sum Nung Kam · ท้องถิ่นเทศบาลตำบลสำนักขาม",
+      "Thepha · เทพา"
+    ]
+  },
+  {
+    "name": "Sukhothai · สุโขทัย",
+    "wards": [
+      "Ban Dan Lan Hoi · บ้านด่านลานหอย",
+      "Khiri Mat · คีรีมาศ",
+      "Kong Krailat · กงไกรลาศ",
+      "Mueang Sukhothai · เมืองสุโขทัย",
+      "Sawankhalok · สวรรคโลก",
+      "Si Nakhon · ศรีนคร",
+      "Si Samrong · ศรีสำโรง",
+      "Si Satchanalai · ศรีสัชนาลัย",
+      "Thung Saliam · ทุ่งเสลี่ยม"
+    ]
+  },
+  {
+    "name": "Suphan Buri · สุพรรณบุรี",
+    "wards": [
+      "Bang Pla Ma · บางปลาม้า",
+      "Dan Chang · ด่านช้าง",
+      "Doem Bang Nang Buat · เดิมบางนางบวช",
+      "Don Chedi · ดอนเจดีย์",
+      "Mueang Suphan Buri · เมืองสุพรรณบุรี",
+      "Nong Ya Sai · หนองหญ้าไซ",
+      "Sam Chuk · สามชุก",
+      "Si Prachan · ศรีประจันต์",
+      "Song Phi Nong · สองพี่น้อง",
+      "U Thong · อู่ทอง"
+    ]
+  },
+  {
+    "name": "Surat Thani · สุราษฎร์ธานี",
+    "wards": [
+      "Ban Na Doem · บ้านนาเดิม",
+      "Ban Na San · บ้านนาสาร",
+      "Ban Ta Khun · บ้านตาขุน",
+      "Chai Buri · ชัยบุรี",
+      "Chaiya · ไชยา",
+      "Don Sak · ดอนสัก",
+      "Kanchanadit · กาญจนดิษฐ์",
+      "Khian Sa · เคียนซา",
+      "Khiri Rat Nikhom · คีรีรัฐนิคม",
+      "Ko Pha-ngan · เกาะพะงัน",
+      "Ko Samui · เกาะสมุย",
+      "Mueang Surat Thani · เมืองสุราษฎร์ธานี",
+      "Phanom · พนม",
+      "Phrasaeng · พระแสง",
+      "Phunphin · พุนพิน",
+      "Tha Chana · ท่าชนะ",
+      "Tha Chang · ท่าฉาง",
+      "Vibhavadi · วิภาวดี",
+      "Wiang Sa · เวียงสระ"
+    ]
+  },
+  {
+    "name": "Surin · สุรินทร์",
+    "wards": [
+      "Buachet · บัวเชด",
+      "Chom Phra · จอมพระ",
+      "Chumphon Buri · ชุมพลบุรี",
+      "Kap Choeng · กาบเชิง",
+      "Khwao Sinarin · เขวาสินรินทร์",
+      "Lamduan · ลำดวน",
+      "Mueang Surin · เมืองสุรินทร์",
+      "Non Narai · โนนนารายณ์",
+      "Phanom Dong Rak · พนมดงรัก",
+      "Prasat · ปราสาท",
+      "Rattanaburi · รัตนบุรี",
+      "Samrong Thap · สำโรงทาบ",
+      "Sangkha · สังขะ",
+      "Sanom · สนม",
+      "Si Narong · ศรีณรงค์",
+      "Sikhoraphum · ศีขรภูมิ",
+      "Tha Tum · ท่าตูม"
+    ]
+  },
+  {
+    "name": "Tak · ตาก",
+    "wards": [
+      "Ban Tak · บ้านตาก",
+      "Mae Ramat · แม่ระมาด",
+      "Mae Sot · แม่สอด",
+      "Mueang Tak · เมืองตาก",
+      "Phop Phra · พบพระ",
+      "Sam Ngao · สามเงา",
+      "Tha Song Yang · ท่าสองยาง",
+      "Umphang · อุ้มผาง",
+      "Wang Chao · วังเจ้า"
+    ]
+  },
+  {
+    "name": "Trang · ตรัง",
+    "wards": [
+      "Hat Samran · หาดสำราญ",
+      "Huai Yot · ห้วยยอด",
+      "Kantang · กันตัง",
+      "Mueang Trang · เมืองตรัง",
+      "Na Yong · นาโยง",
+      "Palian · ปะเหลียน",
+      "Ratsada · รัษฎา",
+      "Sikao · สิเกา",
+      "Wang Wiset · วังวิเศษ",
+      "Yan Ta Khao · ย่านตาขาว"
+    ]
+  },
+  {
+    "name": "Trat · ตราด",
+    "wards": [
+      "Bo Rai · บ่อไร่",
+      "Khao Saming · เขาสมิง",
+      "Khlong Yai · คลองใหญ่",
+      "Ko Chang · เกาะช้าง",
+      "Ko Kut · เกาะกูด",
+      "Laem Ngop · แหลมงอบ",
+      "Mueang Trat · เมืองตราด"
+    ]
+  },
+  {
+    "name": "Ubon Ratchathani · อุบลราชธานี",
+    "wards": [
+      "Buntharik · บุณฑริก",
+      "Det Udom · เดชอุดม",
+      "Don Mot Daeng · ดอนมดแดง",
+      "Khemarat · เขมราฐ",
+      "Khong Chiam · โขงเจียม",
+      "Khueang Nai · เขื่องใน",
+      "Kut Khaopun · กุดข้าวปุ้น",
+      "Lao Suea Kok · เหล่าเสือโก้ก",
+      "Muang Sam Sip · ม่วงสามสิบ",
+      "Mueang Ubon Ratchathani · เมืองอุบลราชธานี",
+      "Na Chaluai · นาจะหลวย",
+      "Na Tan · นาตาล",
+      "Na Yia · นาเยีย",
+      "Nam Khun · น้ำขุ่น",
+      "Nam Yuen · น้ำยืน",
+      "Phibun Mangsahan · พิบูลมังสาหาร",
+      "Pho Sai · โพธิ์ไทร",
+      "Samrong · สำโรง",
+      "Sawang Wirawong · สว่างวีระวงศ์",
+      "Si Mueang Mai · ศรีเมืองใหม่",
+      "Sirindhorn · สิรินธร",
+      "Tan Sum · ตาลสุม",
+      "Thung Si Udom · ทุ่งศรีอุดม",
+      "Trakan Phuet Phon · ตระการพืชผล",
+      "Warin Chamrap · วารินชำราบ"
+    ]
+  },
+  {
+    "name": "Udon Thani · อุดรธานี",
+    "wards": [
+      "Ban Dung · บ้านดุง",
+      "Ban Phue · บ้านผือ",
+      "Chai Wan · ไชยวาน",
+      "Ku Kaeo · กู่แก้ว",
+      "Kumphawapi · กุมภวาปี",
+      "Kut Chap · กุดจับ",
+      "Mueang Udon Thani · เมืองอุดรธานี",
+      "Na Yung · นายูง",
+      "Nam Som · น้ำโสม",
+      "Non Sa-at · โนนสะอาด",
+      "Nong Han · หนองหาน",
+      "Nong Saeng · หนองแสง",
+      "Nong Wua So · หนองวัวซอ",
+      "Phen · เพ็ญ",
+      "Phibun Rak · พิบูลย์รักษ์",
+      "Prachaksinlapakhom · ประจักษ์ศิลปาคม",
+      "Sang Khom · สร้างคอม",
+      "Si That · ศรีธาตุ",
+      "Thung Fon · ทุ่งฝน",
+      "Wang Sam Mo · วังสามหมอ"
+    ]
+  },
+  {
+    "name": "Uthai Thani · อุทัยธานี",
+    "wards": [
+      "Ban Rai · บ้านไร่",
+      "Huai Khot · ห้วยคต",
+      "Lan Sak · ลานสัก",
+      "Mueang Uthai Thani · เมืองอุทัยธานี",
+      "Nong Chang · หนองฉาง",
+      "Nong Khayang · หนองขาหย่าง",
+      "Sawang Arom · สว่างอารมณ์",
+      "Thap Than · ทัพทัน"
+    ]
+  },
+  {
+    "name": "Uttaradit · อุตรดิตถ์",
+    "wards": [
+      "Ban Khok · บ้านโคก",
+      "Fak Tha · ฟากท่า",
+      "Laplae · ลับแล",
+      "Mueang Uttaradit · เมืองอุตรดิตถ์",
+      "Nam Pat · น้ำปาด",
+      "Phichai · พิชัย",
+      "Tha Pla · ท่าปลา",
+      "Thong Saen Khan · ทองแสนขัน",
+      "Tron · ตรอน"
+    ]
+  },
+  {
+    "name": "Yala · ยะลา",
+    "wards": [
+      "Bannang Sata · บันนังสตา",
+      "Betong · เบตง",
+      "Kabang · กาบัง",
+      "Krong Pinang · กรงปินัง",
+      "Mueang Yala · เมืองยะลา",
+      "Raman · รามัน",
+      "Than To · ธารโต",
+      "Yaha · ยะหา"
+    ]
+  },
+  {
+    "name": "Yasothon · ยโสธร",
+    "wards": [
+      "Kham Khuean Kaeo · คำเขื่อนแก้ว",
+      "Kho Wang · ค้อวัง",
+      "Kut Chum · กุดชุม",
+      "Loeng Nok Tha · เลิงนกทา",
+      "Maha Chana Chai · มหาชนะชัย",
+      "Mueang Yasothon · เมืองยโสธร",
+      "Pa Tio · ป่าติ้ว",
+      "Sai Mun · ทรายมูล",
+      "Thai Charoen · ไทยเจริญ"
+    ]
+  }
+]

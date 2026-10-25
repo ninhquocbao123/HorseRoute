@@ -5,7 +5,7 @@ export class OrdersRepository {
     return db.query("DELETE FROM orders WHERE id=? AND customer_id=? AND status='DRAFT'",parameters);
   }
   list(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
-    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_country,o.destination_country,o.desired_departure_date,o.created_at,u.full_name AS customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY o.created_at ASC,o.id ASC LIMIT ? OFFSET ?`, parameters);
+    return db.query(`SELECT o.id,o.order_code,o.status,o.origin_address,o.destination_address,o.origin_country,o.destination_country,o.desired_departure_date,o.created_at,(SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status<>'REMOVED') horse_count,u.full_name AS customer_name FROM orders o JOIN users u ON u.id=o.customer_id ${parts[0]} ORDER BY ${parts[1]?"CASE WHEN o.status='PENDING' THEN 0 WHEN o.status='NEED_INFO' THEN 1 ELSE 2 END,o.created_at DESC,o.id DESC":'o.created_at ASC,o.id ASC'} LIMIT ? OFFSET ?`, parameters);
   }
   count(db: QueryExecutor, parameters: any[] = [], ...parts: any[]) {
     return db.query(`SELECT COUNT(*) AS total FROM orders o ${parts[0]}`, parameters);
@@ -28,9 +28,7 @@ export class OrdersRepository {
   findCoordinators(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT id,full_name FROM users WHERE role='COORDINATOR' AND account_status='ACTIVE' ORDER BY full_name", parameters);
   }
-  findRuleOptions(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('SELECT q.id,q.border_location_id,l.name AS border_name,a.name AS authority_name FROM quarantine_rules q LEFT JOIN locations l ON l.id=q.border_location_id LEFT JOIN authorities a ON a.id=q.authority_id WHERE q.origin_country=? AND q.destination_country=? ORDER BY q.id', parameters);
-  }
+
   insertAudit(db: QueryExecutor, parameters: any[] = []) {
     return db.query("INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason) VALUES (?,'ORDER',?,?,?,?,?)", parameters);
   }
@@ -79,21 +77,15 @@ export class OrdersRepository {
   lockCoordinator(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT id FROM users WHERE id=? AND role='COORDINATOR' AND account_status='ACTIVE' FOR UPDATE", parameters);
   }
-  lockRules(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('SELECT * FROM quarantine_rules WHERE origin_country=? AND destination_country=? FOR UPDATE', parameters);
-  }
+
   findActiveHorses(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT * FROM horses WHERE order_id=? AND order_status<>'REMOVED'", parameters);
   }
-  findRuleDocumentTypes(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('SELECT q.document_type_id,t.has_expiry FROM quarantine_rule_doctypes q JOIN document_types t ON t.id=q.document_type_id WHERE q.rule_id=? FOR SHARE', parameters);
-  }
+
   ensureDocument(db: QueryExecutor, parameters: any[] = []) {
     return db.query('INSERT INTO documents(horse_id,document_type_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM documents WHERE horse_id=? AND document_type_id=?)', parameters);
   }
-  ensureDossier(db: QueryExecutor, parameters: any[] = []) {
-    return db.query('INSERT INTO dossiers(horse_id,authority_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM dossiers WHERE horse_id=? AND authority_id=?)', parameters);
-  }
+
   insertTrip(db: QueryExecutor, parameters: any[] = []) {
     return db.query('INSERT INTO trips(order_id,planned_by) VALUES (?,?)', parameters);
   }

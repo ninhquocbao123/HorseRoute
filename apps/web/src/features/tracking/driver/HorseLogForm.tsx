@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { IDriverTripSummary, IHorseLog } from '@my-project/shared';
-import { CONDITIONS, errorMessage, trackingApi, type TripDetail } from '../tracking.api';
+import { Alert, Button, Empty, Input, Select, Tag } from 'antd';
+import { EditOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
+import type { IDriverTripDetail, IDriverTripSummary, IHorseLog } from '@my-project/shared';
+import { CONDITIONS, errorMessage, trackingApi } from '../tracking.api';
 import { CONDITION_LABEL, LEG_STATUS_LABEL, currentLeg, formatDateTime } from '../tracking.format';
 import { useDraft } from './useDraft';
 import PhotoPicker from './PhotoPicker';
 import AttachmentImage from '../AttachmentImage';
+import { CONDITION_COLOR } from './driver-ui';
 
 type Draft = { legId: string; horseId: string; condition: string; note: string; correctsLogId: string };
 const EMPTY: Draft = { legId: '', horseId: '', condition: '', note: '', correctsLogId: '' };
 
-export default function HorseLogForm({ trip, detail }: { trip: IDriverTripSummary; detail: TripDetail | undefined }) {
+/** Tab "Nhật ký ngựa": form ghi tình trạng (trái) và nhật ký của chuyến (phải). */
+export default function HorseLogForm({ trip, detail }: { trip: IDriverTripSummary; detail: IDriverTripDetail | undefined }) {
   const [draft, setDraft, clearDraft] = useDraft<Draft>(`horse-log:${trip.id}`, EMPTY);
   const [photos, setPhotos] = useState<File[]>([]);
   const [logs, setLogs] = useState<IHorseLog[]>([]);
@@ -68,92 +72,88 @@ export default function HorseLogForm({ trip, detail }: { trip: IDriverTripSummar
   }
 
   return (
-    <div className="trk-stack">
-      {notice && <p className="trk-notice" role="status">{notice}</p>}
-      <section className="portal-panel trk-panel">
-        <div className="portal-panel-heading"><h2>Ghi nhật ký sức khỏe ngựa</h2></div>
+    <div className="drv-logs">
+      <section className="drv-block">
+        <h3>Ghi nhật ký sức khỏe ngựa</h3>
+        {notice && <Alert type="success" showIcon message={notice} role="status" />}
         {!canLog ? (
-          <p className="trk-hint">Chỉ ghi nhật ký khi chuyến đang vận chuyển và đã có chặng xuất phát.</p>
+          <Alert type="info" showIcon message="Chưa thể ghi nhật ký" description="Chỉ ghi nhật ký khi chuyến đang vận chuyển và đã có chặng xuất phát." />
         ) : (
-          <form className="trk-form" onSubmit={event => { event.preventDefault(); void submit(); }}>
+          <form className="drv-form" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {correcting && (
-              <p className="trk-banner trk-banner-inline">
-                Đang đính chính bản ghi của <strong>{correcting.horseName}</strong> lúc {formatDateTime(correcting.loggedAt)}.
-                <button type="button" className="trk-link" onClick={() => setDraft({ ...draft, correctsLogId: '' })}>Hủy đính chính</button>
-              </p>
+              <Alert
+                type="info" showIcon
+                message={<>Đang đính chính bản ghi của <strong>{correcting.horseName}</strong> lúc {formatDateTime(correcting.loggedAt)}.</>}
+                action={<Button size="small" onClick={() => setDraft({ ...draft, correctsLogId: '' })}>Hủy đính chính</Button>}
+              />
             )}
-            <label className="trk-field">
-              Chặng
-              <select value={legId} disabled={busy} onChange={event => setDraft({ ...draft, legId: event.target.value })}>
-                {started.map(leg => (
-                  <option key={leg.id} value={leg.id}>Chặng {leg.seqNo}: {leg.fromLocationName} → {leg.toLocationName} ({LEG_STATUS_LABEL[leg.status]})</option>
-                ))}
-              </select>
-            </label>
-            <label className="trk-field">
-              Con ngựa
-              <select value={draft.horseId} disabled={busy || !!correcting} onChange={event => setDraft({ ...draft, horseId: event.target.value })}>
-                <option value="">— Chọn ngựa —</option>
-                {horses.map(horse => <option key={horse.id} value={horse.id}>{horse.name} ({horse.passportNo})</option>)}
-              </select>
-            </label>
-            <fieldset className="trk-choice" disabled={busy}>
+            <div className="drv-form-row">
+              <label className="drv-field">
+                <span>Chặng</span>
+                <Select aria-label="Chặng" value={legId || undefined} disabled={busy} onChange={value => setDraft({ ...draft, legId: value })}
+                  options={started.map(leg => ({ value: leg.id, label: `Chặng ${leg.seqNo}: ${leg.fromLocationName} → ${leg.toLocationName} (${LEG_STATUS_LABEL[leg.status]})` }))} />
+              </label>
+              <label className="drv-field">
+                <span>Con ngựa</span>
+                <Select aria-label="Con ngựa" placeholder="Chọn ngựa" value={draft.horseId || undefined} disabled={busy || !!correcting}
+                  onChange={value => setDraft({ ...draft, horseId: value })}
+                  options={horses.map(horse => ({ value: horse.id, label: `${horse.name} (${horse.passportNo})` }))} />
+              </label>
+            </div>
+            <fieldset className="drv-choice" disabled={busy}>
               <legend>Tình trạng</legend>
-              {CONDITIONS.map(item => (
-                <button
-                  key={item.value}
-                  type="button"
-                  aria-pressed={draft.condition === item.value}
-                  onClick={() => setDraft({ ...draft, condition: item.value })}
-                >
-                  <strong>{item.label}</strong>
-                  <small>{item.hint}</small>
-                </button>
-              ))}
+              {CONDITIONS.map(item => {
+                const active = draft.condition === item.value;
+                return (
+                  <Button key={item.value} aria-pressed={active} color={CONDITION_COLOR[item.value] as 'green'} variant={active ? 'solid' : 'outlined'}
+                    onClick={() => setDraft({ ...draft, condition: item.value })}>
+                    <strong>{item.label}</strong>
+                    <small>{item.hint}</small>
+                  </Button>
+                );
+              })}
             </fieldset>
-            <label className="trk-field">
-              Ghi chú
-              <textarea rows={3} maxLength={1000} value={draft.note} disabled={busy} placeholder="Biểu hiện, ăn uống, nhiệt độ…" onChange={event => setDraft({ ...draft, note: event.target.value })} />
+            <label className="drv-field">
+              <span>Ghi chú</span>
+              <Input.TextArea rows={3} maxLength={1000} showCount value={draft.note} disabled={busy} placeholder="Biểu hiện, ăn uống, nhiệt độ…"
+                onChange={event => setDraft({ ...draft, note: event.target.value })} />
             </label>
-            <PhotoPicker files={photos} onChange={setPhotos} onError={setError} disabled={busy} />
-            {error && <p className="error" role="alert">{error}</p>}
-            <button type="submit" className="trk-primary trk-wide" disabled={busy}>{busy ? 'Đang gửi…' : 'GỬI NHẬT KÝ'}</button>
-            <p className="trk-muted">Nội dung được lưu tạm trên thiết bị; nếu mất mạng bạn chỉ cần bấm gửi lại. Ảnh cần chọn lại nếu tải lại trang.</p>
+            <div className="drv-field">
+              <span>Ảnh minh chứng</span>
+              <PhotoPicker files={photos} onChange={setPhotos} onError={setError} disabled={busy} />
+            </div>
+            {error && <Alert type="error" showIcon message={error} />}
+            <div className="drv-form-actions">
+              <span className="drv-muted">Nội dung được lưu tạm trên trình duyệt; nếu mất mạng chỉ cần bấm gửi lại. Ảnh cần chọn lại nếu tải lại trang.</span>
+              <Button type="primary" htmlType="submit" size="large" icon={<SendOutlined />} loading={busy}>Gửi nhật ký</Button>
+            </div>
           </form>
         )}
       </section>
 
-      <section className="portal-panel trk-panel">
-        <div className="portal-panel-heading">
-          <h2>Nhật ký của chuyến</h2>
-          <button type="button" className="trk-secondary" onClick={() => void loadLogs()}>Làm mới</button>
+      <section className="drv-block">
+        <div className="drv-block-head">
+          <h3>Nhật ký của chuyến</h3>
+          <Button icon={<ReloadOutlined />} onClick={() => void loadLogs()}>Làm mới</Button>
         </div>
-        {logs.length === 0 ? (
-          <p className="trk-muted">Chưa có nhật ký nào.</p>
-        ) : (
-          <ul className="trk-log-list">
+        {logs.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có nhật ký nào." /> : (
+          <ul className="drv-log-list">
             {[...logs].reverse().map(log => (
               <li key={log.id}>
-                <div className="trk-leg-head">
+                <div className="drv-log-head">
                   <strong>{log.horseName}</strong>
-                  <span className="status-chip" data-status={log.conditionStatus}>{CONDITION_LABEL[log.conditionStatus]}</span>
+                  <Tag color={CONDITION_COLOR[log.conditionStatus]}>{CONDITION_LABEL[log.conditionStatus]}</Tag>
                 </div>
-                <p className="trk-muted">{formatDateTime(log.loggedAt)} · {log.createdByName}{log.correctsLogId ? ` · đính chính bản #${log.correctsLogId}` : ''}</p>
+                <span className="drv-muted">{formatDateTime(log.loggedAt)} · {log.createdByName}{log.correctsLogId ? ` · đính chính bản #${log.correctsLogId}` : ''}</span>
                 {log.note && <p>{log.note}</p>}
                 {log.attachments.length > 0 && (
                   <div className="trk-thumbs">{log.attachments.map(a => <AttachmentImage key={a.id} id={a.id} name={a.originalName} />)}</div>
                 )}
                 {canLog && (
-                  <button
-                    type="button"
-                    className="trk-link"
-                    onClick={() => {
-                      setDraft({ ...draft, correctsLogId: log.id, horseId: log.horseId, legId: log.legId });
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                  >
+                  <Button type="link" size="small" icon={<EditOutlined />} className="drv-log-fix"
+                    onClick={() => setDraft({ ...draft, correctsLogId: log.id, horseId: log.horseId, legId: log.legId })}>
                     Đính chính bản ghi này
-                  </button>
+                  </Button>
                 )}
               </li>
             ))}

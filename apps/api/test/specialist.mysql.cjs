@@ -1,0 +1,52 @@
+// All business writes are isolated in a uniquely named, disposable test database.
+require('reflect-metadata');require('ts-node').register({project:require('path').resolve(__dirname,'../tsconfig.json'),transpileOnly:true});
+const assert=require('node:assert/strict'),mysql=require('mysql2/promise'),{DataSource}=require('typeorm'),options=require('./mysql-options.cjs');
+const {SpecialistService}=require('../src/features/specialist/specialist.service'),{DocumentsService}=require('../src/features/documents/documents.service'),{ManagerService}=require('../src/features/manager/manager.service');
+const {PricingVersions1800000007000}=require('../src/database/migrations/1800000007000-PricingVersions');
+const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
+(async()=>{let admin,db,created=false;try{
+ admin=await mysql.createConnection(options);assert.match(name,/^wdp_flow1_test_[0-9a-f]{16}$/);await admin.query('CREATE DATABASE `'+name+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');created=true;
+ db=new DataSource({type:'mysql',host:options.host,port:options.port,username:options.user,password:options.password,ssl:options.ssl,database:name,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true});await db.initialize();await require('./load-schema.cjs')(db);
+ const runner=db.createQueryRunner();await runner.connect();try{await new PricingVersions1800000007000().up(runner);}finally{await runner.release();}
+ await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES(1,'manager@test.local','!','Manager','MANAGER','ACTIVE'),(2,'customer@test.local','!','Customer','CUSTOMER','ACTIVE'),(3,'specialist1@test.local','!','Specialist 1','SPECIALIST','ACTIVE'),(4,'specialist2@test.local','!','Specialist 2','SPECIALIST','ACTIVE')");
+ const booking={sender:{name:'Sender',phone:'0900000001'},recipient:{name:'Receiver',phone:'0900000002'},distanceKm:350,vehicleClass:'HEAVY',durationDays:2,insurance:'NONE',feed:'STANDARD',extraStall:false,water:'EVERY_2_HOURS',waterRounds:0};
+ await db.query("INSERT INTO orders(id,order_code,customer_id,status,origin_country,destination_country,origin_address,destination_address,booking_details) VALUES(1,'VCN-20261025-0001',2,'APPROVED','VN','VN','Farm A','Farm B',?)",[JSON.stringify(booking)]);
+ await db.query("INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES(1,1,2,'Silver Storm','TEST-1'),(2,1,2,'Ocean Pearl','TEST-2'),(3,1,2,'Velvet Thunder','TEST-3')");
+ await db.query("INSERT INTO document_types(id,name,has_expiry) VALUES(1,'EIA',1)");
+ await db.query("INSERT INTO documents(id,horse_id,document_type_id,status,expiry_date) VALUES(1,1,1,'VALID','2099-01-01'),(2,2,1,'VALID','2099-01-01'),(3,3,1,'NOT_SUBMITTED',NULL)");
+ const specialist=new SpecialistService(db),docs=new DocumentsService(db),mgr=new ManagerService(db),a={id:'3',role:'SPECIALIST'},b={id:'4',role:'SPECIALIST'},manager={id:'1',role:'MANAGER'};
+ await assert.rejects(()=>specialist.queue(manager),e=>e.getStatus()===403);
+ assert.equal((await specialist.queue(a)).length,1);
+ const race=await Promise.allSettled([specialist.accept(a,'1'),specialist.accept(b,'1')]);assert.equal(race.filter(r=>r.status==='fulfilled').length,1);assert.equal(race.find(r=>r.status==='rejected').reason.getStatus(),409);
+ const owner=race[0].status==='fulfilled'?a:b,other=owner===a?b:a;
+ await specialist.accept(owner,'1');assert.equal((await specialist.queue(other)).length,0);
+ await assert.rejects(()=>specialist.detail(other,'1'),e=>[403,409].includes(e.getStatus()));
+ await assert.rejects(()=>docs.request(other,'1','3','Missing EIA'),e=>e.getStatus()===409);
+ await assert.rejects(()=>specialist.conclude(owner,'1','APPROVED','',1),e=>e.getStatus()===409);
+ await docs.request(owner,'1','3','Thiếu xét nghiệm EIA');
+ const detail=await specialist.detail(owner,'1');assert.deepEqual(detail.documents.map(d=>d.status),['VALID','VALID','INVALID']);assert.equal(detail.order.booking.recipient.name,'Receiver');
+ const revision=Number(detail.assessment.revision);await specialist.conclude(owner,'1','NEED_INFO','Bổ sung EIA cho Velvet Thunder',revision);
+ const awaiting=await specialist.detail(owner,'1');
+ await assert.rejects(()=>specialist.conclude(owner,'1','REJECTED','Repeat',Number(awaiting.assessment.revision)),e=>e.getStatus()===409);
+ await assert.rejects(()=>docs.request(owner,'1','3','Repeat request'),e=>e.getStatus()===409);
+ const context=await mgr.context(manager,'1');assert.equal(context.booking.recipient.name,'Receiver');assert.equal(context.input.distanceKm,350);assert.equal(context.input.horseCount,3);assert.ok(context.estimate.total>0);assert.equal(context.assessment.status,'NEED_INFO');assert.equal(String(context.assessment.specialist_id),owner.id);
+ await assert.rejects(()=>specialist.conclude(owner,'1','REJECTED','Changed',revision),e=>e.getStatus()===409);
+ const [notice]=await db.query("SELECT related_type,related_id FROM notifications WHERE event_type='DOCUMENT_SUPPLEMENT'");assert.equal(notice.related_type,'DOCUMENT');assert.equal(String(notice.related_id),'3');
+ const [notifications]=await db.query("SELECT COUNT(*) n FROM notifications WHERE event_type='ASSESSMENT_RESULT'");assert.equal(Number(notifications.n),2);
+ await db.transaction(async m=>{await m.query('SELECT id FROM orders WHERE id=1 FOR UPDATE');await docs.repository.markSubmitted(m,['3']);});
+ const reset=await specialist.detail(owner,'1');assert.equal(reset.assessment.status,'IN_REVIEW');assert.equal(reset.assessment.note,null);assert.deepEqual(reset.documents.map(d=>d.status),['VALID','VALID','SUBMITTED']);
+ await db.query("UPDATE documents SET status='VALID',expiry_date='2099-01-01' WHERE id=3");
+ await specialist.conclude(owner,'1','APPROVED','Hồ sơ hợp lệ',Number(reset.assessment.revision));assert.equal((await mgr.context(manager,'1')).assessment.status,'APPROVED');
+ const completed=await specialist.detail(owner,'1');
+ await assert.rejects(()=>specialist.conclude(owner,'1','APPROVED','Repeat',Number(completed.assessment.revision)),e=>e.getStatus()===409);
+ await assert.rejects(()=>docs.request(owner,'1','3','Change after approval'),e=>e.getStatus()===409);
+ assert.equal((await specialist.detail(owner,'1')).assessment.status,'APPROVED');
+ await db.query("UPDATE documents SET expiry_date='2020-01-01' WHERE id=3");const expired=await specialist.detail(owner,'1');assert.equal(expired.assessment.status,'IN_REVIEW');assert.equal(expired.documents[2].status,'EXPIRED');
+ await assert.rejects(()=>specialist.conclude(owner,'1','APPROVED','',Number(expired.assessment.revision)),e=>e.getStatus()===409);
+ await specialist.conclude(owner,'1','REJECTED','Hồ sơ không đạt',Number(expired.assessment.revision));
+ const rejected=await specialist.detail(owner,'1');assert.equal(rejected.assessment.note,'Hồ sơ không đạt');
+ await assert.rejects(()=>specialist.conclude(owner,'1','NEED_INFO','Repeat',Number(rejected.assessment.revision)),e=>e.getStatus()===409);
+ await assert.rejects(()=>docs.request(owner,'1','3','Repeat request'),e=>e.getStatus()===409);
+ console.log('PASS specialist atomic claim, ownership, per-horse supplement, revision conflict, expiry, conclusion notifications, assessment reset and Manager booking/estimate/result.');
+ }finally{if(db?.isInitialized)await db.destroy();if(admin){if(created&&/^wdp_flow1_test_[0-9a-f]{16}$/.test(name))await admin.query('DROP DATABASE `'+name+'`');await admin.end();}}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+

@@ -1,57 +1,26 @@
-/* Flow 4 - giao diện hiện trường cho Driver/Escort. Mobile-first (360–430px), vùng bấm tối thiểu 44px (NFR-USE-02). */
-.trk-driver,.trk-stack{display:grid;gap:16px;min-width:0;max-width:760px}
-.trk-driver{margin:0 auto 0 0}
-.trk-stack{max-width:none}
+/* Flow 4 - phần dùng chung cho Customer và vận hành. Giao diện Driver nằm ở driver/driver.css. */
+.trk-stack{display:grid;gap:16px;min-width:0}
 .trk-muted{margin:0;font-size:12px;color:#74827b;line-height:1.6}
 .trk-hint{margin:0;padding:14px 16px;background:#f3f7f5;border-radius:10px;color:#596e64;font-size:13px;line-height:1.7}
 .trk-notice{margin:0;padding:14px 16px;background:#e8f2e3;border:1px solid #c9dec0;border-radius:10px;color:#285437;font-size:13px}
-.trk-error-text{color:#9b483c;font-size:12px;margin:6px 0 0}
 .trk-caption{display:block;font-size:9px;letter-spacing:1.6px;color:#71836c;text-transform:uppercase;margin-bottom:8px}
 
-/* Nút: luôn cao ≥ 44px; nút chính ≥ 56px */
+/* Nút */
 .portal .trk-primary,.portal .trk-secondary,.portal .trk-danger,.portal .trk-action,.portal .trk-icon-button{min-height:44px;font-size:14px;border-radius:10px;cursor:pointer}
 .portal .trk-primary{background:#234e3e;color:#fff;border-color:#234e3e;font-weight:600;min-height:48px}
 .portal .trk-primary:hover{background:#1c4033}
 .portal .trk-secondary{background:#fff}
-.portal .trk-danger{background:#b3261e;border-color:#b3261e;color:#fff;font-weight:700;letter-spacing:.4px;min-height:56px;font-size:15px}
-.portal .trk-danger:hover{background:#8f1d17}
-.portal .trk-danger:disabled{background:#cfa5a1;border-color:#cfa5a1}
-.portal .trk-action{display:block;width:100%;min-height:72px;margin-top:18px;background:#234e3e;color:#fff;border-color:#234e3e;font-size:18px;font-weight:700;letter-spacing:.6px}
-.portal .trk-action:hover{background:#1c4033}
-.trk-wide{width:100%}
 .portal .trk-link{background:none;border:0;padding:8px 0;min-height:44px;color:#234e3e;text-decoration:underline;text-underline-offset:3px;font-size:13px;border-radius:0;text-align:left}
 .portal .trk-link:hover{background:none;color:#102b22}
 .portal .trk-icon-button{width:44px;padding:0;flex-shrink:0}
 
-.trk-emergency{display:grid;gap:6px}
-.trk-emergency small{color:#74827b;font-size:11px}
-.trk-trip-picker select{width:100%}
 
-/* Danh sách chuyến */
-.trk-cards{list-style:none;margin:0;padding:0;display:grid;gap:14px}
-.trk-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:12px;min-width:0}
-.trk-card.is-selected{border-color:#234e3e;box-shadow:0 0 0 1px #234e3e}
-.trk-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.trk-card-title{display:block;font-size:17px;overflow-wrap:anywhere}
-.trk-route{margin:0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+/* Bảng thông tin */
 .trk-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:0}
 .trk-facts div{min-width:0}
 .trk-facts dt{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#71836c}
 .trk-facts dd{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere}
-.trk-progress{display:flex;gap:4px}
-.trk-progress span{flex:1;height:6px;border-radius:3px;background:#e3e8e1}
-.trk-progress span[data-status=COMPLETED]{background:#3f7a52}
-.trk-progress span[data-status=MOVING],.trk-progress span[data-status=AT_STOP]{background:#d3962f}
-.trk-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-/* Chặng hiện tại */
-.trk-current{background:#234e3e;color:#edf2e5;border-radius:14px;padding:22px 20px}
-.trk-current .trk-caption{color:#b3c69f}
-.trk-current .trk-muted{color:#c1d0c2}
-.trk-leg-title{font-family:Georgia,serif;font-size:22px;line-height:1.35;letter-spacing:-.3px;margin:0 0 10px;overflow-wrap:anywhere}
-.portal .trk-current .trk-action{background:#d9e5c7;color:#193e32;border-color:#d9e5c7}
-.portal .trk-current .trk-action:hover{background:#c8d9b0}
-.trk-current .trk-hint{background:#2d5d4b;color:#d9e5d3}
 .trk-panel{margin-bottom:0}
 .trk-legs,.trk-log-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .trk-legs>li,.trk-log-list>li{border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:8px;min-width:0}
@@ -62,11 +31,6 @@
 .trk-milestones li{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#425a50}
 .trk-milestones time{color:#74827b;white-space:nowrap}
 
-/* Banner thao tác chưa gửi */
-.trk-banner{background:#fff6e5;border:1px solid #ecd49c;border-radius:12px;padding:14px 16px;display:grid;gap:12px}
-.trk-banner p{margin:4px 0 0;font-size:13px}
-.trk-banner-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.trk-banner-inline{display:block}
 
 /* Form */
 .trk-form{display:grid;gap:16px}
@@ -81,29 +45,11 @@
 .portal .trk-choice button small{font-size:10px;color:#74827b;line-height:1.35}
 .portal .trk-choice button[aria-pressed=true]{background:#234e3e;border-color:#234e3e;color:#fff}
 .portal .trk-choice button[aria-pressed=true] small{color:#c6d6c9}
-.portal .trk-sheet.is-danger .trk-choice button[aria-pressed=true]{background:#b3261e;border-color:#b3261e}
 
-/* Ảnh */
-.trk-photos{display:grid;gap:10px}
-.trk-photos input[type=file]{display:none}
-.trk-photo-list{list-style:none;margin:0;padding:0;display:flex;gap:10px;flex-wrap:wrap}
-.trk-photo-list li{position:relative;width:84px;height:84px}
-.trk-photo-list img{width:100%;height:100%;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
-.portal .trk-photo-list button{position:absolute;top:-8px;right:-8px;width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;font-size:12px;background:#fff;box-shadow:0 1px 4px #0003}
 .trk-thumbs{display:flex;gap:8px;flex-wrap:wrap}
 .trk-thumb{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#eef1eb;display:inline-grid;place-items:center;font-size:10px;color:#74827b;text-align:center}
 
-/* Thời gian ghi nhận trong sheet */
-.trk-time{display:grid;gap:4px;padding:12px 14px;background:#f3f7f5;border-radius:10px;font-size:13px}
-.trk-time span{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#71836c}
 
-/* Cảnh báo, sự cố đã báo */
-.trk-alerts,.trk-reported{background:#fff6e5;border:1px solid #ecd49c;border-radius:12px;padding:14px 16px}
-.trk-alerts h3,.trk-reported h3{margin:0 0 10px;font-size:13px;font-weight:700}
-.trk-alerts ul,.trk-reported ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.trk-alerts li,.trk-reported li{display:grid;gap:4px;font-size:13px}
-.trk-alerts time,.trk-reported time{font-size:11px;color:#74827b}
-.trk-reported{background:#f6f8f4;border-color:var(--line);margin-top:6px}
 
 /* Sheet (dialog) — trượt từ dưới lên trên điện thoại */
 .trk-sheet{border:0;padding:0;width:min(520px,calc(100vw - 24px));max-height:calc(100svh - 24px);border-radius:16px;background:#fff;color:#193e32;box-shadow:0 24px 60px #0a231c66}
@@ -121,9 +67,7 @@
 .status-chip[data-status=OFF_FEED],.status-chip[data-status=STRESSED],.status-chip[data-status=CLIMATE_CHANGE]{background:#fdeadf;color:#9b4a1d}
 
 @media(max-width:760px){
-  .portal-main:has(.trk-driver){padding:20px 16px 20px}
   .trk-sheet{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;border-radius:18px 18px 0 0}
-  .trk-card-actions,.trk-banner-actions{grid-template-columns:1fr}
 }
 @media(max-width:380px){
   .trk-facts{grid-template-columns:1fr}

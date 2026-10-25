@@ -1,0 +1,20 @@
+.document-scope-summary{font-size:14px;font-weight:600;color:#174851;margin:16px 0}
+.document-scope-summary span{display:block;font-size:12px;font-weight:400;color:#6a8086;margin-top:5px}
+.document-horse-groups{display:grid;gap:22px}
+.document-horse-group{border:1px solid #d7e5e7;border-radius:12px;background:#f3f7f7;padding:16px;min-width:0}
+.document-horse-group>header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.document-horse-group>header h3{font-family:inherit;font-size:16px;color:#16434b;margin:0}
+.document-horse-group>header p{font-size:12px;color:#6a8086;margin:4px 0 0}
+.document-horse-group>header>span{font-size:12px;color:#24695f;background:#e2f1ec;border-radius:6px;padding:5px 9px;white-space:nowrap}
+.flow-documents .document-horse-group .flow-document-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch}
+.flow-documents .document-horse-group .flow-document-card{margin:0;min-width:0;padding:14px;background:#fff;display:flex;flex-direction:column;height:100%;box-sizing:border-box}
+.flow-documents .document-horse-group .flow-document-card>.portal-panel-heading{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;justify-items:start;padding-bottom:16px;margin-bottom:18px}
+.flow-documents .document-horse-group .portal-panel-heading h3{font-size:13px;line-height:1.6;font-family:inherit;min-height:42px;margin:0;overflow-wrap:anywhere}
+.document-horse-group .flow-document-card>button{align-self:flex-start}
+.document-horse-group .flow-document-card>.flow-version-history{margin-top:auto;padding-top:16px}
+.document-horse-group .flow-document-card>button+ .flow-version-history{margin-top:20px}
+.document-horse-group .portal-panel-heading p{display:none}
+.documents-embedded .flow-list,.documents-embedded .back-to-list{display:none}
+.flow-documents.documents-embedded .workspace-grid.master-detail{display:block;grid-template-columns:1fr}
+.documents-embedded .flow-detail{width:100%;min-width:0}
+@media(max-width:800px){.flow-documents .document-horse-group .flow-document-grid{grid-template-columns:1fr}.document-horse-group{padding:12px}}

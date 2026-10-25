@@ -6,7 +6,10 @@ import {
   HorseConditionStatus,
   IncidentType,
   IncidentStatus,
+  IncidentSeverity,
+  DamageTarget,
   AlertType,
+  isValidSubType,
 } from '@my-project/shared';
 
 export const legIdSchema = idSchema.refine(
@@ -98,6 +101,11 @@ export const createHorseLogSchema = z.object({
 });
 export type CreateHorseLogInput = z.infer<typeof createHorseLogSchema>;
 
+/** Số từ multipart (chuỗi) hoặc JSON (number); chuỗi rỗng đã bị normalizeForm bỏ. */
+const coordinateSchema = (min: number, max: number, label: string) => z.coerce.number({ invalid_type_error: `${label} phải là số.` })
+  .refine(Number.isFinite, `${label} phải là số.`)
+  .refine(value => value >= min && value <= max, `${label} phải trong khoảng ${min}..${max}.`);
+
 export const createIncidentSchema = z.object({
   incidentType: z.nativeEnum(IncidentType, {
     errorMap: () => ({ message: 'Loại sự cố không hợp lệ (VEHICLE_BREAKDOWN, LONG_TRAFFIC_JAM, HORSE_MEDICAL).' }),
@@ -105,12 +113,41 @@ export const createIncidentSchema = z.object({
   description: z.string().trim().min(5, 'Mô tả sự cố tối thiểu 5 ký tự.').max(2000, 'Mô tả sự cố tối đa 2000 ký tự.'),
   legId: legIdSchema.optional().nullable(),
   horseId: legIdSchema.optional().nullable(),
+  severity: z.nativeEnum(IncidentSeverity, {
+    errorMap: () => ({ message: 'Mức độ sự cố là bắt buộc (RED, ORANGE, YELLOW).' }),
+  }),
+  subType: z.string().trim().max(40, 'Loại con tối đa 40 ký tự.').optional().nullable(),
+  damageTarget: z.nativeEnum(DamageTarget, {
+    errorMap: () => ({ message: 'Hư hại liên quan tới là bắt buộc (VEHICLE, HORSE, BOTH).' }),
+  }),
+  latitude: coordinateSchema(-90, 90, 'Vĩ độ').optional().nullable(),
+  longitude: coordinateSchema(-180, 180, 'Kinh độ').optional().nullable(),
+  locationText: z.string().trim().max(255, 'Vị trí tối đa 255 ký tự.').optional().nullable(),
+  // Multipart: một nhãn là chuỗi, nhiều nhãn là mảng (field `captions` lặp lại).
+  captions: z.preprocess(
+    value => (value === undefined || value === null ? [] : Array.isArray(value) ? value : [value]),
+    z.array(z.string().trim().max(100, 'Nhãn ảnh tối đa 100 ký tự.')).max(3, 'Tối đa 3 nhãn ảnh.'),
+  ),
 }).strict().superRefine((data, context) => {
   if (data.incidentType === IncidentType.HORSE_MEDICAL && !data.horseId) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['horseId'],
       message: 'Sự cố y tế ngựa (HORSE_MEDICAL) bắt buộc phải chọn con ngựa bị ảnh hưởng.',
+    });
+  }
+  if (data.subType && !isValidSubType(data.incidentType, data.subType)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['subType'],
+      message: 'Loại con không thuộc loại sự cố đã chọn.',
+    });
+  }
+  if ((data.latitude === undefined || data.latitude === null) !== (data.longitude === undefined || data.longitude === null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [data.latitude === undefined || data.latitude === null ? 'latitude' : 'longitude'],
+      message: 'Tọa độ phải gửi đủ cả vĩ độ và kinh độ.',
     });
   }
 });
@@ -140,3 +177,38 @@ export const createAlertSchema = z.object({
 }).strict();
 export type CreateAlertInput = z.infer<typeof createAlertSchema>;
 
+
+// GPS (kế hoạch Bước 6): lô 1–20 điểm để gửi bù khi mất mạng.
+export const MAX_POSITIONS_PER_BATCH = 20;
+const MAX_POSITION_AGE_MS = 24 * 60 * 60_000;
+
+const positionPointSchema = z.object({
+  latitude: z.number({ invalid_type_error: 'Vĩ độ phải là số.' }).min(-90, 'Vĩ độ phải trong khoảng -90..90.').max(90, 'Vĩ độ phải trong khoảng -90..90.'),
+  longitude: z.number({ invalid_type_error: 'Kinh độ phải là số.' }).min(-180, 'Kinh độ phải trong khoảng -180..180.').max(180, 'Kinh độ phải trong khoảng -180..180.'),
+  recordedAt: milestoneTimeSchema,
+  accuracyM: z.number().int().min(0).max(1_000_000).optional(),
+  speedMps: z.number().min(0).max(150, 'Tốc độ không hợp lệ.').optional(),
+  headingDeg: z.number().min(0).lt(360).optional(),
+}).strict().superRefine((point, context) => {
+  // (0, 0) là giá trị rác thường gặp khi thiết bị chưa có tín hiệu.
+  if (point.latitude === 0 && point.longitude === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['latitude'], message: 'Tọa độ (0, 0) không hợp lệ.' });
+  }
+  const timestamp = Date.parse(point.recordedAt);
+  if (timestamp > Date.now() + CLOCK_SKEW_MS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['recordedAt'], message: 'Thời điểm ghi vị trí không được ở tương lai.' });
+  }
+  if (Date.now() - timestamp > MAX_POSITION_AGE_MS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['recordedAt'], message: 'Vị trí cũ hơn 24 giờ không được nhận.' });
+  }
+});
+
+export const positionsBatchSchema = z.object({
+  points: z.array(positionPointSchema)
+    .min(1, 'Cần ít nhất 1 điểm vị trí.')
+    .max(MAX_POSITIONS_PER_BATCH, `Tối đa ${MAX_POSITIONS_PER_BATCH} điểm mỗi lần gửi.`),
+}).strict();
+export type PositionsBatchInput = z.infer<typeof positionsBatchSchema>;
+
+/** `?since=` của vệt đường: UTC ISO tùy chọn. */
+export const trackQuerySchema = z.object({ since: milestoneTimeSchema.optional() });

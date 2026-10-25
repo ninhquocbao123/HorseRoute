@@ -64,11 +64,11 @@ async function main(){
   await assert.rejects(()=>service.detail(other,collision),e=>e.getStatus()===404);
   const [audit]=await db.query("SELECT COUNT(*) n FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='DELETE_DRAFT'",[collision]);assert.equal(Number(audit.n),1);
  });
- await check('Manager groups and stable oldest-first pagination',async()=>{
+ await check('Manager groups and stable newest-first pagination within status priority',async()=>{
   const list=await service.list(manager,{page:1,limit:10});
-  assert.deepEqual(list.items.map(o=>String(o.id)),[String(id),String(otherId)]);
-  assert.equal((await service.list(manager,{page:1,limit:1})).items[0].id,id);
-  assert.equal(String((await service.list(manager,{page:2,limit:1})).items[0].id),String(otherId));
+  assert.deepEqual(list.items.map(o=>String(o.id)),[String(otherId),String(id)]);
+  assert.equal(String((await service.list(manager,{page:1,limit:1})).items[0].id),String(otherId));
+  assert.equal(String((await service.list(manager,{page:2,limit:1})).items[0].id),String(id));
   assert.equal((await service.list(manager,{page:1,limit:10,group:'approved'})).total,1);
   assert.equal((await service.list(manager,{page:1,limit:10,group:'documents'})).total,1);
   assert.equal((await service.list(manager,{page:1,limit:10,group:'pending'})).total,0);

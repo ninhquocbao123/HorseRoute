@@ -41,7 +41,7 @@ export interface TripListResponse extends TripListParams {
   items: TripSummary[];
   total: number;
 }
-export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:string; capacityStalls:number; isActive:true }[] }
+export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:string; capacityStalls:number; isActive:true }[] }
 export interface TripPlanLegInput { id?:string; fromLocationId:string; toLocationId:string; vehicleId:string; plannedDepartureAt:string; plannedArrivalAt:string }
 export interface TripPlanInput { legs:TripPlanLegInput[] }
 export interface CrewOption { id:string; fullName:string }

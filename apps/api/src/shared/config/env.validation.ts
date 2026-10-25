@@ -31,6 +31,10 @@ export const envValidationSchema = Joi.object({
   }),
   SUPABASE_STORAGE_BUCKET: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]{0,62}$/).default('wdp-documents'),
 
+  // Track map: optional; without a token, routes fall back to straight lines.
+  MAPBOX_ACCESS_TOKEN: Joi.string().allow('').optional(),
+  TRACK_POSITION_RETENTION_DAYS: Joi.number().integer().min(1).max(365).default(30),
+
 }).unknown(true);
 
 

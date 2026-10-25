@@ -19,7 +19,7 @@ export class AuthService {
   const email=dto.email.trim().toLowerCase();
   if(await this.users.findByEmailWithPassword(email))throw new ConflictException('Email đã được sử dụng.');
   const passwordHash=await bcrypt.hash(dto.password,12);
-  try{return this.session(await this.users.create({email,passwordHash,fullName:dto.fullName.trim(),phone:dto.phone.trim(),address:dto.address.trim(),role:Role.CUSTOMER,accountStatus:'ACTIVE'}));}
+  try{return this.session(await this.users.create({email,passwordHash,fullName:dto.fullName.trim(),phone:dto.phone.trim(),address:dto.address.trim(),customerType:dto.customerType||'INDIVIDUAL',organizationName:dto.customerType==='CLUB'?dto.organizationName?.trim()||null:null,role:Role.CUSTOMER,accountStatus:'ACTIVE'}));}
   catch(error){if((error as {code?:string}).code==='ER_DUP_ENTRY')throw new ConflictException('Email đã được sử dụng.');throw error;}
  }
 }
