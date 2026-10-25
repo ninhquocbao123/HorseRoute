@@ -183,39 +183,49 @@ function History({orders,receipts,onOpen}:{orders:CustomerOrder[];receipts:Custo
           </div>
 
           <div className="customer-table">
-            <table>
+            <table style={{ width: '100%', minWidth: 880 }}>
               <thead>
                 <tr>
-                  {['Mã GD', 'Mã đơn', 'Số tiền', 'Phương thức', 'Nguồn', 'Thời gian', 'Trạng thái'].map(h => (
-                    <th key={h}>{h}</th>
-                  ))}
+                  <th style={{ width: '28%' }}>Mã GD</th>
+                  <th style={{ width: '14%', whiteSpace: 'nowrap' }}>Mã đơn</th>
+                  <th style={{ width: '14%', whiteSpace: 'nowrap' }}>Số tiền</th>
+                  <th style={{ width: '14%', whiteSpace: 'nowrap' }}>Phương thức</th>
+                  <th style={{ width: '14%', whiteSpace: 'nowrap' }}>Nguồn</th>
+                  <th style={{ width: '16%', whiteSpace: 'nowrap' }}>Thời gian</th>
+                  <th style={{ width: '10%', whiteSpace: 'nowrap' }}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredReceipts.slice((page - 1) * 10, page * 10).map(r => (
                   <tr key={r.id}>
-                    <td><strong style={{ color: '#0c3e47', wordBreak: 'break-all', fontSize: 12 }}>{r.reference}</strong></td>
                     <td>
+                      <strong style={{ color: '#0c3e47', fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                        {r.reference}
+                      </strong>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       <button onClick={() => onOpen(String(r.order_id))}>
                         {r.order_code}
                       </button>
                     </td>
-                    <td>
-                      <b style={{ color: '#059669', fontSize: 14, whiteSpace: 'nowrap', display: 'inline-block' }}>+ {money(r.amount)}</b>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <b style={{ color: '#059669', fontSize: 14, whiteSpace: 'nowrap' }}>
+                        {money(r.amount)}
+                      </b>
                     </td>
-                    <td>
-                      <Tag color="cyan">
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Tag color="cyan" style={{ margin: 0 }}>
                         {paymentMethods[r.method] || r.method || 'Chuyển khoản QR'}
                       </Tag>
                     </td>
-                    <td>
-                      <Tag color={r.source === 'ONLINE_SIMULATION' ? 'blue' : 'orange'}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Tag color={r.source === 'ONLINE_SIMULATION' ? 'blue' : 'orange'} style={{ margin: 0 }}>
                         {r.source === 'ONLINE_SIMULATION' ? 'Thanh toán mô phỏng' : 'Quản lý thu'}
                       </Tag>
                     </td>
-                    <td>{new Date(r.received_at).toLocaleString('vi-VN')}</td>
-                    <td>
-                      <Tag color="success">Thành công</Tag>
+                    <td style={{ whiteSpace: 'nowrap' }}>{new Date(r.received_at).toLocaleString('vi-VN')}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Tag color="success" style={{ margin: 0 }}>Thành công</Tag>
                     </td>
                   </tr>
                 ))}
@@ -281,18 +291,18 @@ function History({orders,receipts,onOpen}:{orders:CustomerOrder[];receipts:Custo
               <tbody>
                 {filteredOrders.slice((page - 1) * 10, page * 10).map(o => (
                   <tr key={o.id}>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       <button onClick={() => onOpen(o.id)}>{o.order_code}</button>
                     </td>
-                    <td>{date(o.created_at)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{date(o.created_at)}</td>
                     <td>
                       {o.origin_address || o.origin_country || 'Chưa chọn'} → {o.destination_address || o.destination_country || 'Chưa chọn'}
                       <small>{o.horse_names || `${o.horse_count || 0} ngựa`}</small>
                     </td>
-                    <td>{o.quote_total === null ? 'Chưa báo giá' : money(o.quote_total)}</td>
-                    <td>
-                      <b>{money(o.paid)}</b>
-                      <small>
+                    <td style={{ whiteSpace: 'nowrap' }}>{o.quote_total === null ? 'Chưa báo giá' : money(o.quote_total)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <b style={{ whiteSpace: 'nowrap' }}>{money(o.paid)}</b>
+                      <small style={{ whiteSpace: 'nowrap' }}>
                         {Number(o.paid) <= 0
                           ? 'Chưa thanh toán'
                           : o.quote_total !== null && Number(o.paid) >= Number(o.quote_total)
@@ -300,7 +310,7 @@ function History({orders,receipts,onOpen}:{orders:CustomerOrder[];receipts:Custo
                           : 'Đã đặt cọc / một phần'}
                       </small>
                     </td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       <Status value={o.status} />
                     </td>
                   </tr>
