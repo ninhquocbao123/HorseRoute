@@ -16,7 +16,7 @@ export interface TripDetail extends TripSummary {
 }
 export interface TripList { items: TripSummary[]; total: number; page: number; limit: number }
 export interface TripPlanOptions {
-  locations: { id: string; name: string; locationType: 'BORDER' | 'QUARANTINE_STATION' | 'REST_STOP' | 'AIRPORT' | 'FUEL_STOP'; country: string; timezone: string; address: string | null }[];
+  locations: { id: string; name: string; locationType: 'BORDER' | 'QUARANTINE_STATION' | 'REST_STOP' | 'AIRPORT' | 'FUEL_STOP'; country: string; timezone: string; address: string | null; latitude: number | null; longitude: number | null }[];
   vehicles: { id: string; plateOrCode: string; vehicleType: 'TRUCK' | 'AIRCRAFT_HOLD' | 'CRATE'; capacityStalls: number; isActive: true }[];
 }
 

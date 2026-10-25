@@ -1,9 +1,9 @@
 import { isAxiosError } from 'axios';
 import type {
+  IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
   IIncident,
-  ILegTracking,
   IAlert,
   IActiveTrips,
   IOrderTimeline,
@@ -13,23 +13,24 @@ import type {
   MilestoneType,
   HorseConditionStatus,
   IncidentType,
+  ITripMap,
+  ITripPositionBatchResult,
+  ITripPositionInput,
+  ITripTrackPoint,
 } from '@my-project/shared';
 import { api } from '../../lib/axios';
 
-export type TripHorse = { id: string; name: string; passportNo: string; orderStatus: string };
-export type TripDetail = {
-  id: string;
-  orderId: string;
-  orderCode: string;
-  orderStatus: string;
-  horses: TripHorse[];
-  legs: ILegTracking[];
-};
 export type MilestoneResult = { milestoneId: string; legId: string; milestoneType: MilestoneType; legStatus: string; orderStatus: string };
 
 export const trackingApi = {
   driverTrips: () => api.get<IDriverTripSummary[]>('/tracking/driver/trips').then(r => r.data),
-  tripDetail: (tripId: string) => api.get<TripDetail>(`/tracking/trips/${tripId}`).then(r => r.data),
+  tripDetail: (tripId: string) => api.get<IDriverTripDetail>(`/tracking/trips/${tripId}`).then(r => r.data),
+  // Bản đồ + GPS (H1). Giới hạn theo tài khoản: /map và vệt đường 60/phút, gửi vị trí 30/phút.
+  tripMap: (tripId: string) => api.get<ITripMap>(`/tracking/trips/${tripId}/map`).then(r => r.data),
+  trackPoints: (tripId: string, since?: string) =>
+    api.get<ITripTrackPoint[]>(`/tracking/trips/${tripId}/positions`, { params: since ? { since } : undefined }).then(r => r.data),
+  postPositions: (tripId: string, points: ITripPositionInput[]) =>
+    api.post<ITripPositionBatchResult>(`/tracking/trips/${tripId}/positions`, { points }).then(r => r.data),
   recordMilestone: (legId: string, milestoneType: MilestoneType, occurredAt: string) =>
     api.post<MilestoneResult>(`/tracking/legs/${legId}/milestones`, { milestoneType, occurredAt }).then(r => r.data),
   completeLeg: (legId: string, occurredAt: string) =>

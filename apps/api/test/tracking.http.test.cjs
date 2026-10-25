@@ -132,3 +132,43 @@ test('Tracking HTTP routes: role gates, multipart photos and attachment headers'
     await f.close();
   }
 });
+
+test('Map/GPS routes: role gates, skipped by the per-IP limiter, limited per user instead', async () => {
+  const calls = [];
+  const record = name => async (account, ...args) => { calls.push({ name, id: String(account.id), args }); return { ok: name }; };
+  const tracking = { getTripMap: record('getTripMap'), recordPositions: record('recordPositions'), getTrackPoints: record('getTrackPoints'), getDriverTrips: record('getDriverTrips') };
+  const users = { getById: async id => ({ id, role: roles[id], accountStatus: 'ACTIVE' }) };
+  const tokens = new TokenService(secret);
+  const services = { users, auth: {}, health: {}, orders: {}, notifications: {}, documents: {}, trips: {}, tracking };
+  // Giới hạn chung theo IP rất thấp (3/phút) để thấy rõ đường bản đồ/GPS không bị tính vào đó.
+  const server = createApp({ services, tokens, corsOrigin: 'http://localhost:5173', requestLimit: 3 }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const auth = id => ({ Authorization: 'Bearer ' + tokens.sign({ sub: id, email: 't@example.com', role: roles[id] }) });
+  const get = (url, id) => fetch(base + url, { headers: auth(id) });
+  const post = (url, id, body) => fetch(base + url, { method: 'POST', headers: { ...auth(id), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await fetch(base + '/api/v1/tracking/trips/1/map')).status, 401);
+    assert.equal((await get('/api/v1/tracking/trips/1/map', '1')).status, 403, 'customer');
+    assert.equal((await get('/api/v1/tracking/trips/1/positions', '1')).status, 403, 'customer');
+    assert.equal((await post('/api/v1/tracking/trips/1/positions', '4', { points: [] })).status, 403, 'coordinator cannot send GPS');
+    assert.equal((await post('/api/v1/tracking/trips/7/positions', '5', { points: [{ latitude: 1 }] })).status, 201);
+    assert.deepEqual(calls.at(-1), { name: 'recordPositions', id: '5', args: ['7', { points: [{ latitude: 1 }] }] });
+    assert.equal((await get('/api/v1/tracking/trips/7/positions?since=2026-10-20T01:00:00.000Z', '3')).status, 200);
+    assert.deepEqual([calls.at(-1).args[0], { ...calls.at(-1).args[1] }], ['7', { since: '2026-10-20T01:00:00.000Z' }]);
+
+    // Đã quá 3 request/phút theo IP nhưng bản đồ vẫn trả 200; các route khác thì 429.
+    for (let i = 0; i < 5; i++) assert.equal((await get('/api/v1/tracking/trips/1/map', '2')).status, 200);
+    for (let i = 0; i < 3; i++) assert.equal((await get('/api/v1/tracking/driver/trips', '5')).status, 200, 'map/GPS calls above were not counted');
+    assert.equal((await get('/api/v1/tracking/driver/trips', '5')).status, 429, 'per-IP limiter still guards other routes');
+
+    // Giới hạn theo người dùng: 60 lần xem bản đồ/phút cho mỗi tài khoản; tài khoản khác không bị ảnh hưởng.
+    let manager = 0;
+    for (let i = 0; i < 60; i++) if ((await get('/api/v1/tracking/trips/1/map', '2')).status === 200) manager++;
+    assert.equal(manager, 55, '60 per minute for this user (5 already used above)');
+    assert.equal((await get('/api/v1/tracking/trips/1/map', '2')).status, 429);
+    assert.equal((await get('/api/v1/tracking/trips/1/map', '4')).status, 200, 'another user is not affected');
+  } finally {
+    await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+  }
+});

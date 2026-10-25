@@ -1,0 +1,6 @@
+.fleet-filters { display: grid; grid-template-columns: minmax(200px, 320px) 200px auto; gap: 12px; margin-bottom: 16px; align-items: center; }
+.fleet-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fleet-actions { display: inline-flex; gap: 8px; }
+@media (max-width: 760px) {
+  .fleet-filters { grid-template-columns: 1fr; }
+}

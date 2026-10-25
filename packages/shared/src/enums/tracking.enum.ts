@@ -40,6 +40,20 @@ export enum IncidentUrgency {
   HIGH   = 'HIGH',
 }
 
+/** incidents.severity — do tài xế chọn; RED luôn suy ra urgency HIGH */
+export enum IncidentSeverity {
+  RED    = 'RED',
+  ORANGE = 'ORANGE',
+  YELLOW = 'YELLOW',
+}
+
+/** incidents.damage_target */
+export enum DamageTarget {
+  VEHICLE = 'VEHICLE',
+  HORSE   = 'HORSE',
+  BOTH    = 'BOTH',
+}
+
 /** incidents.status */
 export enum IncidentStatus {
   NEW          = 'NEW',

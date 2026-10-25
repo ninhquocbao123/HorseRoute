@@ -1,10 +1,12 @@
 import PricingWorkspace from '../../../pricing/PricingWorkspace';
 import DashboardShell, { dashboardPath } from '../../../../components/layout/DashboardShell';
 import DocumentsWorkspace from '../../../documents/DocumentsWorkspace';
+import FleetWorkspace from '../../../fleet/FleetWorkspace';
+import LocationsWorkspace from '../../../locations/LocationsWorkspace';
 import TrackingWorkspace, { trackingViews } from '../../../tracking/TrackingWorkspace';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IUser } from '@my-project/shared';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Navigate } from 'react-router-dom';
 import { api } from '../../../../lib/axios';
 import { App } from 'antd';
 import OrdersWorkspace from '../../../orders/OrdersWorkspace';
@@ -34,8 +36,11 @@ export default function DashboardLayout({account,logout}:DashboardProps){
  {view==='pricing'&&account.role==='MANAGER'&&<PricingWorkspace onLeaveGuardChange={registerLeaveGuard}/>}
  {view==='orders'&&canOrder&&<div className="workspace portal-orders"><OrdersWorkspace onLeaveGuardChange={registerLeaveGuard} role={account.role} refreshNotifications={()=>void refresh()}/></div>}
  {['documents','submissions'].includes(view)&&['CUSTOMER','SPECIALIST','MANAGER'].includes(account.role)&&<DocumentsWorkspace role={account.role}/>} 
+ {view==='fleet'&&account.role==='COORDINATOR'&&<FleetWorkspace canEdit/>}
+ {view==='locations'&&account.role==='SPECIALIST'&&<LocationsWorkspace canEdit/>}
+ {view==='routes'&&account.role==='COORDINATOR'&&<Navigate to="/dashboard/trips" replace/>}
  {trackingViews(account.role).includes(view)&&<TrackingWorkspace role={account.role} view={view} onNavigate={go}/>}
- {area&&![...['orders','documents','submissions','pricing'],...trackingViews(account.role)].includes(area.id)&&<section className="portal-panel"><div className="portal-panel-heading"><h2>{area.title}</h2><span className="portal-tag">Chưa kết nối dữ liệu</span></div><p>{area.description}</p><div className="portal-table-wrap"><table><thead><tr>{area.columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody><tr><td colSpan={area.columns.length}><div className="portal-empty"><h3>Chức năng thuộc Flow 2–4</h3><p>Dữ liệu sẽ hiển thị khi nghiệp vụ được kết nối. Hiện chưa thể cập nhật tại đây.</p><button onClick={()=>go('overview')}>Về tổng quan</button></div></td></tr></tbody></table></div></section>}
+ {area&&![...['orders','documents','submissions','pricing'],...(account.role==='COORDINATOR'?['fleet','routes']:[]),...(account.role==='SPECIALIST'?['locations']:[]),...trackingViews(account.role)].includes(area.id)&&<section className="portal-panel"><div className="portal-panel-heading"><h2>{area.title}</h2><span className="portal-tag">Chưa kết nối dữ liệu</span></div><p>{area.description}</p><div className="portal-table-wrap"><table><thead><tr>{area.columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody><tr><td colSpan={area.columns.length}><div className="portal-empty"><h3>Chức năng thuộc Flow 2–4</h3><p>Dữ liệu sẽ hiển thị khi nghiệp vụ được kết nối. Hiện chưa thể cập nhật tại đây.</p><button onClick={()=>go('overview')}>Về tổng quan</button></div></td></tr></tbody></table></div></section>}
  {view==='notifications'&&<NotificationsPanel notifications={notifications} loading={loading} error={error} unreadOnly={unread} markingId={markingId} onUnreadChange={setUnread} onRefresh={()=>void refresh()} onMarkRead={id=>void markRead(id)}/>}
  {view==='account'&&<section className="portal-panel portal-account"><span className="portal-avatar">{account.fullName.slice(0,1)}</span><h2>{account.fullName}</h2><dl>{[['Email',account.email],['Số điện thoại',account.phone||'Chưa cập nhật'],['Địa chỉ nhà',account.address||'Chưa cập nhật'],['Vai trò',config.name]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>}
  </DashboardShell>;

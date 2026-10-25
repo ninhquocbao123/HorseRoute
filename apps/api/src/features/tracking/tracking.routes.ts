@@ -4,6 +4,7 @@ import { authorize } from '../../shared/middlewares/auth.middleware';
 import { TrackingController } from './tracking.controller';
 import { TrackingService } from './tracking.service';
 import { uploadPhotos } from './tracking.upload';
+import { createUserRateLimiter } from '../../shared/middlewares/rateLimiter.middleware';
 
 export function trackingRoutes(service: TrackingService) {
   const router = Router();
@@ -31,6 +32,12 @@ export function trackingRoutes(service: TrackingService) {
   router.get('/orders/:orderId/timeline', authorize(Role.CUSTOMER), controller.orderTimeline);
   router.get('/trips/:tripId/timeline', authorize(...internal), controller.tripTimeline);
   router.get('/operations/active-trips', authorize(Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST), controller.activeTrips);
+
+  // Bản đồ + GPS (kế hoạch Bước 4 + 6): giới hạn theo người dùng thay cho giới hạn chung theo IP.
+  const mapLimit = createUserRateLimiter(60);
+  router.get('/trips/:tripId/map', mapLimit, authorize(...internal), controller.tripMap);
+  router.post('/trips/:tripId/positions', createUserRateLimiter(30), authorize(Role.DRIVER_ESCORT), controller.recordPositions);
+  router.get('/trips/:tripId/positions', mapLimit, authorize(...internal), controller.trackPoints);
 
   return router;
 }

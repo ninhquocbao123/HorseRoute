@@ -42,14 +42,21 @@ async function main() {
   await runner.connect();
   let accounts;
   try {
-    // Schema: cùng nguồn với test tích hợp (fixtures/schema.sql) + migration OrderRequirements.
+    // Schema: cùng nguồn với test tích hợp (fixtures/schema.sql) + các migration sau bản dump.
     const source = fs.readFileSync(path.join(__dirname, '../test/fixtures/schema.sql'), 'utf8');
     const statements = source.match(/CREATE TABLE `\w+` \([\s\S]*?\) ENGINE=[^\r\n]+;/g);
     if (!statements?.length) throw new Error('Không đọc được schema.sql');
     await runner.query('SET FOREIGN_KEY_CHECKS=0');
     for (const statement of statements) await runner.query(statement);
     const { OrderRequirements1800000004000 } = require('../src/database/migrations/1800000004000-OrderRequirements');
-    await new OrderRequirements1800000004000().up(runner);
+    const { LocationCoordinates1800000005000 } = require('../src/database/migrations/1800000005000-LocationCoordinates');
+    const { TrackMap1800000006000 } = require('../src/database/migrations/1800000006000-TrackMap');
+    const { DriverIncidentDetails1800000007000 } = require('../src/database/migrations/1800000007000-DriverIncidentDetails');
+    const { HotlineParam1800000008000 } = require('../src/database/migrations/1800000008000-HotlineParam');
+    const { VmaxParam1800000009000 } = require('../src/database/migrations/1800000009000-VmaxParam');
+    const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800000010000-RouteCacheFull');
+    for (const Migration of [OrderRequirements1800000004000, LocationCoordinates1800000005000, TrackMap1800000006000,
+      DriverIncidentDetails1800000007000, HotlineParam1800000008000, VmaxParam1800000009000, RouteCacheFull1800000010000]) await new Migration().up(runner);
     await runner.query('SET FOREIGN_KEY_CHECKS=1');
 
     const hash = await bcrypt.hash(PASSWORD, 10);
@@ -72,9 +79,10 @@ async function main() {
       );
     }
 
-    await runner.query(`INSERT INTO locations(id,name,location_type,country,timezone) VALUES
-      (1,'Kho Long An','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'Cửa khẩu Mộc Bài','BORDER','VN','Asia/Ho_Chi_Minh'),
-      (3,'Sân bay Changi','AIRPORT','SG','Asia/Singapore')`);
+    // Tọa độ xấp xỉ cho bản đồ: chặng 1 đi đường bộ; chặng 2 (xe tải qua biển) rơi về đường thẳng ước lượng.
+    await runner.query(`INSERT INTO locations(id,name,location_type,country,timezone,latitude,longitude) VALUES
+      (1,'Kho Long An','REST_STOP','VN','Asia/Ho_Chi_Minh',10.638,106.47),(2,'Cửa khẩu Mộc Bài','BORDER','VN','Asia/Ho_Chi_Minh',11.076,106.158),
+      (3,'Sân bay Changi','AIRPORT','SG','Asia/Singapore',1.3644,103.9915)`);
     await runner.query(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (5,'TRUCK',4,'51C-123.45',1)`);
 
     // Đơn A: READY, chuyến APPROVED, 2 chặng (chặng 1 đến CỬA KHẨU), Driver + Escort được phân công. Dùng cho luồng chính.

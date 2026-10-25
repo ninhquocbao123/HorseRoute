@@ -13,6 +13,8 @@ import {
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
+  IncidentSeverity,
+  DamageTarget,
   AlertType,
 } from '../enums/tracking.enum';
 import { CrewRole, OrderStatus, PlanStatus } from '../enums/order.enum';
@@ -73,6 +75,8 @@ export interface ILogAttachment {
   fileType: 'PDF' | 'JPG' | 'PNG';
   sizeBytes: number;
   uploadedAt: string;
+  /** Nhãn ảnh, ví dụ "Lốp sau"; null với ảnh cũ */
+  caption: string | null;
 }
 
 // ─── Incident (incidents + attachments) ──────────────────────────────────────
@@ -86,6 +90,14 @@ export interface IIncident {
   incidentType: IncidentType;
   description: string;
   urgency: IncidentUrgency;
+  /** Các trường dưới đây null với sự cố báo trước khi có màn D2 */
+  severity: IncidentSeverity | null;
+  /** Mã trong INCIDENT_SUB_TYPES[incidentType] */
+  subType: string | null;
+  damageTarget: DamageTarget | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationText: string | null;
   status: IncidentStatus;
   reportedBy: string;
   reportedByName: string;
@@ -119,6 +131,62 @@ export interface IDriverTripSummary {
   plannedDepartureAt: string | null;
   plannedArrivalAt: string | null;
   crewRole: CrewRole;       // DRIVER or ESCORT (this user's role in the assignment)
+  legs: ILegTracking[];
+}
+
+// ─── Trip detail (GET /tracking/trips/:id) ───────────────────────────────────
+
+export interface ITripHorse {
+  id: string;
+  name: string;
+  passportNo: string;
+  orderStatus: string;
+}
+
+/** `phone` là null khi người dùng chưa khai báo, hoặc khi người gọi là Specialist (ẩn SĐT nội bộ). */
+export interface ITripCrewMember {
+  userId: string;
+  name: string;
+  phone: string | null;
+  role: CrewRole;
+}
+
+export interface ITripContact {
+  name: string;
+  phone: string | null;
+}
+
+export interface ITripVehicle {
+  id: string;
+  /** vehicles.plate_or_code */
+  code: string;
+  /** vehicles.vehicle_type: TRUCK | AIRCRAFT_HOLD | CRATE */
+  type: string;
+  capacityStalls: number;
+}
+
+export interface IDriverTripDetail {
+  id: string;               // tripId
+  orderId: string;
+  orderCode: string;
+  orderStatus: OrderStatus;
+  planStatus: PlanStatus;
+  plannedDepartureAt: string | null;
+  plannedArrivalAt: string | null;
+  /** Chỉ có khi người gọi là Driver/Escort được phân công */
+  crewRole?: CrewRole;
+  /** Tài xế trước, hộ tống sau */
+  crew: ITripCrewMember[];
+  customer: { name: string };
+  /** null khi đơn chưa có cả tên lẫn SĐT người nhận */
+  recipient: ITripContact | null;
+  /** Người lập kế hoạch chuyến (trips.planned_by) */
+  coordinator: ITripContact | null;
+  /** Số cứu hộ 24/7 (system_parameters.HOTLINE); null khi chưa cấu hình */
+  emergencyHotline: string | null;
+  /** Các xe khác nhau dùng trong các chặng, theo thứ tự chặng đầu tiên dùng xe */
+  vehicles: ITripVehicle[];
+  horses: ITripHorse[];
   legs: ILegTracking[];
 }
 
@@ -242,6 +310,16 @@ export interface IIncidentCreateInput {
   description: string;
   legId?: string;
   horseId?: string;
+  severity: IncidentSeverity;
+  /** Mã trong INCIDENT_SUB_TYPES[incidentType] */
+  subType?: string;
+  damageTarget: DamageTarget;
+  /** Gửi cả hai hoặc không gửi */
+  latitude?: number;
+  longitude?: number;
+  locationText?: string;
+  /** Nhãn ảnh, cùng thứ tự với `photos` (multipart: lặp field `captions`) */
+  captions?: string[];
 }
 
 // ─── Incident patch request (from Coordinator) ───────────────────────────────

@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Button } from 'antd';
+import { CloseOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
 
 export const MAX_PHOTOS = 3;
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-/** Chọn/chụp tối đa 3 ảnh JPG/PNG ≤ 5 MB (khớp giới hạn backend). Ảnh chỉ giữ trong bộ nhớ, không lưu vào localStorage. */
-export default function PhotoPicker({ files, onChange, onError, disabled }: {
+/**
+ * Chọn tối đa 3 ảnh JPG/PNG ≤ 5 MB (khớp giới hạn backend). Ảnh chỉ giữ trong bộ nhớ, không lưu vào localStorage.
+ * `variant="tiles"` (màn D2): ô ảnh lớn, `renderCaption` chèn ô nhãn dưới mỗi ảnh, `onRemove` để cha xóa cả nhãn đi kèm.
+ */
+export default function PhotoPicker({ files, onChange, onError, disabled, variant, renderCaption, onRemove }: {
   files: File[];
   onChange: (files: File[]) => void;
   onError: (message: string) => void;
   disabled?: boolean;
+  variant?: 'tiles';
+  renderCaption?: (index: number) => ReactNode;
+  onRemove?: (index: number) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const urls = useMemo(() => files.map(file => URL.createObjectURL(file)), [files]);
@@ -37,31 +45,29 @@ export default function PhotoPicker({ files, onChange, onError, disabled }: {
   }
 
   return (
-    <div className="trk-photos">
-      <input
-        ref={input}
-        type="file"
-        accept="image/jpeg,image/png"
-        capture="environment"
-        multiple
-        hidden
-        onChange={event => add(event.target.files)}
-      />
-      <button type="button" className="trk-secondary" disabled={disabled || files.length >= MAX_PHOTOS} onClick={() => input.current?.click()}>
-        📷 Chụp / chọn ảnh ({files.length}/{MAX_PHOTOS})
-      </button>
-      {files.length > 0 && (
-        <ul className="trk-photo-list">
-          {files.map((file, index) => (
-            <li key={file.name + index}>
-              <img src={urls[index]} alt={file.name} />
-              <button type="button" aria-label={`Bỏ ảnh ${file.name}`} disabled={disabled} onClick={() => onChange(files.filter((_, i) => i !== index))}>
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className={'drv-photos' + (variant ? ' is-' + variant : '')}>
+      <input ref={input} type="file" accept="image/jpeg,image/png" multiple hidden onChange={event => add(event.target.files)} />
+      <div className="drv-photos-row">
+        {files.map((file, index) => (
+          <figure key={file.name + index} className="drv-photo">
+            <img src={urls[index]} alt={file.name} />
+            <Button size="small" shape="circle" danger icon={<CloseOutlined />} aria-label={`Bỏ ảnh ${file.name}`} disabled={disabled}
+              onClick={() => (onRemove ? onRemove(index) : onChange(files.filter((_, i) => i !== index)))} />
+            {renderCaption && <figcaption>{renderCaption(index)}</figcaption>}
+          </figure>
+        ))}
+        {files.length < MAX_PHOTOS && (variant === 'tiles' ? (
+          <Button className="drv-photo-add" disabled={disabled} onClick={() => input.current?.click()} aria-label={`Chụp thêm ảnh (${files.length}/${MAX_PHOTOS})`}>
+            <UploadOutlined />
+            <span>Chụp thêm</span>
+          </Button>
+        ) : (
+          <Button className="drv-photo-add" icon={<PictureOutlined />} disabled={disabled} onClick={() => input.current?.click()}>
+            Thêm ảnh ({files.length}/{MAX_PHOTOS})
+          </Button>
+        ))}
+      </div>
+      <span className="drv-muted">JPG hoặc PNG, tối đa {MAX_PHOTOS} ảnh, mỗi ảnh ≤ 5 MB.</span>
     </div>
   );
 }

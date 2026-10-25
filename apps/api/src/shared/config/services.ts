@@ -13,8 +13,12 @@ import { NotificationsRepository } from '../../features/notifications/notificati
 import { NotificationsService } from '../../features/notifications/notifications.service';
 import { HealthService } from '../../features/health/health.service';
 import { TokenService } from '../utils/jwt.util';
+import { VehiclesService } from '../../features/vehicles/vehicles.service';
+import { VehiclesRepository } from '../../features/vehicles/vehicles.repository';
 import { TrackingService } from '../../features/tracking/tracking.service';
 import { TrackingRepository } from '../../features/tracking/tracking.repository';
+import { LocationsService } from '../../features/locations/locations.service';
+import { LocationsRepository } from '../../features/locations/locations.repository';
 import { PricingService } from '../../features/pricing/pricing.service';
 import { ManagerService } from '../../features/manager/manager.service';
 import { PaymentsService } from '../../features/payments/payments.service';
@@ -24,6 +28,8 @@ export function createServices(db: DataSource, tokens: TokenService) {
   return {
     customer: new CustomerService(db),
     trips: new TripsService(new TripsRepository(db)),
+    vehicles: new VehiclesService(new VehiclesRepository(db)),
+    locations: new LocationsService(new LocationsRepository(db)),
     tracking: new TrackingService(new TrackingRepository(db)),
     users,
     auth: new AuthService(users, tokens),

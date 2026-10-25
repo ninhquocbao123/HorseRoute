@@ -10,6 +10,8 @@ import {
   createIncidentSchema,
   patchIncidentSchema,
   createAlertSchema,
+  positionsBatchSchema,
+  trackQuerySchema,
 } from './tracking.validation';
 import { Upload, fileType, saveFile, removeFile, loadFile } from '../documents/file-storage';
 import { parse } from '../../shared/utils/validation.util';
@@ -27,6 +29,7 @@ import {
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
+  IncidentSeverity,
   AlertType,
   IHorseLog,
   IIncident,
@@ -40,8 +43,15 @@ import {
   IDriverTripSummary,
   ILegMilestone,
   ILegTracking,
+  ITripMap,
+  ITripPositionBatchResult,
+  ITripTrackPoint,
 } from '@my-project/shared';
 import { TrackingTripDetail, LegDetailRow, MilestoneRow } from './tracking.dto';
+import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
+import { Logger } from '../../shared/utils/logger.util';
+import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
+import { modeForVehicle } from './trackmap.geo';
 
 function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[]): ILegTracking {
   const legMilestones: ILegMilestone[] = milestones
@@ -102,22 +112,18 @@ function assertPhotos(files: Upload[]) {
   }
 }
 
-function toAttachment(row: { id: string; originalName: string; fileType: 'PDF' | 'JPG' | 'PNG'; sizeBytes: number; uploadedAt: Date }): ILogAttachment {
+function toAttachment(row: { id: string; originalName: string; fileType: 'PDF' | 'JPG' | 'PNG'; sizeBytes: number; uploadedAt: Date; caption?: string | null }): ILogAttachment {
   return {
     id: row.id,
     originalName: row.originalName,
     fileType: row.fileType,
     sizeBytes: Number(row.sizeBytes),
     uploadedAt: row.uploadedAt.toISOString(),
+    caption: row.caption ?? null,
   };
 }
 
 const ACTIVE_TRIPS_LIMIT = 200;
-
-/** Chặng chưa hoàn thành mà đã quá giờ đến dự kiến. */
-function isLegOverdue(leg: { status: LegStatus; plannedArrivalAt: Date }, now: number): boolean {
-  return leg.status !== LegStatus.COMPLETED && leg.plannedArrivalAt.getTime() < now;
-}
 
 /** Cập nhật gần nhất (FR-TRK-08): lấy theo chặng có `updated_at` mới nhất. */
 function latestUpdate(legs: { updatedAt: Date | null; updatedByName: string | null }[]): { at: string | null; byName: string | null } {
@@ -154,8 +160,24 @@ function milestonesRequired(status: LegStatus, isBorder: boolean, isLast: boolea
   return required;
 }
 
+const MAX_TRACK_POINTS = 500;
+const RETENTION_INTERVAL_MS = 60 * 60_000;
+const RETENTION_BATCH = 5_000;
+const retentionLogger = new Logger('TrackPositions');
+/** TRACK_POSITION_RETENTION_DAYS (đã kiểm 1..365 lúc khởi động); thiếu thì 30. */
+function retentionDays() {
+  const days = Number(process.env.TRACK_POSITION_RETENTION_DAYS);
+  return Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30;
+}
+
 export class TrackingService {
-  constructor(private readonly repository: TrackingRepository) {}
+  private readonly routes: RoutesProvider;
+  private retentionTimer?: NodeJS.Timeout;
+  private retentionRun?: Promise<number>;
+
+  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider) {
+    this.routes = routes ?? new RoutesProvider(repository);
+  }
 
   async getDriverTrips(account: User): Promise<IDriverTripSummary[]> {
     if (account.role !== Role.DRIVER_ESCORT) {
@@ -206,13 +228,20 @@ export class TrackingService {
       }
     }
 
-    const [legs, horses] = await Promise.all([
+    const [legs, horses, crew, contacts, vehicles, emergencyHotline] = await Promise.all([
       this.repository.getTripLegs(tripId),
       this.repository.getTripHorses(trip.orderId),
+      this.repository.getTripCrew(tripId),
+      this.repository.getTripContacts(tripId),
+      this.repository.getTripVehicles(tripId),
+      this.repository.getEmergencyHotline(),
     ]);
 
     const legIds = legs.map(l => l.id);
     const milestones = await this.repository.getLegMilestones(legIds);
+    // Specialist chỉ đọc chuyên môn: không thấy SĐT của tổ lái, điều phối viên và người nhận.
+    const showPhone = account.role !== Role.SPECIALIST;
+    const phone = (value: string | null | undefined) => (showPhone && value) || null;
 
     return {
       id: trip.id,
@@ -223,6 +252,14 @@ export class TrackingService {
       plannedDepartureAt: trip.plannedDepartureAt ? trip.plannedDepartureAt.toISOString() : null,
       plannedArrivalAt: trip.plannedArrivalAt ? trip.plannedArrivalAt.toISOString() : null,
       crewRole: userCrewRole,
+      crew: crew.map(c => ({ userId: c.userId, name: c.name, phone: phone(c.phone), role: c.role })),
+      customer: { name: contacts?.customerName ?? '' },
+      recipient: contacts?.recipientName || contacts?.recipientPhone
+        ? { name: contacts.recipientName ?? '', phone: phone(contacts.recipientPhone) }
+        : null,
+      coordinator: contacts?.coordinatorName ? { name: contacts.coordinatorName, phone: phone(contacts.coordinatorPhone) } : null,
+      vehicles: vehicles.map(v => ({ id: v.id, code: v.code, type: v.type, capacityStalls: Number(v.capacityStalls) })),
+      emergencyHotline,
       horses,
       legs: legs.map(l => mapLegWithMilestones(l, milestones)),
     };
@@ -281,6 +318,11 @@ export class TrackingService {
           if (isFirstLeg) {
             if (leg.orderStatus !== OrderStatus.READY) {
               throw new ConflictException(`Đơn hàng phải ở trạng thái Sẵn sàng (READY) để xuất phát. Hiện tại: ${leg.orderStatus}`);
+            }
+            const blockers = await repo.getDepartureBlockers(leg.tripId, leg.orderId);
+            if (blockers.length) {
+              // Error bodies no longer carry `blockers` (removed with manual READY); every reason is in the message.
+              throw new ConflictException('Chuyến chưa đủ điều kiện xuất phát: ' + blockers.map(b => b.message).join(' '));
             }
             nextOrderStatus = OrderStatus.IN_TRANSIT;
             await repo.updateOrderStatus(leg.orderId, OrderStatus.IN_TRANSIT);
@@ -673,14 +715,18 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createIncidentSchema, normalizeForm(body));
     assertPhotos(files);
+    if (input.captions.length > files.length) {
+      throw new BadRequestException('Số nhãn ảnh không được nhiều hơn số ảnh.');
+    }
 
     const saved: StoredFile[] = [];
     try {
       for (const file of files) saved.push(await saveFile(file));
       return await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
-        if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
-          throw new ConflictException('Chỉ báo sự cố khi chuyến đang vận chuyển (IN_TRANSIT).');
+        // 5.4: cho báo sự cố cả lúc chuẩn bị khởi hành (chất ngựa lên xe, trước giờ chạy).
+        if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+          throw new ConflictException('Chỉ báo sự cố khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT).');
         }
         if (input.legId && !(await repo.legBelongsToTrip(input.legId, tripId))) {
           throw new BadRequestException('Chặng không thuộc chuyến này.');
@@ -689,17 +735,25 @@ export class TrackingService {
           throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
         }
 
-        // BR-INC: sự cố y tế ngựa luôn khẩn cấp cao; không tự đổi lộ trình/chặng (BR-INC-03).
-        const urgency = input.incidentType === IncidentType.HORSE_MEDICAL ? IncidentUrgency.HIGH : IncidentUrgency.NORMAL;
-        const incidentId = await repo.insertIncident(
-          tripId, input.legId ?? null, input.horseId ?? null, input.incidentType, input.description, urgency, String(account.id), new Date().toISOString()
-        );
-        for (const file of saved) {
-          await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, incidentId);
+        // 5.1: mức đỏ hoặc y tế ngựa là khẩn cấp cao; không tự đổi lộ trình/chặng (BR-INC-03).
+        const urgency = input.severity === IncidentSeverity.RED || input.incidentType === IncidentType.HORSE_MEDICAL
+          ? IncidentUrgency.HIGH : IncidentUrgency.NORMAL;
+        const subType = input.subType || null;
+        const incidentId = await repo.insertIncident({
+          tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, description: input.description,
+          urgency, severity: input.severity, subType, damageTarget: input.damageTarget,
+          latitude: input.latitude ?? null, longitude: input.longitude ?? null, locationText: input.locationText || null,
+          reportedBy: String(account.id), reportedAt: new Date().toISOString(),
+        });
+        for (const [index, file] of saved.entries()) {
+          await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, incidentId, input.captions[index] || null);
         }
         await repo.audit(
           String(account.id), 'INCIDENT', incidentId, 'REPORT_INCIDENT', null,
-          JSON.stringify({ tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, urgency })
+          JSON.stringify({
+            tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, urgency,
+            severity: input.severity, subType, damageTarget: input.damageTarget,
+          })
         );
         await repo.notifyManagersAndCoordinators(
           tripId,
@@ -780,7 +834,7 @@ export class TrackingService {
         String(account.id), 'ALERT', alertId, 'SEND_ALERT', null,
         JSON.stringify({ tripId, alertType: input.alertType })
       );
-      await repo.notifyCrewAndManagers(tripId, 'TRIP_ALERT', `Cảnh báo ${ALERT_LABELS[input.alertType]} chuyến ${tripId} (đơn ${trip.orderCode}): ${input.content}`);
+      await repo.notifyCrewAndManagers(tripId, 'TRIP_ALERT', `Cảnh báo ${ALERT_LABELS[input.alertType]} chuyến ${tripId} (đơn ${trip.orderCode}): ${input.content}`, true);
 
       const alerts = await this.loadAlerts(repo, tripId);
       return alerts.find(alert => alert.id === alertId)!;
@@ -971,6 +1025,13 @@ export class TrackingService {
     const attachments = await repo.getIncidentAttachments(rows.map(row => row.id));
     return rows.map(row => ({
       ...row,
+      // Rows written before the D2 fields existed (and test doubles) may lack them entirely.
+      severity: row.severity ?? null,
+      subType: row.subType ?? null,
+      damageTarget: row.damageTarget ?? null,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+      locationText: row.locationText ?? null,
       reportedAt: row.reportedAt.toISOString(),
       closedAt: row.closedAt ? row.closedAt.toISOString() : null,
       attachments: attachments.filter(a => a.incidentId === row.id).map(toAttachment),
@@ -980,5 +1041,106 @@ export class TrackingService {
   private async loadAlerts(repo: TrackingRepository, tripId: string): Promise<IAlert[]> {
     const rows = await repo.getTripAlerts(tripId);
     return rows.map(row => ({ ...row, sentAt: row.sentAt.toISOString() }));
+  }
+
+  // ─── Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6) ──────────────────────────────
+
+  /**
+   * Bản đồ một chuyến: Driver/Escort được phân công, Coordinator chuyến mình lập, Manager, Specialist (quyết định #4:
+   * Specialist và Manager xem GPS mọi chuyến). Customer không gọi API này. Không trả sự cố, nên Specialist không bị lọc thêm.
+   */
+  async getTripMap(account: User, rawTripId: string): Promise<ITripMap> {
+    const tripId = parse(legIdSchema, rawTripId);
+    const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER, Role.SPECIALIST]);
+    const [legs, latest, speedLimitKmh] = await Promise.all([
+      this.repository.getTripMapLegs(tripId),
+      this.repository.getLatestPosition(tripId),
+      this.repository.getSpeedLimitKmh(),
+    ]);
+    const routes = new Map<string, ResolvedRoute | null>();
+    await Promise.all(legs.map(async leg => {
+      const { from, to } = legEnds(leg);
+      routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
+    }));
+    return buildTripMap({ trip: { id: trip.id, orderCode: trip.orderCode, orderStatus: trip.orderStatus }, legs, routes, latest, speedLimitKmh, now: Date.now() });
+  }
+
+  /**
+   * Nhận lô vị trí từ Driver/Escort được phân công. Chỉ khi đơn IN_TRANSIT, có chặng đang MOVING/AT_STOP và chặng đó
+   * không phải chặng bay (409). Gửi lại cùng `recordedAt` không tạo bản ghi trùng (INSERT IGNORE theo khóa duy nhất).
+   */
+  async recordPositions(account: User, rawTripId: string, body: unknown): Promise<ITripPositionBatchResult> {
+    if (account.role !== Role.DRIVER_ESCORT) {
+      throw new ForbiddenException('Chỉ tài xế / người hộ tống được phân công mới gửi vị trí.');
+    }
+    const tripId = parse(legIdSchema, rawTripId);
+    const input = parse(positionsBatchSchema, body);
+    const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
+    if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+      throw new ConflictException('Chỉ nhận vị trí khi chuyến đang vận chuyển (IN_TRANSIT).');
+    }
+    const legs = await this.repository.getTripMapLegs(tripId);
+    const leg = legs.find(item => item.status === LegStatus.MOVING || item.status === LegStatus.AT_STOP);
+    if (!leg) throw new ConflictException('Chưa có chặng nào đang chạy để gắn vị trí.');
+    if (modeForVehicle(leg.vehicleType) === 'AIR') {
+      throw new ConflictException('Chặng bay không nhận GPS; vị trí được ước tính theo kế hoạch.');
+    }
+    const accepted = await this.repository.insertPositions(tripId, leg.id, String(account.id), input.points.map(point => ({
+      latitude: point.latitude,
+      longitude: point.longitude,
+      accuracyM: point.accuracyM ?? null,
+      speedMps: point.speedMps ?? null,
+      headingDeg: point.headingDeg ?? null,
+      recordedAt: new Date(point.recordedAt),
+    })));
+    return { legId: leg.id, accepted, duplicates: input.points.length - accepted };
+  }
+
+  /** Vệt đường đã đi (tối đa 500 điểm mới nhất sau `since`). Cùng quyền với bản đồ chuyến. */
+  async getTrackPoints(account: User, rawTripId: string, query: unknown): Promise<ITripTrackPoint[]> {
+    const tripId = parse(legIdSchema, rawTripId);
+    const { since } = parse(trackQuerySchema, query);
+    await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER, Role.SPECIALIST]);
+    const rows = await this.repository.getTrackPoints(tripId, since ? new Date(since) : null, MAX_TRACK_POINTS);
+    return rows.map(row => {
+      const point = toLatestPosition(row, Date.now())!;
+      return { lat: point.lat, lng: point.lng, speedKmh: point.speedKmh, recordedAt: point.recordedAt, legId: point.legId };
+    });
+  }
+
+  /** Xóa vị trí cũ hơn TRACK_POSITION_RETENTION_DAYS (dữ liệu cá nhân); chạy mỗi giờ, không chạy chồng. */
+  startPositionRetentionJob() {
+    if (this.retentionTimer) return;
+    this.retentionTimer = setInterval(() => void this.purgeOldPositions(), RETENTION_INTERVAL_MS);
+    this.retentionTimer.unref();
+    void this.purgeOldPositions();
+  }
+
+  async stopPositionRetentionJob() {
+    if (this.retentionTimer) clearInterval(this.retentionTimer);
+    this.retentionTimer = undefined;
+    await this.retentionRun;
+  }
+
+  purgeOldPositions(): Promise<number> {
+    if (this.retentionRun) return this.retentionRun;
+    this.retentionRun = this.runRetention().finally(() => { this.retentionRun = undefined; });
+    return this.retentionRun;
+  }
+
+  private async runRetention(): Promise<number> {
+    let removed = 0;
+    try {
+      // Xóa theo lô để không khóa bảng lâu; giới hạn số lô mỗi lần chạy.
+      for (let i = 0; i < 20; i++) {
+        const batch = await this.repository.deletePositionsOlderThan(retentionDays(), RETENTION_BATCH);
+        removed += batch;
+        if (batch < RETENTION_BATCH) break;
+      }
+      if (removed) retentionLogger.info('positions_purged', { removed, days: retentionDays() });
+    } catch (error) {
+      retentionLogger.error('positions_purge_failed', { message: error instanceof Error ? error.message : String(error) });
+    }
+    return removed;
   }
 }

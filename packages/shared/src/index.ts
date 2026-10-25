@@ -3,6 +3,7 @@ export * from './enums/order.enum';
 export * from './enums/tracking.enum';
 export * from './types/user.type';
 export * from './types/tracking.type';
+export * from './types/trackmap.type';
 export * from './constants';
 export * from './countries';
 export * from './types/pricing.type';

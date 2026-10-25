@@ -1,6 +1,8 @@
 import { profileSchema } from '../../features/customer/customer.validation';
 import { tripPaths, tripSchemas, tripsTag } from './openapi.trips';
 import { trackingPaths, trackingSchemas, trackingTag } from './openapi.tracking';
+import { vehiclePaths, vehicleSchemas, vehiclesTag } from './openapi.vehicles';
+import { locationPaths, locationSchemas, locationsTag } from './openapi.locations';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { loginSchema, registerSchema } from '../../features/auth/auth.validation';
@@ -29,7 +31,7 @@ for (const [name, schema] of Object.entries(definitions)) {
 }
 schemas.DraftOrderDto.properties.horses.items = { $ref: '#/components/schemas/DraftHorseDto' };
 schemas.OrderDto.properties.horses.items = { $ref: '#/components/schemas/HorseDto' };
-Object.assign(schemas, tripSchemas, trackingSchemas);
+Object.assign(schemas, tripSchemas, trackingSchemas, vehicleSchemas, locationSchemas);
 schemas.Error = { type: 'object', properties: { statusCode: { type: 'integer' }, message: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] }, fields: { type: 'object', additionalProperties: { type: 'string' } }, requestId: { type: 'string', format: 'uuid' }, path: { type: 'string' }, timestamp: { type: 'string', format: 'date-time' } } };
 
 const paths: Record<string, any> = {};
@@ -85,7 +87,7 @@ route('post', '/documents/orders/{orderId}/items/{id}/request', 'Specialist: yê
 route('post', '/documents/orders/{orderId}/dossiers/{id}', 'Specialist: cập nhật hồ sơ; APPROVED cần file giấy phép', 'Flow 2 - Documents', { status: 201, multipart: { ...schemas.DossierUpdateDto, properties: { ...schemas.DossierUpdateDto.properties, file: { type: 'string', format: 'binary' } } } });
 route('get', '/documents/orders/{orderId}/files/{id}', 'Tải file sau khi kiểm tra quyền', 'Flow 2 - Documents', { binary: true });
 
-Object.assign(paths, tripPaths, trackingPaths);
+Object.assign(paths, tripPaths, trackingPaths, vehiclePaths, locationPaths);
 route('get','/manager/overview','Manager: thống kê tiếp nhận đơn','Manager');
 route('get','/manager/quote-orders','Manager: đơn đã duyệt để lập giá','Manager');
 route('get','/manager/orders/{id}/quotes','Manager: lịch sử dự toán và khoản thu','Manager');
@@ -96,7 +98,7 @@ route('get','/manager/revenue','Manager: đơn đã giao và thu đủ tiền, t
 route('get','/orders/{id}/quote','Customer: báo giá chính thức và số tiền đã thanh toán của đơn mình','Manager');
 
 export const openApiDocument = {
-  tags: [tripsTag, trackingTag],
-  openapi: '3.0.3', info: { title: 'WDP Equine Transport API', version: '1.0', description: 'JWT/MySQL. Đăng nhập để lấy accessToken, sau đó dùng Authorize. Flow 1–2 đã có API. Flow 3 - Trips: ba API GET, PUT lưu kế hoạch nháp và POST submit-plan/review-plan và ba API phân công đã triển khai. Flow 4 - Tracking: chặng/mốc, nhật ký ngựa, sự cố, cảnh báo và tệp đính kèm đã triển khai (timeline Customer chưa có). Xem trạng thái từng operation trước khi dùng Execute.' },
+  tags: [tripsTag, vehiclesTag, locationsTag, trackingTag],
+  openapi: '3.0.3', info: { title: 'WDP Equine Transport API', version: '1.0', description: 'JWT/MySQL. Đăng nhập để lấy accessToken, sau đó dùng Authorize. Flow 1–2 đã có API. Flow 3 - Vehicles: CRUD phương tiện (Coordinator ghi, Manager đọc). Flow 3 - Locations: CRUD địa điểm kèm tọa độ (Specialist ghi; Coordinator, Manager đọc). Flow 3 - Trips: ba API GET, PUT lưu kế hoạch nháp và POST submit-plan/review-plan và ba API phân công đã triển khai. Flow 4 - Tracking: chặng/mốc, nhật ký ngựa, sự cố, cảnh báo và tệp đính kèm đã triển khai (timeline Customer chưa có). Xem trạng thái từng operation trước khi dùng Execute.' },
   components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } }, schemas }, paths,
 };
