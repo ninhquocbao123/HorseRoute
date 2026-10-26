@@ -183,7 +183,7 @@ function History({orders,receipts,onOpen}:{orders:CustomerOrder[];receipts:Custo
           </div>
 
           <div className="customer-table">
-            <table style={{ width: '100%', minWidth: 880 }}>
+            <table style={{ width: '100%' }}>
               <thead>
                 <tr>
                   <th style={{ width: '28%' }}>Mã GD</th>

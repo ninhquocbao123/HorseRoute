@@ -22,3 +22,31 @@
 
 .customer-table b, .customer-table strong { white-space: nowrap; }
 .customer-table td { vertical-align: middle; }
+
+/* Mở rộng form lịch sử giao dịch và bỏ thanh cuộn ngang */
+.customer-main.customer-history {
+  max-width: 1380px !important;
+  width: 100%;
+}
+.customer:has(.customer-history) .customer-banner > div {
+  max-width: 1380px !important;
+}
+.customer-history .customer-card {
+  padding: 28px 32px;
+}
+.customer-history .customer-table {
+  overflow-x: hidden;
+}
+.customer-history .customer-table table {
+  min-width: 0 !important;
+  width: 100%;
+}
+.customer-history .customer-table th,
+.customer-history .customer-table td {
+  padding: 13px 8px;
+}
+@media (max-width: 960px) {
+  .customer-history .customer-table {
+    overflow-x: auto;
+  }
+}
