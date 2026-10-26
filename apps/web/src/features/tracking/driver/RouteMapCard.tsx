@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Switch } from 'antd';
+import { Button, Modal, Switch } from 'antd';
 import type { IDriverTripSummary, ITripMap, ITripTrackPoint } from '@my-project/shared';
 import MapView from '../../trackmap/MapView';
 import { DriverRouteMap } from '../../trackmap/lazy-maps';
@@ -10,13 +10,22 @@ import type { GpsSharing } from './useGpsSharing';
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 /** Thẻ "Lộ trình chuyến đi" (Figma D1/D1b): bản đồ thật, badge chia sẻ GPS, công tắc và cảnh báo tuyến ước lượng. */
-export default function RouteMapCard({ trip, map, track, running, gps, children }: {
+/** Điểm chưa có tọa độ: nhắc người ghim vị trí (Specialist, màn Địa điểm) thay vì để bản đồ trống không giải thích. */
+export function missingCoordinateNotes(map: ITripMap | null) {
+  return (map?.stops ?? []).filter(stop => stop.lat === null || stop.lng === null)
+    .map(stop => `Điểm ${stop.name} chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm`);
+}
+
+export default function RouteMapCard({ trip, map, track, running, gps, failed = false, onRetry, children }: {
   trip: IDriverTripSummary;
   map: ITripMap | null;
   track: ITripTrackPoint[];
   running: boolean;
   /** Chỉ có ở D1b */
   gps: GpsSharing | null;
+  /** /map lỗi: giữ bản đồ ở góc nhìn Việt Nam (hoặc dữ liệu lần trước) + thông báo nhỏ có nút Thử lại */
+  failed?: boolean;
+  onRetry?: () => void;
   /** Phần dưới bản đồ (D1b: ba thẻ số liệu) */
   children?: ReactNode;
 }) {
@@ -33,16 +42,26 @@ export default function RouteMapCard({ trip, map, track, running, gps, children 
       </div>
       <div className="drv-map-wrap">
         <MapView height="var(--drv-map-h)" label="Bản đồ lộ trình chuyến đi" hint="Xem thứ tự điểm dừng ở thẻ “Các chặng”.">
-          {map && <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} />}
+          <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} />
         </MapView>
+        {failed && (
+          <div className="drv-map-error" role="alert">
+            <span>Không tải được dữ liệu bản đồ.</span>
+            {onRetry && <Button size="small" onClick={onRetry}>Thử lại</Button>}
+          </div>
+        )}
         {gps && <GpsBadge gps={gps} />}
       </div>
       {gps && <GpsControls gps={gps} />}
-      {map && map.warnings.length > 0 && (
-        <ul className="drv-map-warnings" aria-label="Lưu ý về bản đồ">
-          {map.warnings.map(warning => <li key={warning}>{warning}</li>)}
-        </ul>
-      )}
+      {(() => {
+        // "Chưa có tọa độ cho X" của API được thay bằng câu hướng dẫn rõ hơn (một dòng cho mỗi điểm).
+        const notes = [...(map?.warnings ?? []).filter(warning => !warning.startsWith('Chưa có tọa độ cho ')), ...missingCoordinateNotes(map)];
+        return notes.length > 0 && (
+          <ul className="drv-map-warnings" aria-label="Lưu ý về bản đồ">
+            {notes.map(warning => <li key={warning}>{warning}</li>)}
+          </ul>
+        );
+      })()}
       {map?.position?.source === 'ESTIMATED' && map.position.label && <p className="drv-map-estimate">{map.position.label}</p>}
       {children}
     </section>

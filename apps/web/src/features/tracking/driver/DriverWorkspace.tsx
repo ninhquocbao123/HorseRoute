@@ -118,7 +118,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
   const canReport = ready || running;
   const leg = currentLeg(trip.legs);
   const seqNo = leg?.seqNo;
-  const { map, track } = useTripMap(trip.id, running, trip.legs);
+  const { map, track, failed: mapFailed, reload: reloadMap } = useTripMap(trip.id, running, trip.legs);
   // GPS chỉ khi chặng đang chạy không phải chặng bay (API cũng trả 409 cho chặng bay).
   const runningLeg = map?.legs.find(item => item.status === 'MOVING' || item.status === 'AT_STOP');
   const gps = useGpsSharing({ tripId: trip.id, userId, eligible: running && !!runningLeg && runningLeg.mode !== 'AIR' });
@@ -173,7 +173,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       )}
 
       <div className="drv-columns">
-        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} />
+        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()} />
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} currentLegId={running ? leg?.id ?? null : null} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}

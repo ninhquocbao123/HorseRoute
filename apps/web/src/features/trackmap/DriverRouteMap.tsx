@@ -4,11 +4,10 @@ import type { ITripMap, ITripTrackPoint } from '@my-project/shared';
 import BaseMap from './BaseMap';
 import { applyDriverMapTheme, driverMapColors } from './driver-map-theme';
 import { DEFAULT_VIEW } from './map-style';
+import { planView, VN_VIEW } from './map-view-plan';
 import { OFF_ROUTE_KM, travelledRoute } from './route-progress';
 
 type LngLat = [number, number];
-/** Lề khi fit toàn tuyến: đủ chỗ cho chấm lớn và nhãn ở các cạnh. */
-const FIT_PADDING = 80;
 /** Bề rộng ước lượng của nhãn (chữ 12px đậm ≈ 7px/ký tự) + lề 26px từ chấm + padding. */
 const labelWidth = (stop: { name: string }, first: boolean) => 26 + 22 + (stop.name.length + (first ? ' · điểm gửi' : ' · điểm nhận').length) * 7;
 export type OwnFix = { lng: number; lat: number; at: string };
@@ -18,7 +17,8 @@ export type OwnFix = { lng: number; lat: number; at: string };
  * ROAD nét liền; STRAIGHT (đường thẳng ước lượng) và AIR (cung tròn lớn) nét đứt. Tự fit theo tuyến khi đổi chuyến.
  */
 export default function DriverRouteMap({ map, track, running, ownFix }: {
-  map: ITripMap;
+  /** null khi chưa tải được /map: vẫn hiện bản đồ ở góc nhìn Việt Nam */
+  map: ITripMap | null;
   track: ITripTrackPoint[];
   running: boolean;
   /** Điểm GPS vừa lấy trên máy tài xế: cập nhật marker ngay, không chờ lần tải /map kế tiếp */
@@ -29,29 +29,30 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
   // Màu từ biến CSS --drs-* (xem driver-map-theme.ts): đọc một lần khi dựng bản đồ.
   const colors = useMemo(() => driverMapColors(document.querySelector('.drs')), []);
 
+  const mapLegs = useMemo(() => map?.legs ?? [], [map?.legs]);
   const legs = useMemo(() => ({
     type: 'FeatureCollection' as const,
-    features: map.legs.filter(leg => leg.coordinates).map(leg => ({
+    features: mapLegs.filter(leg => leg.coordinates).map(leg => ({
       type: 'Feature' as const,
       properties: { id: leg.id, mode: leg.mode },
       geometry: { type: 'LineString' as const, coordinates: leg.coordinates! },
     })),
-  }), [map.legs]);
+  }), [mapLegs]);
 
   const vehicle = useMemo(() => {
-    const position = map.position;
+    const position = map?.position ?? null;
     // Chuyến đã giao (xem lại lịch sử): không còn xe để hiện.
-    if (!running && map.orderStatus === 'DELIVERED') return null;
+    if (!running && map?.orderStatus === 'DELIVERED') return null;
     if (ownFix && (!position || Date.parse(ownFix.at) >= Date.parse(position.asOf))) {
       return { lng: ownFix.lng, lat: ownFix.lat, estimated: false, label: 'Vị trí của bạn (GPS)' };
     }
     if (!position) return null;
     return { lng: position.lng, lat: position.lat, estimated: position.source === 'ESTIMATED', label: position.label ?? 'Vị trí xe (GPS)' };
-  }, [map.position, map.orderStatus, running, ownFix]);
+  }, [map?.position, map?.orderStatus, running, ownFix]);
 
   // Đoạn đã đi = phần TUYẾN ĐƯỜNG từ đầu chuyến tới điểm chiếu của xe (marker xe vẫn đặt đúng tọa độ GPS, không bắt dính).
   const { travelled, offRoute } = useMemo(() => {
-    const result = travelledRoute(map.legs, vehicle ? [vehicle.lng, vehicle.lat] : null);
+    const result = travelledRoute(mapLegs, vehicle ? [vehicle.lng, vehicle.lat] : null);
     return {
       offRoute: result.offsetKm !== null && result.offsetKm > OFF_ROUTE_KM,
       travelled: {
@@ -59,7 +60,7 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         features: result.lines.map((line, i) => ({ type: 'Feature' as const, properties: { id: String(i), mode: line.mode }, geometry: { type: 'LineString' as const, coordinates: line.coordinates } })),
       },
     };
-  }, [map.legs, vehicle]);
+  }, [mapLegs, vehicle]);
 
   // Vệt GPS thô chỉ hiện (rất mảnh) khi xe lệch tuyến > 300 m, để thấy xe đã đi đường nào ngoài tuyến.
   const offTrack = useMemo(() => ({
@@ -69,17 +70,26 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
       : [],
   }), [offRoute, track]);
 
-  const stops = map.stops.filter(stop => stop.lat !== null && stop.lng !== null);
+  const stops = (map?.stops ?? []).filter(stop => stop.lat !== null && stop.lng !== null);
 
+  /** Đưa góc nhìn về đúng chỗ: không điểm nào → Việt Nam; một điểm → zoom ~10; nhiều điểm → fit khung có lề (xem map-view-plan.ts). */
   function fit() {
     const instance = ref.current;
     if (!instance) return;
-    const points: LngLat[] = [...map.legs.flatMap(leg => leg.coordinates ?? []), ...stops.map(stop => [stop.lng!, stop.lat!] as LngLat)];
-    if (!points.length) return;
-    const lngs = points.map(p => p[0]);
-    const lats = points.map(p => p[1]);
-    instance.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: FIT_PADDING, maxZoom: 12, duration: 0 });
-    fittedFor.current = map.tripId;
+    const container = instance.getContainer();
+    const points: LngLat[] = [...mapLegs.flatMap(leg => leg.coordinates ?? []), ...stops.map(stop => [stop.lng!, stop.lat!] as LngLat)];
+    const plan = planView(points, { width: container.clientWidth, height: container.clientHeight });
+    const home = () => instance.jumpTo({ center: [VN_VIEW.longitude, VN_VIEW.latitude], zoom: VN_VIEW.zoom });
+    if (plan.kind === 'default') home();
+    else if (plan.kind === 'point') instance.flyTo({ center: plan.center, zoom: plan.zoom, duration: 0 });
+    else {
+      try {
+        instance.fitBounds(plan.bounds, { padding: plan.padding, maxZoom: plan.maxZoom, duration: 0 });
+      } catch {
+        home(); // fitBounds không được phép làm trắng bản đồ
+      }
+    }
+    fittedFor.current = map?.tripId ?? null;
     updateFlips();
   }
 
@@ -100,8 +110,8 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
 
   // Đổi chuyến (hoặc dữ liệu tới sau khi bản đồ đã tải): fit lại; các lần làm mới 60 giây thì giữ khung người dùng đang xem.
   useEffect(() => {
-    if (fittedFor.current !== map.tripId) fit();
-  }, [map.tripId, map.legs.length]); // chỉ khi đổi chuyến, không theo mỗi lần làm mới
+    if (map && fittedFor.current !== map.tripId) fit();
+  }, [map?.tripId, mapLegs.length, stops.length]); // chỉ khi đổi chuyến / có dữ liệu mới, không theo mỗi lần làm mới
 
   const solid = ['==', ['get', 'mode'], 'ROAD'] as const;
   const dashed = ['!=', ['get', 'mode'], 'ROAD'] as const;

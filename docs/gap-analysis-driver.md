@@ -459,6 +459,8 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Ô "Xe": xe của chặng đang chạy / chặng đầu / chặng cuối, dạng "{biển số} · {n} chuồng".
 - Bỏ banner "Tất cả các chặng đã hoàn thành" và khung "Cảnh báo từ điều phối viên" khỏi trang; hook `useTripAlerts` và component `DispatcherAlerts` được giữ lại để chuyển thành thông báo nổi.
 - D1b: ba thẻ Chặng tiếp / Tốc độ / Đã chạy nằm ở cột phải ngay dưới "Các chặng" (màn < 1200px về lại dưới bản đồ). Bản đồ fit với lề 80px, nhãn điểm gửi/nhận tự đổi sang bên trái khi chấm sát mép phải; chuyến đã giao (xem lại lịch sử) không hiện marker xe.
+- Bản đồ (mọi nơi dùng `BaseMap`): `projection="mercator"` (Mapbox GL v3 mặc định là globe, kiểm chứng bằng test), `minZoom` 3, góc nhìn mặc định Việt Nam (106,7; 10,8; zoom 6). Góc nhìn do `trackmap/map-view-plan.ts` quyết định: không điểm → Việt Nam; một điểm → zoom 10; nhiều điểm → fit lề 80 px (lề tự co khi khung nhỏ để fitBounds không thất bại); tọa độ hỏng hoặc (0, 0) bị bỏ. Điểm thiếu tọa độ hiện dòng "Điểm X chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm"; `/map` lỗi: giữ góc nhìn Việt Nam + thông báo nhỏ có nút "Thử lại" trong khung.
+- Quyền hộ tống: API ghi mốc/hoàn thành chặng/gửi vị trí/báo sự cố cho mọi người được phân công chuyến (cả DRIVER và ESCORT), không phân biệt `assignment.role`; FE hiện nút Bắt đầu/Check-in/chia sẻ GPS cho cả hai vai trò. Chưa đổi; cần chốt với chủ nghiệp vụ.
 - Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
 
 ### 6.2 Bổ sung để không vướng D2

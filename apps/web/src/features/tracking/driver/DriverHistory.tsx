@@ -113,7 +113,7 @@ function legTimes(leg: ILegTracking) {
 
 /** ?view=history&trip=ID: chi tiết chỉ xem của một chuyến đã giao (bản đồ toàn tuyến, các chặng giờ thực tế, sự cố). */
 export function HistoryDetail({ trip, detail, onBack }: { trip: IDriverTripSummary; detail: IDriverTripDetail | undefined; onBack: () => void }) {
-  const { map } = useTripMap(trip.id, false);
+  const { map, failed: mapFailed, reload: reloadMap } = useTripMap(trip.id, false);
   const [incidents, setIncidents] = useState<IIncident[] | null>(null);
   const [incidentError, setIncidentError] = useState(false);
   useEffect(() => {
@@ -145,7 +145,7 @@ export function HistoryDetail({ trip, detail, onBack }: { trip: IDriverTripSumma
       </section>
 
       <div className="drv-columns">
-        <RouteMapCard trip={trip} map={map} track={[]} running={false} gps={null} />
+        <RouteMapCard trip={trip} map={map} track={[]} running={false} gps={null} failed={mapFailed} onRetry={() => void reloadMap()} />
         <div className="drv-side">
           <section className="drv-card drv-history-legs" aria-labelledby="drv-hl-title">
             <h3 id="drv-hl-title" className="drv-card-title">Các chặng</h3>
