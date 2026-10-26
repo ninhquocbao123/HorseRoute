@@ -728,3 +728,53 @@ test('Customs clearance touches the leg so last-update time and author stay accu
   assert.deepEqual(touched, ['10', '5']);
   assert.equal(result.legStatus, LegStatus.AT_STOP);
 });
+
+// ─── Realtime tới phòng user:{id} (UI-2) ──────────────────────────────────────
+function realtimeRepo(calls, overrides = {}) {
+  return stage2Repo({
+    getTripCrewIds: async () => ['5', '6'],
+    findLatestTripNotifications: async (ids, eventType) => ids.map(id => ({ recipientId: id, id: 'n' + id, content: `nội dung ${eventType}`, createdAt: new Date('2026-10-26T10:00:00Z') })),
+    ...overrides,
+  }, calls);
+}
+const fakeRealtime = () => { const emitted = []; return { emitted, emitToUsers: (users, event, payload) => emitted.push({ users, event, payload }) }; };
+
+test('Realtime: alert → tracking:alert + notification:new tới từng crew, sau khi commit', async () => {
+  const realtime = fakeRealtime();
+  const order = [];
+  const repo = realtimeRepo({}, {
+    transaction: async work => { const result = await work(repo); order.push('commit'); return result; },
+  });
+  realtime.emitToUsers = (...args) => { order.push('emit'); realtime.emitted.push({ users: args[0], event: args[1], payload: args[2] }); };
+  const alert = await new TrackingService(repo, undefined, realtime).createAlert(coordinator, '100', { alertType: 'WEATHER', content: 'Mưa lớn' });
+  assert.equal(alert.id, '801');
+  assert.equal(order[0], 'commit', 'emit sau commit');
+  const first = realtime.emitted[0];
+  assert.deepEqual(first.users, ['5', '6']);
+  assert.equal(first.event, 'tracking:alert');
+  assert.deepEqual(first.payload, { alertId: '801', tripId: '100', alertType: 'WEATHER', content: 'Mưa lớn', sentByName: 'Điều phối', sentAt: first.payload.sentAt });
+  assert.deepEqual(realtime.emitted.slice(1).map(e => [e.users, e.event, e.payload.id]), [[['5'], 'notification:new', 'n5'], [['6'], 'notification:new', 'n6']]);
+});
+
+test('Realtime: incident ack/close → tracking:incident_updated chỉ tới người báo', async () => {
+  const realtime = fakeRealtime();
+  await new TrackingService(realtimeRepo({}), undefined, realtime).updateIncident(coordinator, '701', { status: 'CLOSED', handlingNote: 'Đã thay bánh xe' });
+  assert.equal(realtime.emitted[0].event, 'tracking:incident_updated');
+  assert.deepEqual(realtime.emitted[0].users, ['5']);
+  assert.deepEqual(realtime.emitted[0].payload, { incidentId: '701', tripId: '100', status: 'NEW', handlingNote: null });
+  assert.equal(realtime.emitted[1].event, 'notification:new');
+  assert.deepEqual(realtime.emitted[1].users, ['5']);
+});
+
+test('Realtime: transaction lỗi → không emit; socket/DB lỗi sau commit → request vẫn thành công', async () => {
+  const realtime = fakeRealtime();
+  const failing = realtimeRepo({}, { transaction: async work => { await work(failing); throw new Error('commit failed'); } });
+  await assert.rejects(() => new TrackingService(failing, undefined, realtime).createAlert(coordinator, '100', { alertType: 'WEATHER', content: 'Mưa lớn' }), /commit failed/);
+  await assert.rejects(() => new TrackingService(failing, undefined, realtime).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED' }), /commit failed/);
+  assert.equal(realtime.emitted.length, 0);
+
+  const broken = { emitToUsers: () => { throw new Error('socket down'); } };
+  assert.equal((await new TrackingService(realtimeRepo({}), undefined, broken).createAlert(coordinator, '100', { alertType: 'WEATHER', content: 'Mưa lớn' })).id, '801');
+  const noRows = realtimeRepo({}, { getTripCrewIds: async () => { throw new Error('db down'); } });
+  assert.equal((await new TrackingService(noRows, undefined, realtime).createAlert(coordinator, '100', { alertType: 'WEATHER', content: 'Mưa lớn' })).id, '801');
+});

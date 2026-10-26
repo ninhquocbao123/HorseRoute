@@ -80,7 +80,7 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
         pendingStore.clear(legId);
         setPending(null);
         setConfirming(null);
-        setNotice('Trạng thái chặng đã thay đổi. Đã tải lại dữ liệu mới nhất.');
+        setNotice('Trạng thái chặng đã thay đổi, đã tải lại.');
         await onChanged();
       } else {
         setError(errorMessage(e));

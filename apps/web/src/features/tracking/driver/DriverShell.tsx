@@ -5,6 +5,9 @@ import type { CrewRole, IUser } from '@my-project/shared';
 import LogoutDialog from '../../auth/pages/components/LogoutDialog';
 import NotificationsPanel from '../../notifications/NotificationsPanel';
 import { useNotifications } from '../../notifications/useNotifications';
+import { DriverNoticeProvider, useDriverNotice } from './DriverNotices';
+import { useAlertToasts } from './useAlertToasts';
+import { useDriverRealtime } from './useDriverRealtime';
 import './driver-shell.css';
 
 export const DRIVER_NAV = [
@@ -17,7 +20,11 @@ const ROLE_LABEL: Record<CrewRole, string> = { DRIVER: 'Tài xế', ESCORT: 'H�
 const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 /** Khung riêng của Driver/Escort (Figma D1/D1b): sidebar 2 mục, topbar có tìm kiếm, chuông và ngày hôm nay. */
-export default function DriverShell({ account, logout, view, onNavigate, crewRole, heading, search, onSearch, searchPlaceholder, children }: {
+export default function DriverShell(props: ShellProps) {
+  return <DriverNoticeProvider><DriverShellInner {...props} /></DriverNoticeProvider>;
+}
+
+type ShellProps = {
   account: IUser;
   logout: () => void;
   view: string;
@@ -29,11 +36,27 @@ export default function DriverShell({ account, logout, view, onNavigate, crewRol
   onSearch: (value: string) => void;
   /** Có thì hiện ô tìm kiếm (chỉ ở Lịch sử giao hàng); không có thì ẩn */
   searchPlaceholder?: string;
+  /** Chuyến đang hoạt động (nhận cảnh báo điều phối); null khi chưa có. */
+  activeTripId?: string | null;
   children: ReactNode;
-}) {
+};
+
+function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading, search, onSearch, searchPlaceholder, activeTripId = null, children }: ShellProps) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
-  const { panelProps, unreadCount } = useNotifications(String(account.id));
+  const { panelProps, unreadCount, addNotice, refresh } = useNotifications(String(account.id));
+  const notice = useDriverNotice();
+  const alerts = useAlertToasts(String(account.id), activeTripId, notice);
+  useDriverRealtime({
+    onAlert: payload => alerts.show({ id: payload.alertId, alertType: payload.alertType as never, content: payload.content, sentByName: payload.sentByName, sentAt: payload.sentAt }),
+    onIncidentUpdated: payload => notice.info(
+      payload.status === 'CLOSED' ? `Sự cố #${payload.incidentId} đã được đóng` : `Điều phối viên đã tiếp nhận sự cố #${payload.incidentId}`,
+      payload.status === 'CLOSED' && payload.handlingNote ? `Hướng xử lý: ${payload.handlingNote}` : undefined,
+    ),
+    onNotification: addNotice,
+    onPoll: () => void alerts.load(),
+    onResync: () => { void alerts.load(); void refresh(); },
+  });
   const role = crewRole ?? 'DRIVER';
   const roleLabel = ROLE_LABEL[role];
   const date = today.format(new Date());

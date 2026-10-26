@@ -39,7 +39,7 @@ export default function DriverDashboard({ account, logout }: DashboardProps) {
   return (
     <DriverShell
       account={account} logout={logout} view={view} onNavigate={go} crewRole={data.selected?.crewRole ?? data.history[0]?.crewRole}
-      heading={heading} search={search} onSearch={setSearch}
+      heading={heading} search={search} onSearch={setSearch} activeTripId={data.active?.id ?? null}
       searchPlaceholder={view === 'history' && !tripId ? 'Tìm mã đơn, khách hàng, tuyến…' : undefined}
     >
       <DriverWorkspace data={data} userId={String(account.id)} view={view} historyTripId={tripId} search={search} onNavigate={go} />

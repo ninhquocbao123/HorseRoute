@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Empty, Spin, Tooltip } from 'antd';
 import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
@@ -14,6 +14,7 @@ import RouteMapCard from './RouteMapCard';
 import { useTripMap } from './useTripMap';
 import { useGpsSharing } from './useGpsSharing';
 import { useDraft } from './useDraft';
+import { useDriverNotice } from './DriverNotices';
 import { isTripStart, useLegAction } from './useLegAction';
 import { PRE_DEPARTURE_CHECKS, checkInTitle } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
@@ -32,6 +33,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
 }) {
   const { details, active, upcoming, history, load, loading, refreshing, error } = data;
   const [flash, setFlash] = useState('');
+  const clearFlash = useCallback(() => setFlash(''), []);
 
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
@@ -75,7 +77,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
       ) : (
         <TripScreen
           key={active.id} trip={active} detail={details[active.id]} upcoming={upcoming}
-          onChanged={load} onNavigate={onNavigate} flash={flash} onFlashClose={() => setFlash('')} userId={userId}
+          onChanged={load} onNavigate={onNavigate} flash={flash} onFlashClose={clearFlash} userId={userId}
         />
       ))}
     </div>
@@ -135,6 +137,30 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
 
   const start = isTripStart(action, seqNo);
 
+  // Thông báo thành công là toast tự tắt sau 5 giây (không còn banner đẩy bản đồ xuống).
+  const toast = useDriverNotice();
+  const { notice: legNotice, setNotice: setLegNotice } = legAction;
+  useEffect(() => {
+    if (!legNotice) return;
+    toast.success(legNotice);
+    setLegNotice('');
+  }, [legNotice, setLegNotice, toast]);
+  useEffect(() => {
+    if (!flash) return;
+    toast.success(flash);
+    onFlashClose();
+  }, [flash, onFlashClose, toast]);
+  const wasFinished = useRef(finished);
+  useEffect(() => {
+    if (finished && !wasFinished.current) toast.success('Tất cả các chặng đã hoàn thành. Cảm ơn bạn!');
+    wasFinished.current = finished;
+  }, [finished, toast]);
+  const wasSharing = useRef(gps.enabled);
+  useEffect(() => {
+    if (gps.enabled && !wasSharing.current) toast.success('Đã bật chia sẻ vị trí.');
+    wasSharing.current = gps.enabled;
+  }, [gps.enabled, toast]);
+
   return (
     <>
       <TripHeaderCard
@@ -161,8 +187,6 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
         </>}
       />
 
-      {legAction.notice && <Alert type="success" showIcon message={legAction.notice} role="status" closable onClose={() => legAction.setNotice('')} />}
-      {flash && <Alert type="success" showIcon message={flash} role="status" closable onClose={onFlashClose} />}
       {legAction.pendingAlert}
       {!action && !finished && trip.legs.length > 0 && !ready && trip.orderStatus !== 'IN_TRANSIT' && (
         <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />

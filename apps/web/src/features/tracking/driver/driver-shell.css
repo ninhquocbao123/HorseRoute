@@ -93,3 +93,14 @@
   .drs-tools { flex-wrap: wrap; }
   .drs-main { padding: 20px 16px 32px; }
 }
+
+/* UI-2: thông báo nổi (antd notification, render ở body nên không dùng biến của .drs) */
+.drv-toast.ant-notification-notice { width: 380px; max-width: calc(100vw - 32px); padding: 14px 16px; border-radius: 14px; box-shadow: 0 8px 28px rgb(11 59 66 / 18%); }
+.drv-toast .ant-notification-notice-message { margin-bottom: 0; font-size: 14px; font-weight: 700; color: #0d2a2e; }
+.drv-toast .ant-notification-notice-description { margin-top: 4px; font-size: 13px; color: #0d2a2e; }
+.drv-toast.is-alert { background: #fffbeb; border-left: 4px solid #ca8a04; }
+.drv-toast-text { display: block; overflow-wrap: anywhere; }
+.drv-toast-meta { display: block; margin-top: 4px; color: #546d71; }
+.drv-toast-ok { color: #16a34a; }
+.drv-toast-info { color: #14606a; }
+.drv-toast-warn { color: #ca8a04; }

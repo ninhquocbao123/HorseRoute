@@ -50,6 +50,7 @@ import {
 import { TrackingTripDetail, LegDetailRow, MilestoneRow } from './tracking.dto';
 import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
 import { Logger } from '../../shared/utils/logger.util';
+import { socketService } from '../../shared/socket/socket.service';
 import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
 import { modeForVehicle } from './trackmap.geo';
 
@@ -170,13 +171,36 @@ function retentionDays() {
   return Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30;
 }
 
+/** Cổng phát sự kiện realtime tới phòng riêng của người dùng; mặc định là socket dùng chung (no-op khi socket chưa gắn, như trong unit test). */
+export interface TrackingRealtime {
+  emitToUsers(userIds: string[], event: string, payload: unknown): void;
+}
+const realtimeLogger = new Logger('TrackingRealtime');
+
 export class TrackingService {
   private readonly routes: RoutesProvider;
   private retentionTimer?: NodeJS.Timeout;
   private retentionRun?: Promise<number>;
 
-  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider) {
+  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider, private readonly realtime: TrackingRealtime = socketService) {
     this.routes = routes ?? new RoutesProvider(repository);
+  }
+
+  /** Chạy SAU khi transaction đã commit; lỗi socket/DB ở đây chỉ được log, không làm hỏng request. */
+  private async publish(label: string, run: () => Promise<void>): Promise<void> {
+    try {
+      await run();
+    } catch (error) {
+      realtimeLogger.warn('realtime_emit_failed', { label, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  /** Đẩy `notification:new` cho từng người vừa nhận thông báo IN_APP của sự kiện chuyến. */
+  private async emitNewNotifications(userIds: string[], eventType: string, tripId: string) {
+    const rows = await this.repository.findLatestTripNotifications(userIds, eventType, tripId);
+    for (const row of rows) {
+      this.realtime.emitToUsers([row.recipientId], 'notification:new', { id: row.id, content: row.content, createdAt: row.createdAt.toISOString() });
+    }
   }
 
   async getDriverTrips(account: User): Promise<IDriverTripSummary[]> {
@@ -783,7 +807,7 @@ export class TrackingService {
     const incidentId = parse(legIdSchema, rawIncidentId);
     const input = parse(patchIncidentSchema, body);
 
-    return this.repository.transaction(async repo => {
+    const result = await this.repository.transaction(async repo => {
       const incident = await repo.findIncident(incidentId);
       if (!incident || incident.plannedBy !== String(account.id)) {
         throw new NotFoundException('Không tìm thấy sự cố.');
@@ -812,8 +836,15 @@ export class TrackingService {
       );
 
       const incidents = await this.loadIncidents(repo, incident.tripId);
-      return incidents.find(item => item.id === incidentId)!;
+      return { saved: incidents.find(item => item.id === incidentId)!, reportedBy: incident.reportedBy, tripId: incident.tripId };
     });
+    await this.publish('incident_updated', async () => {
+      this.realtime.emitToUsers([result.reportedBy], 'tracking:incident_updated', {
+        incidentId, tripId: result.tripId, status: result.saved.status, handlingNote: result.saved.handlingNote ?? null,
+      });
+      await this.emitNewNotifications([result.reportedBy], input.status === IncidentStatus.CLOSED ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED', result.tripId);
+    });
+    return result.saved;
   }
 
   async createAlert(account: User, rawTripId: string, body: unknown): Promise<IAlert> {
@@ -823,7 +854,7 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createAlertSchema, body);
 
-    return this.repository.transaction(async repo => {
+    const saved = await this.repository.transaction(async repo => {
       const trip = await this.authorizeTrip(repo, account, tripId, [Role.COORDINATOR]);
       if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
         throw new ConflictException('Chỉ phát cảnh báo cho chuyến đang chuẩn bị xuất phát hoặc đang vận chuyển.');
@@ -839,6 +870,14 @@ export class TrackingService {
       const alerts = await this.loadAlerts(repo, tripId);
       return alerts.find(alert => alert.id === alertId)!;
     });
+    await this.publish('alert', async () => {
+      const crew = await this.repository.getTripCrewIds(tripId);
+      this.realtime.emitToUsers(crew, 'tracking:alert', {
+        alertId: saved.id, tripId, alertType: saved.alertType, content: saved.content, sentByName: saved.sentByName, sentAt: saved.sentAt,
+      });
+      await this.emitNewNotifications(crew, 'TRIP_ALERT', tripId);
+    });
+    return saved;
   }
 
   async getTripAlerts(account: User, rawTripId: string): Promise<IAlert[]> {
