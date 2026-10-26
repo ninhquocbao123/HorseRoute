@@ -187,7 +187,7 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
       <aside className="drv-side" aria-label="Hỗ trợ khi gặp sự cố">
         <WaitingChecklist tripId={trip.id} />
         <QuickContactCard coordinator={detail?.coordinator} hotline={detail?.emergencyHotline} />
-        <RedNotice />
+        <RedNotice severity={draft.severity} />
         <ReportedIncidents incidents={reported} />
       </aside>
     </div>

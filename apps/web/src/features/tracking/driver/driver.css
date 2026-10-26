@@ -103,7 +103,6 @@
 .drv-header-code h2 { font-size: 18px; font-weight: 800; }
 .drv-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap;
   background: var(--drs-soft); color: var(--drs-navy2); }
-.drv-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .drv-badge.is-ready, .drv-badge.is-delivered { background: var(--drs-green-bg); color: var(--drs-green); }
 .drv-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .drs .drv-header-actions .ant-btn { height: 40px; padding: 0 20px; border-radius: var(--drs-radius); font-size: 14px; font-weight: 700; }
@@ -228,6 +227,8 @@
 .drv-reported-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .drv-reported-head .ant-tag { margin: 0 0 0 auto; }
 .drv-reported-desc { color: var(--drs-ink); overflow-wrap: anywhere; }
+.drs .drv-reported-desc.is-toggle { padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.drv-reported-desc.is-clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .drv-reported-list time, .drv-reported-list small { font-size: 12px; color: var(--drs-muted); }
 .drv-sev-tag { justify-self: start; padding: 1px 8px; border: 1px solid var(--sev); border-radius: 99px; background: var(--sev-soft); color: var(--sev-text); font-size: 12px; font-weight: 700; }
 .drv-reported-list li.has-severity { padding-left: 12px; border-left: 3px solid var(--sev); }

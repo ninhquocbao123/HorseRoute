@@ -169,7 +169,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       )}
 
       {upcoming.length > 0 && (
-        <p className="drv-upcoming" role="note">Còn {upcoming.length} chuyến sắp tới: {upcoming.map(item => item.orderCode).join(', ')}</p>
+        <p className="drv-upcoming" role="note">Chuyến kế tiếp: {upcoming[0].orderCode}{upcoming.length > 1 ? ` (+${upcoming.length - 1})` : ''}</p>
       )}
 
       <div className="drv-columns">

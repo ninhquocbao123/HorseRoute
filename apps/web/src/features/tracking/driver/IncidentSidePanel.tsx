@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Checkbox, Tag } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
-import type { IIncident, ITripContact } from '@my-project/shared';
+import type { IIncident, IncidentSeverity, ITripContact } from '@my-project/shared';
 import { INCIDENT_STATUS_LABEL, formatDateTime } from '../tracking.format';
 import { INCIDENT_SEVERITY_META } from '@my-project/shared';
 import { WAITING_STEPS, incidentKindLabel, severityVars } from './driver-ui';
@@ -32,7 +33,8 @@ export function QuickContactCard({ coordinator, hotline }: { coordinator: ITripC
   );
 }
 
-export function RedNotice() {
+export function RedNotice({ severity }: { severity: IncidentSeverity | '' }) {
+  if (severity !== 'RED') return null;
   return (
     <p className="drv-red-notice" role="note">
       <WarningOutlined aria-hidden="true" />
@@ -43,6 +45,8 @@ export function RedNotice() {
 
 /** Một sự cố trong danh sách của tài xế: viền trái + tag mức độ theo màu mức độ, tag trạng thái trung tính cùng hàng tiêu đề. */
 export function IncidentListItem({ item }: { item: IIncident }) {
+  const [open, setOpen] = useState(false);
+  const long = item.description.length > 110;
   return (
     <li className={item.severity ? 'has-severity' : undefined} style={item.severity ? severityVars(item.severity) : undefined}>
       <span className="drv-reported-head">
@@ -50,7 +54,9 @@ export function IncidentListItem({ item }: { item: IIncident }) {
         <Tag bordered={false} className="drv-status-tag">{INCIDENT_STATUS_LABEL[item.status]}</Tag>
       </span>
       {item.severity && <span className="drv-sev-tag">{INCIDENT_SEVERITY_META[item.severity].label}</span>}
-      <span className="drv-reported-desc">{item.description}</span>
+      {long
+        ? <button type="button" className={'drv-reported-desc is-toggle' + (open ? '' : ' is-clamped')} aria-expanded={open} onClick={() => setOpen(!open)}>{item.description}</button>
+        : <span className="drv-reported-desc">{item.description}</span>}
       <time dateTime={item.reportedAt}>{formatDateTime(item.reportedAt)}</time>
       {item.status === 'CLOSED' && item.handlingNote && <small>Xử lý: {item.handlingNote}</small>}
     </li>

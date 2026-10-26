@@ -696,13 +696,13 @@ const { pathToFileURL } = require('node:url');
     extraIds.push('400');
     await open('trip');
     await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
-    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-3');
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-3');
     assert.equal(await page.locator('.drv-trip-select, .ant-select').count(), 0, 'không có dropdown chọn chuyến');
     // Không có IN_TRANSIT thì chọn READY khởi hành sớm nhất (WDP-TEST-3 sớm hơn WDP-TEST-1)
     trips[100].orderStatus = 'READY';
     await open('trip');
     await page.getByRole('heading', { name: 'WDP-TEST-3' }).waitFor();
-    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-1');
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-1');
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');

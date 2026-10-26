@@ -10,11 +10,12 @@ export const ORDER_TAG: Record<string, { label: string; color: string }> = {
   DELIVERED: { label: 'Đã giao xong', color: 'green' },
   CANCELLED: { label: 'Đã hủy', color: 'default' },
 };
-export const LEG_TAG: Record<string, { label: string; color: string }> = {
-  NOT_STARTED: { label: 'Chưa bắt đầu', color: 'default' },
-  MOVING: { label: 'Đang di chuyển', color: 'gold' },
-  AT_STOP: { label: 'Đã đến điểm dừng', color: 'blue' },
-  COMPLETED: { label: 'Hoàn thành', color: 'green' },
+/** Trạng thái chặng: kiểu trung tính (màu chỉ dành cho tag cần chú ý: cửa khẩu cần thông quan, tình trạng ngựa bất thường). */
+export const LEG_TAG: Record<string, { label: string }> = {
+  NOT_STARTED: { label: 'Chưa bắt đầu' },
+  MOVING: { label: 'Đang di chuyển' },
+  AT_STOP: { label: 'Đã đến điểm dừng' },
+  COMPLETED: { label: 'Hoàn thành' },
 };
 export const CONDITION_COLOR: Record<string, string> = { STABLE: 'green', OFF_FEED: 'orange', STRESSED: 'red', CLIMATE_CHANGE: 'blue' };
 export const INCIDENT_COLOR: Record<string, string> = { VEHICLE_BREAKDOWN: 'orange', LONG_TRAFFIC_JAM: 'gold', HORSE_MEDICAL: 'red' };

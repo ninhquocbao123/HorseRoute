@@ -46,7 +46,7 @@ export default function DriverShell({ account, logout, view, onNavigate, crewRol
       <aside className="drs-sidebar">
         <div className="drs-sidebar-inner">
           <div className="drs-brand"><span aria-hidden="true">V</span>Vận chuyển ngựa</div>
-          <div className="drs-role"><span aria-hidden="true" />{role} · {roleLabel}</div>
+          <div className="drs-role">{role} · {roleLabel}</div>
           <p className="drs-nav-label">ĐIỀU HƯỚNG</p>
           <nav aria-label="Điều hướng tài xế">
             {DRIVER_NAV.map(item => (

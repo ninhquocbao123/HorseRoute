@@ -40,7 +40,6 @@
   align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px;
   background: rgb(244 185 66 / 14%); color: var(--drs-gold); font-size: 12px; font-weight: 700;
 }
-.drs-role > span { width: 8px; height: 8px; border-radius: 50%; background: var(--drs-gold); }
 .drs-nav-label { padding: 18px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .88px; color: var(--drs-mint); }
 .drs-sidebar nav { display: grid; gap: 8px; }
 .drs-sidebar nav button {

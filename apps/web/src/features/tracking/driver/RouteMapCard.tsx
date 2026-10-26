@@ -83,9 +83,7 @@ function GpsBadge({ gps }: { gps: GpsSharing }) {
     ? 'Trình duyệt đang chặn vị trí. Bấm biểu tượng ổ khóa cạnh địa chỉ trang → Vị trí → Cho phép, rồi tải lại trang.'
     : status === 'unsupported' ? 'Trình duyệt này không hỗ trợ lấy vị trí.'
     : status === 'stopped' ? stopReason : '';
-  const help = enabled && lastSentAt ? `Đã gửi lúc ${time.format(new Date(lastSentAt))}. Chỉ gửi khi trang này đang mở.`
-    : enabled ? 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng trong lúc chạy.'
-    : 'Bật để điều phối viên thấy xe của bạn trên bản đồ.';
+  const help = enabled ? 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng.' : 'Bật để điều phối viên thấy xe của bạn trên bản đồ.';
   return (
     <div className="drv-gps-overlay">
       <div className={'drv-gps-badge ' + view.tone}>
