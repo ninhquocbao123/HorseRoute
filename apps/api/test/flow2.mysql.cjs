@@ -7,6 +7,7 @@ const mysql=require('mysql2/promise');const {DataSource}=require('typeorm');
 const {DocumentsService}=require('../src/features/documents/documents.service');
 const {SystemAudit1800000002000}=require('../src/database/migrations/1800000002000-SystemAudit');
 const {OrdersService}=require('../src/features/orders/orders.service');
+const {horseDocumentNames}=require('../src/features/documents/required-horse-documents');
 const {OrderDrafts1800000001000}=require('../src/database/migrations/1800000001000-OrderDrafts');
 const name='wdp_flow2_test_'+require('crypto').randomBytes(8).toString('hex');
 const options=require('./mysql-options.cjs');
@@ -24,9 +25,8 @@ async function main(){
  try{await new OrderDrafts1800000001000().up(runner);await new SystemAudit1800000002000().up(runner);}finally{await runner.release();}
  await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (1,'one@example.com','!','Khách 1','CUSTOMER','ACTIVE'),(2,'two@example.com','!','Khách 2','CUSTOMER','ACTIVE'),(3,'manager@example.com','!','Quản lý','MANAGER','ACTIVE'),(4,'coordinator@example.com','!','Điều phối','COORDINATOR','ACTIVE')");
  await db.query("INSERT INTO authorities(id,name,authority_type,country) VALUES (1,'Test authority','QUARANTINE','SG')");
- await db.query("INSERT INTO document_types(id,name,has_expiry) VALUES (1,'Passport',0),(2,'Health',1)");
- await db.query("INSERT INTO quarantine_rules(id,origin_country,destination_country,authority_id,updated_by,updated_at) VALUES (1,'VN','SG',1,3,UTC_TIMESTAMP()),(2,'VN','SG',1,3,UTC_TIMESTAMP()),(3,'VN','TH',1,3,UTC_TIMESTAMP())");
- await db.query('INSERT INTO quarantine_rule_doctypes(rule_id,document_type_id) VALUES (1,1),(1,2)');
+ // Quy tắc kiểm dịch theo tuyến (quarantine_rules / quarantine_rule_doctypes) đã bị bỏ có chủ ý (migration RemoveQuarantineRules):
+ // mọi ngựa luôn cần đúng 3 giấy tờ theo horseDocumentNames. Chưa seed document_types ở đây để thử trường hợp "chưa cấu hình đủ".
  const service=new OrdersService(db);const customer={id:'1',role:'CUSTOMER'},other={id:'2',role:'CUSTOMER'},manager={id:'3',role:'MANAGER'};
  const requestId=require('crypto').randomUUID();let id;
  await check('save empty draft and idempotent retry',async()=>{id=(await service.save(customer,{requestId,horses:[]})).id;assert.equal((await service.save(customer,{requestId,horses:[]})).id,id);const [n]=await db.query('SELECT COUNT(*) n FROM orders');assert.equal(Number(n.n),1);});
@@ -42,21 +42,25 @@ async function main(){
  payload.horses[0].id=String(horseId);payload.horses[0].breed='Thoroughbred';
  await service.save(customer,payload,id);await service.submit(customer,id);
  await check('resubmission retains horse ID and review history',async()=>{const result=await service.detail(customer,id);assert.equal(String(result.horses[0].id),String(horseId));assert.ok(result.history.some(h=>h.action==='REVIEW'));assert.equal(result.horses[0].breed,'Thoroughbred');});
- await check('invalid coordinator and foreign route rules are rejected',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'2',ruleIds:['1','2']}),e=>e.getStatus()===400);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['3']}),e=>e.getStatus()===400);});
- await check('approval failure rolls back previously created checklist and dossiers',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);for(const table of ['documents','dossiers','trips']){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),0);}assert.equal((await service.detail(customer,id)).status,'PENDING');});
- await db.query('INSERT INTO quarantine_rule_doctypes(rule_id,document_type_id) VALUES (2,1)');
- await check('approval creates distinct checklist, dossiers and one draft trip',async()=>{await service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']});for(const [table,count]of [['documents',2],['dossiers',1],['trips',1]]){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),count);}assert.equal((await service.detail(customer,id)).status,'APPROVED');});
+ // Đã bỏ assert "ruleIds của tuyến khác bị từ chối": duyệt đơn không còn nhận ruleIds (quy tắc kiểm dịch theo tuyến bị bỏ có chủ ý).
+ await check('invalid coordinator is rejected',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'2'}),e=>e.getStatus()===400);});
+ await check('approval failure (3 required document types not configured) rolls back checklist, dossiers and trip',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'}),e=>e.getStatus()===409&&/3 giấy tờ/.test(e.message));for(const table of ['documents','dossiers','trips']){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),0);}assert.equal((await service.detail(customer,id)).status,'PENDING');});
+ // Cấu hình đúng 3 loại giấy tờ như migration RemoveQuarantineRules: has_expiry = 0 cho hộ chiếu, 1 cho hai giấy còn lại.
+ for(const [index,docName] of horseDocumentNames.entries())await db.query('INSERT INTO document_types(id,name,description,has_expiry) VALUES (?,?,?,?)',[index+1,docName,'Giấy tờ bắt buộc cho mỗi ngựa',index===0?0:1]);
+ await check('approval creates the 3 required checklist documents per horse and one draft trip (no dossier any more)',async()=>{await service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'});for(const [table,count]of [['documents',3],['dossiers',0],['trips',1]]){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),count);}assert.equal((await service.detail(customer,id)).status,'APPROVED');});
+ // Duyệt đơn không còn tạo hồ sơ nộp cơ quan (dossiers); tạo sẵn một hồ sơ để vẫn kiểm các luồng Flow 2 phía sau (upload, thẩm định, nộp, phê duyệt).
+ await db.query('INSERT INTO dossiers(horse_id,authority_id) VALUES (?,1)',[horseId]);
  await check('approval freezes exact per-horse requirements and later rule changes do not rewrite snapshot',async()=>{
   const [row]=await db.query('SELECT requirements_snapshot AS snapshot FROM orders WHERE id=?',[id]);
   const snapshot=typeof row.snapshot==='string'?JSON.parse(row.snapshot):row.snapshot;
-  assert.equal(snapshot.version,1);assert.deepEqual(snapshot.ruleIds,['1','2']);assert.equal(snapshot.horses.length,1);
-  assert.deepEqual(snapshot.horses[0].documents,[{documentTypeId:'1',hasExpiry:false},{documentTypeId:'2',hasExpiry:true}]);
-  assert.deepEqual(snapshot.horses[0].authorityIds,['1']);
+  assert.equal(snapshot.version,2);assert.equal(snapshot.ruleIds,undefined,'snapshot không còn ruleIds');assert.equal(snapshot.horses.length,1);
+  assert.deepEqual(snapshot.horses[0].documents,[{documentTypeId:'1',hasExpiry:false},{documentTypeId:'2',hasExpiry:true},{documentTypeId:'3',hasExpiry:true}]);
+  assert.deepEqual(snapshot.horses[0].authorityIds,[]);
   await db.query('UPDATE document_types SET has_expiry=0 WHERE id=2');
   const [after]=await db.query('SELECT requirements_snapshot AS snapshot FROM orders WHERE id=?',[id]);
   assert.deepEqual(after.snapshot,row.snapshot);await db.query('UPDATE document_types SET has_expiry=1 WHERE id=2');
  });
- await check('approved order cannot be edited or reviewed again',async()=>{await assert.rejects(()=>service.save(customer,payload,id),e=>e.getStatus()===409);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);});
+ await check('approved order cannot be edited or reviewed again',async()=>{await assert.rejects(()=>service.save(customer,payload,id),e=>e.getStatus()===409);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'}),e=>e.getStatus()===409);});
  const otherId=(await service.save(other,{...payload,horses:[{name:'Ngựa Hai',passportNo:'TEST-TWO'}]})).id;await service.submit(other,otherId);
  await check('rejection records reason and creates no trip',async()=>{await service.review(manager,otherId,{decision:'REJECTED',reason:'Không phục vụ tuyến này'});const detail=await service.detail(other,otherId);assert.equal(detail.status,'REJECTED');assert.equal(detail.manager_note,'Không phục vụ tuyến này');const [n]=await db.query('SELECT COUNT(*) n FROM trips WHERE order_id=?',[otherId]);assert.equal(Number(n.n),0);});
  await check('list is scoped and filterable',async()=>{const list=await service.list(customer,{page:1,limit:10,status:'APPROVED'});assert.equal(list.total,1);assert.equal(String(list.items[0].id),id);assert.equal((await service.list(other,{page:1,limit:10,status:'APPROVED'})).total,0);});
@@ -65,22 +69,33 @@ async function main(){
  await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (5,'specialist@example.com','!','Chuyên viên','SPECIALIST','ACTIVE')");
  const docs=new DocumentsService(db),specialist={id:'5',role:'SPECIALIST'};
  const pdf={buffer:Buffer.from('%PDF-1.4\nTest fixture'),originalname:'test.pdf',size:21};
- let detail=await docs.detail(customer,id);const first=String(detail.documents[0].id),second=String(detail.documents[1].id),dossier=String(detail.dossiers[0].id);
+ let detail=await docs.detail(customer,id);const first=String(detail.documents[0].id),second=String(detail.documents[1].id),third=String(detail.documents[2].id),dossier=String(detail.dossiers[0].id);
  await check('Flow2 enforces customer order ownership',async()=>{await assert.rejects(()=>docs.detail(other,id),e=>e.getStatus()===404);await assert.rejects(()=>docs.upload(other,id,first,pdf),e=>e.getStatus()===404);});
  await check('reject spoofed file contents',async()=>{await assert.rejects(()=>docs.upload(customer,id,first,{...pdf,buffer:Buffer.from('not a PDF')}),e=>e.getStatus()===400);});
- await check('concurrent uploads retain sequential versions',async()=>{await Promise.all([docs.upload(customer,id,first,pdf),docs.upload(customer,id,first,pdf)]);detail=await docs.detail(customer,id);assert.deepEqual(detail.versions.filter(v=>String(v.document_id)===first).map(v=>v.version_no),[2,1]);});
+ // Quy tắc mới (supplementable): giấy tờ đã nộp/đang chờ thẩm định không được gửi lại, nên hai upload đồng thời chỉ một cái thành công.
+ await check('concurrent uploads of the same document: exactly one succeeds, the other is rejected',async()=>{const results=await Promise.allSettled([docs.upload(customer,id,first,pdf),docs.upload(customer,id,first,pdf)]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.ok(results.find(r=>r.status==='rejected').reason.getStatus()===409);detail=await docs.detail(customer,id);assert.deepEqual(detail.versions.filter(v=>String(v.document_id)===first).map(v=>v.version_no),[1]);});
  await check('cross-owner file access denied; owner can retrieve original bytes',async()=>{const file=detail.versions[0].attachment_id;await assert.rejects(()=>docs.download(other,id,file),e=>e.getStatus()===404);assert.deepEqual((await docs.download(customer,id,file)).buffer,pdf.buffer);});
- await check('stale version review rejected',async()=>{const old=detail.versions.find(v=>v.version_no===1);await assert.rejects(()=>docs.review(specialist,id,first,{status:'VALID',versionId:String(old.id)}),e=>e.getStatus()===409);});
+ await check('stale version review rejected',async()=>{const old=detail.versions.find(v=>v.version_no===1);
+  // Tạo phiên bản 2: chỉ giấy tờ INVALID/EXPIRED/chưa nộp mới được gửi lại.
+  await docs.review(specialist,id,first,{status:'INVALID',versionId:String(old.id),reason:'Ảnh mờ, nộp lại'});await docs.upload(customer,id,first,pdf);detail=await docs.detail(customer,id);
+  assert.deepEqual(detail.versions.filter(v=>String(v.document_id)===first).map(v=>v.version_no),[2,1]);
+  await assert.rejects(()=>docs.review(specialist,id,first,{status:'VALID',versionId:String(old.id)}),e=>e.getStatus()===409);});
  await docs.review(specialist,id,first,{status:'VALID',versionId:String(detail.documents[0].latest_version_id)});
  await docs.upload(customer,id,second,pdf);detail=await docs.detail(customer,id);
  await check('expiry is mandatory and INVALID requires reason',async()=>{const versionId=String(detail.documents[1].latest_version_id);await assert.rejects(()=>docs.review(specialist,id,second,{status:'VALID',versionId}),e=>e.getStatus()===400);await assert.rejects(()=>docs.review(specialist,id,second,{status:'INVALID',versionId,reason:' '}),e=>e.getStatus()===400);});
  const now=new Date().toISOString().slice(0,10);
  await check('submission blocked until complete valid checklist',async()=>{await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R1'}),e=>e.getStatus()===409);});
  await docs.review(specialist,id,second,{status:'VALID',versionId:String(detail.documents[1].latest_version_id),expiryDate:future});
+ await docs.upload(customer,id,third,pdf);detail=await docs.detail(customer,id);
+ await check('third required document must also be valid before submission',async()=>{await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R1'}),e=>e.getStatus()===409);});
+ await docs.review(specialist,id,third,{status:'VALID',versionId:String(detail.documents[2].latest_version_id),expiryDate:future});
  await check('supplement request sends specific notification and audit',async()=>{await docs.request(specialist,id,second,'Bổ sung trang cuối');const [row]=await db.query("SELECT COUNT(*) n FROM audit_logs WHERE action='REQUEST_SUPPLEMENT'");assert.equal(Number(row.n),1);});
+ // Yêu cầu bổ sung đặt giấy tờ về INVALID: khách gửi lại, chuyên viên duyệt lại trước khi nộp hồ sơ.
+ await docs.upload(customer,id,second,pdf);detail=await docs.detail(customer,id);
+ await docs.review(specialist,id,second,{status:'VALID',versionId:String(detail.documents[1].latest_version_id),expiryDate:future});
  await docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R1'});
  await check('submitted dossier locks document replacement',async()=>{await assert.rejects(()=>docs.upload(customer,id,first,pdf),e=>e.getStatus()===409);});
- await check('NEED_INFO unlocks replacement and requires revalidation',async()=>{await docs.updateDossier(specialist,id,dossier,{status:'NEED_INFO',date:now,reason:'Nộp bản rõ hơn'});await docs.upload(customer,id,first,pdf);await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R2'}),e=>e.getStatus()===409);detail=await docs.detail(customer,id);await docs.review(specialist,id,first,{status:'VALID',versionId:String(detail.documents[0].latest_version_id)});});
+ await check('NEED_INFO unlocks replacement and requires revalidation',async()=>{await docs.updateDossier(specialist,id,dossier,{status:'NEED_INFO',date:now,reason:'Nộp bản rõ hơn'});detail=await docs.detail(customer,id);await docs.review(specialist,id,first,{status:'INVALID',versionId:String(detail.documents[0].latest_version_id),reason:'Nộp bản rõ hơn'});await docs.upload(customer,id,first,pdf);await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R2'}),e=>e.getStatus()===409);detail=await docs.detail(customer,id);await docs.review(specialist,id,first,{status:'VALID',versionId:String(detail.documents[0].latest_version_id)});});
  await check('expiry job records system audit and blocks submission',async()=>{await db.query("UPDATE documents SET expiry_date='2020-01-01' WHERE id=?",[second]);await docs.expireAll();detail=await docs.detail(customer,id);assert.equal(detail.documents[1].status,'EXPIRED');await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R2'}),e=>e.getStatus()===409);const [log]=await db.query("SELECT actor_id FROM audit_logs WHERE action='AUTO_EXPIRE'");assert.equal(log.actor_id,null);});
  await docs.review(specialist,id,second,{status:'VALID',versionId:String(detail.documents[1].latest_version_id),expiryDate:future});
  await docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R2'});
