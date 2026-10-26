@@ -176,6 +176,37 @@ export interface IDriverTripSummary {
 
 // ─── Trip detail (GET /tracking/trips/:id) ───────────────────────────────────
 
+/** Tổng hợp hoạt động chăm sóc trong khoảng from/to (hoặc toàn bộ danh sách khi không có khoảng). */
+export interface ICareSummary {
+  waterLiters: number;
+  /** Số lần cho ăn */
+  meals: number;
+  /** Số lần nghỉ chân */
+  rests: number;
+  restMinutes: number;
+  /** Lần cho ăn gần nhất của từng ngựa (ISO UTC) trong cùng phạm vi */
+  lastFeedAtByHorse: Record<string, string>;
+}
+
+export interface ICareActivityList {
+  /** Mới nhất trước; bản gốc đã bị đính chính được ẩn (chỉ trả bản mới nhất) */
+  activities: ICareActivity[];
+  summary: ICareSummary;
+}
+
+export interface ICareActivityCreateInput {
+  activityType: CareActivityType;
+  /** Bắt buộc với FEED/WATER; null = cả đoàn (chỉ REST) */
+  horseId?: string | null;
+  feedDescription?: string | null; // FEED, 1–200 ký tự
+  amountLiters?: number | null; // WATER, 0.1–200 (1 chữ số thập phân)
+  durationMinutes?: number | null; // REST, 1–720
+  note?: string | null; // tối đa 255
+  performedAt: string; // ISO UTC
+  /** Đính chính một bản ghi: cùng chuyến, cùng ngựa, cùng loại */
+  correctsActivityId?: string | null;
+}
+
 export interface ITripHorse {
   id: string;
   name: string;

@@ -173,6 +173,68 @@ async function main() {
     assert.equal(await count('SELECT COUNT(*) AS n FROM trip_positions'), positions);
   });
 
+  await check('Care activities (order READY): escort writes FEED/WATER/REST, DRIVER 403, correction hides the old row, summary and range rules, rollback', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'READY');
+    const post = (body, as = ids.escort) => call('POST', '/trips/100/care-activities', { as, body });
+    const feed = await expectStatus(201, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'FEED', horseId: '21', feedDescription: 'Cỏ khô 3 kg + cà rốt', performedAt: minutesAgo(30) } });
+    assert.equal(feed.legId, null, 'chưa xuất phát: legId null');
+    assert.equal(feed.horseName, 'Bạch Mã');
+    assert.equal(feed.createdByName, 'Hộ Tống');
+    const water = await expectStatus(201, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '22', amountLiters: 80, performedAt: minutesAgo(20) } });
+    assert.equal(water.amountLiters, 80);
+    const rest = await expectStatus(201, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'REST', horseId: null, durationMinutes: 20, note: 'Dừng nghỉ', performedAt: minutesAgo(10) } });
+    assert.equal(rest.horseId, null);
+    assert.equal(rest.horseName, null);
+
+    // Quyền: tài xế của chuyến 403, người không phân công 404, điều phối / khách 403
+    const body = { activityType: 'FEED', horseId: '21', feedDescription: 'x', performedAt: minutesAgo(1) };
+    await expectStatus(403, 'POST', '/trips/100/care-activities', { as: ids.driver, body });
+    await expectStatus(404, 'POST', '/trips/100/care-activities', { as: ids.driver2, body });
+    await expectStatus(403, 'POST', '/trips/100/care-activities', { as: ids.coordA, body });
+    await expectStatus(403, 'POST', '/trips/100/care-activities', { as: ids.customer, body });
+    await expectStatus(401, 'POST', '/trips/100/care-activities', { body });
+    // Dữ liệu sai: loại / trường, ngựa ngoài đơn, tương lai, quá cửa sổ nhập bù
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '21', performedAt: minutesAgo(1) } });
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'REST', durationMinutes: 20, amountLiters: 5, performedAt: minutesAgo(1) } });
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { ...body, horseId: '23' } });
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { ...body, performedAt: new Date(Date.now() + 600_000).toISOString() } });
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { ...body, performedAt: minutesAgo(600) } });
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_care_activities'), 3, 'bản ghi bị từ chối không để lại dòng');
+
+    // Đính chính: sai ngựa / loại 400; đúng thì bản cũ bị ẩn; đính chính bản đã bị đính chính 409
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '21', amountLiters: 8, correctsActivityId: water.id, performedAt: minutesAgo(5) } });
+    await expectStatus(400, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'FEED', horseId: '22', feedDescription: 'x', correctsActivityId: water.id, performedAt: minutesAgo(5) } });
+    const fixed = await expectStatus(201, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '22', amountLiters: 8, correctsActivityId: water.id, performedAt: minutesAgo(5) } });
+    assert.equal(fixed.correctsActivityId, water.id);
+    await expectStatus(409, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '22', amountLiters: 9, correctsActivityId: water.id, performedAt: minutesAgo(4) } });
+
+    // Đọc: mọi vai trò nội bộ trong phạm vi; danh sách mới nhất trước, bản gốc đã đính chính bị ẩn; summary đúng
+    const list = await expectStatus(200, 'GET', '/trips/100/care-activities', { as: ids.coordA });
+    assert.deepEqual(list.activities.map(item => item.id), [fixed.id, rest.id, feed.id], 'mới nhất trước, bản gốc 80 L bị ẩn');
+    assert.equal(list.activities.some(item => item.id === water.id), false);
+    assert.deepEqual(list.summary, { waterLiters: 8, meals: 1, rests: 1, restMinutes: 20, lastFeedAtByHorse: { 21: feed.performedAt } });
+    for (const as of [ids.driver, ids.escort, ids.manager, ids.specialist]) assert.equal((await expectStatus(200, 'GET', '/trips/100/care-activities', { as })).activities.length, 3);
+    await expectStatus(403, 'GET', '/trips/100/care-activities', { as: ids.customer });
+    await expectStatus(404, 'GET', '/trips/100/care-activities', { as: ids.coordB });
+    await expectStatus(404, 'GET', '/trips/100/care-activities', { as: ids.driver2 });
+    await expectStatus(401, 'GET', '/trips/100/care-activities');
+    // Khoảng from/to: lọc theo performed_at; thiếu một đầu / ngược / quá 7 ngày 400
+    const range = (from, to) => `/trips/100/care-activities?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const recent = await expectStatus(200, 'GET', range(minutesAgo(15), new Date(Date.now() + 60_000).toISOString()), { as: ids.escort });
+    assert.deepEqual(recent.activities.map(item => item.id), [fixed.id, rest.id], 'chỉ các bản trong khoảng');
+    assert.deepEqual(recent.summary, { waterLiters: 8, meals: 0, rests: 1, restMinutes: 20, lastFeedAtByHorse: {} });
+    await expectStatus(400, 'GET', `/trips/100/care-activities?from=${encodeURIComponent(minutesAgo(15))}`, { as: ids.escort });
+    await expectStatus(400, 'GET', range(minutesAgo(1), minutesAgo(15)), { as: ids.escort });
+    await expectStatus(400, 'GET', range(minutesAgo(9 * 24 * 60), minutesAgo(1)), { as: ids.escort });
+
+    // Audit trong cùng transaction; lỗi audit → rollback, không để lại hoạt động
+    assert.equal(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type = 'CARE_ACTIVITY' AND action = 'CREATE_CARE_ACTIVITY'"), 4);
+    const rows = await count('SELECT COUNT(*) AS n FROM horse_care_activities');
+    await failOn('audit_logs');
+    try { await expectStatus(500, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { ...body, performedAt: minutesAgo(2) } }); } finally { await clearTrigger(); }
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_care_activities'), rows, 'rollback: không còn dòng hoạt động');
+  });
+
   await check('Retroactive window T comes from system_parameters.LEG_BACK', async () => {
     await q("INSERT INTO system_parameters(param_code,param_value,description) VALUES ('LEG_BACK','30','test')");
     assert.equal((await depart(minutesAgo(45))).status, 400);
@@ -273,6 +335,16 @@ async function main() {
     assert.equal(logs.length, 2);
     assert.deepEqual(logs.map(item => item.createdByCrewRole), ['ESCORT', 'ESCORT'], 'nhật ký ghi bởi hộ tống mang createdByCrewRole = ESCORT');
     await expectStatus(404, 'GET', '/trips/100/horse-logs', { as: ids.driver2 });
+  });
+
+  await check('Care activities (order IN_TRANSIT): legId follows the running leg', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'IN_TRANSIT');
+    const running = (await q("SELECT CAST(id AS CHAR) AS id FROM legs WHERE trip_id = 100 AND status IN ('MOVING','AT_STOP') ORDER BY seq_no LIMIT 1"))[0].id;
+    const made = await expectStatus(201, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'WATER', horseId: '21', amountLiters: 12.5, performedAt: minutesAgo(1) } });
+    assert.equal(made.legId, running);
+    const list = await expectStatus(200, 'GET', '/trips/100/care-activities', { as: ids.escort });
+    assert.equal(list.activities[0].id, made.id);
+    assert.equal(list.summary.waterLiters, 20.5, '8 L đã đính chính + 12,5 L');
   });
 
   await check('Rollback: failing attachment insert leaves no horse log and removes the stored photo', async () => {
@@ -482,6 +554,14 @@ async function main() {
     assert.equal(trip.alerts.length, 1);
     const dash = await expectStatus(200, 'GET', '/operations/active-trips', { as: ids.manager });
     assert.deepEqual(dash.summary, { inTransit: 0, openIncidents: 1, overdueTrips: 0 }, 'the unclosed minor incident keeps the trip listed');
+  });
+
+  await check('Care activities (order DELIVERED): writing is blocked with 409, reading still works', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'DELIVERED');
+    const before = await count('SELECT COUNT(*) AS n FROM horse_care_activities');
+    await expectStatus(409, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'FEED', horseId: '21', feedDescription: 'Sau khi giao', performedAt: minutesAgo(1) } });
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_care_activities'), before);
+    assert.ok((await expectStatus(200, 'GET', '/trips/100/care-activities', { as: ids.escort })).activities.length > 0);
   });
 
   await check('Correction: reason required, ownership, sequence rules; milestones and order stay consistent with audit trail', async () => {

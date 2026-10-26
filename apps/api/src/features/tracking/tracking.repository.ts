@@ -572,6 +572,65 @@ export class TrackingRepository {
     );
   }
 
+  // ─── Hoạt động chăm sóc (horse_care_activities) ─────────────────────────────
+
+  /** Chặng đang chạy (MOVING / AT_STOP) của chuyến; null khi chưa xuất phát. */
+  async getCurrentLegId(tripId: string): Promise<string | null> {
+    const [row] = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id FROM legs WHERE trip_id = ? AND status IN ('MOVING','AT_STOP') ORDER BY seq_no ASC LIMIT 1`,
+      [tripId]
+    );
+    return row ? row.id : null;
+  }
+
+  async insertCareActivity(input: {
+    tripId: string; legId: string | null; horseId: string | null; activityType: string; feedDescription: string | null;
+    amountLiters: number | null; durationMinutes: number | null; note: string | null; performedAt: string; createdBy: string; correctsActivityId: string | null;
+  }): Promise<string> {
+    const result = await this.db.query(
+      `INSERT INTO horse_care_activities
+        (trip_id, leg_id, horse_id, activity_type, feed_description, amount_liters, duration_minutes, note, performed_at, created_by, corrects_activity_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [input.tripId, input.legId, input.horseId, input.activityType, input.feedDescription, input.amountLiters, input.durationMinutes, input.note,
+        new Date(input.performedAt), input.createdBy, input.correctsActivityId]
+    );
+    return String(result.insertId);
+  }
+
+  /** Bản ghi gốc để đính chính, kèm việc đã có bản đính chính khác trỏ tới nó chưa. */
+  async findCareActivity(id: string): Promise<{ id: string; tripId: string; horseId: string | null; activityType: string; corrected: boolean } | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(a.id AS CHAR) AS id, CAST(a.trip_id AS CHAR) AS tripId, CAST(a.horse_id AS CHAR) AS horseId, a.activity_type AS activityType,
+        EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id) AS corrected
+      FROM horse_care_activities a WHERE a.id = ?`,
+      [id]
+    );
+    return row ? { ...row, horseId: row.horseId ?? null, corrected: Boolean(Number(row.corrected)) } : undefined;
+  }
+
+  /**
+   * Mới nhất trước; bỏ các bản đã bị đính chính (chỉ trả bản mới nhất). Có khoảng thì lọc `performed_at` trong [from, to).
+   * `onlyId` lấy đúng một bản ghi (kể cả đã bị đính chính). Tối đa 1000 dòng.
+   */
+  async getCareActivities(tripId: string, range?: { from: Date; to: Date }, onlyId?: string): Promise<import('./tracking.dto').CareActivityRow[]> {
+    const filters = ['a.trip_id = ?', 'NOT EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id)'];
+    const params: unknown[] = [tripId];
+    if (range) { filters.push('a.performed_at >= ? AND a.performed_at < ?'); params.push(range.from, range.to); }
+    if (onlyId) { filters.length = 1; filters.push('a.id = ?'); params.push(onlyId); }
+    return this.db.query(
+      `SELECT CAST(a.id AS CHAR) AS id, CAST(a.trip_id AS CHAR) AS tripId, CAST(a.leg_id AS CHAR) AS legId, CAST(a.horse_id AS CHAR) AS horseId,
+        h.name AS horseName, a.activity_type AS activityType, a.feed_description AS feedDescription, a.amount_liters AS amountLiters,
+        a.duration_minutes AS durationMinutes, a.note, a.performed_at AS performedAt, CAST(a.created_by AS CHAR) AS createdBy,
+        u.full_name AS createdByName, a.created_at AS createdAt, CAST(a.corrects_activity_id AS CHAR) AS correctsActivityId
+      FROM horse_care_activities a
+      LEFT JOIN horses h ON h.id = a.horse_id
+      JOIN users u ON u.id = a.created_by
+      WHERE ${filters.join(' AND ')}
+      ORDER BY a.performed_at DESC, a.id DESC LIMIT 1000`,
+      params
+    );
+  }
+
   async getHorseLogAttachments(logIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
     if (!logIds.length) return [];
     return this.db.query(

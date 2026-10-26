@@ -175,3 +175,22 @@ export interface PositionRow {
   headingDeg: number | null;
   recordedAt: Date;
 }
+
+/** Hàng hoạt động chăm sóc (horse_care_activities) kèm tên ngựa / người ghi. */
+export interface CareActivityRow {
+  id: string;
+  tripId: string;
+  legId: string | null;
+  horseId: string | null;
+  horseName: string | null;
+  activityType: import('@my-project/shared').CareActivityType;
+  feedDescription: string | null;
+  amountLiters: number | string | null;
+  durationMinutes: number | null;
+  note: string | null;
+  performedAt: Date;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+  correctsActivityId: string | null;
+}

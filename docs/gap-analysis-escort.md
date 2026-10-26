@@ -323,6 +323,8 @@ Mỗi mục giữ **đề xuất gốc** và ghi **quyết định** của nhóm
 *Phụ thuộc*: không. *Rủi ro*: trùng timestamp migration với nhóm; kiểm `migration:show` và hỏi Bảo trước khi đặt số.
 
 ### Bước 2. API hoạt động chăm sóc (1–1,5 ngày)
+
+> **Đã làm (26/10/2026)**: `POST` / `GET /tracking/trips/:tripId/care-activities` (hộ tống ghi, đọc cho crew / điều phối / quản lý / chuyên viên), `summary`, đính chính ẩn bản cũ, test unit + flow4. Quy ước thêm: `feedDescription` bắt buộc với FEED; `summary` tính trên đúng các bản ghi trả về (bản gốc đã bị đính chính không được tính); không có `from`/`to` thì trả toàn bộ (tối đa 1000 dòng); đính chính bản đã bị đính chính trả 409 (đính chính bản mới nhất).
 1. `POST /trips/:id/care-activities` (ESCORT, đơn `READY` hoặc `IN_TRANSIT`, chặn `DELIVERED`; kiểm trường theo loại, giờ như mốc, đính chính bằng `corrects_activity_id`, không xóa) và `GET` (+ `from`, `to`), kèm `summary` tùy chọn.
 2. Test: unit từng vai trò (DRIVER 403, ESCORT, không phân công 404), flow4 MySQL (ghi, đọc, đính chính, rollback khi lỗi).
 3. Dữ liệu demo: thêm hoạt động chăm sóc vào `seed-flow4-demo`.

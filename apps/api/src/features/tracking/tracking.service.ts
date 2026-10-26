@@ -1,4 +1,4 @@
-import { CrewRole, Role } from '@my-project/shared';
+import { CareActivityType, CrewRole, Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { TrackingRepository } from './tracking.repository';
 import {
@@ -7,6 +7,8 @@ import {
   buildCompleteLegSchema,
   correctLegSchema,
   createHorseLogSchema,
+  buildCareActivitySchema,
+  careRangeSchema,
   createIncidentSchema,
   patchIncidentSchema,
   createAlertSchema,
@@ -32,6 +34,9 @@ import {
   IncidentSeverity,
   AlertType,
   IHorseLog,
+  ICareActivity,
+  ICareActivityList,
+  ICareSummary,
   IIncident,
   IAlert,
   ILogAttachment,
@@ -734,6 +739,104 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     await this.authorizeTrip(this.repository, account, tripId, [Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST, Role.DRIVER_ESCORT]);
     return this.loadHorseLogs(this.repository, tripId);
+  }
+
+  // ─── Hoạt động chăm sóc ngựa (cho ăn / uống nước / nghỉ chân) ──────────────────
+
+  private toCareActivity(row: import('./tracking.dto').CareActivityRow): ICareActivity {
+    return {
+      id: row.id,
+      tripId: row.tripId,
+      legId: row.legId ?? null,
+      horseId: row.horseId ?? null,
+      horseName: row.horseName ?? null,
+      activityType: row.activityType,
+      feedDescription: row.feedDescription ?? null,
+      amountLiters: row.amountLiters === null || row.amountLiters === undefined ? null : Number(row.amountLiters),
+      durationMinutes: row.durationMinutes ?? null,
+      note: row.note ?? null,
+      performedAt: row.performedAt.toISOString(),
+      createdBy: row.createdBy,
+      createdByName: row.createdByName,
+      createdAt: row.createdAt.toISOString(),
+      correctsActivityId: row.correctsActivityId ?? null,
+    };
+  }
+
+  async createCareActivity(account: User, rawTripId: string, body: unknown): Promise<ICareActivity> {
+    if (account.role !== Role.DRIVER_ESCORT) {
+      throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
+    }
+    const tripId = parse(legIdSchema, rawTripId);
+    const input = parse(buildCareActivitySchema(await this.repository.getMaxRetroactiveMinutes()), body);
+
+    return this.repository.transaction(async repo => {
+      const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
+      const assignment = await repo.getDriverAssignment(tripId, String(account.id));
+      if (assignment?.role !== CrewRole.ESCORT) throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
+      // Quyết định 6.2: ghi được khi đơn READY (chất ngựa) hoặc IN_TRANSIT; DELIVERED và các trạng thái khác bị chặn.
+      if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+        throw new ConflictException('Chỉ ghi nhật ký chăm sóc khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT).');
+      }
+      const horseId = input.horseId ?? null;
+      if (horseId && !(await repo.checkHorseBelongsToOrder(horseId, trip.orderId))) {
+        throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
+      }
+      if (input.correctsActivityId) {
+        const original = await repo.findCareActivity(input.correctsActivityId);
+        if (!original || original.tripId !== tripId || original.horseId !== horseId || original.activityType !== input.activityType) {
+          throw new BadRequestException('Bản ghi được đính chính phải thuộc cùng chuyến, cùng ngựa và cùng loại hoạt động.');
+        }
+        if (original.corrected) {
+          throw new ConflictException('Bản ghi này đã được đính chính; hãy đính chính bản mới nhất.');
+        }
+      }
+
+      const activityId = await repo.insertCareActivity({
+        tripId,
+        legId: await repo.getCurrentLegId(tripId),
+        horseId,
+        activityType: input.activityType,
+        feedDescription: input.feedDescription ?? null,
+        amountLiters: input.amountLiters ?? null,
+        durationMinutes: input.durationMinutes ?? null,
+        note: input.note || null,
+        performedAt: input.performedAt,
+        createdBy: String(account.id),
+        correctsActivityId: input.correctsActivityId ?? null,
+      });
+      await repo.audit(
+        String(account.id), 'CARE_ACTIVITY', activityId, 'CREATE_CARE_ACTIVITY', null,
+        JSON.stringify({ tripId, horseId, activityType: input.activityType, correctsActivityId: input.correctsActivityId ?? null })
+      );
+      const [row] = await repo.getCareActivities(tripId, undefined, activityId);
+      return this.toCareActivity(row);
+    });
+  }
+
+  async getCareActivities(account: User, rawTripId: string, rawQuery: unknown): Promise<ICareActivityList> {
+    const tripId = parse(legIdSchema, rawTripId);
+    const rawRange = (rawQuery ?? {}) as Record<string, unknown>;
+    const query = parse(careRangeSchema, { from: rawRange.from, to: rawRange.to });
+    // Customer bị chặn bằng vai trò (403); người ngoài phạm vi chuyến nhận 404.
+    await this.authorizeTrip(this.repository, account, tripId, [Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST, Role.DRIVER_ESCORT]);
+    const range = query.from && query.to ? { from: new Date(query.from), to: new Date(query.to) } : undefined;
+    const activities = (await this.repository.getCareActivities(tripId, range)).map(row => this.toCareActivity(row));
+
+    const summary: ICareSummary = { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} };
+    for (const item of activities) {
+      if (item.activityType === CareActivityType.WATER) summary.waterLiters += item.amountLiters ?? 0;
+      else if (item.activityType === CareActivityType.FEED) {
+        summary.meals += 1;
+        const last = item.horseId ? summary.lastFeedAtByHorse[item.horseId] : undefined;
+        if (item.horseId && (!last || Date.parse(item.performedAt) > Date.parse(last))) summary.lastFeedAtByHorse[item.horseId] = item.performedAt;
+      } else {
+        summary.rests += 1;
+        summary.restMinutes += item.durationMinutes ?? 0;
+      }
+    }
+    summary.waterLiters = Math.round(summary.waterLiters * 10) / 10;
+    return { activities, summary };
   }
 
   async createIncident(account: User, rawTripId: string, body: unknown, files: Upload[] = []): Promise<IIncident> {

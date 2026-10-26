@@ -96,6 +96,21 @@ export const trackingSchemas = {
     durationMinutes: nullable({ type: 'integer', minimum: 1, maximum: 720 }), note: nullable({ type: 'string', maxLength: 255 }),
     performedAt: time, createdBy: id, createdByName: { type: 'string' }, createdAt: time, correctsActivityId: nullable(id),
   }),
+  CareActivityInput: object({
+    activityType: { type: 'string', enum: ['FEED', 'WATER', 'REST'] },
+    horseId: { ...id, nullable: true, description: 'Bắt buộc với FEED/WATER và phải thuộc đơn của chuyến; null được với REST (cả đoàn).' },
+    feedDescription: { type: 'string', minLength: 1, maxLength: 200, nullable: true, description: 'Chỉ FEED, bắt buộc.' },
+    amountLiters: { type: 'number', minimum: 0.1, maximum: 200, multipleOf: 0.1, nullable: true, description: 'Chỉ WATER, bắt buộc (lít).' },
+    durationMinutes: { type: 'integer', minimum: 1, maximum: 720, nullable: true, description: 'Chỉ REST, bắt buộc (phút).' },
+    note: { type: 'string', maxLength: 255, nullable: true },
+    performedAt: { ...time, description: 'Giờ thực hiện: không ở tương lai, nhập bù tối đa T phút như quy tắc mốc (400).' },
+    correctsActivityId: { ...id, nullable: true, description: 'Đính chính một bản ghi: cùng chuyến, cùng ngựa, cùng loại; chưa bị đính chính (409).' },
+  }, ['activityType', 'performedAt']),
+  CareSummary: object({
+    waterLiters: { type: 'number', minimum: 0 }, meals: { type: 'integer', minimum: 0 }, rests: { type: 'integer', minimum: 0 }, restMinutes: { type: 'integer', minimum: 0 },
+    lastFeedAtByHorse: { type: 'object', additionalProperties: time, description: 'horseId → giờ cho ăn gần nhất trong cùng phạm vi.' },
+  }),
+  CareActivityList: object({ activities: { type: 'array', items: ref('CareActivity') }, summary: ref('CareSummary') }),
   IncidentFields: object({
     incidentType, description: { type: 'string', minLength: 5, maxLength: 2000 },
     legId: { ...id, description: 'Tuỳ chọn; phải thuộc chuyến.' },
@@ -253,6 +268,11 @@ const multipart = (fields: string, example: unknown) => ({
 });
 
 const t0 = '2026-10-20T01:00:00.000Z';
+const careActivity = {
+  id: '701', tripId: '200', legId: '301', horseId: '21', horseName: 'Ngựa mẫu', activityType: 'FEED', feedDescription: 'Cỏ khô 3 kg + cà rốt',
+  amountLiters: null, durationMinutes: null, note: null, performedAt: '2026-10-20T01:30:00.000Z', createdBy: '8', createdByName: 'Hộ tống mẫu',
+  createdAt: '2026-10-20T01:31:00.000Z', correctsActivityId: null,
+};
 const t1 = '2026-10-20T03:00:00.000Z';
 const leg1 = {
   id: '301', seqNo: 1, fromLocationId: '10', fromLocationName: 'Điểm A (mẫu)', toLocationId: '11', toLocationName: 'Điểm B (mẫu)', toLocationType: 'REST_STOP',
@@ -343,6 +363,18 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
   '/api/v1/tracking/trips/{tripId}/horse-logs': { get: { ...common, operationId: 'getTripHorseLogs', summary: 'Xem nhật ký ngựa của chuyến', parameters: [tripId],
     description: 'Driver (được phân công), Coordinator (chuyến mình), Manager, Specialist. Sắp theo thời điểm ghi tăng dần, kèm danh sách ảnh.',
     responses: { ...ok(200, list('HorseLog'), [horseLog]), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/trips/{tripId}/care-activities': {
+    post: { ...common, operationId: 'createCareActivity', summary: 'Hộ tống (crew ESCORT của chuyến): ghi hoạt động chăm sóc (cho ăn / uống nước / nghỉ chân)', parameters: [tripId],
+      description: `Chỉ ESCORT được phân công chuyến (tài xế 403, người không phân công 404). Ghi khi đơn **READY** hoặc **IN_TRANSIT** (DELIVERED/khác: 409). \`legId\` tự lấy từ chặng đang chạy, null nếu chưa xuất phát.
+Đúng trường theo loại, trường không thuộc loại phải rỗng (400): FEED cần \`horseId\` + \`feedDescription\`; WATER cần \`horseId\` + \`amountLiters\` (0,1–200); REST cần \`durationMinutes\` (1–720), \`horseId\` null = cả đoàn. Bảng chỉ thêm mới: sửa sai bằng \`correctsActivityId\` (không xóa). Ghi audit trong cùng transaction.`,
+      requestBody: json('CareActivityInput', { activityType: 'FEED', horseId: '21', feedDescription: 'Cỏ khô 3 kg + cà rốt', performedAt: '2026-10-20T01:30:00.000Z' }),
+      responses: { ...ok(201, ref('CareActivity'), careActivity, 'Đã ghi hoạt động.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } },
+    get: { ...common, operationId: 'getCareActivities', summary: 'Xem hoạt động chăm sóc của chuyến kèm tổng hợp', parameters: [tripId,
+      { name: 'from', in: 'query', required: false, description: 'Đầu khoảng (UTC ISO, gồm). Phải gửi cùng `to`.', schema: time },
+      { name: 'to', in: 'query', required: false, description: 'Cuối khoảng (UTC ISO, không gồm). Khoảng tối đa 7 ngày.', schema: time }],
+      description: 'Driver/Escort (được phân công), Coordinator (chuyến mình lập), Manager, Specialist; Customer 403. Mới nhất trước, **ẩn bản đã bị đính chính** (chỉ trả bản mới nhất, kèm `correctsActivityId`). `summary` tính trên đúng các bản ghi trả về (trong khoảng from/to nếu có; không có khoảng thì toàn bộ, tối đa 1000 dòng).',
+      responses: { ...ok(200, ref('CareActivityList'), { activities: [careActivity], summary: { waterLiters: 0, meals: 1, rests: 0, restMinutes: 0, lastFeedAtByHorse: { 21: '2026-10-20T01:30:00.000Z' } } }), ...errors([400, 401, 403, 404, 429, 500]) } },
+  },
   '/api/v1/tracking/trips/{tripId}/incidents': {
     post: { ...common, operationId: 'createIncident', summary: 'Driver/Escort: báo sự cố khẩn cấp (kèm ảnh)', parameters: [tripId],
       description: `Order phải READY hoặc IN_TRANSIT (409). Bắt buộc \`severity\` và \`damageTarget\`. \`urgency=HIGH\` khi \`severity=RED\` hoặc \`HORSE_MEDICAL\` (bắt buộc \`horseId\`), còn lại NORMAL. \`subType\` phải thuộc loại sự cố; tọa độ gửi đủ cặp; \`captions\` gắn theo thứ tự ảnh. Thông báo IN_APP ngay cho Coordinator phụ trách và mọi Manager ACTIVE. **Sự cố không tự đổi lộ trình/chặng** (BR-INC-03). \`legId\`/\`horseId\` phải thuộc chuyến.`,
