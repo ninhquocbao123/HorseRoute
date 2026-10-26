@@ -37,7 +37,7 @@ Token Mapbox của web (`VITE_MAPBOX_TOKEN`) vẫn lấy từ `apps/web/.env` n�
 | Email | Vai trò |
 |---|---|
 | `driver@example.com` | Tài xế (DRIVER) của chuyến demo |
-| `escort@example.com` | Hộ tống (ESCORT) cùng chuyến |
+| `escort@example.com` | Hộ tống (ESCORT) cùng chuyến: đăng nhập vào khung hộ tống, màn E1 "Quản lý ngựa" (ngựa có giống và tuổi, 7 hoạt động chăm sóc hôm nay, 1 báo cáo đã gửi + 1 nháp) |
 | `driver2@example.com` | Tài xế khác (kiểm tra cô lập quyền) |
 | `coordinator@example.com`, `coordinator2@example.com` | Điều phối |
 | `manager@example.com`, `specialist@example.com`, `admin@example.com` | Quản lý, chuyên viên, quản trị |
@@ -68,3 +68,16 @@ rm apps/api/.env.demo                  # xóa cấu hình demo (file này không
 ```
 
 Image `mysql:8.0` (~1,1 GB) có thể đang được dự án dùng chung; chỉ xóa bằng `docker image rm mysql:8.0` khi không còn container nào cần.
+
+## Test trình duyệt của Driver / Escort
+
+Các test dùng API giả lập (không cần DB hay server demo), vite chạy ở cổng `WEB_TEST_PORT` (mặc định **5181**; không dùng 5180 của bản demo):
+
+```powershell
+$env:PLAYWRIGHT_PACKAGE='<đường dẫn playwright-core>'; $env:WEB_TEST_PORT='5181'
+node apps/web/test/driver/run-all.cjs          # 6 file tài xế + escort
+node apps/web/test/escort.browser.cjs          # chỉ hộ tống (E1)
+node apps/web/test/driver/driver-gps.browser.cjs   # từng file: driver-trip, driver-gps, driver-actions, driver-incident, driver-history, driver-notices
+```
+
+Khung chung (dữ liệu giả, route API, helper) nằm ở `apps/web/test/driver/harness.cjs`. `driver.browser.cjs` cũ đã được tách thành các file theo màn.

@@ -106,7 +106,10 @@ async function main() {
       for (let n = 0; n < horses; n++) {
         const hid = horseId++;
         ids.push(hid);
-        await runner.query('INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES (?,?,?,?,?)', [hid, id, customer, horseNames[(hid - 21) % horseNames.length], `DEMO-PP-${hid}`]);
+        // Giống và ngày sinh (cho thẻ ngựa E1: "Thoroughbred · 5 tuổi").
+        const breed = ['Thoroughbred', 'Arabian', 'Quarter Horse'][(hid - 21) % 3];
+        const birth = new Date(); birth.setFullYear(birth.getFullYear() - (3 + ((hid - 21) % 5))); birth.setMonth(0, 15);
+        await runner.query('INSERT INTO horses(id,order_id,owner_id,name,passport_no,breed,birth_date) VALUES (?,?,?,?,?,?,?)', [hid, id, customer, horseNames[(hid - 21) % horseNames.length], `DEMO-PP-${hid}`, breed, birth.toISOString().slice(0, 10)]);
       }
       return ids;
     };

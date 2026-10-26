@@ -67,7 +67,8 @@
 .drs-breadcrumb span { padding: 0 8px; }
 .drs-heading h1 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.4px; }
 /* Mô tả dưới tiêu đề bỏ để nhường chỗ cho bản đồ (UI-1); vẫn có trong DOM cho trình đọc màn hình. */
-.drs-heading > p:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.drs-heading:not(.is-described) > p:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.drs-heading.is-described > p:last-child { margin-top: 2px; font-size: 14px; color: var(--drs-muted); }
 .drs-tools { display: flex; align-items: center; gap: 12px; }
 .drs .drs-search { width: 280px; height: 40px; padding: 0 14px; border-color: var(--drs-line); border-radius: var(--drs-radius); }
 .drs .drs-search .ant-input-prefix { margin-right: 10px; color: var(--drs-muted); font-size: 16px; }

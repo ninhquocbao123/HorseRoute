@@ -8,13 +8,21 @@ import { useNotifications } from '../../notifications/useNotifications';
 import { DriverNoticeProvider, useDriverNotice } from './DriverNotices';
 import { OpenAlertsList } from './OpenAlertsList';
 import { useAlertToasts } from './useAlertToasts';
-import { useDriverRealtime } from './useDriverRealtime';
+import { useDriverRealtime, type RealtimeHorseReportViewed } from './useDriverRealtime';
+import { FeedIcon } from './icons';
 import './driver-shell.css';
 
-export const DRIVER_NAV = [
+export type NavItem = { id: string; title: string; icon: ReactNode };
+
+export const DRIVER_NAV: NavItem[] = [
   { id: 'trip', title: 'Chuyến vận chuyển', icon: <TruckOutlined /> },
   { id: 'history', title: 'Lịch sử giao hàng', icon: <HistoryOutlined /> },
   { id: 'incident', title: 'Báo cáo sự cố', icon: <WarningOutlined /> },
+];
+
+/** Hộ tống (Figma E1/E2): chỉ "Quản lý ngựa" tới khi có màn E2; báo sự cố là nút nhỏ trên topbar. */
+export const ESCORT_NAV: NavItem[] = [
+  { id: 'care', title: 'Quản lý ngựa', icon: <FeedIcon /> },
 ];
 
 /** Màu viền trái của thông báo chưa đọc theo loại: cảnh báo điều phối vàng, còn lại trung tính. */
@@ -23,7 +31,7 @@ const accentOf = (notice: { event_type?: string }) => (notice.event_type === 'TR
 const ROLE_LABEL: Record<CrewRole, string> = { DRIVER: 'Tài xế', ESCORT: 'Hộ tống' };
 const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
-/** Khung riêng của Driver/Escort (Figma D1/D1b): sidebar 2 mục, topbar có tìm kiếm, chuông và ngày hôm nay. */
+/** Khung riêng của Driver/Escort (Figma D1/D1b/E1): sidebar theo `nav`, topbar có tìm kiếm (tùy chọn), chuông và ngày hôm nay. */
 export default function DriverShell(props: ShellProps) {
   return <DriverNoticeProvider><DriverShellInner {...props} /></DriverNoticeProvider>;
 }
@@ -42,10 +50,18 @@ type ShellProps = {
   searchPlaceholder?: string;
   /** Chuyến đang hoạt động (nhận cảnh báo điều phối); null khi chưa có. */
   activeTripId?: string | null;
+  /** Mục sidebar; mặc định của tài xế. */
+  nav?: NavItem[];
+  /** Hiện dòng mô tả dưới tiêu đề (Figma E1); mặc định ẩn như D1/D1b */
+  showDescription?: boolean;
+  /** Nút ở topbar, trước chuông (hộ tống: "Báo sự cố"). */
+  topbarAction?: ReactNode;
+  /** Hộ tống: khách vừa mở một báo cáo sức khỏe (socket). */
+  onHorseReportViewed?: (payload: RealtimeHorseReportViewed) => void;
   children: ReactNode;
 };
 
-function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading, search, onSearch, searchPlaceholder, activeTripId = null, children }: ShellProps) {
+function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading, search, onSearch, searchPlaceholder, activeTripId = null, nav = DRIVER_NAV, topbarAction, showDescription = false, onHorseReportViewed, children }: ShellProps) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const { panelProps, unreadCount, addNotice, refresh } = useNotifications(String(account.id));
@@ -59,6 +75,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
       payload.status === 'CLOSED' && payload.handlingNote ? `Hướng xử lý: ${payload.handlingNote}` : undefined,
     ),
     onNotification: addNotice,
+    onHorseReportViewed,
     onPoll: () => void alerts.load(),
     onResync: () => { void alerts.load(); void refresh(); },
   });
@@ -76,8 +93,8 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
           <div className="drs-brand"><span aria-hidden="true">V</span>Vận chuyển ngựa</div>
           <div className="drs-role">{role} · {roleLabel}</div>
           <p className="drs-nav-label">ĐIỀU HƯỚNG</p>
-          <nav aria-label="Điều hướng tài xế">
-            {DRIVER_NAV.map(item => (
+          <nav aria-label={`Điều hướng ${roleLabel.toLowerCase()}`}>
+            {nav.map(item => (
               <button key={item.id} type="button" aria-current={view === item.id ? 'page' : undefined} onClick={() => onNavigate(item.id)}>
                 <span aria-hidden="true">{item.icon}</span>{item.title}
               </button>
@@ -93,7 +110,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
 
       <main className="drs-main" id="drs-main" tabIndex={-1}>
         <header className="drs-topbar">
-          <div className="drs-heading">
+          <div className={'drs-heading' + (showDescription ? ' is-described' : '')}>
             <p className="drs-breadcrumb">{roleLabel}<span aria-hidden="true">/</span>{heading.title}</p>
             <h1>{heading.title}</h1>
             <p>{heading.description}</p>
@@ -105,6 +122,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
                 aria-label={searchPlaceholder} value={search} onChange={event => onSearch(event.target.value)}
               />
             )}
+            {topbarAction}
             <Badge count={unreadCount} size="small" offset={[-6, 6]}>
               <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => { setAlertsListOpen(false); setBellOpen(true); }} />
             </Badge>

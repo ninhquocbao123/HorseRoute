@@ -351,9 +351,16 @@ Mỗi mục giữ **đề xuất gốc** và ghi **quyết định** của nhóm
 *Phụ thuộc*: Bước 1, 2 (khung test). *Rủi ro*: chạm socket và thông báo của Bảo (chỉ thêm, liệt kê chỗ sửa để báo bạn ấy).
 
 ### Bước 4. Khung hộ tống + E1 (2 ngày)
+
+> **Đã làm (27/10/2026)**, không migration, không sửa file của Bảo.
+> - `DriverDashboard` chọn khung theo `crewRole` của chuyến đang hoạt động (chưa có thì chuyến lịch sử gần nhất, mặc định tài xế; trong lúc tải chỉ hiện spinner để không nhấp nháy): ESCORT → `escort/EscortArea` (dùng lại `DriverShell` qua `nav`, `topbarAction`, `showDescription`, `onHorseReportViewed`), DRIVER → `DriverArea` như cũ. View của vai trò kia quy về view mặc định (hộ tống: `care` / `incident`; tài xế: `trip` / `history` / `incident`).
+> - E1 `CareLogPage`: thẻ ngựa (giống · tuổi, badge báo cáo đã gửi mới nhất, "Lần cho ăn gần nhất" toàn chuyến, hoạt động hôm nay), `QuickLogCard` (FEED / WATER / REST theo ràng buộc API, REST "Cả đoàn", "Áp dụng cho tất cả ngựa" với FEED/WATER, thử lại chỉ phần còn thiếu, nháp `useDraft`, giờ mặc định là giờ lúc gửi), "Sửa" = đính chính (khóa ngựa và loại; không có xóa), `TodayCard` (chỉ tổng thực tế), `CareHistoryList` (phân trang 10 dòng). Khác Figma có chủ đích: bỏ lịch "Bữa tiếp theo / Sắp tới / Xác nhận", bỏ "khoang n", ẩn mục E2 trong sidebar tới Bước 5, không dùng `TripHeaderCard`.
+> - Realtime: `tracking:horse_report_viewed` thêm vào `useDriverRealtime` (một socket dùng chung) → toast "Khách đã xem báo cáo sức khỏe của …"; `notification:new` dùng chuông có sẵn.
+> - Xóa nhánh hộ tống chỉ xem: `isDriver` và `drv-view-only` trong `DriverWorkspace` / `driver.css`; `IncidentScreen` tách riêng dùng chung cho cả hai vai trò.
+> - Test: `apps/web/test/escort.browser.cjs` (17 nhóm) và bộ `apps/web/test/driver/` (harness + 6 file theo màn + `run-all.cjs`) thay `driver.browser.cjs`; cổng test mặc định 5181 (`WEB_TEST_PORT`).
 1. Tham số hóa `DriverShell` (nav, nhãn vai trò, bỏ tìm kiếm, nút "Báo sự cố" nhỏ trên topbar, `heading`; shell theo `crewRole` chuyến đang hoạt động), `EscortDashboard`, màn trống E0.
 2. `CareLogPage`: thẻ ngựa (badge tình trạng, "Lần cho ăn gần nhất"), danh sách hoạt động hôm nay, `QuickLogCard` (ô lượng đổi theo loại, lùi giờ, nháp `useDraft`), thẻ "Hôm nay", nút "Báo sự cố y tế".
-3. Bỏ nhánh chỉ-xem của màn tài xế. Cập nhật test `driver.browser.cjs` (phần hộ tống) và thêm `escort.browser.cjs`.
+3. Bỏ nhánh chỉ-xem của màn tài xế. Tách `driver.browser.cjs` thành `test/driver/*` và thêm `escort.browser.cjs`.
 
 *Phụ thuộc*: Bước 2.
 

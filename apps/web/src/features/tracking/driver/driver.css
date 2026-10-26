@@ -127,7 +127,7 @@
 .drv-side { display: grid; gap: 12px; min-width: 0; align-content: start; }
 /* Cột phải cuộn riêng khi dài, không đẩy trang cuộn theo */
 .drv-columns > .drv-side { max-height: calc(var(--drv-map-h) + 90px); overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
-.drv-upcoming, .drv-view-only { margin: 0; padding: 0 4px; font-size: 12px; color: var(--drs-muted); }
+.drv-upcoming { margin: 0; padding: 0 4px; font-size: 12px; color: var(--drs-muted); }
 .drs .drv-empty-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .drv-empty-actions .ant-btn { height: 40px; border-radius: var(--drs-radius); font-weight: 700; }
 
