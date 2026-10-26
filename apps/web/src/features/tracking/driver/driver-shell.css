@@ -93,3 +93,26 @@
   .drs-tools { flex-wrap: wrap; }
   .drs-main { padding: 20px 16px 32px; }
 }
+
+/* UI-2: thông báo nổi (antd notification, render ở body nên không dùng biến của .drs) */
+.drv-toast.ant-notification-notice { width: 360px; max-width: calc(100vw - 32px); padding: 14px 16px; border-radius: 14px; box-shadow: 0 8px 28px rgb(11 59 66 / 18%); }
+.drv-toast .ant-notification-notice-message { margin-bottom: 0; font-size: 14px; font-weight: 700; color: #0d2a2e; }
+.drv-toast .ant-notification-notice-description { margin-top: 4px; font-size: 13px; color: #0d2a2e; }
+.drv-toast.is-alert { background: #fffbeb; border-left: 4px solid #ca8a04; }
+.drv-toast-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.drv-toast-more { display: block; margin-top: 6px; padding: 0; border: 0; background: none; color: #14606a; font-size: 13px; font-weight: 600; cursor: pointer; }
+.drv-toast-more:hover { text-decoration: underline; }
+.drv-toast-meta { display: block; margin-top: 4px; color: #546d71; }
+.drv-toast-ok { color: #16a34a; }
+.drv-toast-info { color: #14606a; }
+.drv-toast-warn { color: #ca8a04; }
+
+/* Danh sách cảnh báo điều phối chưa đóng (drawer chuông) */
+.drv-alert-list { margin-bottom: 16px; padding: 14px 16px; border: 1px solid #f0dca8; border-left: 4px solid #ca8a04; border-radius: 14px; background: #fffbeb; }
+.drv-alert-list h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+.drv-alert-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.drv-alert-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid #f0dca8; }
+.drv-alert-list li:first-child { padding-top: 0; border-top: 0; }
+.drv-alert-list li > div { display: grid; gap: 2px; min-width: 0; }
+.drv-alert-text { font-size: 14px; overflow-wrap: anywhere; }
+.drv-alert-list small { font-size: 12px; color: #546d71; }

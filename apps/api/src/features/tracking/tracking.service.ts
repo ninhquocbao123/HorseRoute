@@ -1,4 +1,4 @@
-import { Role } from '@my-project/shared';
+import { CrewRole, Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { TrackingRepository } from './tracking.repository';
 import {
@@ -50,6 +50,7 @@ import {
 import { TrackingTripDetail, LegDetailRow, MilestoneRow } from './tracking.dto';
 import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
 import { Logger } from '../../shared/utils/logger.util';
+import { socketService } from '../../shared/socket/socket.service';
 import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
 import { modeForVehicle } from './trackmap.geo';
 
@@ -170,13 +171,38 @@ function retentionDays() {
   return Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30;
 }
 
+/** Cổng phát sự kiện realtime tới phòng riêng của người dùng; mặc định là socket dùng chung (no-op khi socket chưa gắn, như trong unit test). */
+export interface TrackingRealtime {
+  emitToUsers(userIds: string[], event: string, payload: unknown): void;
+}
+/** Ghi mốc / hoàn thành chặng / gửi GPS chỉ dành cho crew có vai trò DRIVER trong chuyến (trip_assignments.role). */
+const DRIVER_ONLY = 'Chỉ tài xế của chuyến mới được ghi mốc/gửi vị trí.';
+const realtimeLogger = new Logger('TrackingRealtime');
+
 export class TrackingService {
   private readonly routes: RoutesProvider;
   private retentionTimer?: NodeJS.Timeout;
   private retentionRun?: Promise<number>;
 
-  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider) {
+  constructor(private readonly repository: TrackingRepository, routes?: RoutesProvider, private readonly realtime: TrackingRealtime = socketService) {
     this.routes = routes ?? new RoutesProvider(repository);
+  }
+
+  /** Chạy SAU khi transaction đã commit; lỗi socket/DB ở đây chỉ được log, không làm hỏng request. */
+  private async publish(label: string, run: () => Promise<void>): Promise<void> {
+    try {
+      await run();
+    } catch (error) {
+      realtimeLogger.warn('realtime_emit_failed', { label, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  /** Đẩy `notification:new` cho từng người vừa nhận thông báo IN_APP của sự kiện chuyến. */
+  private async emitNewNotifications(userIds: string[], eventType: string, tripId: string) {
+    const rows = await this.repository.findLatestTripNotifications(userIds, eventType, tripId);
+    for (const row of rows) {
+      this.realtime.emitToUsers([row.recipientId], 'notification:new', { id: row.id, content: row.content, createdAt: row.createdAt.toISOString(), eventType });
+    }
   }
 
   async getDriverTrips(account: User): Promise<IDriverTripSummary[]> {
@@ -290,6 +316,7 @@ export class TrackingService {
       if (!assignment) {
         throw new ForbiddenException('Bạn không được phân công chuyến này.');
       }
+      if (assignment.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
 
       // Check duplicate milestone
       const duplicate = await repo.hasMilestone(legId, input.milestoneType);
@@ -493,6 +520,7 @@ export class TrackingService {
 
       const assignment = await repo.getDriverAssignment(leg.tripId, String(account.id));
       if (!assignment) throw new ForbiddenException('Bạn không được phân công chuyến này.');
+      if (assignment.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
 
       const allLegs = await repo.lockAllTripLegs(leg.tripId);
       if (leg.seqNo === allLegs.length) {
@@ -666,9 +694,9 @@ export class TrackingService {
       return await this.repository.transaction(async repo => {
         const leg = await repo.lockLegForUpdate(legId);
         if (!leg) throw new NotFoundException('Không tìm thấy chặng.');
-        if (!(await repo.getDriverAssignment(leg.tripId, String(account.id)))) {
-          throw new ForbiddenException('Bạn không được phân công chuyến này.');
-        }
+        const assignment = await repo.getDriverAssignment(leg.tripId, String(account.id));
+        if (!assignment) throw new ForbiddenException('Bạn không được phân công chuyến này.');
+        if (assignment.role !== CrewRole.ESCORT) throw new ForbiddenException('Nhật ký ngựa do hộ tống ghi.');
         if (leg.orderStatus !== OrderStatus.IN_TRANSIT || leg.status === LegStatus.NOT_STARTED) {
           throw new ConflictException('Chỉ ghi nhật ký ngựa khi chuyến đang vận chuyển và chặng đã xuất phát.');
         }
@@ -783,7 +811,7 @@ export class TrackingService {
     const incidentId = parse(legIdSchema, rawIncidentId);
     const input = parse(patchIncidentSchema, body);
 
-    return this.repository.transaction(async repo => {
+    const result = await this.repository.transaction(async repo => {
       const incident = await repo.findIncident(incidentId);
       if (!incident || incident.plannedBy !== String(account.id)) {
         throw new NotFoundException('Không tìm thấy sự cố.');
@@ -812,8 +840,15 @@ export class TrackingService {
       );
 
       const incidents = await this.loadIncidents(repo, incident.tripId);
-      return incidents.find(item => item.id === incidentId)!;
+      return { saved: incidents.find(item => item.id === incidentId)!, reportedBy: incident.reportedBy, tripId: incident.tripId };
     });
+    await this.publish('incident_updated', async () => {
+      this.realtime.emitToUsers([result.reportedBy], 'tracking:incident_updated', {
+        incidentId, tripId: result.tripId, status: result.saved.status, handlingNote: result.saved.handlingNote ?? null,
+      });
+      await this.emitNewNotifications([result.reportedBy], input.status === IncidentStatus.CLOSED ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED', result.tripId);
+    });
+    return result.saved;
   }
 
   async createAlert(account: User, rawTripId: string, body: unknown): Promise<IAlert> {
@@ -823,7 +858,7 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createAlertSchema, body);
 
-    return this.repository.transaction(async repo => {
+    const saved = await this.repository.transaction(async repo => {
       const trip = await this.authorizeTrip(repo, account, tripId, [Role.COORDINATOR]);
       if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
         throw new ConflictException('Chỉ phát cảnh báo cho chuyến đang chuẩn bị xuất phát hoặc đang vận chuyển.');
@@ -839,6 +874,14 @@ export class TrackingService {
       const alerts = await this.loadAlerts(repo, tripId);
       return alerts.find(alert => alert.id === alertId)!;
     });
+    await this.publish('alert', async () => {
+      const crew = await this.repository.getTripCrewIds(tripId);
+      this.realtime.emitToUsers(crew, 'tracking:alert', {
+        alertId: saved.id, tripId, alertType: saved.alertType, content: saved.content, sentByName: saved.sentByName, sentAt: saved.sentAt,
+      });
+      await this.emitNewNotifications(crew, 'TRIP_ALERT', tripId);
+    });
+    return saved;
   }
 
   async getTripAlerts(account: User, rawTripId: string): Promise<IAlert[]> {
@@ -1015,6 +1058,7 @@ export class TrackingService {
       loggedAt: row.loggedAt.toISOString(),
       createdBy: row.createdBy,
       createdByName: row.createdByName,
+      createdByCrewRole: row.createdByCrewRole ?? null,
       correctsLogId: row.correctsLogId,
       attachments: attachments.filter(a => a.horseLogId === row.id).map(toAttachment),
     }));
@@ -1076,6 +1120,7 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(positionsBatchSchema, body);
     const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
+    if ((await this.repository.getDriverAssignment(tripId, String(account.id)))?.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
     if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
       throw new ConflictException('Chỉ nhận vị trí khi chuyến đang vận chuyển (IN_TRANSIT).');
     }

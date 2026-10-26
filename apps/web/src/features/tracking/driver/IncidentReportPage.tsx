@@ -32,7 +32,8 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
-  const [draft, setDraft, clearDraft] = useDraft<Draft>(`incident:${trip.id}`, EMPTY);
+  // Loại mặc định theo vai trò trong chuyến (vẫn đổi được): tài xế → Hỏng xe, hộ tống → Y tế ngựa.
+  const [draft, setDraft, clearDraft] = useDraft<Draft>(`incident:${trip.id}`, { ...EMPTY, kind: trip.crewRole === 'ESCORT' ? 'HORSE_MEDICAL:OTHER' : 'VEHICLE_BREAKDOWN:OTHER' });
   const [photos, setPhotos] = useState<File[]>([]);
   const [captions, setCaptions] = useState<string[]>([]);
   const [reported, setReported] = useState<IIncident[]>([]);

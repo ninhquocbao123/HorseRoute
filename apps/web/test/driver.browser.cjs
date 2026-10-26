@@ -52,7 +52,10 @@ const { pathToFileURL } = require('node:url');
     // Chặng 2, 3 dùng xe thứ hai: ô "Xe" chỉ hiện xe của chặng hiện tại / đầu / cuối.
     for (const l of trips[100].legs.slice(1)) { l.vehicleId = '6'; l.vehicleCode = 'XE-02'; }
     const extraIds = []; // chuyến thêm động (nhiều chuyến đã giao để thử phân trang, chuyến sắp tới)
-    const state = { incidents: [], horseLogs: [], track: [], latest: null, positionsMode: null };
+    const state = {
+      incidents: [], horseLogs: [], track: [], latest: null, positionsMode: null, alerts: [],
+      notices: [{ id: '1', content: 'Chuyến WDP-TEST-1 đã được phân công cho bạn.', is_read: 0, created_at: iso(-5 * 60e3) }],
+    };
     const calls = { milestones: [], complete: [], incidents: [], positions: [], maps: 0 };
     // /map giả lập: km cố định để kiểm định dạng (tổng 1.720 km), chặng 3 là đường thẳng ước lượng.
     const COORDS = {
@@ -81,7 +84,8 @@ const { pathToFileURL } = require('node:url');
     const fail = { next: 0 };
     const conflict = { next: 0, apply: null };
     const horses = [{ id: '21', name: 'Bạch Mã', passportNo: 'PP-1', orderStatus: 'NORMAL' }, { id: '22', name: 'Hắc Mã', passportNo: 'PP-2', orderStatus: 'NORMAL' }];
-    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: trips[id].dep ?? iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: 'DRIVER', legs: trips[id].legs });
+    const crew = { role: 'DRIVER' };
+    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: trips[id].dep ?? iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: crew.role, legs: trips[id].legs });
     const detail = id => ({
       ...summary(id), horses,
       crew: [{ userId: 'test', name: 'Phan Thị Lan', phone: '0901', role: 'DRIVER' }, { userId: '7', name: 'Lê Hộ Tống', phone: '0902', role: 'ESCORT' }],
@@ -109,7 +113,9 @@ const { pathToFileURL } = require('node:url');
         conflict.apply();
         return route.fulfill({ status: 409, json: { message: 'Trạng thái chặng đã thay đổi.' } });
       }
-      if (p === '/notifications') return route.fulfill({ json: [{ id: '1', content: 'Chuyến WDP-TEST-1 đã được phân công cho bạn.', is_read: 0 }] });
+      if (p === '/notifications') return route.fulfill({ json: state.notices });
+      const readNotice = /^\/notifications\/(\d+)\/read$/.exec(p);
+      if (readNotice && method === 'POST') { state.notices.find(n => n.id === readNotice[1]).is_read = 1; return route.fulfill({ json: {} }); }
       if (p === '/tracking/driver/trips') return route.fulfill({ json: ['100', '200', ...extraIds].map(summary) });
       const mapGet = /^\/tracking\/trips\/(\d+)\/map$/.exec(p);
       if (mapGet) { calls.maps++; return route.fulfill({ json: mapFor(mapGet[1]) }); }
@@ -123,7 +129,7 @@ const { pathToFileURL } = require('node:url');
       }
       const tripGet = /^\/tracking\/trips\/(\d+)$/.exec(p);
       if (tripGet && method === 'GET') return route.fulfill({ json: detail(tripGet[1]) });
-      if (/^\/tracking\/trips\/\d+\/alerts$/.test(p)) return route.fulfill({ json: [{ id: '1', tripId: '100', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến', sentBy: '4', sentByName: 'Điều phối', sentAt: iso(-60e3) }] });
+      if (/^\/tracking\/trips\/\d+\/alerts$/.test(p)) return route.fulfill({ json: state.alerts });
       if (/^\/tracking\/trips\/\d+\/incidents$/.test(p) && method === 'GET') return route.fulfill({ json: state.incidents });
       if (/^\/tracking\/trips\/\d+\/horse-logs$/.test(p) && method === 'GET') return route.fulfill({ json: state.horseLogs });
       const milestone = /^\/tracking\/legs\/(\d+)\/milestones$/.exec(p);
@@ -184,6 +190,7 @@ const { pathToFileURL } = require('node:url');
     const confirm = () => dialog().getByRole('button', { name: 'Xác nhận', exact: true }).click();
     const pick = async (label, option) => {
       await page.getByLabel(label, { exact: true }).click();
+      await page.clock.fastForward('00:01').catch(() => undefined); // đồng hồ giả có thể đã cài: đẩy để animation dropdown kịp ổn định
       await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: option }).click();
     };
     // PNG 1×1 hợp lệ để ô ảnh hiển thị được trong ảnh chụp.
@@ -335,7 +342,7 @@ const { pathToFileURL } = require('node:url');
     assert.ok(narrow.cardsTop >= narrow.mapBottom && narrow.cardsTop < narrow.stopsTop, 'màn hẹp: ba thẻ dưới bản đồ, trước "Các chặng"');
     await page.setViewportSize({ width: 1440, height: 900 });
     // Ghi chú của chính mình không hiện; ghi chú mới nhất của người khác thì hiện "HH:mm · nội dung"
-    const log = (id, createdBy, note, at) => ({ id, horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'STABLE', note, loggedAt: at, createdBy, createdByName: createdBy === 'test' ? 'Phan Thị Lan' : 'Lê Hộ Tống', correctsLogId: null, attachments: [] });
+    const log = (id, createdBy, note, at) => ({ id, horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: 'STABLE', note, loggedAt: at, createdBy, createdByName: createdBy === 'test' ? 'Phan Thị Lan' : 'Lê Hộ Tống', createdByCrewRole: createdBy === 'test' ? 'DRIVER' : 'ESCORT', correctsLogId: null, attachments: [] });
     state.horseLogs = [log('1', 'test', 'Ghi chú của tôi', iso(-10 * 60e3))];
     await open('trip');
     await checkInButton().waitFor();
@@ -416,11 +423,13 @@ const { pathToFileURL } = require('node:url');
     await runBatch(() => calls.positions.length >= 1, 'gửi lô sau 30 giây');
     const firstBatch = calls.positions.flat();
     assert.ok(firstBatch.length >= 2 && firstBatch.length <= 20, 'lô 2–20 điểm: ' + firstBatch.length);
-    assert.ok(firstBatch.some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
+    // Điểm mới nhất có thể nằm ở lô kế tiếp nếu mẫu tới sau nhịp 30 giây đầu (async): chờ đúng điều kiện thay vì giả định lô đầu
+    await runBatch(() => calls.positions.flat().some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
     assert.ok(firstBatch.every(point => /Z$/.test(point.recordedAt)), 'recordedAt dạng UTC ISO');
     await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
     // Lời giải thích dài nằm trong tooltip của biểu tượng (i) ở badge
     await page.getByLabel('Giải thích chia sẻ vị trí').hover();
+    await page.clock.fastForward('00:01'); // tooltip antd mở sau độ trễ hover bằng setTimeout: đẩy đồng hồ giả thay vì chờ thời gian thật
     await page.getByRole('tooltip', { name: 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng.' }).waitFor();
     await page.mouse.move(5, 5);
 
@@ -441,15 +450,15 @@ const { pathToFileURL } = require('node:url');
     const speedNow = await page.evaluate(() => Date.now());
     state.latest = { lat: 10.95, lng: 106.8, speedKmh: 92.4, accuracyM: 8, headingDeg: 90, recordedAt: new Date(speedNow - 30e3).toISOString(), legId: '10', freshness: 'LIVE' };
     await open('trip');
-    assert.equal(await stat('Tốc độ').locator('strong.is-warn').innerText(), '92 km/h');
-    assert.equal(await stat('Tốc độ').locator('small.is-warn').innerText(), 'giới hạn 80 km/h');
+    await until(async () => (await stat('Tốc độ').locator('strong.is-warn').innerText().catch(() => '')) === '92 km/h', 'thẻ Tốc độ cập nhật');
+    await until(async () => (await stat('Tốc độ').locator('small.is-warn').innerText().catch(() => '')) === 'giới hạn 80 km/h', 'thẻ Tốc độ cập nhật');
     state.latest = { ...state.latest, speedKmh: 64, recordedAt: new Date(speedNow - 5 * 60e3).toISOString(), freshness: 'STALE' };
     await open('trip');
-    assert.equal(await stat('Tốc độ').locator('strong').innerText(), '—');
-    assert.equal(await stat('Tốc độ').locator('small.is-muted').innerText(), 'GPS cũ 5 phút');
+    await until(async () => (await stat('Tốc độ').locator('strong').innerText().catch(() => '')) === '—', 'thẻ Tốc độ cập nhật');
+    await until(async () => (await stat('Tốc độ').locator('small.is-muted').innerText().catch(() => '')) === 'GPS cũ 5 phút', 'thẻ Tốc độ cập nhật');
     state.latest = { ...state.latest, speedKmh: 64, recordedAt: new Date(speedNow - 10e3).toISOString(), freshness: 'LIVE' };
     await open('trip');
-    assert.equal(await stat('Tốc độ').locator('strong').innerText(), '64 km/h');
+    await until(async () => (await stat('Tốc độ').locator('strong').innerText().catch(() => '')) === '64 km/h', 'thẻ Tốc độ cập nhật');
     assert.equal(await stat('Tốc độ').locator('strong.is-warn').count(), 0, 'dưới giới hạn: không cảnh báo');
     await badge().filter({ hasText: 'Đang chia sẻ GPS với điều phối' }).waitFor();
     await noOverflow('gps');
@@ -488,6 +497,12 @@ const { pathToFileURL } = require('node:url');
     await page.getByText('Có thao tác chưa gửi được').waitFor();
     await page.getByRole('button', { name: 'Gửi lại' }).click();
     await page.getByText('Đã ghi nhận: Đã đến điểm dừng.').waitFor();
+    // UI-2: thành công là toast (không còn banner trong trang), tự tắt sau 5 giây
+    assert.equal(await page.locator('.ant-alert-success').count(), 0, 'không còn banner trong trang');
+    await page.clock.fastForward('00:03');
+    assert.equal(await page.locator('.drv-toast.is-success').count(), 1, 'chưa tới 5 giây: toast còn');
+    await page.clock.fastForward('00:03');
+    await page.locator('.drv-toast.is-success').waitFor({ state: 'detached' });
     assert.equal(calls.milestones.at(-1).occurredAt, firstAttempt.occurredAt, 'gửi lại đúng giờ đã chốt');
     assert.equal(calls.milestones.at(-1).milestoneType, 'ARRIVED_AT_STOP');
     await checkIn('Hoàn thành chặng tới Trạm Đồng Nai');
@@ -516,6 +531,7 @@ const { pathToFileURL } = require('node:url');
     assert.equal(calls.incidents.length, 0);
     await page.getByRole('radio', { name: /^Nghiêm trọng/ }).click();
     await redNotice.waitFor();
+    assert.equal(await page.locator('.ant-select', { hasText: 'Hỏng xe · Khác' }).count(), 1, 'tài xế: loại mặc định Hỏng xe');
     await pick('Loại sự cố', 'Hỏng xe · Nổ lốp');
     await page.getByLabel('Mô tả chi tiết').fill('Lốp sau phải nổ khi đang chạy 60 km/h');
     assert.equal(await page.getByLabel('Con ngựa liên quan').count(), 0, 'chỉ hiện ô chọn ngựa khi liên quan tới ngựa');
@@ -586,7 +602,7 @@ const { pathToFileURL } = require('node:url');
     conflict.next = 1;
     conflict.apply = () => { const l = trips[100].legs[1]; l.status = 'MOVING'; mark(l, 'DEPARTED', iso(0)); };
     await checkIn('Xác nhận: Xuất phát từ Trạm Đồng Nai');
-    await page.getByText('Trạng thái chặng đã thay đổi. Đã tải lại dữ liệu mới nhất.').waitFor();
+    await page.getByText('Trạng thái chặng đã thay đổi, đã tải lại.').waitFor();
     await modalClosed(); // hộp thoại đóng sau 409
     await page.locator('.drv-stops li.is-current', { hasText: 'Trạm Phan Thiết' }).waitFor();
     assert.equal(await fact('Xe').innerText(), 'XE-02 · 2 chuồng', 'xe đổi theo chặng hiện tại');
@@ -705,6 +721,171 @@ const { pathToFileURL } = require('node:url');
     await open('trip');
     await page.getByRole('heading', { name: 'WDP-TEST-3' }).waitFor();
     assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-1');
+
+    // 9. UI-2: thông báo nổi (một thẻ + "+N cảnh báo khác") + panel chuông gọn + realtime (socket giả qua móc dev) + polling khi mất kết nối
+    let alertSeq = 0;
+    const alertOf = (id, content, type = 'WEATHER') => ({ id, tripId: '400', alertType: type, content, sentBy: '4', sentByName: 'Điều phối', sentAt: iso(++alertSeq * 1000) });
+    const socketAlert = a => page.evaluate(payload => window.__wdpRealtime.emit('tracking:alert', payload), { alertId: a.id, tripId: a.tripId, alertType: a.alertType, content: a.content, sentByName: a.sentByName, sentAt: a.sentAt });
+    const alertCards = () => page.locator('.drv-toast.is-alert');
+    const moreLink = () => page.locator('.drv-toast-more');
+    const cardCount = n => page.waitForFunction(count => document.querySelectorAll('.drv-toast.is-alert').length === count, n);
+    const closeAllCards = async () => {
+      for (let i = 0; i < 12; i++) {
+        const text = await alertCards().first().textContent({ timeout: 1000 }).catch(() => null);
+        if (text === null) break;
+        await alertCards().first().locator('.ant-notification-notice-close').evaluate(button => button.click());
+        // Chờ thẻ đang đóng rời khỏi DOM (animation chạy theo đồng hồ giả): đẩy đồng hồ từng bước nhỏ
+        for (let step = 0; step < 10; step++) {
+          await page.clock.fastForward('00:01');
+          await page.waitForTimeout(60);
+          const now = await alertCards().first().textContent({ timeout: 500 }).catch(() => null);
+          if (now !== text) break;
+        }
+      }
+      await cardCount(0);
+    };
+    state.alerts = [alertOf('1', 'Mưa lớn trên tuyến'), alertOf('2', 'Kẹt xe 5 km trước cửa khẩu', 'TRAFFIC')];
+    await page.evaluate(() => Object.keys(localStorage).filter(key => key.includes('alerts-closed')).forEach(key => localStorage.removeItem(key)));
+    await open('trip');
+    // Chỉ MỘT thẻ (cảnh báo mới nhất) + dòng "+1 cảnh báo khác"; thẻ gọn ~360px, nội dung tối đa 3 dòng
+    await cardCount(1);
+    assert.match(await alertCards().first().innerText(), /Cảnh báo giao thông[\s\S]*Kẹt xe 5 km[\s\S]*\d{2}:\d{2} · Điều phối[\s\S]*\+1 cảnh báo khác/);
+    const box = await alertCards().first().boundingBox();
+    assert.ok(box.width >= 340 && box.width <= 372, 'thẻ cảnh báo ~360px: ' + box.width);
+    await page.clock.fastForward('00:30');
+    assert.equal(await alertCards().count(), 1, 'cảnh báo không tự tắt');
+    // Đóng thẻ đang hiện → hiện cảnh báo kế tiếp chưa đóng (không còn dòng "+N")
+    await alertCards().first().locator('.ant-notification-notice-close').click();
+    await page.waitForFunction(() => /Mưa lớn trên tuyến/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    await page.clock.fastForward('00:01');
+    await cardCount(1);
+    assert.equal(await moreLink().count(), 0);
+    // Mở lại trang: cảnh báo đã đóng không hiện lại
+    await open('trip');
+    await cardCount(1);
+    await page.waitForTimeout(300);
+    assert.match(await alertCards().first().innerText(), /Mưa lớn trên tuyến/);
+    assert.equal(await alertCards().count(), 1, 'cảnh báo đã đóng không hiện lại sau khi mở lại trang');
+    await closeAllCards();
+    // 3 cảnh báo qua socket → chỉ 1 thẻ + "+2 cảnh báo khác"; cùng alertId 2 lần → vẫn 1 thẻ, không đếm đôi
+    const three = [alertOf('10', 'Cảnh báo mười'), alertOf('11', 'Cảnh báo mười một', 'TRAFFIC'), alertOf('12', 'Cửa khẩu đóng sớm', 'BORDER')];
+    for (const a of three) await socketAlert(a);
+    await cardCount(1);
+    assert.match(await alertCards().first().innerText(), /Cảnh báo cửa khẩu[\s\S]*Cửa khẩu đóng sớm[\s\S]*\+2 cảnh báo khác/);
+    await socketAlert(three[2]);
+    await socketAlert(three[1]);
+    await page.waitForTimeout(300);
+    assert.equal(await alertCards().count(), 1, 'cùng alertId 2 lần → 1 thẻ');
+    assert.match(await moreLink().innerText(), /^\+2 cảnh báo khác$/);
+    await page.screenshot({ path: 'test-results/driver-ui2-toasts.png' });
+    // Bấm "+2 cảnh báo khác" → drawer có mục "Cảnh báo điều phối" liệt kê ĐỦ 3 cảnh báo chưa đóng (lấy từ hàng đợi, không phụ thuộc thông báo)
+    await moreLink().evaluate(button => button.click());
+    await page.clock.fastForward('00:01');
+    await page.locator('.drv-alert-list').waitFor();
+    assert.equal(await page.locator('.drv-alert-list li').count(), 3, 'đủ 3 cảnh báo chưa đóng');
+    const listText = await page.locator('.drv-alert-list').innerText();
+    for (const text of ['Cảnh báo mười', 'Cảnh báo mười một', 'Cửa khẩu đóng sớm', 'Điều phối']) assert.ok(listText.includes(text), 'thiếu ' + text);
+    await page.screenshot({ path: 'test-results/driver-ui2-alert-list.png' });
+    await page.clock.fastForward('00:02');
+    await cardCount(0); // danh sách đang mở: thẻ nổi tạm ẩn để không che danh sách
+    await page.getByRole('button', { name: 'Đóng cảnh báo: Cảnh báo mười một' }).evaluate(button => button.click());
+    await page.waitForFunction(() => document.querySelectorAll('.drv-alert-list li').length === 2);
+    await page.locator('.ant-drawer-close').click();
+    await page.clock.fastForward('00:01');
+    await page.locator('.drv-alert-list').waitFor({ state: 'hidden' });
+    await cardCount(1);
+    assert.match(await moreLink().innerText(), /^\+1 cảnh báo khác$/, 'đóng danh sách: thẻ nổi hiện lại, đã trừ cảnh báo vừa đóng');
+    // Sự cố được tiếp nhận (tự tắt sau 8 giây) và thông báo mới làm badge chuông tăng
+    await page.mouse.move(5, 5); // con trỏ nằm trên thẻ thì antd tạm dừng đếm giờ tự tắt
+    await page.evaluate(() => window.__wdpRealtime.emit('tracking:incident_updated', { incidentId: '7', tripId: '400', status: 'ACKNOWLEDGED', handlingNote: null }));
+    await page.getByText('Điều phối viên đã tiếp nhận sự cố #7').waitFor();
+    await page.clock.fastForward('00:07');
+    assert.equal(await page.getByText('Điều phối viên đã tiếp nhận sự cố #7').count(), 1, 'chưa tới 8 giây');
+    await page.clock.fastForward('00:02');
+    await page.clock.fastForward('00:02'); // animation rời đi chạy theo đồng hồ giả
+    await page.getByText('Điều phối viên đã tiếp nhận sự cố #7').waitFor({ state: 'detached' });
+    const long = 'Chuyến WDP-TEST-3 có cập nhật rất dài từ điều phối viên: '.repeat(6);
+    state.notices.unshift({ id: '2', content: long, is_read: 0, created_at: new Date().toISOString() });
+    state.notices.push({ id: '3', content: 'Cảnh báo thời tiết chuyến 400: Mưa lớn.', is_read: 0, event_type: 'TRIP_ALERT', related_type: 'TRIP', related_id: '400', created_at: iso(-60e3) });
+    await page.evaluate(text => window.__wdpRealtime.emit('notification:new', { id: '2', content: text, createdAt: new Date().toISOString() }), long);
+    await page.getByRole('button', { name: /^Thông báo, 2 chưa đọc/ }).waitFor();
+    // Mất kết nối: tải lại cảnh báo mỗi 60 giây; kết nối lại: tải lại một lần
+    await page.evaluate(() => window.__wdpRealtime.setConnected(true));
+    await page.evaluate(() => window.__wdpRealtime.setConnected(false));
+    state.alerts = [...three, alertOf('13', 'Đường ngập cục bộ')]; // 11 đã đóng ở trên: không hiện lại
+    await page.clock.fastForward('00:50');
+    assert.match(await alertCards().first().innerText(), /Cửa khẩu đóng sớm/, 'chưa tới 60 giây: chưa tải lại');
+    await page.clock.fastForward('00:15');
+    await page.waitForFunction(() => /Đường ngập cục bộ/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    assert.equal(await alertCards().count(), 1, 'polling không tạo thẻ thứ hai');
+    assert.match(await moreLink().innerText(), /^\+2 cảnh báo khác$/, 'polling không đếm trùng các cảnh báo đã có, không hiện lại cảnh báo đã đóng');
+    state.alerts.push(alertOf('14', 'Thời tiết xấu phía trước'));
+    await page.evaluate(() => window.__wdpRealtime.setConnected(true));
+    await page.waitForFunction(() => /Thời tiết xấu phía trước/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    assert.equal(await alertCards().count(), 1);
+    assert.match(await moreLink().innerText(), /^\+3 cảnh báo khác$/);
+    await closeAllCards();
+    // Panel chuông (khung tài xế): không còn đầu trang/mô tả/3 ô thống kê; có tab, "Đánh dấu tất cả đã đọc", nút Làm mới nhỏ trên thanh tiêu đề
+    await page.getByRole('button', { name: /^Thông báo, 3 chưa đọc/ }).click();
+    await page.locator('.notification-center__item').first().waitFor();
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.notification-center__summary, .notification-center__header').count(), 0, 'ẩn đầu trang + 3 ô thống kê');
+    assert.equal(await page.getByText('TRUNG TÂM THÔNG BÁO').count(), 0);
+    assert.equal(await page.getByText('Thông báo mới', { exact: true }).count(), 0, 'bỏ tiêu đề lặp "Thông báo mới"');
+    await page.getByText(/^Tất cả \(\d+\)$/).waitFor();
+    await page.getByText(/^Chưa đọc \(\d+\)$/).waitFor();
+    await page.locator('.ant-drawer-header').getByRole('button', { name: 'Làm mới thông báo' }).waitFor();
+    const noticeRows = await page.locator('.notification-center__item').evaluateAll(items => items.map(item => {
+      const text = item.querySelector('.notification-center__text');
+      const row = item.querySelector('.notification-center__row');
+      const style = getComputedStyle(item);
+      return {
+        overflowX: text.scrollWidth > text.clientWidth + 1,
+        lines: Math.round(text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight)),
+        fill: text.getBoundingClientRect().width / row.getBoundingClientRect().width,
+        time: item.querySelector('time')?.innerText,
+        unread: item.classList.contains('is-unread'),
+        border: style.borderLeftWidth + ' ' + style.borderLeftColor,
+        alert: /Cảnh báo thời tiết chuyến 400/.test(text.innerText),
+      };
+    }));
+    assert.equal(noticeRows.length, 3);
+    assert.ok(noticeRows.every(row => !row.overflowX && row.lines <= 2 && row.fill > 0.7), 'chữ không tràn, tối đa 2 dòng, chiếm hết chiều ngang: ' + JSON.stringify(noticeRows));
+    assert.ok(noticeRows.every(row => /^(vừa xong|[1-9]\d* phút trước)$/.test(row.time)), 'thời gian tương đối');
+    assert.equal(noticeRows.find(row => row.alert).border, '3px rgb(202, 138, 4)', 'viền trái cảnh báo màu vàng');
+    assert.equal(noticeRows.find(row => !row.alert).border, '3px rgb(154, 168, 161)', 'viền trái thông báo khác trung tính');
+    await page.screenshot({ path: 'test-results/driver-ui2-panel.png' });
+    await page.locator('.notification-center__item', { hasText: 'Chuyến WDP-TEST-1 đã được phân công' }).locator('.notification-center__row').click();
+    await page.waitForFunction(() => document.querySelectorAll('.notification-center__item.is-unread').length === 2);
+    assert.equal(state.notices.find(n => n.id === '1').is_read, 1, 'bấm vào thông báo = đánh dấu đã đọc');
+    assert.equal(await page.locator('.notification-center__item:not(.is-unread)').evaluate(item => getComputedStyle(item).borderLeftWidth), '0px', 'đã đọc: không viền trái');
+    await page.getByRole('button', { name: 'Đánh dấu tất cả đã đọc' }).click();
+    await page.waitForFunction(() => !document.querySelector('.notification-center__item.is-unread'));
+    assert.ok(state.notices.every(n => n.is_read === 1));
+    assert.equal(await page.getByRole('button', { name: 'Đánh dấu tất cả đã đọc' }).count(), 0);
+    await page.locator('.ant-drawer-close').click();
+
+    // 10. Hộ tống (trip_assignments.role = ESCORT): màn chuyến chỉ xem, sự cố mặc định Y tế ngựa
+    crew.role = 'ESCORT';
+    trips[100].orderStatus = 'IN_TRANSIT';
+    Object.assign(trips[100].legs[0], { status: 'MOVING', actualDepartureAt: iso(-3600e3) });
+    await open('trip');
+    await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
+    await page.getByText('Bạn là hộ tống của chuyến này — tài xế Phan Thị Lan ghi mốc chặng.').waitFor();
+    assert.equal(await page.locator('.drv-header-actions').getByRole('button', { name: /Bắt đầu chuyến đi|Check-in chặng/ }).count(), 0, 'ẩn Bắt đầu/Check-in');
+    assert.equal(await page.getByRole('switch', { name: 'Chia sẻ vị trí' }).count(), 0, 'ẩn công tắc GPS');
+    assert.equal(await page.locator('.drv-gps-badge').count(), 0, 'ẩn badge GPS');
+    assert.equal(await page.locator('.drv-escort-note, .drv-checklist').count(), 0, 'ẩn ghi chú từ hộ tống và checklist');
+    await page.getByRole('button', { name: 'Báo cáo sự cố' }).first().waitFor();
+    assert.ok(await page.locator('.drv-stops li').count() > 0 && await page.locator('.drv-stat-card').count() === 3, 'vẫn có các chặng và thẻ số liệu');
+    const positionsBefore = calls.positions.length;
+    await page.screenshot({ path: 'test-results/driver-escort-view.png' });
+    await page.evaluate(() => Object.keys(localStorage).filter(key => key.includes('incident:')).forEach(key => localStorage.removeItem(key))); // bản nháp cũ của chuyến này ghi đè loại mặc định
+    await page.getByRole('button', { name: 'Báo cáo sự cố' }).first().click();
+    await page.locator('.drv-severity').waitFor();
+    assert.equal(await page.locator('.ant-select', { hasText: 'Y tế ngựa · Khác' }).count(), 1, 'hộ tống: loại mặc định Y tế ngựa');
+    assert.equal(calls.positions.length, positionsBefore, 'hộ tống không gửi GPS');
+    crew.role = 'DRIVER';
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');

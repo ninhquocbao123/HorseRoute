@@ -6,23 +6,23 @@ import { trackingApi } from '../tracking.api';
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 const REFRESH_MS = 2 * 60_000;
 
-/** Nhật ký mới nhất có ghi chú, do người khác (không phải tài khoản đang đăng nhập) ghi. */
-export function latestPartnerNote(logs: IHorseLog[], userId: string) {
+/** Nhật ký mới nhất có ghi chú do HỘ TỐNG của chuyến ghi (createdByCrewRole = ESCORT). */
+export function latestEscortNote(logs: IHorseLog[]) {
   return logs
-    .filter(log => log.createdBy !== userId && log.note?.trim())
+    .filter(log => log.createdByCrewRole === 'ESCORT' && log.note?.trim())
     .reduce<IHorseLog | null>((latest, log) => (!latest || Date.parse(log.loggedAt) > Date.parse(latest.loggedAt) ? log : latest), null);
 }
 
 /**
- * "Ghi chú từ hộ tống" (D1b). Quyết định 5.5: chưa có vai trò crew của người ghi nên chỉ lọc được "người khác mình".
+ * "Ghi chú từ hộ tống" (D1b), chỉ cho tài xế. Quyết định 5.5: lọc theo vai trò crew của người ghi (createdByCrewRole = ESCORT).
  * Tải lại khi `refreshKey` đổi và mỗi 2 phút khi tab đang hiển thị. Không có ghi chú nào thì ẩn thẻ.
  */
-export default function EscortNoteCard({ tripId, userId, refreshKey }: { tripId: string; userId: string; refreshKey?: unknown }) {
+export default function EscortNoteCard({ tripId, refreshKey }: { tripId: string; refreshKey?: unknown }) {
   const [note, setNote] = useState<IHorseLog | null>(null);
   useEffect(() => {
     let active = true;
     const load = () => {
-      trackingApi.horseLogs(tripId).then(logs => active && setNote(latestPartnerNote(logs, userId))).catch(() => active && setNote(null));
+      trackingApi.horseLogs(tripId).then(logs => active && setNote(latestEscortNote(logs))).catch(() => active && setNote(null));
     };
     load();
     // Hộ tống có thể ghi chú bất cứ lúc nào: tải lại mỗi 2 phút, chỉ khi tab đang hiển thị.
@@ -33,7 +33,7 @@ export default function EscortNoteCard({ tripId, userId, refreshKey }: { tripId:
       active = false;
       window.clearInterval(timer);
     };
-  }, [tripId, userId, refreshKey]);
+  }, [tripId, refreshKey]);
 
   if (!note) return null;
   return (

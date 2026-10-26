@@ -154,6 +154,25 @@ async function main() {
     assert.deepEqual(await snapshot(), before, 'rejected requests change nothing');
   });
 
+  await check('Role split: ESCORT cannot record milestones / complete legs / send GPS; DRIVER cannot write horse logs', async () => {
+    const before = await snapshot();
+    const logs = await count('SELECT COUNT(*) AS n FROM horse_logs');
+    const positions = await count('SELECT COUNT(*) AS n FROM trip_positions');
+    for (const [method, url, body] of [
+      ['POST', '/legs/10/milestones', { milestoneType: 'DEPARTED', occurredAt: minutesAgo(1) }],
+      ['POST', '/legs/10/complete', { occurredAt: minutesAgo(1) }],
+      ['POST', '/trips/100/positions', { points: [{ latitude: 10.9, longitude: 106.4, recordedAt: minutesAgo(1) }] }],
+    ]) {
+      const res = await expectStatus(403, method, url, { as: ids.escort, body });
+      assert.match(JSON.stringify(res), /Chỉ tài xế của chuyến mới được ghi mốc\/gửi vị trí/);
+    }
+    const driverLog = await expectStatus(403, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: { horseId: '21', conditionStatus: 'STABLE', loggedAt: minutesAgo(1) } });
+    assert.match(JSON.stringify(driverLog), /Nhật ký ngựa do hộ tống ghi/);
+    assert.deepEqual(await snapshot(), before, 'rejected requests change nothing');
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logs);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM trip_positions'), positions);
+  });
+
   await check('Retroactive window T comes from system_parameters.LEG_BACK', async () => {
     await q("INSERT INTO system_parameters(param_code,param_value,description) VALUES ('LEG_BACK','30','test')");
     assert.equal((await depart(minutesAgo(45))).status, 400);
@@ -221,13 +240,14 @@ async function main() {
 
   await check('Horse log: validation, ownership, photo stored and served only inside the trip scope', async () => {
     const good = { horseId: '21', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn sáng', loggedAt: minutesAgo(5) };
-    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: { ...good, conditionStatus: 'SICK' } });
-    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: { ...good, horseId: '23' } });
+    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { ...good, conditionStatus: 'SICK' } });
+    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { ...good, horseId: '23' } });
     await expectStatus(403, 'POST', '/legs/10/horse-logs', { as: ids.driver2, body: good });
-    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: { ...good, correctsLogId: '999' } });
+    await expectStatus(403, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: good }); // nhật ký ngựa do hộ tống ghi, tài xế của chuyến không được
+    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { ...good, correctsLogId: '999' } });
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), 0);
 
-    const created = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: photoForm({ ...good }) });
+    const created = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: photoForm({ ...good }) });
     assert.equal(created.attachments.length, 1);
     assert.equal(created.attachments[0].fileType, 'PNG');
     assert.equal(stored(), 1);
@@ -247,10 +267,11 @@ async function main() {
     // Correction points to the original, same horse and trip; the log itself is immutable (no PUT/PATCH/DELETE).
     const corrected = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { horseId: '21', conditionStatus: 'STABLE', loggedAt: minutesAgo(2), correctsLogId: created.id } });
     assert.equal(corrected.correctsLogId, created.id);
-    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: { horseId: '22', conditionStatus: 'STABLE', loggedAt: minutesAgo(1), correctsLogId: created.id } });
+    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { horseId: '22', conditionStatus: 'STABLE', loggedAt: minutesAgo(1), correctsLogId: created.id } });
     for (const method of ['PUT', 'PATCH', 'DELETE']) assert.equal((await call(method, `/legs/10/horse-logs/${created.id}`, { as: ids.driver, body: {} })).status, 404);
     const logs = await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.specialist });
     assert.equal(logs.length, 2);
+    assert.deepEqual(logs.map(item => item.createdByCrewRole), ['ESCORT', 'ESCORT'], 'nhật ký ghi bởi hộ tống mang createdByCrewRole = ESCORT');
     await expectStatus(404, 'GET', '/trips/100/horse-logs', { as: ids.driver2 });
   });
 
@@ -259,7 +280,7 @@ async function main() {
     const logs = await count('SELECT COUNT(*) AS n FROM horse_logs');
     await failOn('attachments');
     try {
-      await expectStatus(500, 'POST', '/legs/10/horse-logs', { as: ids.driver, body: photoForm({ horseId: '22', conditionStatus: 'STABLE', loggedAt: minutesAgo(1) }) });
+      await expectStatus(500, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: photoForm({ horseId: '22', conditionStatus: 'STABLE', loggedAt: minutesAgo(1) }) });
     } finally { await clearTrigger(); }
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logs);
     assert.equal(stored(), files, 'no orphan file after rollback');
@@ -382,9 +403,14 @@ async function main() {
     const batch = { points: [pointAt(2, { speedMps: 15, accuracyM: 8 }), pointAt(1, { latitude: 10.96, longitude: 106.39, speedMps: 17.8, headingDeg: 300 })] };
     assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.driver, body: batch }), { legId: '10', accepted: 2, duplicates: 0 });
     assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.driver, body: batch }), { legId: '10', accepted: 0, duplicates: 2 }, 'resend after a network error is idempotent');
-    assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: ids.escort, body: { points: [pointAt(1)] } }), { legId: '10', accepted: 1, duplicates: 0 }, 'same second, different sender');
+    // Hộ tống không được gửi GPS; "cùng giây, người gửi khác" kiểm bằng một tài xế thứ hai của chuyến (user 11, bỏ phân công ngay sau đó)
+    await expectStatus(403, 'POST', '/trips/100/positions', { as: ids.escort, body: { points: [pointAt(1)] } });
+    await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status,phone) VALUES (11,'driver3@t.local','!','Tài Xế Ba','DRIVER_ESCORT','ACTIVE',NULL)`);
+    await q(`INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (100,11,'DRIVER',3,UTC_TIMESTAMP())`);
+    assert.deepEqual(await expectStatus(201, 'POST', '/trips/100/positions', { as: '11', body: { points: [pointAt(1)] } }), { legId: '10', accepted: 1, duplicates: 0 }, 'same second, different sender');
+    await q('DELETE FROM trip_assignments WHERE trip_id = 100 AND user_id = 11');
     const stored = await q('SELECT CAST(user_id AS CHAR) AS u, CAST(leg_id AS CHAR) AS l, CAST(latitude AS CHAR) AS lat, speed_mps AS s FROM trip_positions ORDER BY recorded_at, user_id');
-    assert.deepEqual(stored.map(r => [r.u, r.l, r.lat]), [['6', '10', '10.950000'], ['6', '10', '10.960000'], ['10', '10', '10.950000']]);
+    assert.deepEqual(stored.map(r => [r.u, r.l, r.lat]), [['6', '10', '10.950000'], ['6', '10', '10.960000'], ['11', '10', '10.950000']]);
 
     const after = await expectStatus(200, 'GET', '/trips/100/map', { as: ids.coordA });
     assert.equal(after.position.source, 'GPS');

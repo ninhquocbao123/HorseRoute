@@ -374,6 +374,25 @@ export class TrackingRepository {
     );
   }
 
+  /** Mã người dùng được phân công chuyến (tài xế / hộ tống). */
+  async getTripCrewIds(tripId: string): Promise<string[]> {
+    const rows = await this.db.query(`SELECT CAST(user_id AS CHAR) AS userId FROM trip_assignments WHERE trip_id = ?`, [tripId]);
+    return rows.map((row: { userId: string }) => row.userId);
+  }
+
+  /** Thông báo IN_APP mới nhất của từng người nhận cho một sự kiện của chuyến (để đẩy qua socket sau khi commit). */
+  async findLatestTripNotifications(recipientIds: string[], eventType: string, tripId: string): Promise<{ recipientId: string; id: string; content: string; createdAt: Date }[]> {
+    if (!recipientIds.length) return [];
+    const rows = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id, CAST(recipient_id AS CHAR) AS recipientId, content, created_at AS createdAt
+      FROM notifications WHERE recipient_id IN (${recipientIds.map(() => '?').join(',')}) AND event_type = ? AND related_type = 'TRIP' AND related_id = ? AND channel = 'IN_APP'
+      ORDER BY id DESC LIMIT 50`,
+      [...recipientIds, eventType, tripId]
+    );
+    const seen = new Set<string>();
+    return rows.filter((row: { recipientId: string }) => (seen.has(row.recipientId) ? false : (seen.add(row.recipientId), true)));
+  }
+
   async notify(recipientId: string, eventType: string, content: string, relatedType: string, relatedId: string): Promise<void> {
     await this.db.query(
       `INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel)
@@ -531,11 +550,13 @@ export class TrackingRepository {
         hl.logged_at AS loggedAt,
         CAST(hl.created_by AS CHAR) AS createdBy,
         u.full_name AS createdByName,
+        ta.role AS createdByCrewRole,
         CAST(hl.corrects_log_id AS CHAR) AS correctsLogId
       FROM horse_logs hl
       JOIN legs l ON l.id = hl.leg_id
       JOIN horses h ON h.id = hl.horse_id
       JOIN users u ON u.id = hl.created_by
+      LEFT JOIN trip_assignments ta ON ta.trip_id = l.trip_id AND ta.user_id = hl.created_by
       WHERE l.trip_id = ?
       ORDER BY hl.logged_at ASC, hl.id ASC`,
       [tripId]
