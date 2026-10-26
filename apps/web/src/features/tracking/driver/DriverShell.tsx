@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Badge, Button, Drawer, Input } from 'antd';
-import { BellOutlined, CalendarOutlined, HistoryOutlined, LogoutOutlined, SearchOutlined, TruckOutlined, WarningOutlined } from '@ant-design/icons';
+import { BellOutlined, CalendarOutlined, HistoryOutlined, LogoutOutlined, ReloadOutlined, SearchOutlined, TruckOutlined, WarningOutlined } from '@ant-design/icons';
 import type { CrewRole, IUser } from '@my-project/shared';
 import LogoutDialog from '../../auth/pages/components/LogoutDialog';
 import NotificationsPanel from '../../notifications/NotificationsPanel';
@@ -15,6 +15,9 @@ export const DRIVER_NAV = [
   { id: 'history', title: 'Lịch sử giao hàng', icon: <HistoryOutlined /> },
   { id: 'incident', title: 'Báo cáo sự cố', icon: <WarningOutlined /> },
 ];
+
+/** Màu viền trái của thông báo chưa đọc theo loại: cảnh báo điều phối vàng, còn lại trung tính. */
+const accentOf = (notice: { event_type?: string }) => (notice.event_type === 'TRIP_ALERT' ? '#ca8a04' : '#9aa8a1');
 
 const ROLE_LABEL: Record<CrewRole, string> = { DRIVER: 'Tài xế', ESCORT: 'Hộ tống' };
 const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -46,7 +49,8 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
   const [bellOpen, setBellOpen] = useState(false);
   const { panelProps, unreadCount, addNotice, refresh } = useNotifications(String(account.id));
   const notice = useDriverNotice();
-  const alerts = useAlertToasts(String(account.id), activeTripId, notice);
+  const [alertsOnly, setAlertsOnly] = useState(false);
+  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsOnly(true); setBellOpen(true); });
   useDriverRealtime({
     onAlert: payload => alerts.show({ id: payload.alertId, alertType: payload.alertType as never, content: payload.content, sentByName: payload.sentByName, sentAt: payload.sentAt }),
     onIncidentUpdated: payload => notice.info(
@@ -101,7 +105,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
               />
             )}
             <Badge count={unreadCount} size="small" offset={[-6, 6]}>
-              <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => setBellOpen(true)} />
+              <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => { setAlertsOnly(false); setBellOpen(true); }} />
             </Badge>
             <span className="drs-tool drs-date"><CalendarOutlined aria-hidden="true" /><time dateTime={new Date().toISOString().slice(0, 10)}>{date.charAt(0).toUpperCase() + date.slice(1)}</time></span>
           </div>
@@ -109,8 +113,15 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
         {children}
       </main>
 
-      <Drawer open={bellOpen} onClose={() => setBellOpen(false)} size={520} title="Thông báo" className="drs-notifications">
-        <NotificationsPanel {...panelProps} />
+      <Drawer
+        open={bellOpen} onClose={() => setBellOpen(false)} size={520} title="Thông báo" className="drs-notifications"
+        extra={<Button size="small" type="text" icon={<ReloadOutlined />} aria-label="Làm mới thông báo" onClick={panelProps.onRefresh} loading={panelProps.loading} />}
+      >
+        <NotificationsPanel
+          {...panelProps} compact accentOf={accentOf}
+          notifications={alertsOnly ? panelProps.notifications.filter(item => item.event_type === 'TRIP_ALERT') : panelProps.notifications}
+          filterLabel={alertsOnly ? 'Cảnh báo điều phối' : undefined} onClearFilter={() => setAlertsOnly(false)}
+        />
       </Drawer>
     </div>
   );

@@ -199,7 +199,7 @@ export class TrackingService {
   private async emitNewNotifications(userIds: string[], eventType: string, tripId: string) {
     const rows = await this.repository.findLatestTripNotifications(userIds, eventType, tripId);
     for (const row of rows) {
-      this.realtime.emitToUsers([row.recipientId], 'notification:new', { id: row.id, content: row.content, createdAt: row.createdAt.toISOString() });
+      this.realtime.emitToUsers([row.recipientId], 'notification:new', { id: row.id, content: row.content, createdAt: row.createdAt.toISOString(), eventType });
     }
   }
 

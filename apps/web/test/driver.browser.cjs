@@ -189,6 +189,7 @@ const { pathToFileURL } = require('node:url');
     const confirm = () => dialog().getByRole('button', { name: 'Xác nhận', exact: true }).click();
     const pick = async (label, option) => {
       await page.getByLabel(label, { exact: true }).click();
+      await page.clock.fastForward('00:01').catch(() => undefined); // đồng hồ giả có thể đã cài: đẩy để animation dropdown kịp ổn định
       await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: option }).click();
     };
     // PNG 1×1 hợp lệ để ô ảnh hiển thị được trong ảnh chụp.
@@ -426,6 +427,7 @@ const { pathToFileURL } = require('node:url');
     await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
     // Lời giải thích dài nằm trong tooltip của biểu tượng (i) ở badge
     await page.getByLabel('Giải thích chia sẻ vị trí').hover();
+    await page.clock.fastForward('00:01'); // tooltip antd mở sau độ trễ hover bằng setTimeout: đẩy đồng hồ giả thay vì chờ thời gian thật
     await page.getByRole('tooltip', { name: 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng.' }).waitFor();
     await page.mouse.move(5, 5);
 
@@ -717,25 +719,71 @@ const { pathToFileURL } = require('node:url');
     await page.getByRole('heading', { name: 'WDP-TEST-3' }).waitFor();
     assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-1');
 
-    // 9. UI-2: thông báo nổi + panel chuông gọn + realtime (socket giả qua móc dev) + polling khi mất kết nối
-    const alertOf = (id, content, type = 'WEATHER') => ({ id, tripId: '400', alertType: type, content, sentBy: '4', sentByName: 'Điều phối', sentAt: iso(-60e3) });
+    // 9. UI-2: thông báo nổi (một thẻ + "+N cảnh báo khác") + panel chuông gọn + realtime (socket giả qua móc dev) + polling khi mất kết nối
+    let alertSeq = 0;
+    const alertOf = (id, content, type = 'WEATHER') => ({ id, tripId: '400', alertType: type, content, sentBy: '4', sentByName: 'Điều phối', sentAt: iso(++alertSeq * 1000) });
+    const socketAlert = a => page.evaluate(payload => window.__wdpRealtime.emit('tracking:alert', payload), { alertId: a.id, tripId: a.tripId, alertType: a.alertType, content: a.content, sentByName: a.sentByName, sentAt: a.sentAt });
+    const alertCards = () => page.locator('.drv-toast.is-alert');
+    const moreLink = () => page.locator('.drv-toast-more');
+    const cardCount = n => page.waitForFunction(count => document.querySelectorAll('.drv-toast.is-alert').length === count, n);
+    const closeAllCards = async () => {
+      for (let i = 0; i < 12; i++) {
+        const text = await alertCards().first().textContent({ timeout: 1000 }).catch(() => null);
+        if (text === null) break;
+        await alertCards().first().locator('.ant-notification-notice-close').evaluate(button => button.click());
+        // Chờ thẻ đang đóng rời khỏi DOM (animation chạy theo đồng hồ giả): đẩy đồng hồ từng bước nhỏ
+        for (let step = 0; step < 10; step++) {
+          await page.clock.fastForward('00:01');
+          await page.waitForTimeout(60);
+          const now = await alertCards().first().textContent({ timeout: 500 }).catch(() => null);
+          if (now !== text) break;
+        }
+      }
+      await cardCount(0);
+    };
     state.alerts = [alertOf('1', 'Mưa lớn trên tuyến'), alertOf('2', 'Kẹt xe 5 km trước cửa khẩu', 'TRAFFIC')];
     await page.evaluate(() => Object.keys(localStorage).filter(key => key.includes('alerts-closed')).forEach(key => localStorage.removeItem(key)));
     await open('trip');
-    const alertToasts = () => page.locator('.drv-toast.is-alert');
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 2);
-    assert.match(await alertToasts().first().innerText(), /Cảnh báo (thời tiết|giao thông)[\s\S]*(Mưa lớn trên tuyến|Kẹt xe)[\s\S]*\d{2}:\d{2} · Điều phối/);
+    // Chỉ MỘT thẻ (cảnh báo mới nhất) + dòng "+1 cảnh báo khác"; thẻ gọn ~360px, nội dung tối đa 3 dòng
+    await cardCount(1);
+    assert.match(await alertCards().first().innerText(), /Cảnh báo giao thông[\s\S]*Kẹt xe 5 km[\s\S]*\d{2}:\d{2} · Điều phối[\s\S]*\+1 cảnh báo khác/);
+    const box = await alertCards().first().boundingBox();
+    assert.ok(box.width >= 340 && box.width <= 372, 'thẻ cảnh báo ~360px: ' + box.width);
     await page.clock.fastForward('00:30');
-    assert.equal(await alertToasts().count(), 2, 'cảnh báo không tự tắt');
-    await alertToasts().first().locator('.ant-notification-notice-close').click();
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 1);
+    assert.equal(await alertCards().count(), 1, 'cảnh báo không tự tắt');
+    // Đóng thẻ đang hiện → hiện cảnh báo kế tiếp chưa đóng (không còn dòng "+N")
+    await alertCards().first().locator('.ant-notification-notice-close').click();
+    await page.waitForFunction(() => /Mưa lớn trên tuyến/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    await page.clock.fastForward('00:01');
+    await cardCount(1);
+    assert.equal(await moreLink().count(), 0);
+    // Mở lại trang: cảnh báo đã đóng không hiện lại
     await open('trip');
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 1);
+    await cardCount(1);
     await page.waitForTimeout(300);
-    assert.equal(await alertToasts().count(), 1, 'cảnh báo đã đóng không hiện lại sau khi mở lại trang');
-    // Realtime: cảnh báo mới, sự cố được tiếp nhận (tự tắt sau 8 giây), thông báo mới làm badge chuông tăng
-    await page.evaluate(() => window.__wdpRealtime.emit('tracking:alert', { alertId: '3', tripId: '400', alertType: 'BORDER', content: 'Cửa khẩu đóng sớm', sentByName: 'Điều phối', sentAt: new Date().toISOString() }));
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 2);
+    assert.match(await alertCards().first().innerText(), /Mưa lớn trên tuyến/);
+    assert.equal(await alertCards().count(), 1, 'cảnh báo đã đóng không hiện lại sau khi mở lại trang');
+    await closeAllCards();
+    // 3 cảnh báo qua socket → chỉ 1 thẻ + "+2 cảnh báo khác"; cùng alertId 2 lần → vẫn 1 thẻ, không đếm đôi
+    const three = [alertOf('10', 'Cảnh báo mười'), alertOf('11', 'Cảnh báo mười một', 'TRAFFIC'), alertOf('12', 'Cửa khẩu đóng sớm', 'BORDER')];
+    for (const a of three) await socketAlert(a);
+    await cardCount(1);
+    assert.match(await alertCards().first().innerText(), /Cảnh báo cửa khẩu[\s\S]*Cửa khẩu đóng sớm[\s\S]*\+2 cảnh báo khác/);
+    await socketAlert(three[2]);
+    await socketAlert(three[1]);
+    await page.waitForTimeout(300);
+    assert.equal(await alertCards().count(), 1, 'cùng alertId 2 lần → 1 thẻ');
+    assert.match(await moreLink().innerText(), /^\+2 cảnh báo khác$/);
+    await page.screenshot({ path: 'test-results/driver-ui2-toasts.png' });
+    // Bấm "+2 cảnh báo khác" → mở panel chuông đang lọc cảnh báo
+    await moreLink().evaluate(button => button.click());
+    await page.clock.fastForward('00:01');
+    await page.locator('.notification-center__filter', { hasText: 'Cảnh báo điều phối' }).waitFor();
+    await page.locator('.ant-drawer-close').click();
+    await page.clock.fastForward('00:01');
+    await page.locator('.notification-center__filter').waitFor({ state: 'hidden' });
+    // Sự cố được tiếp nhận (tự tắt sau 8 giây) và thông báo mới làm badge chuông tăng
+    await page.mouse.move(5, 5); // con trỏ nằm trên thẻ thì antd tạm dừng đếm giờ tự tắt
     await page.evaluate(() => window.__wdpRealtime.emit('tracking:incident_updated', { incidentId: '7', tripId: '400', status: 'ACKNOWLEDGED', handlingNote: null }));
     await page.getByText('Điều phối viên đã tiếp nhận sự cố #7').waitFor();
     await page.clock.fastForward('00:07');
@@ -744,49 +792,59 @@ const { pathToFileURL } = require('node:url');
     await page.getByText('Điều phối viên đã tiếp nhận sự cố #7').waitFor({ state: 'detached' });
     const long = 'Chuyến WDP-TEST-3 có cập nhật rất dài từ điều phối viên: '.repeat(6);
     state.notices.unshift({ id: '2', content: long, is_read: 0, created_at: new Date().toISOString() });
+    state.notices.push({ id: '3', content: 'Cảnh báo thời tiết chuyến 400: Mưa lớn.', is_read: 0, event_type: 'TRIP_ALERT', related_type: 'TRIP', related_id: '400', created_at: iso(-60e3) });
     await page.evaluate(text => window.__wdpRealtime.emit('notification:new', { id: '2', content: text, createdAt: new Date().toISOString() }), long);
     await page.getByRole('button', { name: /^Thông báo, 2 chưa đọc/ }).waitFor();
     // Mất kết nối: tải lại cảnh báo mỗi 60 giây; kết nối lại: tải lại một lần
     await page.evaluate(() => window.__wdpRealtime.setConnected(true));
     await page.evaluate(() => window.__wdpRealtime.setConnected(false));
-    state.alerts.push(alertOf('4', 'Đường ngập cục bộ'));
+    state.alerts = [...three, alertOf('13', 'Đường ngập cục bộ')];
     await page.clock.fastForward('00:50');
-    assert.equal(await alertToasts().count(), 2, 'chưa tới 60 giây');
+    assert.match(await alertCards().first().innerText(), /Cửa khẩu đóng sớm/, 'chưa tới 60 giây: chưa tải lại');
     await page.clock.fastForward('00:15');
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 3);
-    state.alerts.push(alertOf('5', 'Thời tiết xấu phía trước'));
+    await page.waitForFunction(() => /Đường ngập cục bộ/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    assert.equal(await alertCards().count(), 1, 'polling không tạo thẻ thứ hai');
+    assert.match(await moreLink().innerText(), /^\+3 cảnh báo khác$/, 'polling không đếm trùng các cảnh báo đã có');
+    state.alerts.push(alertOf('14', 'Thời tiết xấu phía trước'));
     await page.evaluate(() => window.__wdpRealtime.setConnected(true));
-    await page.waitForTimeout(500);
-    assert.equal(await alertToasts().count(), 3, 'tối đa 3 thông báo nổi');
-    await page.screenshot({ path: 'test-results/driver-ui2-toasts.png' });
-    // Panel chuông: nội dung chiếm hết chiều ngang, tối đa 2 dòng, thời gian tương đối, chưa đọc có chấm, bấm = đã đọc
-    for (const close of await alertToasts().locator('.ant-notification-notice-close').all()) await close.click();
-    await page.clock.fastForward('00:02');
-    await page.waitForFunction(() => document.querySelectorAll('.drv-toast.is-alert').length === 0);
-    await page.getByRole('button', { name: /^Thông báo, 2 chưa đọc/ }).click();
+    await page.waitForFunction(() => /Thời tiết xấu phía trước/.test(document.querySelector('.drv-toast.is-alert')?.textContent ?? ''));
+    assert.equal(await alertCards().count(), 1);
+    assert.match(await moreLink().innerText(), /^\+4 cảnh báo khác$/);
+    await closeAllCards();
+    // Panel chuông (khung tài xế): không còn đầu trang/mô tả/3 ô thống kê; có tab, "Đánh dấu tất cả đã đọc", nút Làm mới nhỏ trên thanh tiêu đề
+    await page.getByRole('button', { name: /^Thông báo, 3 chưa đọc/ }).click();
     await page.locator('.notification-center__item').first().waitFor();
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.notification-center__summary, .notification-center__header').count(), 0, 'ẩn đầu trang + 3 ô thống kê');
+    assert.equal(await page.getByText('TRUNG TÂM THÔNG BÁO').count(), 0);
     assert.equal(await page.getByText('Thông báo mới', { exact: true }).count(), 0, 'bỏ tiêu đề lặp "Thông báo mới"');
+    await page.getByText(/^Tất cả \(\d+\)$/).waitFor();
+    await page.getByText(/^Chưa đọc \(\d+\)$/).waitFor();
+    await page.locator('.ant-drawer-header').getByRole('button', { name: 'Làm mới thông báo' }).waitFor();
     const noticeRows = await page.locator('.notification-center__item').evaluateAll(items => items.map(item => {
       const text = item.querySelector('.notification-center__text');
       const row = item.querySelector('.notification-center__row');
+      const style = getComputedStyle(item);
       return {
         overflowX: text.scrollWidth > text.clientWidth + 1,
         lines: Math.round(text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight)),
         fill: text.getBoundingClientRect().width / row.getBoundingClientRect().width,
         time: item.querySelector('time')?.innerText,
-        dot: getComputedStyle(item.querySelector('.notification-center__dot')).backgroundColor,
+        unread: item.classList.contains('is-unread'),
+        border: style.borderLeftWidth + ' ' + style.borderLeftColor,
+        alert: /Cảnh báo thời tiết chuyến 400/.test(text.innerText),
       };
     }));
-    assert.equal(noticeRows.length, 2);
+    assert.equal(noticeRows.length, 3);
     assert.ok(noticeRows.every(row => !row.overflowX && row.lines <= 2 && row.fill > 0.7), 'chữ không tràn, tối đa 2 dòng, chiếm hết chiều ngang: ' + JSON.stringify(noticeRows));
-    // Đồng hồ giả đã chạy ~3 phút so với lúc tạo thông báo: chỉ kiểm định dạng tương đối
-    assert.match(noticeRows[0].time, /^(vừa xong|[1-9]\d* phút trước)$/);
-    assert.match(noticeRows[1].time, /^[1-9]\d* phút trước$/);
-    assert.ok(noticeRows.every(row => row.dot !== 'rgba(0, 0, 0, 0)'), 'chưa đọc có chấm');
+    assert.ok(noticeRows.every(row => /^(vừa xong|[1-9]\d* phút trước)$/.test(row.time)), 'thời gian tương đối');
+    assert.equal(noticeRows.find(row => row.alert).border, '3px rgb(202, 138, 4)', 'viền trái cảnh báo màu vàng');
+    assert.equal(noticeRows.find(row => !row.alert).border, '3px rgb(154, 168, 161)', 'viền trái thông báo khác trung tính');
     await page.screenshot({ path: 'test-results/driver-ui2-panel.png' });
     await page.locator('.notification-center__item', { hasText: 'Chuyến WDP-TEST-1 đã được phân công' }).locator('.notification-center__row').click();
-    await page.waitForFunction(() => document.querySelectorAll('.notification-center__item.is-unread').length === 1);
+    await page.waitForFunction(() => document.querySelectorAll('.notification-center__item.is-unread').length === 2);
     assert.equal(state.notices.find(n => n.id === '1').is_read, 1, 'bấm vào thông báo = đánh dấu đã đọc');
+    assert.equal(await page.locator('.notification-center__item:not(.is-unread)').evaluate(item => getComputedStyle(item).borderLeftWidth), '0px', 'đã đọc: không viền trái');
     await page.getByRole('button', { name: 'Đánh dấu tất cả đã đọc' }).click();
     await page.waitForFunction(() => !document.querySelector('.notification-center__item.is-unread'));
     assert.ok(state.notices.every(n => n.is_read === 1));
