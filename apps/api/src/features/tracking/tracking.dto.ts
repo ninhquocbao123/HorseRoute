@@ -89,6 +89,14 @@ export interface HorseLogRow {
   /** Vai trò trong chuyến của người ghi (trip_assignments.role); null nếu không còn được phân công. */
   createdByCrewRole?: import('@my-project/shared').CrewRole | null;
   correctsLogId: string | null;
+  bodyTempC: number | string | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  reportStatus: import('@my-project/shared').HorseReportStatus | null;
+  sendToCustomer: number | boolean;
+  sentAt: Date | null;
+  customerViewedAt: Date | null;
 }
 
 export interface AttachmentRow {

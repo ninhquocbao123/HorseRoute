@@ -10,6 +10,9 @@ import {
   LegStatus,
   MilestoneType,
   HorseConditionStatus,
+  HorseAppetite,
+  HorseReportStatus,
+  CareActivityType,
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
@@ -68,7 +71,42 @@ export interface IHorseLog {
   /** Vai trò trong chuyến của người ghi (DRIVER/ESCORT); null nếu không còn được phân công. */
   createdByCrewRole: CrewRole | null;
   correctsLogId: string | null; // if this entry corrects an earlier one
+  // Báo cáo sức khỏe (gap-analysis-escort.md). Nhật ký cũ: null / false.
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: HorseAppetite | null;
+  /** Ghi chú gửi khách (tách khỏi `note` nội bộ) */
+  customerNote: string | null;
+  /** null = nhật ký cũ, không phải báo cáo */
+  reportStatus: HorseReportStatus | null;
+  sendToCustomer: boolean;
+  sentAt: string | null;
+  customerViewedAt: string | null;
   attachments: ILogAttachment[];
+}
+
+// ─── Care activity (horse_care_activities) ───────────────────────────────────
+
+export interface ICareActivity {
+  id: string;
+  tripId: string;
+  legId: string | null;
+  /** null = cả đoàn (chỉ nghỉ chân) */
+  horseId: string | null;
+  horseName: string | null;
+  activityType: CareActivityType;
+  /** Khẩu phần (cho ăn) */
+  feedDescription: string | null;
+  /** Lượng nước, lít (uống nước) */
+  amountLiters: number | null;
+  /** Số phút (nghỉ chân) */
+  durationMinutes: number | null;
+  note: string | null;
+  performedAt: string; // ISO UTC
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  correctsActivityId: string | null;
 }
 
 export interface ILogAttachment {
@@ -143,6 +181,9 @@ export interface ITripHorse {
   name: string;
   passportNo: string;
   orderStatus: string;
+  breed: string | null;
+  /** yyyy-MM-dd */
+  birthDate: string | null;
 }
 
 /** `phone` là null khi người dùng chưa khai báo, hoặc khi người gọi là Specialist (ẩn SĐT nội bộ). */

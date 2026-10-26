@@ -130,7 +130,7 @@ async function main() {
     const crew = [[5, 'DRIVER'], [6, 'ESCORT']];
 
     // ── Chuyến ĐANG CHẠY (tài xế 5 + hộ tống 6): chặng 1 xong, chặng 2 (đường bộ, qua cửa khẩu sang Campuchia) đang chạy, chặng 3 chưa đi ──
-    const [h1] = await addOrder(100, 'WDP-DEMO-F4-A', 7, 'IN_TRANSIT', 3, { date: hoursFromNow(-7) });
+    const [h1, h2, h3] = await addOrder(100, 'WDP-DEMO-F4-A', 7, 'IN_TRANSIT', 3, { date: hoursFromNow(-7) });
     await addTrip(200, 100, 'APPROVED', 4, hoursFromNow(-7), hoursFromNow(8), crew);
     const l1 = await addLeg(200, 1, 1, 2, 5, hoursFromNow(-7), hoursFromNow(-5), 'COMPLETED', hoursFromNow(-7), hoursFromNow(-4.4));
     await milestone(l1, 'DEPARTED', hoursFromNow(-7)); await milestone(l1, 'ARRIVED_AT_STOP', hoursFromNow(-5)); await milestone(l1, 'CUSTOMS_CLEARED', hoursFromNow(-4.4));
@@ -159,6 +159,30 @@ async function main() {
     await runner.query("INSERT INTO alerts(trip_id,alert_type,content,sent_by,sent_at) VALUES (200,'TRAFFIC','Kẹt xe nhẹ khoảng km 38 trên QL22, nên giảm tốc và giữ khoảng cách.',4,?),(200,'WEATHER','Mưa lớn dự báo từ 16:00 tại Phnom Penh, kiểm tra bạt che khoang ngựa.',4,?)",
       [hoursFromNow(-1), hoursFromNow(-0.3)]);
     await runner.query("INSERT INTO horse_logs(horse_id,leg_id,condition_status,note,logged_at,created_by) VALUES (?,?,'STABLE','Cả ba ngựa uống nước đủ, ăn uống bình thường, không có dấu hiệu căng thẳng.',?,6)", [h1, l2, hoursFromNow(-0.2)]);
+    // Nhật ký chăm sóc (hộ tống 6 ghi hôm nay) và báo cáo sức khỏe (1 đã gửi cho khách, 1 nháp) — migration EscortHorseCare.
+    const care = async (horse, type, at, fields = {}) => {
+      const result = await runner.query(
+        `INSERT INTO horse_care_activities(trip_id,leg_id,horse_id,activity_type,feed_description,amount_liters,duration_minutes,note,performed_at,created_by,corrects_activity_id)
+         VALUES (200,?,?,?,?,?,?,?,?,6,?)`,
+        [l2, horse, type, fields.feed ?? null, fields.liters ?? null, fields.minutes ?? null, fields.note ?? null, hoursFromNow(at), fields.corrects ?? null]
+      );
+      return result.insertId;
+    };
+    await care(h1, 'FEED', -3.2, { feed: 'Cỏ khô 4 kg + yến mạch 1,5 kg' });
+    await care(h2, 'FEED', -3.1, { feed: 'Cỏ khô 4 kg + yến mạch 1,5 kg' });
+    await care(h1, 'WATER', -3, { liters: 10 });
+    const wrongWater = await care(h2, 'WATER', -2.9, { liters: 80, note: 'Nhập nhầm' });
+    await care(h2, 'WATER', -2.8, { liters: 8, corrects: wrongWater }); // đính chính bản nhập nhầm 80 L → 8 L
+    await care(null, 'REST', -2, { minutes: 20, note: 'Dừng nghỉ chân trước cửa khẩu' });
+    await care(h1, 'FEED', -0.6, { feed: 'Cỏ khô 3 kg + cà rốt' });
+    await runner.query(
+      `INSERT INTO horse_logs(horse_id,leg_id,condition_status,note,logged_at,created_by,body_temp_c,heart_rate_bpm,appetite,customer_note,report_status,send_to_customer,sent_at)
+       VALUES (?,?,'OFF_FEED','Ăn ít khẩu phần trưa, đã theo dõi thêm.',?,6,37.9,44,'REDUCED','Silver Moon ăn ít khẩu phần trưa, đứng vững, không đổ mồ hôi. Hộ tống sẽ theo dõi thêm.','SENT',1,?)`,
+      [h2, l2, hoursFromNow(-0.5), hoursFromNow(-0.45)]);
+    await runner.query(
+      `INSERT INTO horse_logs(horse_id,leg_id,condition_status,logged_at,created_by,body_temp_c,heart_rate_bpm,appetite,customer_note,report_status,send_to_customer)
+       VALUES (?,?,'STABLE',?,6,37.6,36,'NORMAL','Đang soạn báo cáo cho ngựa thứ ba…','DRAFT',0)`,
+      [h3, l2, hoursFromNow(-0.1)]);
     await runner.query(
       `INSERT INTO incidents(trip_id,leg_id,incident_type,description,urgency,status,reported_by,reported_at,received_by,handling_note,severity,sub_type,damage_target)
        VALUES (200,?,'LONG_TRAFFIC_JAM','Kẹt xe khoảng 40 phút trước cửa khẩu Mộc Bài.','NORMAL','ACKNOWLEDGED',5,?,4,'Đã báo cửa khẩu, chờ thông quan.','YELLOW','RUSH_HOUR','VEHICLE')`,
@@ -206,7 +230,7 @@ async function main() {
   console.log(`Mật khẩu của TẤT CẢ tài khoản: ${PASSWORD}\n`);
   console.table(accounts.map(([, email, fullName, role]) => ({ email, 'họ tên': fullName, 'vai trò': role })));
   console.log('Dữ liệu mẫu (tài xế demo: driver@example.com; hộ tống demo: escort@example.com):');
-  console.log('  • WDP-DEMO-F4-A      IN_TRANSIT, chuyến #200: chặng 1 xong, chặng 2 đang chạy (GPS LIVE), 2 cảnh báo điều phối, ghi chú hộ tống, 1 sự cố vàng');
+  console.log('  • WDP-DEMO-F4-A      IN_TRANSIT, chuyến #200: chặng 1 xong, chặng 2 đang chạy (GPS LIVE), 2 cảnh báo điều phối, ghi chú hộ tống, 1 sự cố vàng, 7 hoạt động chăm sóc hôm nay (có 1 bản đính chính), 1 báo cáo sức khỏe đã gửi khách + 1 nháp');
   console.log('  • WDP-DEMO-F4-NEXT   READY, chuyến #205 khởi hành sau ~26 giờ (cùng tài xế → dòng "Còn 1 chuyến sắp tới")');
   console.log('  • WDP-DEMO-F4-H1..H4 DELIVERED (5/12/20/35 ngày trước) → trang Lịch sử giao hàng');
   console.log('  • WDP-DEMO-F4-B      READY, tài xế khác (driver2@example.com) → thử cô lập quyền;  WDP-DEMO-F4-C  PREPARING, kế hoạch chờ duyệt\n');

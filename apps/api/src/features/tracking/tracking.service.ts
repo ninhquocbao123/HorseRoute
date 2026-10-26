@@ -1060,6 +1060,14 @@ export class TrackingService {
       createdByName: row.createdByName,
       createdByCrewRole: row.createdByCrewRole ?? null,
       correctsLogId: row.correctsLogId,
+      bodyTempC: row.bodyTempC === null || row.bodyTempC === undefined ? null : Number(row.bodyTempC),
+      heartRateBpm: row.heartRateBpm ?? null,
+      appetite: row.appetite ?? null,
+      customerNote: row.customerNote ?? null,
+      reportStatus: row.reportStatus ?? null,
+      sendToCustomer: Boolean(Number(row.sendToCustomer ?? 0)),
+      sentAt: row.sentAt ? row.sentAt.toISOString() : null,
+      customerViewedAt: row.customerViewedAt ? row.customerViewedAt.toISOString() : null,
       attachments: attachments.filter(a => a.horseLogId === row.id).map(toAttachment),
     }));
   }

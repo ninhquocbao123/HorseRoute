@@ -28,7 +28,7 @@ export const trackingSchemas = {
     updatedAt: nullable(time), updatedByName: nullable({ type: 'string' }),
     milestones: { type: 'array', items: ref('TrackingMilestone') },
   }),
-  TrackingHorse: object({ id, name: { type: 'string' }, passportNo: { type: 'string' }, orderStatus: { type: 'string', enum: ['NORMAL', 'FLAGGED', 'REMOVED'] } }),
+  TrackingHorse: object({ id, name: { type: 'string' }, passportNo: { type: 'string' }, orderStatus: { type: 'string', enum: ['NORMAL', 'FLAGGED', 'REMOVED'] }, breed: nullable({ type: 'string' }), birthDate: nullable({ type: 'string', format: 'date', example: '2021-04-15' }) }),
   TrackingCrewMember: object({
     userId: id, name: { type: 'string' },
     phone: nullable({ type: 'string', description: 'null khi chưa khai báo, hoặc khi người gọi là Specialist.' }),
@@ -80,7 +80,21 @@ export const trackingSchemas = {
   HorseLog: object({
     id, horseId: id, horseName: { type: 'string' }, legId: id, conditionStatus,
     note: nullable({ type: 'string' }), loggedAt: time, createdBy: id, createdByName: { type: 'string' }, createdByCrewRole: nullable({ type: 'string', enum: ['DRIVER', 'ESCORT'] }),
-    correctsLogId: nullable(id), attachments: { type: 'array', items: ref('LogAttachment') },
+    correctsLogId: nullable(id),
+    bodyTempC: nullable({ type: 'number', minimum: 30, maximum: 45, description: 'Nhiệt độ (°C); chỉ có ở báo cáo sức khỏe.' }),
+    heartRateBpm: nullable({ type: 'integer', minimum: 10, maximum: 200, description: 'Nhịp tim (lần/phút).' }),
+    appetite: nullable({ type: 'string', enum: ['NORMAL', 'REDUCED', 'REFUSED'] }),
+    customerNote: nullable({ type: 'string', maxLength: 1000, description: 'Ghi chú gửi khách (tách khỏi note nội bộ).' }),
+    reportStatus: nullable({ type: 'string', enum: ['DRAFT', 'SENT'], description: 'null = nhật ký cũ, không phải báo cáo.' }),
+    sendToCustomer: { type: 'boolean' }, sentAt: nullable(time), customerViewedAt: nullable(time),
+    attachments: { type: 'array', items: ref('LogAttachment') },
+  }),
+  CareActivity: object({
+    id, tripId: id, legId: nullable(id), horseId: nullable({ ...id, description: 'null = cả đoàn (chỉ nghỉ chân).' }), horseName: nullable({ type: 'string' }),
+    activityType: { type: 'string', enum: ['FEED', 'WATER', 'REST'] },
+    feedDescription: nullable({ type: 'string', maxLength: 200 }), amountLiters: nullable({ type: 'number', minimum: 0.1, maximum: 200 }),
+    durationMinutes: nullable({ type: 'integer', minimum: 1, maximum: 720 }), note: nullable({ type: 'string', maxLength: 255 }),
+    performedAt: time, createdBy: id, createdByName: { type: 'string' }, createdAt: time, correctsActivityId: nullable(id),
   }),
   IncidentFields: object({
     incidentType, description: { type: 'string', minLength: 5, maxLength: 2000 },
@@ -247,7 +261,7 @@ const leg1 = {
   milestones: [{ id: '901', legId: '301', milestoneType: 'DEPARTED', occurredAt: t0, recordedBy: '7', recordedByName: 'Tài xế mẫu' }],
 };
 const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1, caption: 'Khoang ngựa' };
-const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Hộ tống mẫu', createdByCrewRole: 'ESCORT', correctsLogId: null, attachments: [attachment] };
+const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Hộ tống mẫu', createdByCrewRole: 'ESCORT', correctsLogId: null, bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED', customerNote: null, reportStatus: null, sendToCustomer: false, sentAt: null, customerViewedAt: null, attachments: [attachment] };
 const tripMap = {
   tripId: '200', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT',
   stops: [
@@ -302,7 +316,7 @@ export const trackingPaths = {
       crew: [{ userId: '6', name: 'Tài xế mẫu', phone: '0901000001', role: 'DRIVER' }, { userId: '10', name: 'Hộ tống mẫu', phone: '0901000002', role: 'ESCORT' }],
       customer: { name: 'Khách hàng mẫu' }, recipient: { name: 'Người nhận mẫu', phone: '+6560000000' }, coordinator: { name: 'Điều phối mẫu', phone: '0901000003' }, emergencyHotline: '1900 1080',
       vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'TRUCK', capacityStalls: 4 }],
-      horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
+      horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL', breed: 'Thoroughbred', birthDate: '2021-04-15' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Tài xế (crew DRIVER của chuyến): ghi mốc của chặng; hộ tống nhận 403', parameters: [legId],
     description: `Quy tắc: tuần tự theo luồng chặng (409 nếu nhảy cóc hoặc trùng mốc); \`occurredAt\` không ở tương lai, nhập bù tối đa T phút, không sớm hơn mốc trước (400).
 - DEPARTED chặng 1: Trip phải APPROVED và Order READY; Order → IN_TRANSIT. Chặng k+1 cần chặng k COMPLETED.

@@ -127,7 +127,8 @@ export class TrackingRepository {
 
   async getTripHorses(orderId: string): Promise<HorseInTrip[]> {
     return this.db.query(
-      `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus
+      `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus,
+        breed, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birthDate
       FROM horses WHERE order_id = ? AND order_status = 'NORMAL' ORDER BY id ASC`,
       [orderId]
     );
@@ -551,7 +552,15 @@ export class TrackingRepository {
         CAST(hl.created_by AS CHAR) AS createdBy,
         u.full_name AS createdByName,
         ta.role AS createdByCrewRole,
-        CAST(hl.corrects_log_id AS CHAR) AS correctsLogId
+        CAST(hl.corrects_log_id AS CHAR) AS correctsLogId,
+        hl.body_temp_c AS bodyTempC,
+        hl.heart_rate_bpm AS heartRateBpm,
+        hl.appetite,
+        hl.customer_note AS customerNote,
+        hl.report_status AS reportStatus,
+        hl.send_to_customer AS sendToCustomer,
+        hl.sent_at AS sentAt,
+        hl.customer_viewed_at AS customerViewedAt
       FROM horse_logs hl
       JOIN legs l ON l.id = hl.leg_id
       JOIN horses h ON h.id = hl.horse_id

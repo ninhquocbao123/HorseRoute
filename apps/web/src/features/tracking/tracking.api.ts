@@ -18,6 +18,7 @@ import type {
   ITripPositionInput,
   ITripTrackPoint,
 } from '@my-project/shared';
+import { HORSE_CONDITION_META } from '@my-project/shared';
 import { api } from '../../lib/axios';
 
 export type MilestoneResult = { milestoneId: string; legId: string; milestoneType: MilestoneType; legStatus: string; orderStatus: string };
@@ -73,12 +74,8 @@ export function errorMessage(error: unknown, fallback = 'Không thực hiện đ
   return fallback;
 }
 
-export const CONDITIONS: { value: HorseConditionStatus; label: string; hint: string }[] = [
-  { value: 'STABLE' as HorseConditionStatus, label: 'Ổn định', hint: 'Bình thường' },
-  { value: 'OFF_FEED' as HorseConditionStatus, label: 'Bỏ ăn', hint: 'Không ăn/uống' },
-  { value: 'STRESSED' as HorseConditionStatus, label: 'Căng thẳng', hint: 'Bồn chồn, vã mồ hôi' },
-  { value: 'CLIMATE_CHANGE' as HorseConditionStatus, label: 'Thời tiết', hint: 'Ảnh hưởng nhiệt độ/khí hậu' },
-];
+export const CONDITIONS: { value: HorseConditionStatus; label: string; hint: string }[] = (Object.keys(HORSE_CONDITION_META) as HorseConditionStatus[])
+  .map(value => ({ value, label: HORSE_CONDITION_META[value].label, hint: HORSE_CONDITION_META[value].hint }));
 
 export const INCIDENT_TYPES: { value: IncidentType; label: string }[] = [
   { value: 'VEHICLE_BREAKDOWN' as IncidentType, label: 'Hỏng xe' },
