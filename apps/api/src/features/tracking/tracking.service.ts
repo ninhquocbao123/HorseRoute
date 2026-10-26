@@ -826,16 +826,15 @@ export class TrackingService {
     const summary: ICareSummary = { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} };
     for (const item of activities) {
       if (item.activityType === CareActivityType.WATER) summary.waterLiters += item.amountLiters ?? 0;
-      else if (item.activityType === CareActivityType.FEED) {
-        summary.meals += 1;
-        const last = item.horseId ? summary.lastFeedAtByHorse[item.horseId] : undefined;
-        if (item.horseId && (!last || Date.parse(item.performedAt) > Date.parse(last))) summary.lastFeedAtByHorse[item.horseId] = item.performedAt;
-      } else {
+      else if (item.activityType === CareActivityType.FEED) summary.meals += 1;
+      else {
         summary.rests += 1;
         summary.restMinutes += item.durationMinutes ?? 0;
       }
     }
     summary.waterLiters = Math.round(summary.waterLiters * 10) / 10;
+    // Chuyến chạy qua đêm: "lần cho ăn gần nhất" nhìn toàn chuyến, không bị cắt theo from/to.
+    for (const feed of await this.repository.getLastFeedByHorse(tripId)) summary.lastFeedAtByHorse[feed.horseId] = new Date(feed.performedAt).toISOString();
     return { activities, summary };
   }
 

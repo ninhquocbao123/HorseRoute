@@ -631,6 +631,18 @@ export class TrackingRepository {
     );
   }
 
+  /** Lần cho ăn mới nhất (chưa bị đính chính) của từng ngựa trên toàn chuyến, không phụ thuộc khoảng from/to. */
+  async getLastFeedByHorse(tripId: string): Promise<{ horseId: string; performedAt: Date }[]> {
+    return this.db.query(
+      `SELECT CAST(a.horse_id AS CHAR) AS horseId, MAX(a.performed_at) AS performedAt
+      FROM horse_care_activities a
+      WHERE a.trip_id = ? AND a.activity_type = 'FEED' AND a.horse_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id)
+      GROUP BY a.horse_id`,
+      [tripId]
+    );
+  }
+
   async getHorseLogAttachments(logIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
     if (!logIds.length) return [];
     return this.db.query(

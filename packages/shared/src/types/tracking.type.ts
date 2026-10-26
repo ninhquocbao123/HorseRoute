@@ -184,7 +184,7 @@ export interface ICareSummary {
   /** Số lần nghỉ chân */
   rests: number;
   restMinutes: number;
-  /** Lần cho ăn gần nhất của từng ngựa (ISO UTC) trong cùng phạm vi */
+  /** Lần cho ăn gần nhất của từng ngựa (ISO UTC) trên toàn chuyến (không phụ thuộc from/to) */
   lastFeedAtByHorse: Record<string, string>;
 }
 

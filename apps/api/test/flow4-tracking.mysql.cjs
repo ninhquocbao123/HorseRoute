@@ -222,7 +222,7 @@ async function main() {
     const range = (from, to) => `/trips/100/care-activities?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     const recent = await expectStatus(200, 'GET', range(minutesAgo(15), new Date(Date.now() + 60_000).toISOString()), { as: ids.escort });
     assert.deepEqual(recent.activities.map(item => item.id), [fixed.id, rest.id], 'chỉ các bản trong khoảng');
-    assert.deepEqual(recent.summary, { waterLiters: 8, meals: 0, rests: 1, restMinutes: 20, lastFeedAtByHorse: {} });
+    assert.deepEqual(recent.summary, { waterLiters: 8, meals: 0, rests: 1, restMinutes: 20, lastFeedAtByHorse: { 21: feed.performedAt } }, 'lần cho ăn 30 phút trước nằm ngoài from/to vẫn được trả');
     await expectStatus(400, 'GET', `/trips/100/care-activities?from=${encodeURIComponent(minutesAgo(15))}`, { as: ids.escort });
     await expectStatus(400, 'GET', range(minutesAgo(1), minutesAgo(15)), { as: ids.escort });
     await expectStatus(400, 'GET', range(minutesAgo(9 * 24 * 60), minutesAgo(1)), { as: ids.escort });

@@ -108,7 +108,7 @@ export const trackingSchemas = {
   }, ['activityType', 'performedAt']),
   CareSummary: object({
     waterLiters: { type: 'number', minimum: 0 }, meals: { type: 'integer', minimum: 0 }, rests: { type: 'integer', minimum: 0 }, restMinutes: { type: 'integer', minimum: 0 },
-    lastFeedAtByHorse: { type: 'object', additionalProperties: time, description: 'horseId → giờ cho ăn gần nhất trong cùng phạm vi.' },
+    lastFeedAtByHorse: { type: 'object', additionalProperties: time, description: 'horseId → giờ cho ăn gần nhất (bản FEED mới nhất, chưa bị đính chính) trên TOÀN chuyến, không phụ thuộc from/to.' },
   }),
   CareActivityList: object({ activities: { type: 'array', items: ref('CareActivity') }, summary: ref('CareSummary') }),
   IncidentFields: object({
@@ -372,7 +372,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
     get: { ...common, operationId: 'getCareActivities', summary: 'Xem hoạt động chăm sóc của chuyến kèm tổng hợp', parameters: [tripId,
       { name: 'from', in: 'query', required: false, description: 'Đầu khoảng (UTC ISO, gồm). Phải gửi cùng `to`.', schema: time },
       { name: 'to', in: 'query', required: false, description: 'Cuối khoảng (UTC ISO, không gồm). Khoảng tối đa 7 ngày.', schema: time }],
-      description: 'Driver/Escort (được phân công), Coordinator (chuyến mình lập), Manager, Specialist; Customer 403. Mới nhất trước, **ẩn bản đã bị đính chính** (chỉ trả bản mới nhất, kèm `correctsActivityId`). `summary` tính trên đúng các bản ghi trả về (trong khoảng from/to nếu có; không có khoảng thì toàn bộ, tối đa 1000 dòng).',
+      description: 'Driver/Escort (được phân công), Coordinator (chuyến mình lập), Manager, Specialist; Customer 403. Mới nhất trước, **ẩn bản đã bị đính chính** (chỉ trả bản mới nhất, kèm `correctsActivityId`). `summary.waterLiters/meals/rests/restMinutes` tính trên đúng các bản ghi trả về (trong khoảng from/to nếu có; không có khoảng thì toàn bộ, tối đa 1000 dòng). Riêng `summary.lastFeedAtByHorse` luôn tính trên toàn chuyến (chuyến chạy qua đêm vẫn có "lần cho ăn gần nhất").',
       responses: { ...ok(200, ref('CareActivityList'), { activities: [careActivity], summary: { waterLiters: 0, meals: 1, rests: 0, restMinutes: 0, lastFeedAtByHorse: { 21: '2026-10-20T01:30:00.000Z' } } }), ...errors([400, 401, 403, 404, 429, 500]) } },
   },
   '/api/v1/tracking/trips/{tripId}/incidents': {

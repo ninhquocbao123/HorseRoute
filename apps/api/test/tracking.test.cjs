@@ -849,6 +849,7 @@ function careRepo(overrides = {}, calls = {}) {
       if (onlyId) return calls.rowFor ? [calls.rowFor(onlyId)] : [];
       return calls.list ?? [];
     },
+    getLastFeedByHorse: async tripId => { calls.lastFeedTrip = tripId; return calls.lastFeeds ?? []; },
     ...overrides,
   }, calls);
   return repo;
@@ -957,7 +958,8 @@ test('Care activities GET: roles, scope, range rules, summary and hidden correct
     careRow({ id: '800', activityType: 'REST', horseId: null, feedDescription: null, durationMinutes: 15, performedAt: at('2026-10-26T03:00:00Z') }),
     careRow({ id: '799', activityType: 'WATER', horseId: '21', feedDescription: null, amountLiters: 10, performedAt: at('2026-10-26T02:00:00Z') }),
   ];
-  const calls = { list };
+  // Lần cho ăn gần nhất lấy riêng trên toàn chuyến (kể cả hôm trước, ngoài from/to)
+  const calls = { list, lastFeeds: [{ horseId: '21', performedAt: at('2026-10-26T06:00:00Z') }, { horseId: '22', performedAt: at('2026-10-25T22:00:00Z') }] };
   const read = (account, query = {}) => new TrackingService(careRepo({}, calls)).getCareActivities(account, '100', query);
   const result = await read(escort, { from: '2026-10-26T00:00:00.000Z', to: '2026-10-27T00:00:00.000Z' });
   assert.equal(result.activities.length, 7);
@@ -966,8 +968,9 @@ test('Care activities GET: roles, scope, range rules, summary and hidden correct
   assert.equal(result.activities[3].correctsActivityId, '802', 'bản đính chính mang correctsActivityId');
   assert.deepEqual(result.summary, {
     waterLiters: 18.5, meals: 3, rests: 2, restMinutes: 35,
-    lastFeedAtByHorse: { 21: '2026-10-26T06:00:00.000Z', 22: '2026-10-26T04:00:00.000Z' },
+    lastFeedAtByHorse: { 21: '2026-10-26T06:00:00.000Z', 22: '2026-10-25T22:00:00.000Z' },
   });
+  assert.equal(calls.lastFeedTrip, '100', 'truy vấn theo cả chuyến, không truyền from/to');
   assert.equal(calls.query.range.from.toISOString(), '2026-10-26T00:00:00.000Z');
   // không có from/to: toàn bộ danh sách, không lọc khoảng
   await read(escort);
