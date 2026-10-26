@@ -99,6 +99,22 @@ export interface HorseLogRow {
   customerViewedAt: Date | null;
 }
 
+export interface CustomerHorseReportRow {
+  id: string;
+  horseId: string;
+  horseName: string;
+  conditionStatus: import('@my-project/shared').HorseConditionStatus;
+  bodyTempC: number | string | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  loggedAt: Date;
+  sentAt: Date;
+  viewedAt: Date | null;
+  escortName: string;
+  createdBy: string;
+}
+
 export interface AttachmentRow {
   id: string;
   originalName: string;

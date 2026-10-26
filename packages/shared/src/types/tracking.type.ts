@@ -85,6 +85,48 @@ export interface IHorseLog {
   attachments: ILogAttachment[];
 }
 
+/** Ảnh của báo cáo sức khỏe khách xem được (tải qua GET /tracking/attachments/:id) */
+export interface IHorseReportPhoto {
+  id: string;
+  caption: string | null;
+  fileType: 'PDF' | 'JPG' | 'PNG';
+}
+
+/** Báo cáo sức khỏe ngựa đã gửi cho khách: GET /tracking/orders/:orderId/horse-reports (chỉ bản mới nhất của chuỗi đính chính) */
+export interface IHorseReport {
+  id: string;
+  horseId: string;
+  horseName: string;
+  conditionStatus: HorseConditionStatus;
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: HorseAppetite | null;
+  customerNote: string | null;
+  photos: IHorseReportPhoto[];
+  loggedAt: string;
+  sentAt: string;
+  /** null = khách chưa mở chi tiết */
+  viewedAt: string | null;
+  escortName: string;
+}
+
+/** Trường gửi lên khi hộ tống tạo / sửa báo cáo sức khỏe (multipart: ảnh ở field `photos`) */
+export interface IHorseReportInput {
+  horseId: string;
+  conditionStatus: HorseConditionStatus;
+  loggedAt: string;
+  note?: string | null;
+  customerNote?: string | null;
+  bodyTempC?: number | null;
+  heartRateBpm?: number | null;
+  appetite?: HorseAppetite | null;
+  /** Nhãn theo thứ tự ảnh */
+  captions?: string[];
+  reportStatus: HorseReportStatus;
+  sendToCustomer?: boolean;
+  correctsLogId?: string | null;
+}
+
 // ─── Care activity (horse_care_activities) ───────────────────────────────────
 
 export interface ICareActivity {

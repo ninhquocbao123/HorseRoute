@@ -399,6 +399,7 @@ function stage2Repo(overrides = {}, calls = {}) {
     getDriverAssignment: async (_trip, userId) => ({ role: userId === '6' ? 'ESCORT' : 'DRIVER' }),
     findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, plannedBy: '3', customerId: '2' }),
     checkHorseBelongsToOrder: async () => true,
+    getFirstLegId: async () => '10',
     findHorseLog: async () => ({ id: '9', horseId: '21', legId: '10', tripId: '100' }),
     legBelongsToTrip: async () => true,
     insertHorseLog: async (...args) => { calls.horseLog = args; return '601'; },
@@ -427,7 +428,10 @@ test('Horse log: only driver, valid references, order in transit, and correction
   await assert.rejects(() => new TrackingService(stage2Repo()).createHorseLog(coordinator, '10', body), e => e.getStatus() === 403);
   await assert.rejects(() => new TrackingService(stage2Repo()).createHorseLog(escort, '10', { ...body, conditionStatus: 'SICK' }), e => e.getStatus() === 400);
   await assert.rejects(() => new TrackingService(stage2Repo()).createHorseLog(escort, '10', { ...body, loggedAt: new Date(Date.now() + 3600000).toISOString() }), e => e.getStatus() === 400);
-  await assert.rejects(() => new TrackingService(stage2Repo({ lockLegForUpdate: async () => legRow({ status: LegStatus.NOT_STARTED, orderStatus: OrderStatus.READY }) })).createHorseLog(escort, '10', body), e => e.getStatus() === 409);
+  // Quyết định 6.2: READY được ghi vào chặng đầu; chặng khác của đơn READY, đơn DELIVERED hoặc chặng IN_TRANSIT chưa xuất phát thì 409
+  await assert.rejects(() => new TrackingService(stage2Repo({ getFirstLegId: async () => '11', lockLegForUpdate: async () => legRow({ status: LegStatus.NOT_STARTED, orderStatus: OrderStatus.READY }) })).createHorseLog(escort, '10', body), e => e.getStatus() === 409);
+  await assert.rejects(() => new TrackingService(stage2Repo({ lockLegForUpdate: async () => legRow({ status: LegStatus.COMPLETED, orderStatus: OrderStatus.DELIVERED }) })).createHorseLog(escort, '10', body), e => e.getStatus() === 409);
+  await assert.rejects(() => new TrackingService(stage2Repo({ lockLegForUpdate: async () => legRow({ status: LegStatus.NOT_STARTED, orderStatus: OrderStatus.IN_TRANSIT }) })).createHorseLog(escort, '10', body), e => e.getStatus() === 409);
   await assert.rejects(() => new TrackingService(stage2Repo({ checkHorseBelongsToOrder: async () => false })).createHorseLog(escort, '10', body), e => e.getStatus() === 400);
   await assert.rejects(() => new TrackingService(stage2Repo({ getDriverAssignment: async () => undefined })).createHorseLog(escort, '10', body), e => e.getStatus() === 403);
   await assert.rejects(() => new TrackingService(stage2Repo({ findHorseLog: async () => ({ id: '9', horseId: '22', legId: '10', tripId: '100' }) })).createHorseLog(escort, '10', { ...body, correctsLogId: '9' }), e => e.getStatus() === 400);
@@ -990,4 +994,280 @@ test('Care activities GET: roles, scope, range rules, summary and hidden correct
   await badRange({ from: 'hôm nay', to: 'mai' });
   assert.ok((await read(escort, { from: '2026-10-19T00:00:00.000Z', to: '2026-10-26T00:00:00.000Z' })).activities, 'đúng 7 ngày thì được');
   assert.deepEqual((await new TrackingService(careRepo({}, { list: [] })).getCareActivities(escort, '100', {})).summary, { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} });
+});
+
+
+// ─── Báo cáo sức khỏe ngựa (Bước 3): nháp → gửi, khách xem, thông báo / socket ───────
+const withStorage = async run => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-report-'));
+  process.env.DOCUMENT_STORAGE_DIR = dir;
+  process.env.DOCUMENT_STORAGE_PROVIDER = 'local';
+  try { return await run(dir); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+};
+const reportCtx = (overrides = {}) => ({
+  id: '601', horseId: '21', horseName: 'Bạch Mã', legId: '10', tripId: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT,
+  customerId: '2', plannedBy: '3', createdBy: '6', conditionStatus: 'OFF_FEED', customerNote: 'Ăn ít khẩu phần trưa', reportStatus: 'DRAFT',
+  sendToCustomer: true, corrected: false, ...overrides,
+});
+function reportRepo(overrides = {}, calls = {}) {
+  calls.ctx ||= reportCtx();
+  calls.refs ||= [];
+  calls.notified ||= [];
+  const repo = stage2Repo({
+    getFirstLegId: async () => '10',
+    findHorseLog: async (_id, lock) => { calls.locked = lock; return calls.ctx; },
+    getLogAttachmentRefs: async () => calls.refs,
+    updateHorseReport: async (_id, fields) => { calls.updated = fields; return 1; },
+    deleteAttachments: async ids => { calls.deletedAttachments = ids; },
+    deleteHorseReport: async () => { calls.deleted = true; return 1; },
+    markHorseReportSent: async (_id, send) => { calls.sentFlag = send; return 1; },
+    notify: async (...args) => { calls.notified.push(args); return String(900 + calls.notified.length); },
+    getTripHorseLogs: async (_trip, viewer) => {
+      calls.viewer = viewer;
+      const inserted = calls.horseLog; // báo cáo vừa tạo trong request này
+      const reportStatus = inserted ? inserted[7]?.reportStatus ?? null : (calls.sentFlag !== undefined ? 'SENT' : calls.ctx.reportStatus);
+      const sendToCustomer = inserted ? Boolean(inserted[7]?.sendToCustomer) : (calls.sentFlag ?? calls.ctx.sendToCustomer);
+      return [{ id: '601', horseId: '21', horseName: 'Bạch Mã', legId: '10', conditionStatus: inserted ? inserted[2] : calls.ctx.conditionStatus, note: null, loggedAt: new Date(),
+        createdBy: '6', createdByName: 'Hộ Tống', correctsLogId: null, reportStatus, sendToCustomer: sendToCustomer ? 1 : 0, customerNote: calls.ctx.customerNote,
+        sentAt: reportStatus === 'SENT' ? new Date('2026-10-26T05:25:00Z') : null }];
+    },
+    ...overrides,
+  }, calls);
+  return repo;
+}
+const reportBody = (overrides = {}) => ({ horseId: '21', conditionStatus: 'OFF_FEED', loggedAt: now(), reportStatus: 'DRAFT', customerNote: 'Ăn ít khẩu phần trưa', sendToCustomer: true, ...overrides });
+const status = code => e => e.getStatus() === code;
+
+test('Horse report create: legacy log vs draft vs sent, validation, role and order-status rules', async () => {
+  const create = (body, overrides, files = [], account = escort, calls = {}) => new TrackingService(reportRepo(overrides, calls), undefined, fakeRealtime()).createHorseLog(account, '10', body, files);
+  await withStorage(async () => {
+    // Nhật ký cũ: không reportStatus, không cột báo cáo; trường báo cáo mà thiếu reportStatus bị từ chối
+    const legacy = {};
+    await create({ horseId: '21', conditionStatus: 'STABLE', loggedAt: now() }, {}, [], escort, legacy);
+    assert.equal(legacy.horseLog[7], undefined, 'nhật ký cũ không truyền cột báo cáo');
+    for (const extra of [{ customerNote: 'x' }, { bodyTempC: 38 }, { heartRateBpm: 40 }, { appetite: 'NORMAL' }, { sendToCustomer: true }]) {
+      await assert.rejects(() => create({ horseId: '21', conditionStatus: 'STABLE', loggedAt: now(), ...extra }, {}), status(400), JSON.stringify(extra));
+    }
+    // Vai trò / trạng thái đơn / chặng
+    await assert.rejects(() => create(reportBody(), {}, [], driver), status(403));
+    await assert.rejects(() => create(reportBody(), { getDriverAssignment: async () => ({ role: 'DRIVER' }) }, [], escort), status(403));
+    await assert.rejects(() => create(reportBody(), { getFirstLegId: async () => '11', lockLegForUpdate: async () => legRow({ orderStatus: OrderStatus.READY }) }), status(409));
+    await assert.rejects(() => create(reportBody(), { lockLegForUpdate: async () => legRow({ orderStatus: OrderStatus.DELIVERED, status: LegStatus.COMPLETED }) }), status(409));
+    await assert.rejects(() => create(reportBody(), { lockLegForUpdate: async () => legRow({ orderStatus: OrderStatus.IN_TRANSIT, status: LegStatus.NOT_STARTED }) }), status(409));
+    await create(reportBody(), { lockLegForUpdate: async () => legRow({ orderStatus: OrderStatus.READY }) }); // READY + chặng đầu: được
+    // Số đo ngoài khoảng / sai kiểu
+    for (const bad of [{ bodyTempC: 29.9 }, { bodyTempC: 45.1 }, { bodyTempC: 37.85 }, { bodyTempC: 'nóng' }, { heartRateBpm: 9 }, { heartRateBpm: 201 }, { heartRateBpm: 40.5 }, { appetite: 'LẠ' }, { reportStatus: 'DONE' }, { captions: ['a', 'b', 'c', 'd'] }]) {
+      await assert.rejects(() => create(reportBody(bad), {}), status(400), JSON.stringify(bad));
+    }
+    await create(reportBody({ bodyTempC: '37.8', heartRateBpm: '38', appetite: 'REDUCED', sendToCustomer: 'false' }), {}); // multipart: chuỗi
+    await assert.rejects(() => create(reportBody({ captions: ['Toàn thân'] }), {}, []), status(400), 'nhãn nhiều hơn ảnh');
+    // Nháp: thiếu ảnh / thiếu customerNote vẫn được, không thông báo, không phát socket
+    const draft = {}; const rt = fakeRealtime();
+    const saved = await new TrackingService(reportRepo({}, draft), undefined, rt).createHorseLog(escort, '10', reportBody({ customerNote: undefined }), []);
+    assert.equal(saved.id, '601');
+    assert.deepEqual(draft.horseLog[7], { reportStatus: 'DRAFT', bodyTempC: null, heartRateBpm: null, appetite: null, customerNote: null, sendToCustomer: true });
+    assert.equal(draft.notified.length, 0);
+    assert.equal(rt.emitted.length, 0);
+    assert.equal(draft.viewer, '6', 'trả về nháp cho người tạo');
+    // Gửi ngay: bất thường cần ≥ 1 ảnh, STABLE thì không; gửi khách cần customerNote
+    await assert.rejects(() => create(reportBody({ reportStatus: 'SENT' }), {}), status(400));
+    await assert.rejects(() => create(reportBody({ reportStatus: 'SENT', conditionStatus: 'STABLE', customerNote: undefined }), {}), status(400));
+    await create(reportBody({ reportStatus: 'SENT', conditionStatus: 'STABLE', customerNote: undefined, sendToCustomer: false }), {});
+    await create(reportBody({ reportStatus: 'SENT', captions: ['Toàn thân'] }), {}, [photo()]);
+    const cap = {};
+    await create(reportBody({ reportStatus: 'SENT', captions: ['Toàn thân', 'Chân'] }), {}, [photo(), photo()], escort, cap);
+    assert.deepEqual(cap.attachments.map(a => a[7]), ['Toàn thân', 'Chân'], 'nhãn ảnh lưu theo thứ tự ảnh');
+  });
+});
+
+test('Horse report create: correction rules (matching horse, no drafts, one correction per report)', async () => {
+  const body = reportBody({ conditionStatus: 'STABLE', customerNote: undefined, sendToCustomer: false, reportStatus: 'SENT', correctsLogId: '9' });
+  const create = overrides => new TrackingService(reportRepo(overrides), undefined, fakeRealtime()).createHorseLog(escort, '10', body);
+  const original = (extra = {}) => ({ id: '9', horseId: '21', tripId: '100', reportStatus: 'SENT', corrected: false, ...extra });
+  await create({ findHorseLog: async () => original() });
+  await assert.rejects(() => create({ findHorseLog: async () => original({ horseId: '22' }) }), status(400));
+  await assert.rejects(() => create({ findHorseLog: async () => original({ tripId: '999' }) }), status(400));
+  await assert.rejects(() => create({ findHorseLog: async () => original({ reportStatus: 'DRAFT' }) }), status(400));
+  await assert.rejects(() => create({ findHorseLog: async () => original({ corrected: true }) }), status(409));
+  await create({ findHorseLog: async () => original({ reportStatus: null, corrected: true }) }); // nhật ký cũ giữ luật cũ
+});
+
+test('Horse report SENT: customer + coordinator notified in the transaction, realtime only after commit and to the right rooms', async () => {
+  await withStorage(async () => {
+    const order = [];
+    const calls = {};
+    const realtime = fakeRealtime();
+    realtime.emitToUsers = (users, event, payload) => { order.push('emit'); realtime.emitted.push({ users, event, payload }); };
+    const repo = reportRepo({ transaction: async work => { const result = await work(repo); order.push('commit'); return result; } }, calls);
+    const log = await new TrackingService(repo, undefined, realtime).createHorseLog(escort, '10', reportBody({ reportStatus: 'SENT', captions: ['Toàn thân'] }), [photo()]);
+    assert.equal(log.reportStatus, 'SENT');
+    assert.deepEqual(calls.notified.map(n => [n[0], n[1], n[3], n[4]]), [['2', 'HORSE_REPORT', 'ORDER', '50'], ['3', 'HORSE_REPORT_ALERT', 'TRIP', '100']]);
+    assert.match(calls.notified[0][2], /Bạch Mã.*WDP-1.*Bỏ ăn/);
+    assert.equal(order[0], 'commit', 'emit sau commit');
+    assert.deepEqual(realtime.emitted.map(e => [e.users, e.event]), [[['2'], 'tracking:horse_report'], [['2'], 'notification:new'], [['3'], 'notification:new']]);
+    assert.deepEqual(realtime.emitted[0].payload, { reportId: '601', orderId: '50', horseId: '21', horseName: 'Bạch Mã', conditionStatus: 'OFF_FEED', sentAt: '2026-10-26T05:25:00.000Z' });
+    assert.equal(realtime.emitted[1].payload.eventType, 'HORSE_REPORT');
+    assert.equal(realtime.emitted[1].payload.id, '901');
+    assert.equal(realtime.emitted[2].payload.eventType, 'HORSE_REPORT_ALERT');
+    assert.equal(realtime.emitted[2].payload.id, '902');
+
+    // STABLE gửi khách: chỉ thông báo khách, không báo điều phối
+    const stable = {};
+    const rt = fakeRealtime();
+    await new TrackingService(reportRepo({}, stable), undefined, rt).createHorseLog(escort, '10', reportBody({ reportStatus: 'SENT', conditionStatus: 'STABLE' }));
+    assert.deepEqual(stable.notified.map(n => n[1]), ['HORSE_REPORT']);
+    // Bất thường nhưng không gửi khách: chỉ báo điều phối
+    const internalOnly = {};
+    await new TrackingService(reportRepo({}, internalOnly), undefined, fakeRealtime()).createHorseLog(escort, '10', reportBody({ reportStatus: 'SENT', sendToCustomer: false, captions: ['a'] }), [photo()]);
+    assert.deepEqual(internalOnly.notified.map(n => [n[0], n[1]]), [['3', 'HORSE_REPORT_ALERT']]);
+    // Socket hỏng không làm hỏng request; DB hỏng khi thông báo thì rollback và không phát gì
+    const broken = { emitToUsers: () => { throw new Error('socket down'); } };
+    assert.equal((await new TrackingService(reportRepo({}), undefined, broken).createHorseLog(escort, '10', reportBody({ reportStatus: 'SENT', captions: ['a'] }), [photo()])).id, '601');
+    const failing = fakeRealtime();
+    await assert.rejects(() => new TrackingService(reportRepo({ notify: async () => { throw new Error('notify down'); } }), undefined, failing).createHorseLog(escort, '10', reportBody({ reportStatus: 'SENT', captions: ['a'] }), [photo()]), /notify down/);
+    assert.equal(failing.emitted.length, 0);
+  });
+});
+
+test('Horse report draft: only the creating ESCORT edits / deletes / sends; sent and legacy logs are immutable', async () => {
+  const edit = { conditionStatus: 'CLIMATE_CHANGE', loggedAt: now(), customerNote: 'Nóng', bodyTempC: 38.2 };
+  const svc = (overrides = {}, calls = {}) => new TrackingService(reportRepo(overrides, calls), undefined, fakeRealtime());
+  await withStorage(async dir => {
+    // Quyền
+    for (const call of [
+      s => s.updateHorseReport(driver, '601', edit), s => s.deleteHorseReport(driver, '601'), s => s.sendHorseReport(driver, '601', {}),
+      s => s.updateHorseReport(coordinator, '601', edit), s => s.sendHorseReport({ id: '1', role: Role.CUSTOMER }, '601', {}),
+    ]) await assert.rejects(() => call(svc()), status(403));
+    const calls = {};
+    const other = { id: '16', role: Role.DRIVER_ESCORT };
+    const otherRepo = { getDriverAssignment: async () => ({ role: 'ESCORT' }) };
+    for (const call of [s => s.updateHorseReport(other, '601', edit), s => s.deleteHorseReport(other, '601'), s => s.sendHorseReport(other, '601', {})]) {
+      await assert.rejects(() => call(svc(otherRepo)), status(403), 'escort khác không phải người tạo');
+    }
+    await assert.rejects(() => svc({ getDriverAssignment: async () => undefined }).updateHorseReport(escort, '601', edit), status(404));
+    await assert.rejects(() => svc({ findHorseLog: async () => undefined }).sendHorseReport(escort, '601', {}), status(404));
+    await assert.rejects(() => svc({ getDriverAssignment: async () => ({ role: 'DRIVER' }) }).sendHorseReport(escort, '601', {}), status(403));
+    // Đã gửi / nhật ký cũ: bất biến
+    for (const ctx of [reportCtx({ reportStatus: 'SENT' }), reportCtx({ reportStatus: null })]) {
+      const repo = { findHorseLog: async () => ctx };
+      await assert.rejects(() => svc(repo).updateHorseReport(escort, '601', edit), status(409));
+      await assert.rejects(() => svc(repo).deleteHorseReport(escort, '601'), status(409));
+      await assert.rejects(() => svc(repo).sendHorseReport(escort, '601', {}), status(409));
+    }
+    // Sửa nháp: thay toàn bộ nội dung; vắng = xóa
+    await svc({}, calls).updateHorseReport(escort, '601', edit);
+    assert.equal(calls.locked, true, 'khóa dòng khi sửa');
+    assert.deepEqual(calls.updated, { conditionStatus: 'CLIMATE_CHANGE', note: null, loggedAt: edit.loggedAt, customerNote: 'Nóng', bodyTempC: 38.2, heartRateBpm: null, appetite: null, sendToCustomer: false });
+    await assert.rejects(() => svc().updateHorseReport(escort, '601', { ...edit, loggedAt: new Date(Date.now() + 3600000).toISOString() }), status(400));
+    // Ảnh: xóa ảnh không thuộc báo cáo 400; vượt 3 ảnh 400; thêm / bớt ảnh đúng và dọn tệp bị xóa
+    const stored = path.join(dir, '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a1111');
+    fs.writeFileSync(stored, PNG);
+    const withRefs = { refs: [{ id: '501', storagePath: '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a1111' }, { id: '502', storagePath: '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a2222' }] };
+    await assert.rejects(() => svc({}, { ...withRefs }).updateHorseReport(escort, '601', { ...edit, removeAttachmentIds: ['999'] }), status(400));
+    await assert.rejects(() => svc({}, { ...withRefs }).updateHorseReport(escort, '601', edit, [photo(), photo()]), status(400));
+    const photoCalls = { ...withRefs };
+    await svc({}, photoCalls).updateHorseReport(escort, '601', { ...edit, removeAttachmentIds: ['501'], captions: ['Chân'] }, [photo()]);
+    assert.deepEqual(photoCalls.deletedAttachments, ['501']);
+    assert.equal(photoCalls.attachments[0][7], 'Chân');
+    assert.equal(fs.existsSync(stored), false, 'tệp ảnh bị xóa được dọn sau commit');
+    // Sửa lỗi DB: tệp mới không mồ côi
+    const before = fs.readdirSync(dir).length;
+    await assert.rejects(() => svc({ updateHorseReport: async () => { throw new Error('db down'); } }).updateHorseReport(escort, '601', edit, [photo()]), /db down/);
+    assert.equal(fs.readdirSync(dir).length, before);
+    // Xóa nháp: xóa ảnh và dòng, dọn tệp
+    fs.writeFileSync(stored, PNG);
+    const del = { refs: [{ id: '501', storagePath: '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a1111' }] };
+    await svc({}, del).deleteHorseReport(escort, '601');
+    assert.deepEqual(del.deletedAttachments, ['501']);
+    assert.equal(del.deleted, true);
+    assert.equal(fs.existsSync(stored), false);
+    assert.ok(del.audits.some(a => a[3] === 'DELETE_HORSE_REPORT_DRAFT'));
+  });
+});
+
+test('Horse report send: photo rule, customerNote rule, DELIVERED blocked, notifications once, double send 409', async () => {
+  const send = (overrides, body = {}, calls = {}, realtime = fakeRealtime()) => new TrackingService(reportRepo(overrides, calls), undefined, realtime).sendHorseReport(escort, '601', body);
+  await assert.rejects(() => send({}), status(400)); // OFF_FEED chưa có ảnh
+  await assert.rejects(() => send({}, {}, { refs: [{ id: '1', storagePath: 'a' }], ctx: reportCtx({ customerNote: null }) }), status(400), 'gửi khách thiếu customerNote');
+  await assert.rejects(() => send({ findHorseLog: async () => reportCtx({ orderStatus: OrderStatus.DELIVERED }) }, {}, { refs: [{ id: '1', storagePath: 'a' }] }), status(409));
+  await assert.rejects(() => send({ markHorseReportSent: async () => 0 }, {}, { refs: [{ id: '1', storagePath: 'a' }] }), status(409), 'đã bị gửi bởi request khác');
+  const calls = { refs: [{ id: '1', storagePath: 'a' }] };
+  const rt = fakeRealtime();
+  const sent = await send({}, {}, calls, rt);
+  assert.equal(sent.reportStatus, 'SENT');
+  assert.equal(calls.locked, true);
+  assert.equal(calls.sentFlag, true);
+  assert.deepEqual(calls.notified.map(n => n[1]), ['HORSE_REPORT', 'HORSE_REPORT_ALERT']);
+  assert.ok(calls.audits.some(a => a[3] === 'SEND_HORSE_REPORT'));
+  assert.deepEqual(rt.emitted.map(e => e.event), ['tracking:horse_report', 'notification:new', 'notification:new']);
+  // Ghi đè sendToCustomer lúc gửi; STABLE không cần ảnh
+  const noCustomer = { refs: [], ctx: reportCtx({ conditionStatus: 'STABLE', customerNote: null }) };
+  await send({}, { sendToCustomer: false }, noCustomer);
+  assert.equal(noCustomer.sentFlag, false);
+  assert.equal(noCustomer.notified.length, 0, 'STABLE và không gửi khách: không thông báo');
+  await assert.rejects(() => send({}, { thua: 1 }), status(400));
+});
+
+test('Horse report customer API: own order only, newest per correction chain, view is idempotent and notifies the escort once', async () => {
+  const customer = { id: '2', role: Role.CUSTOMER };
+  const row = (overrides = {}) => ({
+    id: '601', horseId: '21', horseName: 'Bạch Mã', conditionStatus: 'OFF_FEED', bodyTempC: '37.8', heartRateBpm: 38, appetite: 'REDUCED', customerNote: 'Ăn ít',
+    loggedAt: new Date('2026-10-26T05:20:00Z'), sentAt: new Date('2026-10-26T05:25:00Z'), viewedAt: null, escortName: 'Hộ Tống', createdBy: '6', ...overrides,
+  });
+  const repo = (overrides = {}, calls = {}) => stage2Repo({
+    findOrderForTimeline: async id => (id === '50' ? { orderId: '50', customerId: '2' } : undefined),
+    getCustomerHorseReports: async orderId => { calls.order = orderId; return [row()]; },
+    getHorseLogAttachments: async () => [{ id: '801', originalName: 'a.jpg', fileType: 'JPG', sizeBytes: 5, uploadedAt: new Date(), caption: 'Toàn thân', horseLogId: '601', incidentId: null }],
+    markHorseReportViewed: async () => { calls.marked = (calls.marked ?? 0) + 1; return calls.firstView === false ? 0 : 1; },
+    getHorseReportViewedAt: async () => new Date('2026-10-26T06:00:00Z'),
+    ...overrides,
+  }, calls);
+  const calls = {};
+  const list = await new TrackingService(repo({}, calls), undefined, fakeRealtime()).getCustomerHorseReports(customer, '50');
+  assert.equal(calls.order, '50');
+  assert.deepEqual(list, [{
+    id: '601', horseId: '21', horseName: 'Bạch Mã', conditionStatus: 'OFF_FEED', bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED', customerNote: 'Ăn ít',
+    photos: [{ id: '801', caption: 'Toàn thân', fileType: 'JPG' }], loggedAt: '2026-10-26T05:20:00.000Z', sentAt: '2026-10-26T05:25:00.000Z', viewedAt: null, escortName: 'Hộ Tống',
+  }]);
+  assert.equal(JSON.stringify(list).includes('createdBy'), false, 'không lộ mã hộ tống cho khách');
+  await assert.rejects(() => new TrackingService(repo()).getCustomerHorseReports(customer, '51'), status(404), 'đơn của người khác / không tồn tại');
+  await assert.rejects(() => new TrackingService(repo()).getCustomerHorseReports({ id: '9', role: Role.CUSTOMER }, '50'), status(404));
+  for (const account of [driver, coordinator, { id: '4', role: Role.MANAGER }]) {
+    await assert.rejects(() => new TrackingService(repo()).getCustomerHorseReports(account, '50'), status(403));
+    await assert.rejects(() => new TrackingService(repo()).viewHorseReport(account, '50', '601'), status(403));
+  }
+  // Đánh dấu đã xem: lần đầu phát socket tới hộ tống tạo báo cáo; lần sau giữ nguyên, không phát
+  const rt = fakeRealtime();
+  assert.deepEqual(await new TrackingService(repo({}, {}), undefined, rt).viewHorseReport(customer, '50', '601'), { viewedAt: '2026-10-26T06:00:00.000Z' });
+  assert.deepEqual(rt.emitted, [{ users: ['6'], event: 'tracking:horse_report_viewed', payload: { reportId: '601', viewedAt: '2026-10-26T06:00:00.000Z' } }]);
+  const again = fakeRealtime();
+  const second = { firstView: false };
+  assert.deepEqual(await new TrackingService(repo({}, second), undefined, again).viewHorseReport(customer, '50', '601'), { viewedAt: '2026-10-26T06:00:00.000Z' });
+  assert.equal(again.emitted.length, 0);
+  await assert.rejects(() => new TrackingService(repo()).viewHorseReport(customer, '50', '999'), status(404), 'báo cáo không thuộc danh sách khách xem được');
+  await assert.rejects(() => new TrackingService(repo()).viewHorseReport(customer, '51', '601'), status(404));
+});
+
+test('Horse report visibility: trip reads pass the viewer; attachments of drafts and customers follow the report rules', async () => {
+  const calls = {};
+  const reads = new TrackingService(reportRepo({}, calls));
+  await reads.getTripHorseLogs(driver, '100');
+  assert.equal(calls.viewer, '5', 'tài xế đọc với mã của mình: SQL chỉ trả nháp do chính người đó tạo');
+  await reads.getTripHorseLogs(escort, '100');
+  assert.equal(calls.viewer, '6');
+  const photoRow = (extra = {}) => ({ id: '501', originalName: 'a.png', fileType: 'PNG', storagePath: '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a2222', tripId: '100', horseLogId: '601', incidentId: null, reportStatus: 'SENT', logCreatedBy: '6', ...extra });
+  const fetchAs = (account, attachment, extra = {}) => new TrackingService(stage2Repo({ findAttachment: async () => attachment, isReportPhotoVisibleToCustomer: async () => extra.visible ?? false })).getAttachmentFile(account, '501');
+  await withStorage(async dir => {
+    fs.writeFileSync(path.join(dir, '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a2222'), PNG);
+    // Ảnh nháp: chỉ người tạo
+    await assert.rejects(() => fetchAs(driver, photoRow({ reportStatus: 'DRAFT' })), status(404));
+    await assert.rejects(() => fetchAs(coordinator, photoRow({ reportStatus: 'DRAFT' })), status(404));
+    assert.equal((await fetchAs(escort, photoRow({ reportStatus: 'DRAFT' }))).fileType, 'PNG');
+    assert.equal((await fetchAs(driver, photoRow())).fileType, 'PNG', 'ảnh báo cáo đã gửi: crew đọc như trước');
+    // Khách: chỉ ảnh báo cáo gửi cho đơn của mình
+    const customer = { id: '2', role: Role.CUSTOMER };
+    assert.equal((await fetchAs(customer, photoRow(), { visible: true })).fileType, 'PNG');
+    await assert.rejects(() => fetchAs(customer, photoRow(), { visible: false }), status(404));
+    await assert.rejects(() => fetchAs(customer, photoRow({ horseLogId: null, incidentId: '701' }), { visible: true }), status(404), 'ảnh sự cố không bao giờ mở cho khách');
+  });
 });

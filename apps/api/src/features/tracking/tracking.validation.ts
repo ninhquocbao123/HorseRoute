@@ -10,6 +10,10 @@ import {
   DamageTarget,
   AlertType,
   CareActivityType,
+  HorseAppetite,
+  HorseReportStatus,
+  HORSE_VITALS_RANGE,
+  HORSE_REPORT_MAX_PHOTOS,
   isValidSubType,
 } from '@my-project/shared';
 
@@ -81,25 +85,72 @@ export const correctLegSchema = z.object({
 export type CorrectLegInput = z.infer<typeof correctLegSchema>;
 
 // Stage 2 schemas
-export const createHorseLogSchema = z.object({
-  horseId: legIdSchema,
-  conditionStatus: z.nativeEnum(HorseConditionStatus, {
-    errorMap: () => ({ message: 'Tình trạng ngựa không hợp lệ (STABLE, OFF_FEED, STRESSED, CLIMATE_CHANGE).' }),
-  }),
+/** Multipart gửi cờ là chuỗi 'true'/'false'; JSON gửi boolean. */
+const formBoolean = z.preprocess(
+  value => (value === 'true' ? true : value === 'false' ? false : value),
+  z.boolean({ invalid_type_error: 'Giá trị phải là true hoặc false.' }),
+);
+/** Một nhãn là chuỗi, nhiều nhãn là mảng (field lặp lại); tối đa bằng số ảnh cho phép. */
+const formList = (item: z.ZodTypeAny, max: number, message: string) => z.preprocess(
+  value => (value === undefined || value === null ? [] : Array.isArray(value) ? value : [value]),
+  z.array(item).max(max, message),
+);
+const noFuture = (loggedAt: string, context: z.RefinementCtx) => {
+  if (Date.parse(loggedAt) > Date.now() + 60000) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['loggedAt'], message: 'Thời điểm ghi nhật ký không được ở tương lai.' });
+  }
+};
+
+const horseConditionSchema = z.nativeEnum(HorseConditionStatus, {
+  errorMap: () => ({ message: 'Tình trạng ngựa không hợp lệ (STABLE, OFF_FEED, STRESSED, CLIMATE_CHANGE).' }),
+});
+/** Các trường nội dung báo cáo sức khỏe, dùng chung cho tạo và sửa nháp. */
+const horseReportFields = {
+  conditionStatus: horseConditionSchema,
   note: z.string().trim().max(1000, 'Ghi chú tối đa 1000 ký tự.').optional().nullable(),
   loggedAt: milestoneTimeSchema,
+  customerNote: z.string().trim().max(1000, 'Ghi chú gửi khách tối đa 1000 ký tự.').optional().nullable(),
+  bodyTempC: z.coerce.number({ invalid_type_error: 'Nhiệt độ phải là số.' })
+    .refine(value => value >= HORSE_VITALS_RANGE.bodyTempC.min && value <= HORSE_VITALS_RANGE.bodyTempC.max,
+      `Nhiệt độ cơ thể phải trong khoảng ${HORSE_VITALS_RANGE.bodyTempC.min}..${HORSE_VITALS_RANGE.bodyTempC.max} °C.`)
+    .refine(value => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9, 'Nhiệt độ chỉ có tối đa 1 chữ số thập phân.')
+    .optional().nullable(),
+  heartRateBpm: z.coerce.number({ invalid_type_error: 'Nhịp tim phải là số.' })
+    .int('Nhịp tim phải là số nguyên.')
+    .min(HORSE_VITALS_RANGE.heartRateBpm.min, `Nhịp tim phải trong khoảng ${HORSE_VITALS_RANGE.heartRateBpm.min}..${HORSE_VITALS_RANGE.heartRateBpm.max} lần/phút.`)
+    .max(HORSE_VITALS_RANGE.heartRateBpm.max, `Nhịp tim phải trong khoảng ${HORSE_VITALS_RANGE.heartRateBpm.min}..${HORSE_VITALS_RANGE.heartRateBpm.max} lần/phút.`)
+    .optional().nullable(),
+  appetite: z.nativeEnum(HorseAppetite, { errorMap: () => ({ message: 'Ăn uống không hợp lệ (NORMAL, REDUCED, REFUSED).' }) }).optional().nullable(),
+  sendToCustomer: formBoolean.optional(),
+  captions: formList(z.string().trim().max(100, 'Nhãn ảnh tối đa 100 ký tự.'), HORSE_REPORT_MAX_PHOTOS, `Tối đa ${HORSE_REPORT_MAX_PHOTOS} nhãn ảnh.`),
+};
+
+/**
+ * Tạo nhật ký ngựa. Không có `reportStatus` = nhật ký cũ (bất biến); có `reportStatus` (DRAFT | SENT) = báo cáo sức khỏe.
+ */
+export const createHorseLogSchema = z.object({
+  horseId: legIdSchema,
   correctsLogId: legIdSchema.optional().nullable(),
-}).strict().superRefine(({ loggedAt }, context) => {
-  const timestamp = Date.parse(loggedAt);
-  const now = Date.now();
-  if (timestamp > now + 60000) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['loggedAt'],
-      message: 'Thời điểm ghi nhật ký không được ở tương lai.',
-    });
+  reportStatus: z.nativeEnum(HorseReportStatus, { errorMap: () => ({ message: 'Trạng thái báo cáo không hợp lệ (DRAFT, SENT).' }) }).optional(),
+  ...horseReportFields,
+}).strict().superRefine((data, context) => {
+  noFuture(data.loggedAt, context);
+  if (!data.reportStatus) {
+    const extra = (['customerNote', 'bodyTempC', 'heartRateBpm', 'appetite', 'sendToCustomer'] as const).filter(key => data[key] !== undefined && data[key] !== null);
+    for (const key of extra) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'Trường của báo cáo sức khỏe cần kèm reportStatus (DRAFT hoặc SENT).' });
+    }
   }
 });
+
+/** Sửa nháp: thay toàn bộ nội dung chỉnh được (trường vắng = xóa), không đổi ngựa / bản được đính chính / trạng thái. */
+export const updateHorseReportSchema = z.object({
+  ...horseReportFields,
+  removeAttachmentIds: formList(legIdSchema, HORSE_REPORT_MAX_PHOTOS, 'Xóa tối đa 3 ảnh mỗi lần.'),
+}).strict().superRefine((data, context) => noFuture(data.loggedAt, context));
+export type UpdateHorseReportInput = z.infer<typeof updateHorseReportSchema>;
+
+export const sendHorseReportSchema = z.object({ sendToCustomer: formBoolean.optional() }).strict();
 export type CreateHorseLogInput = z.infer<typeof createHorseLogSchema>;
 
 /** Số từ multipart (chuỗi) hoặc JSON (number); chuỗi rỗng đã bị normalizeForm bỏ. */

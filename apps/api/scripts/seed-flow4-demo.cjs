@@ -177,7 +177,7 @@ async function main() {
     await care(h1, 'FEED', -0.6, { feed: 'Cỏ khô 3 kg + cà rốt' });
     await runner.query(
       `INSERT INTO horse_logs(horse_id,leg_id,condition_status,note,logged_at,created_by,body_temp_c,heart_rate_bpm,appetite,customer_note,report_status,send_to_customer,sent_at)
-       VALUES (?,?,'OFF_FEED','Ăn ít khẩu phần trưa, đã theo dõi thêm.',?,6,37.9,44,'REDUCED','Silver Moon ăn ít khẩu phần trưa, đứng vững, không đổ mồ hôi. Hộ tống sẽ theo dõi thêm.','SENT',1,?)`,
+       VALUES (?,?,'OFF_FEED','Ăn ít khẩu phần trưa, đã theo dõi thêm.',?,6,37.9,44,'REDUCED','Ngựa ăn ít khẩu phần trưa, đứng vững, không đổ mồ hôi. Hộ tống sẽ theo dõi thêm.','SENT',1,?)`,
       [h2, l2, hoursFromNow(-0.5), hoursFromNow(-0.45)]);
     await runner.query(
       `INSERT INTO horse_logs(horse_id,leg_id,condition_status,logged_at,created_by,body_temp_c,heart_rate_bpm,appetite,customer_note,report_status,send_to_customer)
