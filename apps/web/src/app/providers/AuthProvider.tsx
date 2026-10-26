@@ -3,13 +3,14 @@ import { isAxiosError } from 'axios';
 import type { IUser } from '@my-project/shared';
 import { queryClient } from '../../lib/queryClient';
 import { getMe } from '../../features/users/api/users.api';
+import { clearAccessToken, getAccessToken, saveAccessToken } from '../../lib/auth-storage';
 
 interface AuthState {
   account: IUser | null;
   loading: boolean;
   syncError: string;
   logout: () => void;
-  onLoginSuccess: (token: string, user: IUser) => void;
+  onLoginSuccess: (token: string, user: IUser, remember?: boolean) => void;
 }
 
 export const AuthContext = createContext<AuthState>({
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Khi app khởi động: nếu có token trong localStorage thì tự động load thông tin user
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (!token) {
       setLoading(false);
       return;
@@ -36,13 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     getMe()
       .then((user) => {
-        if (!active || localStorage.getItem('accessToken') !== token) return;
+        if (!active || getAccessToken() !== token) return;
         setAccount(user);
         setSyncError('');
       })
       .catch((e) => {
-        if (!active || localStorage.getItem('accessToken') !== token) return;
-        localStorage.removeItem('accessToken');
+        if (!active || getAccessToken() !== token) return;
+        clearAccessToken();
         setSyncError(
           isAxiosError(e) ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' : 'Không thể tải thông tin tài khoản.',
         );
@@ -51,15 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, []);
 
-  const onLoginSuccess = useCallback((token: string, user: IUser) => {
-    localStorage.setItem('accessToken', token);
+  const onLoginSuccess = useCallback((token: string, user: IUser, remember = true) => {
+    saveAccessToken(token, remember);
     queryClient.clear();
     setAccount(user);
     setSyncError('');
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
+    clearAccessToken();
     queryClient.clear();
     setAccount(null);
   }, []);

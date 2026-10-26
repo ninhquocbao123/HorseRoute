@@ -9,8 +9,8 @@ export interface LoginResponse {
 export const login = (email: string, password: string) =>
   api.post<LoginResponse>('/auth/login', { email, password }).then((r) => r.data);
 
-export const register = (email: string, password: string, fullName: string, phone: string, address: string) =>
-  api.post<LoginResponse>('/auth/register', { email, password, fullName, phone, address }).then((r) => r.data);
+export const register = (email: string, password: string, fullName: string, phone: string, address: string, customerType?: 'CLUB' | 'INDIVIDUAL', organizationName?: string) =>
+  api.post<LoginResponse>('/auth/register', { email, password, fullName, phone, address, customerType, organizationName }).then((r) => r.data);
 
 export const getMe = () => api.get<IUser>('/users/me').then((r) => r.data);
 

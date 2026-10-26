@@ -7,5 +7,11 @@ export const registerSchema = loginSchema.extend({
   fullName: z.string().trim().min(2).max(100),
   phone: z.string().trim().regex(/^\+?[0-9]{9,15}$/, 'Số điện thoại cần 9–15 chữ số, có thể bắt đầu bằng +.'),
   address: z.string().trim().min(5).max(255),
-}).strict();
+  customerType: z.enum(['CLUB', 'INDIVIDUAL']).optional(),
+  organizationName: z.string().trim().min(1).max(150).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.customerType === 'CLUB' && !value.organizationName) {
+    context.addIssue({ code: 'custom', path: ['organizationName'], message: 'Nhập tên câu lạc bộ / tổ chức.' });
+  }
+});
 

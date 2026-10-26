@@ -1,0 +1,222 @@
+.psm-modal .ant-modal-content {
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #ffda84;
+}
+
+.psm-header {
+  padding: 16px 24px;
+  background: #fffdf5;
+  border-bottom: 1px solid #fae8b8;
+}
+
+.psm-notice {
+  background: #fff9e6;
+  border: 1px solid #ffdb86;
+  color: #8c661b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.psm-order-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.psm-order-code {
+  font-size: 16px;
+  font-weight: 700;
+  color: #153f49;
+}
+
+.psm-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.psm-body {
+  padding: 20px 24px;
+  background: #ffffff;
+}
+
+.psm-tabs .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.psm-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #b45309 !important;
+  font-weight: 700;
+}
+
+.psm-tabs .ant-tabs-ink-bar {
+  background: #ffb91e !important;
+}
+
+.psm-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #e8eff0;
+  margin-bottom: 16px;
+}
+
+.psm-qr-image {
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.psm-bank-details {
+  width: 100%;
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.psm-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.psm-detail-row span {
+  color: #64748b;
+}
+
+.psm-detail-row strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.psm-wallet-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.psm-wallet-btn {
+  background: #a21caf !important;
+  border-color: #a21caf !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.psm-card-preview {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-radius: 12px;
+  padding: 20px;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  margin-bottom: 16px;
+}
+
+.psm-card-top {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.psm-card-number {
+  font-size: 18px;
+  font-family: monospace;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+.psm-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.psm-card-bottom small {
+  color: #94a3b8;
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.psm-card-notice {
+  font-size: 13px;
+  color: #475569;
+  text-align: center;
+}
+
+.psm-actions-panel {
+  border-top: 1px solid #fae8b8;
+  padding: 16px 24px;
+  background: #fffdf5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.psm-action-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #153f49;
+  text-align: center;
+}
+
+.psm-buttons-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.psm-btn-success {
+  background: #ffb91e !important;
+  border-color: #ffb91e !important;
+  color: #153f49 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(255, 185, 30, 0.3) !important;
+}
+.psm-btn-success:hover {
+  background: #f5ab0c !important;
+  border-color: #f5ab0c !important;
+  color: #102e35 !important;
+}
+.psm-btn-success span {
+  color: #153f49 !important;
+  font-weight: 700 !important;
+}
+
+.psm-btn-fail {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+  font-weight: 600;
+}
+.psm-btn-fail:hover {
+  background: #fef2f2 !important;
+}
+
+.psm-result-box {
+  padding: 24px;
+  text-align: center;
+}

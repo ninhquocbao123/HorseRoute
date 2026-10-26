@@ -6,3 +6,4 @@ export * from './types/tracking.type';
 export * from './types/trackmap.type';
 export * from './constants';
 export * from './countries';
+export * from './types/pricing.type';

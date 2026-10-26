@@ -1,3 +1,5 @@
+import { CustomerService } from '../../features/customer/customer.service';
+import { SpecialistService } from '../../features/specialist/specialist.service';
 import { TripsService } from '../../features/trips/trips.service';
 import { TripsRepository } from '../../features/trips/trips.repository';
 import { DataSource } from 'typeorm';
@@ -17,11 +19,29 @@ import { TrackingService } from '../../features/tracking/tracking.service';
 import { TrackingRepository } from '../../features/tracking/tracking.repository';
 import { LocationsService } from '../../features/locations/locations.service';
 import { LocationsRepository } from '../../features/locations/locations.repository';
+import { PricingService } from '../../features/pricing/pricing.service';
+import { ManagerService } from '../../features/manager/manager.service';
+import { PaymentsService } from '../../features/payments/payments.service';
+
 export function createServices(db: DataSource, tokens: TokenService) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
-  return { trips: new TripsService(new TripsRepository(db)), vehicles: new VehiclesService(new VehiclesRepository(db)), locations: new LocationsService(new LocationsRepository(db)), tracking: new TrackingService(new TrackingRepository(db)), users, auth: new AuthService(users, tokens), orders: new OrdersService(db),
-    documents: new DocumentsService(db), notifications: new NotificationsService(new NotificationsRepository(db)),
-    health: new HealthService(db) };
+  return {
+    customer: new CustomerService(db),
+    trips: new TripsService(new TripsRepository(db)),
+    vehicles: new VehiclesService(new VehiclesRepository(db)),
+    locations: new LocationsService(new LocationsRepository(db)),
+    tracking: new TrackingService(new TrackingRepository(db)),
+    users,
+    auth: new AuthService(users, tokens),
+    orders: new OrdersService(db),
+    documents: new DocumentsService(db),
+    notifications: new NotificationsService(new NotificationsRepository(db)),
+    health: new HealthService(db),
+    pricing: new PricingService(db),
+    manager: new ManagerService(db),
+    specialist: new SpecialistService(db),
+    payments: new PaymentsService(db),
+  };
 }
-export type Services = ReturnType<typeof createServices>;
 
+export type Services = ReturnType<typeof createServices>;

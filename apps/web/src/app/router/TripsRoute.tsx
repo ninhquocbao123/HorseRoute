@@ -7,7 +7,7 @@ import '../../modules/trips/styles/trips.css';
 export default function TripsRoute() {
   const { account, logout } = useAuth();
   if (!account) return <Navigate to="/login" replace />;
-  if (!['MANAGER', 'COORDINATOR'].includes(account.role)) {
+  if (account.role !== 'COORDINATOR') {
     return <Navigate to="/dashboard" replace />;
   }
   return (

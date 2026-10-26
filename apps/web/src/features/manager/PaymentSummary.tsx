@@ -1,0 +1,9 @@
+import './payment-summary.css';
+type Props={total:number;paid:number;deposit:number;depositPercent:number;expiresAt?:string|null};
+const money=(value:number)=>value.toLocaleString('vi-VN')+' đ';
+export default function PaymentSummary({total,paid,deposit,depositPercent,expiresAt}:Props){
+ const remaining=Math.max(0,total-paid),progress=total>0?Math.min(100,Math.max(0,paid/total*100)):0;
+ const status=paid<=0?'Chưa thanh toán':remaining===0?'Đã thanh toán đủ':paid>=deposit?'Đã đủ tiền cọc':'Đã thanh toán một phần';
+ const marker=total>0?Math.min(100,Math.max(0,deposit/total*100)):Math.min(100,Math.max(0,depositPercent));
+ return <section className="mp-summary" aria-label="Thanh toán"><header><div><h3>Thanh toán</h3><span className={'mp-status '+(paid<=0?'unpaid':remaining===0?'complete':'partial')}>{status}</span></div>{expiresAt&&<small>◷ Báo giá hiệu lực đến <strong>{new Date(expiresAt).toLocaleString('vi-VN')}</strong></small>}</header><div className="mp-amounts" aria-live="polite"><article><span>Tổng báo giá</span><strong>{money(total)}</strong></article><article><span>Đã thu</span><strong>{money(paid)}</strong></article><article className={remaining>0?'mp-outstanding':'mp-settled'}><span>Còn phải thu</span><strong>{money(remaining)}</strong></article></div><div className="mp-progress"><div className="mp-track" role="progressbar" aria-label="Tiến độ thanh toán" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(progress.toFixed(2))} aria-valuetext={money(paid)+' trên '+money(total)}><span style={{width:progress+'%'}}/><i style={{left:marker+'%'}}/></div><div className="mp-scale"><span>{progress.toLocaleString('vi-VN',{maximumFractionDigits:1})}% đã thu</span><span className="mp-deposit" style={{left:Math.max(18,Math.min(82,marker))+'%'}}>Mốc đặt cọc {depositPercent.toLocaleString('vi-VN')}% · <strong>{money(deposit)}</strong></span><span>100%</span></div></div></section>;
+}

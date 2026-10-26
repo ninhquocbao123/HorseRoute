@@ -17,6 +17,8 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<LoginPage />} />
+        <Route path="/staff/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<HomePage />} />
           <Route path="/dashboard/trips" element={<TripsRoute />}>

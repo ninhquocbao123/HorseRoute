@@ -21,6 +21,10 @@ module.exports = async function loadSchema(db) {
     const { VmaxParam1800000009000 } = require('../src/database/migrations/1800000009000-VmaxParam');
     const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800000010000-RouteCacheFull');
     for (const Migration of [OrderRequirements1800000004000, LocationCoordinates1800000005000, TrackMap1800000006000, DriverIncidentDetails1800000007000, HotlineParam1800000008000, VmaxParam1800000009000, RouteCacheFull1800000010000]) await new Migration().up(runner);
+    const {CustomerProfiles1800000009000}=require('../src/database/migrations/1800000009000-CustomerProfiles');
+    await new CustomerProfiles1800000009000().up(runner);
+    const {SpecialistAssessments1800000010000}=require('../src/database/migrations/1800000010000-SpecialistAssessments');
+    await new SpecialistAssessments1800000010000().up(runner);
   } finally {
     try { await runner.query('SET FOREIGN_KEY_CHECKS=1'); } finally { await runner.release(); }
   }

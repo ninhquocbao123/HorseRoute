@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { tripIdSchema } from '../trips/trips.validation';
 
-// Written once by Order approval, never reconstructed from mutable rules on a read.
+// Written once by Order approval, updated only when a specialist adds a document requirement.
 export const requirementsSchema = z.object({
-  version: z.literal(1), ruleIds: z.array(tripIdSchema).min(1),
+  version: z.literal(2),
   horses: z.array(z.object({
     horseId: tripIdSchema,
     documents: z.array(z.object({ documentTypeId: tripIdSchema, hasExpiry: z.boolean() }).strict()),
