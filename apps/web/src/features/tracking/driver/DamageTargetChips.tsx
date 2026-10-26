@@ -1,8 +1,8 @@
-import { CarOutlined, HeartOutlined, PlusOutlined } from '@ant-design/icons';
 import type { DamageTarget } from '@my-project/shared';
 import { DAMAGE_TARGETS } from './driver-ui';
+import { HorseIcon, VehicleAndHorseIcon, VehicleIcon } from './icons';
 
-const ICON: Record<string, JSX.Element> = { VEHICLE: <CarOutlined />, HORSE: <HeartOutlined />, BOTH: <PlusOutlined /> };
+const ICON: Record<string, JSX.Element> = { VEHICLE: <VehicleIcon />, HORSE: <HorseIcon />, BOTH: <VehicleAndHorseIcon /> };
 
 /** "3. Hư hại liên quan tới": Xe / Ngựa / Cả hai. */
 export default function DamageTargetChips({ value, onChange, disabled, invalid }: {

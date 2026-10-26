@@ -1,4 +1,5 @@
-import { INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
+import type { CSSProperties } from 'react';
+import { INCIDENT_SEVERITY_META, INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
 import type { NextAction } from '../tracking.format';
 import { headingLeg, isStopped, tripPhase } from './trip-phase';
 
@@ -91,13 +92,14 @@ export const PRE_DEPARTURE_CHECKS = [
   { id: 'loaded', label: 'Ngựa đã lên xe và cố định' },
 ];
 
-/** Mức độ sự cố (Figma D2). RED → urgency HIGH ở backend (quyết định 5.1). */
-export const SEVERITIES: { value: IncidentSeverity; label: string; hint: string }[] = [
-  { value: 'RED' as IncidentSeverity, label: 'Đỏ · Nghiêm trọng', hint: 'Tai nạn, ngựa bị thương, xe không thể chạy tiếp' },
-  { value: 'ORANGE' as IncidentSeverity, label: 'Cam · Trung bình', hint: 'Hỏng hóc nhỏ, ngựa có dấu hiệu bất thường' },
-  { value: 'YELLOW' as IncidentSeverity, label: 'Vàng · Nhẹ', hint: 'Kẹt xe, chậm lịch trình, thời tiết xấu' },
-];
-export const SEVERITY_SHORT: Record<string, string> = { RED: 'Đỏ', ORANGE: 'Cam', YELLOW: 'Vàng' };
+/** Mức độ sự cố (Figma D2): nguồn duy nhất là INCIDENT_SEVERITY_META trong shared. */
+export const SEVERITIES = (Object.keys(INCIDENT_SEVERITY_META) as IncidentSeverity[]).map(value => ({ value, ...INCIDENT_SEVERITY_META[value] }));
+
+/** Biến CSS màu của một mức độ, gắn vào phần tử (style) để CSS dùng chung `--sev*`. */
+export const severityVars = (severity: IncidentSeverity): CSSProperties => {
+  const meta = INCIDENT_SEVERITY_META[severity];
+  return { '--sev': meta.color, '--sev-soft': meta.soft, '--sev-text': meta.text } as CSSProperties;
+};
 
 export const DAMAGE_TARGETS: { value: DamageTarget; label: string }[] = [
   { value: 'VEHICLE' as DamageTarget, label: 'Xe' },

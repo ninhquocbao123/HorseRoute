@@ -5,8 +5,9 @@ import type { IDriverTripDetail, IDriverTripSummary, IIncident, ILegTracking } f
 import { trackingApi } from '../tracking.api';
 import { INCIDENT_STATUS_LABEL, LEG_STATUS_LABEL, formatDateTime } from '../tracking.format';
 import RouteMapCard from './RouteMapCard';
+import { IncidentListItem } from './IncidentSidePanel';
 import { useTripMap } from './useTripMap';
-import { INCIDENT_STATUS_COLOR, ORDER_TAG, SEVERITY_SHORT, formatKm, headlineLeg, incidentKindLabel, routeStops, vehicleLabel } from './driver-ui';
+import { ORDER_TAG, formatKm, headlineLeg, routeStops, vehicleLabel } from './driver-ui';
 
 const PAGE_SIZE = 10;
 const day = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -167,16 +168,7 @@ export function HistoryDetail({ trip, detail, onBack }: { trip: IDriverTripSumma
               : (
                 <ul>
                   {incidents.map(item => (
-                    <li key={item.id}>
-                      <span className="drv-reported-head">
-                        {item.severity && <span className={'drv-sev-badge is-' + item.severity.toLowerCase()}>{SEVERITY_SHORT[item.severity]}</span>}
-                        <strong>{incidentKindLabel(item.incidentType, item.subType)}</strong>
-                        <Tag color={INCIDENT_STATUS_COLOR[item.status]}>{INCIDENT_STATUS_LABEL[item.status]}</Tag>
-                      </span>
-                      <span className="drv-reported-desc">{item.description}</span>
-                      <time dateTime={item.reportedAt}>{formatDateTime(item.reportedAt)}</time>
-                      {item.status === 'CLOSED' && item.handlingNote && <small>Xử lý: {item.handlingNote}</small>}
-                    </li>
+                    <IncidentListItem key={item.id} item={item} />
                   ))}
                 </ul>
               )}

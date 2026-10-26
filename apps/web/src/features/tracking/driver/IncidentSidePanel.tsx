@@ -2,7 +2,8 @@ import { Checkbox, Tag } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import type { IIncident, ITripContact } from '@my-project/shared';
 import { INCIDENT_STATUS_LABEL, formatDateTime } from '../tracking.format';
-import { INCIDENT_STATUS_COLOR, SEVERITY_SHORT, WAITING_STEPS, incidentKindLabel } from './driver-ui';
+import { INCIDENT_SEVERITY_META } from '@my-project/shared';
+import { WAITING_STEPS, incidentKindLabel, severityVars } from './driver-ui';
 import { useDraft } from './useDraft';
 
 /** "Trong lúc chờ": 3 việc an toàn, tick lưu theo chuyến. */
@@ -35,30 +36,35 @@ export function RedNotice() {
   return (
     <p className="drv-red-notice" role="note">
       <WarningOutlined aria-hidden="true" />
-      <span>Mức đỏ sẽ gửi thông báo khẩn ngay tới điều phối viên.</span>
+      <span>Mức nghiêm trọng sẽ gửi thông báo khẩn ngay tới điều phối viên.</span>
     </p>
   );
 }
 
-/** Sự cố đã báo của chuyến (mới nhất trước), có badge mức độ. */
+/** Một sự cố trong danh sách của tài xế: viền trái + tag mức độ theo màu mức độ, tag trạng thái trung tính cùng hàng tiêu đề. */
+export function IncidentListItem({ item }: { item: IIncident }) {
+  return (
+    <li className={item.severity ? 'has-severity' : undefined} style={item.severity ? severityVars(item.severity) : undefined}>
+      <span className="drv-reported-head">
+        <strong>{incidentKindLabel(item.incidentType, item.subType)}</strong>
+        <Tag bordered={false} className="drv-status-tag">{INCIDENT_STATUS_LABEL[item.status]}</Tag>
+      </span>
+      {item.severity && <span className="drv-sev-tag">{INCIDENT_SEVERITY_META[item.severity].label}</span>}
+      <span className="drv-reported-desc">{item.description}</span>
+      <time dateTime={item.reportedAt}>{formatDateTime(item.reportedAt)}</time>
+      {item.status === 'CLOSED' && item.handlingNote && <small>Xử lý: {item.handlingNote}</small>}
+    </li>
+  );
+}
+
+/** Sự cố đã báo của chuyến (mới nhất trước). */
 export function ReportedIncidents({ incidents }: { incidents: IIncident[] }) {
   if (!incidents.length) return null;
   return (
     <section className="drv-card drv-reported-list" aria-labelledby="drv-reported-title">
       <h3 id="drv-reported-title" className="drv-card-title">Sự cố đã báo</h3>
       <ul>
-        {[...incidents].reverse().slice(0, 5).map(item => (
-          <li key={item.id}>
-            <span className="drv-reported-head">
-              {item.severity && <span className={'drv-sev-badge is-' + item.severity.toLowerCase()}>{SEVERITY_SHORT[item.severity]}</span>}
-              <strong>{incidentKindLabel(item.incidentType, item.subType)}</strong>
-              <Tag color={INCIDENT_STATUS_COLOR[item.status]}>{INCIDENT_STATUS_LABEL[item.status]}</Tag>
-            </span>
-            <span className="drv-reported-desc">{item.description}</span>
-            <time dateTime={item.reportedAt}>{formatDateTime(item.reportedAt)}</time>
-            {item.status === 'CLOSED' && item.handlingNote && <small>Xử lý: {item.handlingNote}</small>}
-          </li>
-        ))}
+        {[...incidents].reverse().slice(0, 5).map(item => <IncidentListItem key={item.id} item={item} />)}
       </ul>
     </section>
   );

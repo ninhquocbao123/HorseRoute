@@ -182,21 +182,16 @@
 .drs .drv-severity-card { display: grid; gap: 8px; padding: 18px; text-align: left; border: 1px solid var(--drs-line); border-radius: 16px; background: var(--drs-card); color: var(--drs-ink); }
 .drv-severity-head { display: flex; align-items: center; gap: 8px; }
 .drv-severity-head strong { flex: 1; min-width: 0; font-size: 15px; font-weight: 800; white-space: nowrap; }
-.drv-severity-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-.drv-severity-card.is-red .drv-severity-dot { background: var(--drs-red); }
-.drv-severity-card.is-orange .drv-severity-dot { background: var(--drs-orange); }
-.drv-severity-card.is-yellow .drv-severity-dot { background: var(--drs-yellow); }
 .drv-severity-check { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--drs-line); color: #fff; font-size: 12px; flex-shrink: 0; }
 .drv-severity-hint { font-size: 13px; color: var(--drs-muted); }
-.drs .drv-severity-card[aria-checked=true] { border-width: 2.5px; padding: 16.5px; }
-.drs .drv-severity-card.is-red[aria-checked=true] { background: var(--drs-red-soft); border-color: var(--drs-red); }
-.drs .drv-severity-card.is-red[aria-checked=true] strong { color: var(--drs-red-text); }
-.drs .drv-severity-card.is-orange[aria-checked=true] { background: #ffedd5; border-color: var(--drs-orange); }
-.drs .drv-severity-card.is-yellow[aria-checked=true] { background: #fef9c3; border-color: var(--drs-yellow); }
-.drv-severity-card.is-red[aria-checked=true] .drv-severity-check { background: var(--drs-red); border-color: var(--drs-red); }
-.drv-severity-card.is-orange[aria-checked=true] .drv-severity-check { background: var(--drs-orange); border-color: var(--drs-orange); }
-.drv-severity-card.is-yellow[aria-checked=true] .drv-severity-check { background: var(--drs-yellow); border-color: var(--drs-yellow); }
-.drs .drv-severity.is-invalid .drv-severity-card, .drs .drv-chips.is-invalid .drv-chip { border-color: var(--drs-red); }
+/* Chưa chọn: trung tính, chỉ có viền trái mảnh màu mức độ. Đã chọn: viền + nền nhạt + dấu tích theo màu mức độ. */
+.drs .drv-severity-card { border-left: 4px solid var(--sev); }
+.drs .drv-severity-card[aria-checked=true] { padding: 16.5px 16.5px 16.5px 15px; border: 2.5px solid var(--sev); border-left-width: 4px; background: var(--sev-soft); }
+.drs .drv-severity-card[aria-checked=true] strong { color: var(--sev-text); }
+.drv-severity-card[aria-checked=true] .drv-severity-check { background: var(--sev); border-color: var(--sev); }
+.drs .drv-severity.is-invalid .drv-severity-card:not([aria-checked=true]), .drs .drv-chips.is-invalid .drv-chip { border-top-color: var(--drs-red); border-right-color: var(--drs-red); border-bottom-color: var(--drs-red); }
+.drv-both-icon { display: inline-flex; align-items: center; gap: 2px; }
+.drv-both-icon .anticon { font-size: .9em; }
 
 /* Hư hại liên quan tới */
 .drv-chips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -234,11 +229,9 @@
 .drv-reported-head .ant-tag { margin: 0 0 0 auto; }
 .drv-reported-desc { color: var(--drs-ink); overflow-wrap: anywhere; }
 .drv-reported-list time, .drv-reported-list small { font-size: 12px; color: var(--drs-muted); }
-.drv-sev-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
-.drv-sev-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.drv-sev-badge.is-red { background: var(--drs-red-soft); color: var(--drs-red-text); }
-.drv-sev-badge.is-orange { background: #ffedd5; color: #c2410c; }
-.drv-sev-badge.is-yellow { background: #fef9c3; color: #a16207; }
+.drv-sev-tag { justify-self: start; padding: 1px 8px; border: 1px solid var(--sev); border-radius: 99px; background: var(--sev-soft); color: var(--sev-text); font-size: 12px; font-weight: 700; }
+.drv-reported-list li.has-severity { padding-left: 12px; border-left: 3px solid var(--sev); }
+.drs .drv-status-tag { background: var(--drs-soft); color: var(--drs-muted); font-weight: 600; }
 
 @media (max-width: 1280px) {
   .drv-incident-page { grid-template-columns: minmax(0, 1fr) 280px; }
