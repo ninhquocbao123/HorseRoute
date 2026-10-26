@@ -4,7 +4,7 @@ import { unavailableMessage, type MapUnavailableReason } from './map-style';
 
 /** Shown instead of the map: the page around it keeps working, it is never blank. */
 export default function MapFallback({ reason, height, children, onRetry }: {
-  reason: MapUnavailableReason | 'loading'; height: number; children?: ReactNode; onRetry?: () => void;
+  reason: MapUnavailableReason | 'loading'; height: number | string; children?: ReactNode; onRetry?: () => void;
 }) {
   const loading = reason === 'loading';
   return (

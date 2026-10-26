@@ -6,6 +6,7 @@ export const ORDER_TAG: Record<string, { label: string; color: string }> = {
   READY: { label: 'Sẵn sàng khởi hành', color: 'blue' },
   IN_TRANSIT: { label: 'Đang di chuyển', color: 'gold' },
   DELIVERED: { label: 'Đã giao xong', color: 'green' },
+  CANCELLED: { label: 'Đã hủy', color: 'default' },
 };
 export const LEG_TAG: Record<string, { label: string; color: string }> = {
   NOT_STARTED: { label: 'Chưa bắt đầu', color: 'default' },
@@ -148,8 +149,27 @@ export function formatDayTime(value: string | Date) {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const kmFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
-/** "1.720" (làm tròn, dấu chấm nghìn); dưới 10 km giữ 1 chữ số lẻ để "còn 0,8 km" không thành "1". */
+/**
+ * Mọi số km của màn tài xế dùng hàm này: "1.116" (dấu chấm nghìn, làm tròn); dưới 10 km giữ 1 chữ số lẻ ("0,8").
+ * Tự ghép chuỗi thay vì Intl để không phụ thuộc dữ liệu locale của trình duyệt (có máy trả "1,116").
+ */
 export function formatKm(km: number) {
-  return km < 10 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(km) : kmFormat.format(Math.round(km));
+  if (km < 10) return (Math.round(km * 10) / 10).toString().replace('.', ',');
+  return Math.round(km).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+type VehicleLike = { id: string; code: string; capacityStalls: number };
+
+/** "51C-482.19 · 4 chuồng" cho xe của một chặng; thiếu chi tiết xe thì chỉ biển số. */
+export function vehicleLabel(leg: ILegTracking | undefined, vehicles: VehicleLike[] | undefined) {
+  if (!leg?.vehicleCode) return null;
+  const found = vehicles?.find(v => v.id === leg.vehicleId);
+  return found ? `${found.code} · ${found.capacityStalls} chuồng` : leg.vehicleCode;
+}
+
+/** Xe hiện thị ở ô "Xe": chặng đang chạy (IN_TRANSIT), chặng đầu (READY), chặng cuối (đã giao). */
+export function headlineLeg(legs: ILegTracking[], orderStatus: string) {
+  if (orderStatus === 'IN_TRANSIT') return legs.find(l => l.status === 'MOVING' || l.status === 'AT_STOP') ?? legs.find(l => l.status !== 'COMPLETED') ?? legs[0];
+  if (orderStatus === 'DELIVERED') return legs[legs.length - 1];
+  return legs[0];
 }

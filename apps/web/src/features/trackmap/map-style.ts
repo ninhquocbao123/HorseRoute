@@ -1,7 +1,9 @@
+import { VN_VIEW } from './map-view-plan';
+
 // Map configuration read once from Vite env. Nothing here imports mapbox-gl, so the main bundle stays small.
 export const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/light-v11';
-/** Ho Chi Minh City region: where most current legs start. */
-export const DEFAULT_VIEW = { longitude: 106.66, latitude: 10.82, zoom: 5 };
+/** Việt Nam (xem map-view-plan.ts#VN_VIEW): góc nhìn khi chưa có dữ liệu; không bao giờ mở ra cả thế giới. */
+export const DEFAULT_VIEW = VN_VIEW;
 
 export type MapUnavailableReason = 'disabled' | 'no-token' | 'no-webgl' | 'load-failed' | 'timeout';
 export type MapConfig = { token: string; style: string };

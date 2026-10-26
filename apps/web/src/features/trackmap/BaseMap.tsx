@@ -3,6 +3,7 @@ import Map, { NavigationControl, type ErrorEvent, type MapProps, type MapRef } f
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapRuntime } from './MapView';
 import { MAP_LOCALE } from './map-style';
+import { MIN_ZOOM } from './map-view-plan';
 
 const LOAD_TIMEOUT_MS = 20_000;
 type BaseMapProps = Omit<MapProps, 'mapboxAccessToken' | 'mapStyle' | 'style' | 'children'> & { children?: ReactNode };
@@ -36,9 +37,17 @@ const BaseMap = forwardRef<MapRef, BaseMapProps>(function BaseMap({ children, on
         mapboxAccessToken={config.token}
         mapStyle={config.style}
         language="vi"
+        projection="mercator"
+        minZoom={MIN_ZOOM}
         locale={MAP_LOCALE}
         style={{ width: '100%', height: '100%' }}
-        onLoad={event => { loaded.current = true; setReady(true); onLoad?.(event); }}
+        onLoad={event => {
+          loaded.current = true;
+          setReady(true);
+          // Chỉ ở môi trường dev: cho test trình duyệt đọc zoom/projection thật của bản đồ.
+          if (import.meta.env?.DEV) (window as unknown as { __wdpMap?: unknown }).__wdpMap = event.target;
+          onLoad?.(event);
+        }}
         onError={handleError}
       >
         <NavigationControl position="top-right" showCompass={false} />

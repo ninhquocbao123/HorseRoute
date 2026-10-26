@@ -343,6 +343,7 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
 | **H1** | **Backend bản đồ + GPS** (= Bước 4 trong [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md)): `GET /trips/:tripId/map`, `POST/GET /trips/:tripId/positions`, dọn vị trí cũ, `VMAX` | G | Vừa | 🟡 Xong code 23/10, chờ CI + chạy migration 1800000009000 trên Aiven |
 | **H2** | **FE bản đồ + chia sẻ GPS**: `useGpsSharing`, `DriverRouteMap` (bản đồ thật thay `MapFallback`), km còn lại, tốc độ/VMAX trên D1b. **Không** reverse geocode (điều khoản Mapbox) | H1 | Lớn | 🟡 Xong code 23/10, chờ review UI + thử GPS thật |
+| **UI-1** | **Chỉnh giao diện tài xế theo phản hồi (trước H3)**: màn chuyến chỉ hiện chuyến đang hoạt động (bỏ dropdown), trang **Lịch sử giao hàng** + chi tiết chỉ xem, ô Xe 1 xe, thu gọn phần trên để thấy bản đồ ngay, sửa số km/nhãn tràn khung bản đồ | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
 
 Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
@@ -449,6 +450,20 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Chia sẻ GPS: công tắc "Chia sẻ vị trí" + hộp thoại đồng ý lần đầu (thiết kế mục 10), gửi lô 30 giây, hàng đợi offline, Wake Lock. **Chỉ chia sẻ khi trang đang mở** (giới hạn của web), tự dừng khi chuyến giao xong hoặc ở chặng bay.
 - Còn thiếu so với thiết kế: audit bật/tắt chia sẻ (cần API mới, đã chọn không làm ở bước này).
 - **Cải tiến bản đồ tài xế (23/10)**: tuyến bám đường (`overview=full` + giản lược 8 m), màu bản đồ theo Figma, viền trắng cho tuyến. **Cần chạy migration `1800000010000-RouteCacheFull` trên Aiven** (xóa cache tuyến ROAD cũ). Chi tiết ở [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md) Bước 4 và Bước 5–6.
+
+**Ghi chú bước UI-1 (23/10/2026)**
+- Chuyến hiển thị: IN_TRANSIT, không có thì READY khởi hành sớm nhất. Chuyến READY/IN_TRANSIT khác (nếu có) chỉ hiện một dòng "Còn N chuyến sắp tới: …" dưới header. **Quy tắc "một tài xế một chuyến hoạt động" cần chặn ở Flow 3 (phân công/duyệt kế hoạch)**; UI-1 không sửa Flow 3, cần hỏi người phụ trách Flow 3.
+- Không có chuyến hoạt động: trạng thái trống "Bạn chưa có chuyến được phân công" + nút sang Lịch sử giao hàng.
+- `?view=history`: bảng chuyến DELIVERED (API `driver/trips` hiện chỉ trả READY/IN_TRANSIT/DELIVERED nên chưa có CANCELLED; code đã chịu được nếu sau này API trả), phân trang 10 dòng, lọc bằng ô tìm kiếm trên topbar (mã đơn, khách hàng, tên điểm). Km lấy từ `/map`, số sự cố từ `/incidents`, chỉ gọi cho các dòng đang hiện (tối đa 20 request mỗi trang, trong giới hạn 60/phút của `/map`). "Giao thực tế" = giờ đến thực tế của chặng cuối (— nếu chưa có).
+- `?view=history&trip=ID`: chi tiết chỉ xem, dùng lại thẻ bản đồ nhưng không GPS và không nút hành động.
+- Ô "Xe": xe của chặng đang chạy / chặng đầu / chặng cuối, dạng "{biển số} · {n} chuồng".
+- Bỏ banner "Tất cả các chặng đã hoàn thành" và khung "Cảnh báo từ điều phối viên" khỏi trang; hook `useTripAlerts` và component `DispatcherAlerts` được giữ lại để chuyển thành thông báo nổi.
+- D1b: ba thẻ Chặng tiếp / Tốc độ / Đã chạy nằm ở cột phải ngay dưới "Các chặng" (màn < 1200px về lại dưới bản đồ). Bản đồ fit với lề 80px, nhãn điểm gửi/nhận tự đổi sang bên trái khi chấm sát mép phải; chuyến đã giao (xem lại lịch sử) không hiện marker xe.
+- Bản đồ (mọi nơi dùng `BaseMap`): `projection="mercator"` (Mapbox GL v3 mặc định là globe, kiểm chứng bằng test), `minZoom` 3, góc nhìn mặc định Việt Nam (106,7; 10,8; zoom 6). Góc nhìn do `trackmap/map-view-plan.ts` quyết định: không điểm → Việt Nam; một điểm → zoom 10; nhiều điểm → fit lề 80 px (lề tự co khi khung nhỏ để fitBounds không thất bại); tọa độ hỏng hoặc (0, 0) bị bỏ. Điểm thiếu tọa độ hiện dòng "Điểm X chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm"; `/map` lỗi: giữ góc nhìn Việt Nam + thông báo nhỏ có nút "Thử lại" trong khung.
+- Quyền hộ tống: API ghi mốc/hoàn thành chặng/gửi vị trí/báo sự cố cho mọi người được phân công chuyến (cả DRIVER và ESCORT), không phân biệt `assignment.role`; FE hiện nút Bắt đầu/Check-in/chia sẻ GPS cho cả hai vai trò. Chưa đổi; cần chốt với chủ nghiệp vụ.
+- Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
+
+**Quy ước migration (từ 26/10/2026):** timestamp migration mới của cả nhóm bắt đầu từ **1800000013000** trở lên và không dùng lại số đã có. Sau khi gộp dev vào long, `migration:show` có 4 cặp trùng timestamp giữa các luồng: 1800000007000 (PricingVersions / DriverIncidentDetails), 1800000008000 (ManagerQuotes / HotlineParam), 1800000009000 (VmaxParam / CustomerProfiles) và 1800000010000 (SpecialistAssessments / RouteCacheFull). TypeORM vẫn chạy được vì tên lớp khác nhau và migration độc lập; không đổi tên các migration đã chạy trên Aiven (đổi tên sẽ khiến TypeORM coi là migration mới).
 
 ### 6.2 Bổ sung để không vướng D2
 

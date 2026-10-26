@@ -5,6 +5,7 @@
   --drs-mint: #b2d2d2; --drs-nav-text: #dbf0f0; --drs-bg: #f6faf9; --drs-card: #fff; --drs-line: #d8e6e6;
   --drs-muted: #546d71; --drs-ink: #0d2a2e; --drs-soft: #e7f1f1; --drs-red: #dc2626; --drs-red-bg: #fef2f2;
   --drs-red-soft: #fee2e2; --drs-red-text: #b91c1c; --drs-orange: #ea580c; --drs-yellow: #ca8a04;
+  --drv-map-h: clamp(380px, calc(100svh - 300px), 1000px);
   --drs-green: #166534; --drs-green-bg: #dcfce7; --drs-radius: 12px; --drs-radius-card: 20px;
   /* Màu bản đồ lộ trình (Figma D1/D1b: nền đất, nước, đường, tuyến); đọc bởi trackmap/driver-map-theme.ts */
   --drs-map-land: #e2efe8; --drs-map-water: #c9e3ec; --drs-map-park: #d3e9d9; --drs-map-road: #ffffff; --drs-map-road-major: #fbf8ec;
@@ -60,18 +61,19 @@
 .drs .drs-logout:hover { color: var(--drs-gold) !important; background: rgb(255 255 255 / 8%) !important; }
 
 /* Topbar */
-.drs-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 28px 36px 40px; outline: none; }
-.drs-topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
-.drs-heading { display: grid; gap: 4px; min-width: 0; }
-.drs-breadcrumb { font-size: 13px; color: var(--drs-muted); }
+.drs-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 28px 20px; outline: none; }
+.drs-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px 20px; flex-wrap: wrap; min-height: 44px; }
+.drs-heading { display: grid; gap: 0; min-width: 0; }
+.drs-breadcrumb { font-size: 12px; color: var(--drs-muted); }
 .drs-breadcrumb span { padding: 0 8px; }
-.drs-heading h1 { font-size: 28px; font-weight: 800; line-height: 1.15; letter-spacing: -.56px; }
-.drs-heading > p:last-child { font-size: 15px; color: var(--drs-muted); }
+.drs-heading h1 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.4px; }
+/* Mô tả dưới tiêu đề bỏ để nhường chỗ cho bản đồ (UI-1); vẫn có trong DOM cho trình đọc màn hình. */
+.drs-heading > p:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .drs-tools { display: flex; align-items: center; gap: 12px; }
-.drs .drs-search { width: 260px; height: 44px; padding: 0 14px; border-color: var(--drs-line); border-radius: var(--drs-radius); }
+.drs .drs-search { width: 280px; height: 40px; padding: 0 14px; border-color: var(--drs-line); border-radius: var(--drs-radius); }
 .drs .drs-search .ant-input-prefix { margin-right: 10px; color: var(--drs-muted); font-size: 16px; }
 .drs .drs-tool {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-width: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; min-width: 40px;
   border: 1px solid var(--drs-line); border-radius: var(--drs-radius); background: var(--drs-card); color: var(--drs-ink);
 }
 .drs .drs-tool .anticon { font-size: 18px; }
@@ -80,7 +82,7 @@
 
 @media (max-width: 1100px) {
   .drs-sidebar { width: 220px; }
-  .drs-main { padding: 24px; }
+  .drs-main { padding: 14px 20px 20px; }
   .drs .drs-search { width: 200px; }
 }
 @media (max-width: 860px) {
