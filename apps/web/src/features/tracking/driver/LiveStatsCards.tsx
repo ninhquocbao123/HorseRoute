@@ -3,7 +3,7 @@ import { Tooltip } from 'antd';
 import { ClockCircleOutlined, DashboardOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import type { ILegTracking, ITripMap } from '@my-project/shared';
 import { formatDayTime, formatDuration, formatKm } from './driver-ui';
-import { elapsedSub, nextStopView, tripPhase } from './trip-phase';
+import { elapsedSub, isStopped, nextStopView, tripPhase } from './trip-phase';
 
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
@@ -46,7 +46,7 @@ export default function LiveStatsCards({ legs, map }: { legs: ILegTracking[]; ma
   const phase = tripPhase(legs);
   const next = nextStopView(phase, map);
   const kmToNext = next?.km ?? null;
-  const speed = speedView(map, now);
+  const speed = speedView(map, now, isStopped(phase));
   const departedAt = legs[0]?.actualDepartureAt ? Date.parse(legs[0].actualDepartureAt) : null;
   const arrival = next?.arrivalAt ? new Date(next.arrivalAt) : null;
   const elapsed = elapsedSub(phase, now);
@@ -65,10 +65,12 @@ export default function LiveStatsCards({ legs, map }: { legs: ILegTracking[]; ma
   );
 }
 
-function speedView(map: ITripMap | null, now: number): { value: string; sub: string; tone?: 'muted' | 'warn'; over: boolean } {
+function speedView(map: ITripMap | null, now: number, stopped: boolean): { value: string; sub: string; tone?: 'muted' | 'warn'; over: boolean } {
   const gps = map?.latestPosition;
   const limit = map?.speedLimitKmh ?? null;
   if (!gps) return { value: '—', sub: 'Chưa có tín hiệu GPS', tone: 'muted', over: false };
+  // Xe đang dừng: API bỏ tốc độ của điểm GPS cũ hơn mốc → hiện 0, không giữ con số lúc còn chạy.
+  if (stopped && (gps.speedKmh === null || gps.freshness !== 'LIVE')) return { value: '0 km/h', sub: 'đang dừng', tone: 'muted', over: false };
   if (gps.freshness !== 'LIVE') {
     const minutes = Math.max(1, Math.round((now - Date.parse(gps.recordedAt)) / 60_000));
     return { value: '—', sub: `GPS cũ ${minutes} phút`, tone: 'muted', over: false };

@@ -1,9 +1,9 @@
 // Tạo database demo CỤC BỘ cho Flow 4 (schema + tài khoản đăng nhập được + chuyến mẫu) để thử giao diện.
-// An toàn: chỉ chạy với MySQL trên máy này; từ chối mọi host khác, và chỉ đụng tới database `wdp_flow4_demo`.
+// An toàn: chỉ chạy với MySQL trên máy này; từ chối mọi host khác, và chỉ đụng tới database `wdp_flow4_demo*` (mặc định `wdp_flow4_demo`, đổi bằng DEMO_DB_NAME để có bản riêng).
 //
 //   DEMO_DB_PORT=33062 DEMO_DB_PASSWORD=demo node scripts/seed-flow4-demo.cjs   (xem docs/demo-local.md)
 //
-// Biến môi trường (đều tuỳ chọn): DEMO_DB_HOST (127.0.0.1), DEMO_DB_PORT (3306), DEMO_DB_USER (root), DEMO_DB_PASSWORD.
+// Biến môi trường (đều tuỳ chọn): DEMO_DB_HOST (127.0.0.1), DEMO_DB_PORT (3306), DEMO_DB_USER (root), DEMO_DB_PASSWORD, DEMO_DB_NAME.
 require('reflect-metadata');
 require('ts-node').register({ project: require('path').resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
 const fs = require('fs');
@@ -13,7 +13,8 @@ const bcrypt = require('bcrypt');
 const { DataSource } = require('typeorm');
 const { User } = require('../src/features/users/users.model');
 
-const DB_NAME = 'wdp_flow4_demo';
+const DB_NAME = process.env.DEMO_DB_NAME || 'wdp_flow4_demo';
+if (!/^wdp_flow4_demo\w*$/.test(DB_NAME)) { console.error('DEMO_DB_NAME phải bắt đầu bằng wdp_flow4_demo.'); process.exit(1); }
 const PASSWORD = 'Demo@12345';
 const host = process.env.DEMO_DB_HOST || '127.0.0.1';
 const port = Number(process.env.DEMO_DB_PORT || 3306);
