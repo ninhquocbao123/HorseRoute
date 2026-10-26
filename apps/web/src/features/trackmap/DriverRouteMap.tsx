@@ -151,7 +151,7 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         );
       })}
       {vehicle && (
-        <Marker longitude={vehicle.lng} latitude={vehicle.lat} anchor="center" style={{ zIndex: 2 }}>
+        <Marker longitude={vehicle.lng} latitude={vehicle.lat} anchor="center" className="drm-vehicle-marker">
           <span className={'drm-vehicle' + (vehicle.estimated ? ' is-estimated' : '')} role="img" aria-label={vehicle.label} title={vehicle.label} />
         </Marker>
       )}

@@ -163,8 +163,9 @@ const { pathToFileURL } = require('node:url');
     });
 
     const open = async view => {
-      await page.goto(`http://127.0.0.1:5190/test/portal.html?view=${view}`);
-      await page.waitForLoadState('networkidle');
+      // Lần tải đầu Vite biên dịch hàng trăm module nên có thể quá 30 giây khi máy đang bận: nới hạn để test không lỗi vì thời gian.
+      await page.goto(`http://127.0.0.1:5190/test/portal.html?view=${view}`, { timeout: 120_000 });
+      await page.waitForLoadState('networkidle', { timeout: 120_000 });
     };
     const noOverflow = async label => {
       const { scroll, inner } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
@@ -271,6 +272,7 @@ const { pathToFileURL } = require('node:url');
     await page.locator('.drv-checklist').getByText('Lốp, phanh, đèn đã kiểm tra').click();
     await page.locator('.drv-checklist').getByText('Giấy kiểm dịch mang theo').click();
     await open('trip');
+    await page.locator('.drv-checklist .ant-checkbox-wrapper-checked').first().waitFor(); // chờ trang vẽ xong checklist (networkidle chưa đảm bảo)
     assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper-checked').count(), 2, 'tick còn sau khi tải lại');
     assert.equal(await page.locator('.drv-action').count(), 1, 'chỉ một nút hành động chính');
     await action('Bắt đầu chuyến đi').click();
@@ -417,7 +419,10 @@ const { pathToFileURL } = require('node:url');
     assert.ok(firstBatch.some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
     assert.ok(firstBatch.every(point => /Z$/.test(point.recordedAt)), 'recordedAt dạng UTC ISO');
     await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
-    await page.locator('.drv-gps-controls small', { hasText: /^Đã gửi lúc \d{2}:\d{2}/ }).waitFor();
+    // Lời giải thích dài nằm trong tooltip của biểu tượng (i) ở badge
+    await page.getByLabel('Giải thích chia sẻ vị trí').hover();
+    await page.getByRole('tooltip', { name: 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng.' }).waitFor();
+    await page.mouse.move(5, 5);
 
     // Mất mạng: giữ hàng đợi trong localStorage, badge "Mất mạng – sẽ gửi bù"; tải lại trang thì gửi bù (đã đồng ý nên tự bật lại)
     state.positionsMode = 'offline';
@@ -455,7 +460,7 @@ const { pathToFileURL } = require('node:url');
     const before409 = calls.positions.length;
     await moveTo(10.97, 106.85);
     await runBatch(() => calls.positions.length > before409, 'lô bị từ chối 409');
-    await page.locator('.drv-gps-controls small', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
+    await page.locator('.drv-gps-alert', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
     assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
     assert.equal(await badge().innerText(), 'Chưa bật vị trí');
     const after409 = calls.positions.length;
@@ -502,13 +507,15 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper').count(), 3);
     assert.equal(await page.getByRole('link', { name: 'Gọi điều phối: Điều Phối A' }).getAttribute('href'), 'tel:0903');
     assert.equal(await page.getByRole('link', { name: 'Cứu hộ 24/7: 1900 1080' }).getAttribute('href'), 'tel:19001080');
-    await page.getByText('Mức đỏ sẽ gửi thông báo khẩn ngay tới điều phối viên.').waitFor();
+    const redNotice = page.getByText('Mức nghiêm trọng sẽ gửi thông báo khẩn ngay tới điều phối viên.');
+    assert.equal(await redNotice.count(), 0, 'cảnh báo chỉ hiện khi chọn Nghiêm trọng');
     assert.equal(await page.locator('.drv-reported-list').count(), 0, 'chưa có sự cố nào');
     // Thiếu thông tin: không gửi
     await submitReport();
     await page.getByText('Chọn mức độ sự cố.').waitFor();
     assert.equal(calls.incidents.length, 0);
-    await page.getByRole('radio', { name: /Đỏ · Nghiêm trọng/ }).click();
+    await page.getByRole('radio', { name: /^Nghiêm trọng/ }).click();
+    await redNotice.waitFor();
     await pick('Loại sự cố', 'Hỏng xe · Nổ lốp');
     await page.getByLabel('Mô tả chi tiết').fill('Lốp sau phải nổ khi đang chạy 60 km/h');
     assert.equal(await page.getByLabel('Con ngựa liên quan').count(), 0, 'chỉ hiện ô chọn ngựa khi liên quan tới ngựa');
@@ -529,7 +536,7 @@ const { pathToFileURL } = require('node:url');
     await page.getByText(/Mất kết nối mạng/).waitFor();
     assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), 'Lốp sau phải nổ khi đang chạy 60 km/h');
     assert.equal(await page.getByLabel('Nhãn ảnh 2').inputValue(), 'Toàn xe');
-    assert.equal(await page.getByRole('radio', { name: /Đỏ · Nghiêm trọng/ }).getAttribute('aria-checked'), 'true');
+    assert.equal(await page.getByRole('radio', { name: /^Nghiêm trọng/ }).getAttribute('aria-checked'), 'true');
     // Nháp (trừ ảnh) còn sau khi tải lại
     await open('incident');
     assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), 'Lốp sau phải nổ khi đang chạy 60 km/h', 'nháp còn sau khi tải lại');
@@ -553,9 +560,9 @@ const { pathToFileURL } = require('node:url');
     await page.locator('.drs-sidebar nav button', { hasText: 'Báo cáo sự cố' }).click();
     await heading('Báo cáo sự cố').waitFor();
     assert.equal(await page.getByLabel('Mô tả chi tiết').inputValue(), '', 'nháp đã xóa sau khi gửi');
-    await page.locator('.drv-reported-list .drv-sev-badge', { hasText: 'Đỏ' }).waitFor();
+    await page.locator('.drv-reported-list .drv-sev-tag', { hasText: 'Nghiêm trọng' }).waitFor();
     await page.locator('.drv-reported-list', { hasText: 'Hỏng xe · Nổ lốp' }).waitFor();
-    await page.getByRole('radio', { name: /Cam · Trung bình/ }).click();
+    await page.getByRole('radio', { name: /^Trung bình/ }).click();
     await page.getByLabel('Loại sự cố').fill('thi công');
     await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: 'Tắc đường · Thi công / cấm đường' }).click();
     await page.getByLabel('Vị trí').fill('Km 742 QL1A, Hà Tĩnh');
@@ -691,13 +698,13 @@ const { pathToFileURL } = require('node:url');
     extraIds.push('400');
     await open('trip');
     await page.getByRole('heading', { name: 'WDP-TEST-1' }).waitFor();
-    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-3');
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-3');
     assert.equal(await page.locator('.drv-trip-select, .ant-select').count(), 0, 'không có dropdown chọn chuyến');
     // Không có IN_TRANSIT thì chọn READY khởi hành sớm nhất (WDP-TEST-3 sớm hơn WDP-TEST-1)
     trips[100].orderStatus = 'READY';
     await open('trip');
     await page.getByRole('heading', { name: 'WDP-TEST-3' }).waitFor();
-    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Còn 1 chuyến sắp tới: WDP-TEST-1');
+    assert.equal((await page.locator('.drv-upcoming').innerText()).trim(), 'Chuyến kế tiếp: WDP-TEST-1');
 
     assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');
     console.log('driver.browser: OK');

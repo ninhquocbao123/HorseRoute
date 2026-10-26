@@ -169,15 +169,15 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       )}
 
       {upcoming.length > 0 && (
-        <p className="drv-upcoming" role="note">Còn {upcoming.length} chuyến sắp tới: {upcoming.map(item => item.orderCode).join(', ')}</p>
+        <p className="drv-upcoming" role="note">Chuyến kế tiếp: {upcoming[0].orderCode}{upcoming.length > 1 ? ` (+${upcoming.length - 1})` : ''}</p>
       )}
 
       <div className="drv-columns">
         <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()} />
         <div className="drv-side">
-          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} currentLegId={running ? leg?.id ?? null : null} />
+          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
-          {running && <LiveStatsCards legs={trip.legs} leg={leg} map={map} />}
+          {running && <LiveStatsCards legs={trip.legs} map={map} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
           {running && <EscortNoteCard tripId={trip.id} userId={userId} refreshKey={trip.legs} />}
         </div>

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { Tooltip } from 'antd';
-import { CarOutlined, HeartOutlined, PhoneOutlined, TeamOutlined } from '@ant-design/icons';
+import { UserOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { ORDER_TAG, formatKm, headlineLeg, routeStops, vehicleLabel } from './driver-ui';
+import { HorseIcon, ReceiverIcon, VehicleIcon } from './icons';
 
 const day = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -21,10 +22,10 @@ export default function TripHeaderCard({ trip, detail, actions, totalKm = null }
   const partnerRole = trip.crewRole === 'ESCORT' ? 'DRIVER' : 'ESCORT';
   const partners = detail?.crew.filter(member => member.role === partnerRole).map(member => member.name) ?? [];
   const facts = [
-    { key: 'vehicle', icon: <CarOutlined />, label: 'Xe', value: vehicleLabel(headlineLeg(trip.legs, trip.orderStatus), detail?.vehicles) },
-    { key: 'crew', icon: <TeamOutlined />, label: partnerRole === 'ESCORT' ? 'Hộ tống' : 'Tài xế', value: partners.join(', ') },
-    { key: 'horses', icon: <HeartOutlined />, label: 'Ngựa', value: detail?.horses.map(h => h.name).join(', ') },
-    { key: 'recipient', icon: <PhoneOutlined />, label: 'Người nhận', value: detail?.recipient?.name },
+    { key: 'vehicle', icon: <VehicleIcon />, label: 'Xe', value: vehicleLabel(headlineLeg(trip.legs, trip.orderStatus), detail?.vehicles) },
+    { key: 'crew', icon: <UserOutlined />, label: partnerRole === 'ESCORT' ? 'Hộ tống' : 'Tài xế', value: partners.join(', ') },
+    { key: 'horses', icon: <HorseIcon />, label: 'Ngựa', value: detail?.horses.map(h => h.name).join(', ') },
+    { key: 'recipient', icon: <ReceiverIcon />, label: 'Người nhận', value: detail?.recipient?.name },
   ];
 
   return (

@@ -197,6 +197,39 @@ test('map: GPS beats the estimate while fresh; STALE is labelled; OLD and air le
   assert.equal(air.position.source, 'ESTIMATED', 'air legs never use GPS');
 });
 
+test('map: milestone newer than the last GPS point wins; newer GPS wins; no GPS uses the milestone', () => {
+  const legKm = geo.roundKm(geo.haversineKm(CU_CHI, MOC_BAI));
+  const gps = (minutes, speedMps = '16') => ({ legId: '10', latitude: '11.020000', longitude: '106.350000', accuracyM: 5, speedMps, headingDeg: null, recordedAt: at(minutes) });
+  const stopped = { status: LegStatus.AT_STOP, actualDepartureAt: at(-60), actualArrivalAt: at(-3) };
+
+  // 1. GPS mới hơn mốc đến (xe đã dừng nhưng vẫn gửi GPS): dùng GPS và tốc độ như cũ.
+  const gpsNewer = build([legRow(stopped)], { latest: gps(-1) });
+  assert.equal(gpsNewer.position.source, 'GPS');
+  assert.equal(gpsNewer.latestPosition.speedKmh, 57.6);
+  assert.ok(gpsNewer.remainingKm > 0 && gpsNewer.remainingKm < legKm);
+
+  // 2. Mốc đến mới hơn điểm GPS cuối: vị trí = điểm dừng, còn 0 km, không trả tốc độ cũ.
+  const milestoneNewer = build([legRow(stopped)], { latest: gps(-10) });
+  assert.equal(milestoneNewer.position.source, 'ESTIMATED');
+  assert.deepEqual([milestoneNewer.position.lng, milestoneNewer.position.lat], MOC_BAI);
+  assert.match(milestoneNewer.position.label, /đã đến Mộc Bài lúc \d{2}:\d{2}$/);
+  assert.equal(milestoneNewer.remainingKm, 0);
+  assert.equal(milestoneNewer.latestPosition.speedKmh, null, 'tốc độ của điểm GPS cũ hơn mốc bị bỏ');
+  assert.equal(milestoneNewer.latestPosition.lat, 11.02, 'điểm GPS thô vẫn được trả');
+
+  // 3. Không có GPS: vị trí theo mốc.
+  const noGps = build([legRow(stopped)]);
+  assert.deepEqual([noGps.position.lng, noGps.position.lat], MOC_BAI);
+  assert.equal(noGps.remainingKm, 0);
+  assert.equal(noGps.latestPosition, null);
+
+  // Nhiều chặng: dừng ở cuối chặng 2, km còn lại = chặng 3 (không còn dựa GPS cũ cách điểm dừng hàng chục km).
+  const second = legRow({ id: '11', seqNo: 2, fromId: '2', fromName: 'Mộc Bài', toId: '3', toName: 'Phnom Penh', toLat: '11.560000', toLng: '104.920000', status: LegStatus.NOT_STARTED });
+  const two = build([legRow({ status: LegStatus.COMPLETED, actualDepartureAt: at(-120), actualArrivalAt: at(-90) }), { ...second, status: LegStatus.AT_STOP, actualDepartureAt: at(-80), actualArrivalAt: at(-2), plannedDepartureAt: at(-80), plannedArrivalAt: at(0) }, legRow({ id: '12', seqNo: 3, fromId: '3', fromName: 'Phnom Penh', toId: '4', toName: 'Đích', fromLat: '11.560000', fromLng: '104.920000', toLat: '10.600000', toLng: '103.500000' })], { latest: gps(-20) });
+  assert.equal(two.position.legId, '11');
+  assert.equal(two.remainingKm, two.legs[2].distanceKm);
+});
+
 test('map: missing coordinates produce warnings and null km, never an error', () => {
   const map = build([legRow({ toLat: null, toLng: null })]);
   assert.deepEqual(map.stops[1], { locationId: '2', name: 'Mộc Bài', locationType: 'BORDER', lat: null, lng: null });

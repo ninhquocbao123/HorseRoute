@@ -18,6 +18,7 @@ import { pointAlong, projectOnLine, roundKm, type LngLat } from './trackmap.geo'
 export const LIVE_MS = 2 * 60_000;
 export const STALE_MS = 10 * 60_000;
 const ESTIMATE = 'Ước tính theo kế hoạch, không phải GPS';
+const clock = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
 
 /** Chặng chưa hoàn thành mà đã quá giờ đến dự kiến. */
 export function isLegOverdue(leg: { status: LegStatus; plannedArrivalAt: Date }, now: number): boolean {
@@ -109,7 +110,15 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
     return roundKm(km);
   };
 
-  const latestPosition = toLatestPosition(latest, now);
+  // Mốc mới nhất của chuyến (xuất phát / đến điểm dừng): nếu mới hơn điểm GPS cuối thì GPS đã cũ so với thực tế,
+  // vị trí lấy theo mốc và tốc độ của điểm GPS cũ không còn đúng nữa.
+  const milestoneAt = legs.reduce<number | null>((max, leg) => {
+    const times = [leg.actualDepartureAt, leg.actualArrivalAt].filter((t): t is Date => !!t).map(t => t.getTime());
+    return times.length ? Math.max(max ?? 0, ...times) : max;
+  }, null);
+  const milestoneNewer = milestoneAt !== null && (!latest || milestoneAt > latest.recordedAt.getTime());
+  const rawLatest = toLatestPosition(latest, now);
+  const latestPosition = rawLatest && milestoneNewer ? { ...rawLatest, speedKmh: null } : rawLatest;
   const current = legs.findIndex(leg => leg.status === LegStatus.MOVING || leg.status === LegStatus.AT_STOP);
   let position: ITripMapPosition | null = null;
   let remainingKm: number | null = null;
@@ -122,7 +131,7 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
 
   if (legs.length) {
     const currentLine = current >= 0 ? coordsOf(current) : null;
-    const gpsUsable = current >= 0 && latestPosition && latestPosition.freshness !== 'OLD'
+    const gpsUsable = current >= 0 && !milestoneNewer && latestPosition && latestPosition.freshness !== 'OLD'
       && legs[current].vehicleType !== 'AIRCRAFT_HOLD';
     if (gpsUsable && latestPosition) {
       const point: LngLat = [latestPosition.lng, latestPosition.lat];
@@ -139,7 +148,8 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
     } else if (current >= 0) {
       const leg = legs[current];
       if (currentLine && leg.status === LegStatus.AT_STOP) {
-        at(current, currentLine[currentLine.length - 1], 1, `đang ở ${leg.toName}`);
+        const arrivedAt = leg.actualArrivalAt ?? (milestoneAt !== null ? new Date(milestoneAt) : null);
+        at(current, currentLine[currentLine.length - 1], 1, arrivedAt ? `đã đến ${leg.toName} lúc ${clock.format(arrivedAt)}` : `đang ở ${leg.toName}`);
       } else if (currentLine) {
         const started = (leg.actualDepartureAt ?? leg.plannedDepartureAt).getTime();
         const planned = leg.plannedArrivalAt.getTime() - leg.plannedDepartureAt.getTime();

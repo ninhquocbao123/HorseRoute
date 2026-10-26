@@ -31,7 +31,9 @@
 .drm-label { position: absolute; left: 26px; top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 6px 10px; border-radius: 10px; background: #fff;
   color: #0d2a2e; font-size: 12px; font-weight: 700; box-shadow: 0 10px 22px rgb(18 56 43 / 16%); pointer-events: none; }
 .drm-label.is-left { left: auto; right: 26px; }
+.drm-vehicle-marker { z-index: 5; } /* luôn trên nhãn điểm gửi/nhận (các Marker khác) và không bị chữ địa danh của bản đồ lọt qua */
 .drm-vehicle { display: block; width: 38px; height: 38px; border-radius: 50%; border: 3px solid #fff; background: #0b3b42 center / 18px no-repeat
   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h11v9H3zM14 9h4l3 3v3h-7z'/%3E%3Ccircle cx='7' cy='17' r='2'/%3E%3Ccircle cx='17' cy='17' r='2'/%3E%3C/svg%3E");
-  box-shadow: 0 4px 12px rgb(11 59 66 / 35%); }
-.drm-vehicle.is-estimated { opacity: .55; border-style: dashed; }
+  box-shadow: 0 0 0 2px rgb(11 59 66 / 25%), 0 4px 12px rgb(11 59 66 / 40%); }
+/* Vị trí ước tính: màu nhạt hơn nhưng ĐẶC (không dùng opacity, nếu không chữ của bản đồ lọt qua và lẫn vào marker) */
+.drm-vehicle.is-estimated { background-color: #7fa3a8; border-style: dashed; }
