@@ -1271,3 +1271,32 @@ test('Horse report visibility: trip reads pass the viewer; attachments of drafts
     await assert.rejects(() => fetchAs(customer, photoRow({ horseLogId: null, incidentId: '701' }), { visible: true }), status(404), 'ảnh sự cố không bao giờ mở cho khách');
   });
 });
+
+test('Horse report correction: customer chain stays one version (audience rule) and a second draft cannot correct the same original', async () => {
+  const original = (extra = {}) => ({ id: '9', horseId: '21', tripId: '100', reportStatus: 'SENT', sendToCustomer: true, corrected: false, ...extra });
+  const create = (body, orig) => new TrackingService(reportRepo({ findHorseLog: async () => orig }), undefined, fakeRealtime())
+    .createHorseLog(escort, '10', reportBody({ conditionStatus: 'STABLE', correctsLogId: '9', ...body }));
+  // Gửi ngay: gốc gửi khách mà bản sửa không gửi khách → 400 tiếng Việt; gửi khách thì được; nháp vẫn lưu được
+  await assert.rejects(() => create({ reportStatus: 'SENT', sendToCustomer: false }, original()), e => e.getStatus() === 400 && /phải gửi cho khách hàng/.test(e.message));
+  await create({ reportStatus: 'SENT', sendToCustomer: true }, original());
+  await create({ reportStatus: 'DRAFT', sendToCustomer: false }, original());
+  await create({ reportStatus: 'SENT', sendToCustomer: false }, original({ sendToCustomer: false })); // gốc nội bộ: không ràng buộc
+  await create({ reportStatus: 'SENT', sendToCustomer: false }, original({ reportStatus: null, sendToCustomer: false })); // nhật ký cũ: không ràng buộc
+
+  // Gửi nháp: khóa gốc, kiểm lại audience và việc gốc đã có bản đính chính khác
+  const sendDraft = (orig, body = {}, calls = {}) => new TrackingService(reportRepo({
+    findHorseLog: async (id, lock) => { (calls.lockedIds ||= []).push([id, lock]); return id === '9' ? orig : calls.ctx; },
+  }, calls), undefined, fakeRealtime()).sendHorseReport(escort, '601', body);
+  const draftCalls = () => ({ ctx: reportCtx({ conditionStatus: 'STABLE', correctsLogId: '9', sendToCustomer: true }) });
+  const calls = draftCalls();
+  await sendDraft(original(), {}, calls);
+  assert.deepEqual(calls.lockedIds, [['601', true], ['9', true]], 'khóa nháp rồi khóa bản gốc');
+  await assert.rejects(() => sendDraft(original({ corrected: true }), {}, draftCalls()), e => e.getStatus() === 409 && /đã được đính chính/.test(e.message));
+  await assert.rejects(() => sendDraft(original(), { sendToCustomer: false }, draftCalls()), e => e.getStatus() === 400 && /phải gửi cho khách hàng/.test(e.message));
+  const internalDraft = { ctx: reportCtx({ conditionStatus: 'STABLE', correctsLogId: '9', sendToCustomer: false }) };
+  await assert.rejects(() => sendDraft(original(), {}, internalDraft), e => e.getStatus() === 400);
+  const noNotice = { ...draftCalls(), notified: [] };
+  await assert.rejects(() => sendDraft(original({ corrected: true }), {}, noNotice), status(409));
+  assert.equal(noNotice.notified.length, 0, 'bị chặn thì không thông báo');
+  await sendDraft(original({ reportStatus: null, corrected: true }), {}, draftCalls()); // gốc là nhật ký cũ: giữ luật cũ
+});

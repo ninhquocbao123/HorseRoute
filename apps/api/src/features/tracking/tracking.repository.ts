@@ -451,7 +451,7 @@ export class TrackingRepository {
 
   /**
    * Nhật ký / báo cáo kèm ngữ cảnh đơn và chuyến. `lock` khóa dòng báo cáo (sửa / xóa / gửi) để hai request không gửi đôi.
-   * `corrected` = đã có bản khác đính chính nó.
+   * `corrected` = đã có bản ĐÃ GỬI (hoặc nhật ký cũ) đính chính nó; nháp đính chính chưa tính (hai nháp cùng sửa một bản được phép tồn tại, bản gửi sau bị chặn).
    */
   async findHorseLog(logId: string, lock = false): Promise<{
     id: string;
@@ -469,6 +469,7 @@ export class TrackingRepository {
     customerNote: string | null;
     reportStatus: import('@my-project/shared').HorseReportStatus | null;
     sendToCustomer: boolean;
+    correctsLogId: string | null;
     corrected: boolean;
   } | undefined> {
     const [row] = await this.db.query(
@@ -476,8 +477,8 @@ export class TrackingRepository {
         CAST(l.trip_id AS CHAR) AS tripId, CAST(t.order_id AS CHAR) AS orderId, o.order_code AS orderCode, o.status AS orderStatus,
         CAST(o.customer_id AS CHAR) AS customerId, CAST(t.planned_by AS CHAR) AS plannedBy, CAST(hl.created_by AS CHAR) AS createdBy,
         hl.condition_status AS conditionStatus, hl.customer_note AS customerNote, hl.report_status AS reportStatus,
-        hl.send_to_customer AS sendToCustomer,
-        EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id) AS corrected
+        hl.send_to_customer AS sendToCustomer, CAST(hl.corrects_log_id AS CHAR) AS correctsLogId,
+        EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id AND (c.report_status IS NULL OR c.report_status = 'SENT')) AS corrected
       FROM horse_logs hl
       JOIN legs l ON l.id = hl.leg_id
       JOIN trips t ON t.id = l.trip_id

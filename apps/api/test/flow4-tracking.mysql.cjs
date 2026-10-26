@@ -369,10 +369,34 @@ async function main() {
     assert.deepEqual((await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer })).map(item => item.id), [fix.id], 'bản gốc bị ẩn với khách');
     assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.coordA })).length, 2, 'điều phối vẫn thấy cả chuỗi');
     await expectStatus(409, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STABLE', customerNote: 'x', correctsLogId: draft.id })) });
-    const internal = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STABLE', sendToCustomer: false, customerNote: '', correctsLogId: fix.id })) });
-    assert.equal(internal.sendToCustomer, false);
-    assert.deepEqual((await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer })).map(item => item.id), [fix.id], 'bản sửa chỉ nội bộ không thay thế bản khách đang xem');
-    assert.deepEqual((await q("SELECT recipient_id AS r, event_type AS e FROM notifications WHERE event_type LIKE 'HORSE_REPORT%' ORDER BY id")).map(n => [Number(n.r), n.e]), [[1, 'HORSE_REPORT'], [3, 'HORSE_REPORT_ALERT'], [1, 'HORSE_REPORT']], 'STABLE không báo điều phối, không gửi khách thì không báo khách');
+    // (a) Bản gốc đã gửi khách thì bản đính chính phải gửi khách: gửi ngay với sendToCustomer=false → 400, không để lại dòng
+    const logsBefore = await count('SELECT COUNT(*) AS n FROM horse_logs');
+    const fixBody = extra => reportForm(baseReport({ conditionStatus: 'STABLE', customerNote: 'Cập nhật mới', correctsLogId: fix.id, ...extra }));
+    const refused = await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'SENT', sendToCustomer: false }) });
+    assert.match(JSON.stringify(refused), /phải gửi cho khách hàng/);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logsBefore);
+    // Nháp thì vẫn lưu được; gửi nháp nội bộ để sửa chuỗi khách → nội bộ → khách là không thể
+    const internalDraft = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', sendToCustomer: false }) });
+    const refusedSend = await expectStatus(400, 'POST', `/horse-logs/${internalDraft.id}/send`, { as: ids.escort, body: {} });
+    assert.match(JSON.stringify(refusedSend), /phải gửi cho khách hàng/);
+    assert.equal((await q('SELECT report_status AS s FROM horse_logs WHERE id = ?', [internalDraft.id]))[0].s, 'DRAFT');
+    // (b) Hai nháp cùng đính chính một bản gốc: gửi được một, bản thứ hai 409 và vẫn là nháp
+    const draftOne = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', customerNote: 'Bản thứ nhất' }) });
+    const draftTwo = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', customerNote: 'Bản thứ hai' }) });
+    const notified = await count("SELECT COUNT(*) AS n FROM notifications WHERE event_type = 'HORSE_REPORT'");
+    await expectStatus(200, 'POST', `/horse-logs/${draftTwo.id}/send`, { as: ids.escort, body: {} });
+    const conflict = await expectStatus(409, 'POST', `/horse-logs/${draftOne.id}/send`, { as: ids.escort, body: {} });
+    assert.match(JSON.stringify(conflict), /đã được đính chính/);
+    assert.equal((await q('SELECT report_status AS s FROM horse_logs WHERE id = ?', [draftOne.id]))[0].s, 'DRAFT');
+    assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE event_type = 'HORSE_REPORT'"), notified + 1, 'bản bị chặn không thông báo');
+    await expectStatus(409, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'SENT' }) }); // gốc đã có bản đính chính đã gửi
+    // (c) Khách chỉ thấy đúng một phiên bản của chuỗi (bản mới nhất)
+    const visible = await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer });
+    assert.deepEqual(visible.map(item => item.id), [draftTwo.id], 'khách chỉ thấy bản đính chính mới nhất, không còn bản gốc');
+    assert.equal(visible[0].customerNote, 'Bản thứ hai');
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.coordA })).filter(item => item.horseId === '21').length, 3, 'điều phối vẫn thấy cả chuỗi');
+    for (const id of [draftOne.id, internalDraft.id]) await expectStatus(204, 'DELETE', `/horse-logs/${id}`, { as: ids.escort });
+    assert.deepEqual((await q("SELECT recipient_id AS r, event_type AS e FROM notifications WHERE event_type LIKE 'HORSE_REPORT%' ORDER BY id")).map(n => [Number(n.r), n.e]), [[1, 'HORSE_REPORT'], [3, 'HORSE_REPORT_ALERT'], [1, 'HORSE_REPORT'], [1, 'HORSE_REPORT']], 'STABLE không báo điều phối; mỗi bản gửi khách chỉ báo khách một lần');
 
     // Xóa nháp: xóa dòng, ảnh và tệp; sau đó dọn dữ liệu của check này
     const again = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport(), 2, ['a', 'b']) });

@@ -730,7 +730,7 @@ export class TrackingService {
           throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
         }
         if (input.correctsLogId) {
-          const original = await repo.findHorseLog(input.correctsLogId);
+          const original = await repo.findHorseLog(input.correctsLogId, input.reportStatus === HorseReportStatus.SENT);
           if (!original || original.tripId !== leg.tripId || original.horseId !== input.horseId) {
             throw new BadRequestException('Bản ghi được đính chính phải thuộc cùng chuyến và cùng con ngựa.');
           }
@@ -740,6 +740,8 @@ export class TrackingService {
           if (original.reportStatus && original.corrected) {
             throw new ConflictException('Báo cáo này đã được đính chính; hãy đính chính bản mới nhất.');
           }
+          // Nháp vẫn lưu được; kiểm khi gửi để khách luôn chỉ thấy một phiên bản.
+          if (input.reportStatus === HorseReportStatus.SENT) this.assertCorrectionAudience(original, input.sendToCustomer ?? false);
         }
         const report = input.reportStatus ? {
           reportStatus: input.reportStatus,
@@ -786,6 +788,16 @@ export class TrackingService {
     }
     if (sendToCustomer && !customerNote?.trim()) {
       throw new BadRequestException('Gửi cho khách hàng cần có ghi chú gửi khách (customerNote).');
+    }
+  }
+
+  /**
+   * Báo cáo gốc đã gửi khách thì bản đính chính cũng phải gửi khách, nếu không chuỗi khách → nội bộ → khách làm khách thấy hai phiên bản
+   * (quyết định 6.5: khách chỉ thấy bản mới nhất).
+   */
+  private assertCorrectionAudience(original: { reportStatus: HorseReportStatus | null; sendToCustomer: boolean }, sendToCustomer: boolean) {
+    if (original.reportStatus === HorseReportStatus.SENT && original.sendToCustomer && !sendToCustomer) {
+      throw new BadRequestException('Báo cáo gốc đã gửi cho khách hàng nên bản đính chính cũng phải gửi cho khách hàng (sendToCustomer = true).');
     }
   }
 
@@ -930,6 +942,16 @@ export class TrackingService {
       const sendToCustomer = input.sendToCustomer ?? log.sendToCustomer;
       const photos = (await repo.getLogAttachmentRefs(logId)).length;
       this.assertReportSendable(log.conditionStatus, log.customerNote, sendToCustomer, photos);
+      if (log.correctsLogId) {
+        // Khóa bản gốc rồi kiểm lại: hai nháp cùng đính chính một bản chỉ gửi được một.
+        const original = await repo.findHorseLog(log.correctsLogId, true);
+        if (original) {
+          if (original.reportStatus && original.corrected) {
+            throw new ConflictException('Báo cáo gốc đã được đính chính bởi một bản khác; hãy bỏ nháp này hoặc đính chính bản mới nhất.');
+          }
+          this.assertCorrectionAudience(original, sendToCustomer);
+        }
+      }
       if (!(await repo.markHorseReportSent(logId, sendToCustomer))) throw new ConflictException('Báo cáo không còn là nháp.');
       await repo.audit(String(account.id), 'HORSE_LOG', logId, 'SEND_HORSE_REPORT', null, JSON.stringify({ horseId: log.horseId, sendToCustomer, photos }));
       const logs = await this.loadHorseLogs(repo, log.tripId, String(account.id));

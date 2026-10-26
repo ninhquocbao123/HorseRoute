@@ -75,7 +75,7 @@ export const trackingSchemas = {
     horseId: id, conditionStatus,
     note: { type: 'string', maxLength: 1000, description: 'Ghi chú nội bộ (khách không thấy).' },
     loggedAt: { ...time, description: 'Không ở tương lai.' },
-    correctsLogId: { ...id, description: 'Đính chính một bản ghi/báo cáo đã gửi: cùng chuyến, cùng ngựa; bản đã bị đính chính hoặc đang là nháp: 409/400.' },
+    correctsLogId: { ...id, description: 'Đính chính một bản ghi/báo cáo đã gửi: cùng chuyến, cùng ngựa; bản gốc đang là nháp: 400; bản gốc đã có bản đính chính đã gửi: 409. Bản gốc đã gửi khách thì khi gửi bản đính chính phải `sendToCustomer = true` (400).' },
     reportStatus: { type: 'string', enum: ['DRAFT', 'SENT'], description: 'Không gửi = nhật ký cũ (bất biến). DRAFT = nháp (sửa / xóa / gửi sau). SENT = tạo và gửi ngay.' },
     customerNote: { type: 'string', maxLength: 1000, description: 'Ghi chú gửi khách; bắt buộc khi gửi với `sendToCustomer = true`. Cần `reportStatus`.' },
     bodyTempC: { type: 'number', minimum: 30, maximum: 45, multipleOf: 0.1, description: 'Nhiệt độ cơ thể (°C), 1 chữ số thập phân. Cần `reportStatus`.' },
@@ -395,6 +395,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
   '/api/v1/tracking/legs/{legId}/horse-logs': { post: { ...common, operationId: 'createHorseLog', summary: 'Hộ tống (crew ESCORT của chuyến): thêm nhật ký hoặc báo cáo sức khỏe ngựa (kèm ảnh); tài xế nhận 403', parameters: [legId],
     description: `**Không có \`reportStatus\`** = nhật ký cũ: chỉ thêm mới, bất biến (BR-LOG-01); ghi nhầm thì tạo bản mới với \`correctsLogId\`.
 **Có \`reportStatus\`** = báo cáo sức khỏe: \`DRAFT\` (nháp, sửa / xóa / gửi bằng PATCH, DELETE, POST send) hoặc \`SENT\` (tạo và gửi ngay). Trường báo cáo (\`customerNote\`, \`bodyTempC\`, \`heartRateBpm\`, \`appetite\`, \`sendToCustomer\`) mà thiếu \`reportStatus\`: 400.
+Khi **gửi** (SENT) một bản đính chính của báo cáo đã gửi khách: bắt buộc \`sendToCustomer = true\` (400), để khách luôn chỉ thấy một phiên bản; nháp đính chính thì lưu được.
 Khi **gửi** (SENT): \`OFF_FEED\` / \`STRESSED\` / \`CLIMATE_CHANGE\` bắt buộc ≥ 1 ảnh, \`sendToCustomer = true\` bắt buộc \`customerNote\` (400). Nháp được thiếu cả hai.
 Điều kiện: người gọi là ESCORT được phân công (tài xế 403); đơn **READY** (ghi vào **chặng đầu** của chuyến) hoặc **IN_TRANSIT** (chặng đã xuất phát), còn lại 409; ngựa thuộc đơn (400). Ảnh tối đa 3, JPG/PNG ≤ 5 MB; lỗi thì không để lại tệp mồ côi.
 Gửi: \`sent_at\`, thông báo IN_APP cho khách (\`HORSE_REPORT\`, liên kết đơn) nếu \`sendToCustomer\`, thông báo \`HORSE_REPORT_ALERT\` cho điều phối viên lập chuyến nếu trạng thái bất thường; socket \`tracking:horse_report\` và \`notification:new\` chỉ phát sau khi commit.`,
@@ -410,7 +411,7 @@ Gửi: \`sent_at\`, thông báo IN_APP cho khách (\`HORSE_REPORT\`, liên kết
       responses: { 204: { description: 'Đã xóa nháp.', headers: { 'X-Request-ID': requestIdHeader } }, ...errors([400, 401, 403, 404, 409, 429, 500]) } },
   },
   '/api/v1/tracking/horse-logs/{id}/send': { post: { ...common, operationId: 'sendHorseReport', summary: 'Hộ tống người tạo: gửi nháp báo cáo sức khỏe (DRAFT → SENT)', parameters: [logIdParam],
-    description: 'Cùng luật gửi như `POST /legs/{legId}/horse-logs` với `SENT`: ảnh bắt buộc cho trạng thái bất thường, `customerNote` khi gửi khách (400). Gửi lần hai hoặc bản đã gửi: 409 (không thông báo đôi). Body tùy chọn `{ sendToCustomer }` ghi đè lựa chọn của nháp.',
+    description: 'Cùng luật gửi như `POST /legs/{legId}/horse-logs` với `SENT`: ảnh bắt buộc cho trạng thái bất thường, `customerNote` khi gửi khách (400). Gửi lần hai hoặc bản đã gửi: 409 (không thông báo đôi). Nháp đính chính: khóa bản gốc và kiểm lại; bản gốc đã có bản đính chính khác đã gửi (hai nháp cùng sửa một bản): 409; bản gốc đã gửi khách mà nháp không gửi khách: 400. Body tùy chọn `{ sendToCustomer }` ghi đè lựa chọn của nháp.',
     requestBody: { required: false, content: { 'application/json': { schema: ref('HorseReportSendInput'), example: { sendToCustomer: true } } } },
     responses: { ...ok(200, ref('HorseLog'), sentLog, 'Đã gửi báo cáo.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
   '/api/v1/tracking/orders/{orderId}/horse-reports': { get: { ...common, operationId: 'getCustomerHorseReports', summary: 'Customer: báo cáo sức khỏe ngựa đã gửi cho đơn của mình', parameters: [orderIdParam],
