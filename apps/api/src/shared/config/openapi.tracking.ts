@@ -79,7 +79,7 @@ export const trackingSchemas = {
   }, ['horseId', 'conditionStatus', 'loggedAt']),
   HorseLog: object({
     id, horseId: id, horseName: { type: 'string' }, legId: id, conditionStatus,
-    note: nullable({ type: 'string' }), loggedAt: time, createdBy: id, createdByName: { type: 'string' },
+    note: nullable({ type: 'string' }), loggedAt: time, createdBy: id, createdByName: { type: 'string' }, createdByCrewRole: nullable({ type: 'string', enum: ['DRIVER', 'ESCORT'] }),
     correctsLogId: nullable(id), attachments: { type: 'array', items: ref('LogAttachment') },
   }),
   IncidentFields: object({
@@ -247,7 +247,7 @@ const leg1 = {
   milestones: [{ id: '901', legId: '301', milestoneType: 'DEPARTED', occurredAt: t0, recordedBy: '7', recordedByName: 'Tài xế mẫu' }],
 };
 const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1, caption: 'Khoang ngựa' };
-const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Tài xế mẫu', correctsLogId: null, attachments: [attachment] };
+const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Hộ tống mẫu', createdByCrewRole: 'ESCORT', correctsLogId: null, attachments: [attachment] };
 const tripMap = {
   tripId: '200', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT',
   stops: [
@@ -303,7 +303,7 @@ export const trackingPaths = {
       customer: { name: 'Khách hàng mẫu' }, recipient: { name: 'Người nhận mẫu', phone: '+6560000000' }, coordinator: { name: 'Điều phối mẫu', phone: '0901000003' }, emergencyHotline: '1900 1080',
       vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'TRUCK', capacityStalls: 4 }],
       horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
-  '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Driver/Escort: ghi mốc của chặng', parameters: [legId],
+  '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Tài xế (crew DRIVER của chuyến): ghi mốc của chặng; hộ tống nhận 403', parameters: [legId],
     description: `Quy tắc: tuần tự theo luồng chặng (409 nếu nhảy cóc hoặc trùng mốc); \`occurredAt\` không ở tương lai, nhập bù tối đa T phút, không sớm hơn mốc trước (400).
 - DEPARTED chặng 1: Trip phải APPROVED và Order READY; Order → IN_TRANSIT. Chặng k+1 cần chặng k COMPLETED.
 - CUSTOMS_CLEARED chỉ khi điểm đến là BORDER (400 nếu không).
@@ -311,7 +311,7 @@ export const trackingPaths = {
 Ghi audit và thông báo IN_APP (Coordinator; Customer khi xuất phát, đến trạm, thông quan, giao xong) trong cùng transaction; lỗi rollback toàn bộ.`,
     requestBody: json('MilestoneInput', { milestoneType: 'DEPARTED', occurredAt: t0 }),
     responses: { ...ok(201, ref('MilestoneResult'), { milestoneId: '901', legId: '301', milestoneType: 'DEPARTED', legStatus: 'MOVING', orderStatus: 'IN_TRANSIT' }, 'Đã ghi mốc.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
-  '/api/v1/tracking/legs/{legId}/complete': { post: { ...common, operationId: 'completeIntermediateLeg', summary: 'Driver/Escort: hoàn thành chặng trung gian', parameters: [legId],
+  '/api/v1/tracking/legs/{legId}/complete': { post: { ...common, operationId: 'completeIntermediateLeg', summary: 'Tài xế (crew DRIVER của chuyến): hoàn thành chặng trung gian; hộ tống nhận 403', parameters: [legId],
     description: 'Chặng phải AT_STOP (cửa khẩu cần CUSTOMS_CLEARED). **Không dùng cho chặng cuối** (400): chặng cuối hoàn tất bằng mốc DELIVERED. `occurredAt` theo cùng quy tắc thời gian, không sớm hơn giờ đến trạm.',
     requestBody: json('CompleteLegInput', { occurredAt: t1 }),
     responses: { ...ok(200, ref('LegCompleteResult'), { legId: '301', status: 'COMPLETED' }), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
@@ -321,7 +321,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
     requestBody: json('CorrectLegInput', { status: 'AT_STOP', reason: 'Xe đã tới trạm nhưng tài xế quên báo' }),
     responses: { ...ok(200, ref('LegCorrectResult'), { legId: '301', status: 'AT_STOP', reason: 'Xe đã tới trạm nhưng tài xế quên báo', orderStatus: 'IN_TRANSIT' }), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
 
-  '/api/v1/tracking/legs/{legId}/horse-logs': { post: { ...common, operationId: 'createHorseLog', summary: 'Driver/Escort: thêm nhật ký sức khỏe ngựa (kèm ảnh)', parameters: [legId],
+  '/api/v1/tracking/legs/{legId}/horse-logs': { post: { ...common, operationId: 'createHorseLog', summary: 'Hộ tống (crew ESCORT của chuyến): thêm nhật ký sức khỏe ngựa (kèm ảnh); tài xế nhận 403', parameters: [legId],
     description: `Chỉ thêm mới, **không có API sửa/xóa** (BR-LOG-01); ghi nhầm thì tạo bản ghi mới với \`correctsLogId\` trỏ bản cũ (cùng chuyến, cùng ngựa).
 Điều kiện: người gọi được phân công; Order IN_TRANSIT và chặng đã xuất phát (409); ngựa thuộc đơn (400). Ảnh tối đa 3, JPG/PNG ≤ 5 MB; lỗi thì không để lại tệp mồ côi.`,
     requestBody: multipart('HorseLogFields', { horseId: '21', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1 }),
@@ -368,7 +368,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
 - Không reverse geocode, không lưu địa chỉ từ Mapbox. Giới hạn 60 request/phút/người dùng.`,
     responses: { ...ok(200, ref('TripMap'), tripMap), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/positions': {
-    post: { ...common, operationId: 'recordPositions', summary: 'Driver/Escort: gửi lô vị trí GPS', parameters: [tripId],
+    post: { ...common, operationId: 'recordPositions', summary: 'Tài xế (crew DRIVER của chuyến): gửi lô vị trí GPS; hộ tống nhận 403', parameters: [tripId],
       description: 'Chỉ người được phân công; Order IN_TRANSIT, có chặng MOVING/AT_STOP và không phải chặng bay (409). Lô 1–20 điểm; gửi lại cùng `recordedAt` không tạo bản ghi trùng (`duplicates`). Tự xóa sau TRACK_POSITION_RETENTION_DAYS. Giới hạn 30 request/phút/người dùng.',
       requestBody: json('PositionsInput', { points: [{ latitude: 10.9733, longitude: 106.4933, recordedAt: t1, accuracyM: 12, speedMps: 17.8, headingDeg: 310 }] }),
       responses: { ...ok(201, ref('PositionsResult'), { legId: '301', accepted: 1, duplicates: 0 }, 'Đã nhận vị trí.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } },

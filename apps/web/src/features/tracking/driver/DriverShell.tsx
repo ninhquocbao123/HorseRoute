@@ -115,7 +115,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
       </main>
 
       <Drawer
-        open={bellOpen} onClose={() => setBellOpen(false)} size={520} title="Thông báo" className="drs-notifications"
+        open={bellOpen} onClose={() => { setBellOpen(false); alerts.resume(); }} size={520} title="Thông báo" className="drs-notifications"
         extra={<Button size="small" type="text" icon={<ReloadOutlined />} aria-label="Làm mới thông báo" onClick={panelProps.onRefresh} loading={panelProps.loading} />}
       >
         {alertsListOpen && <OpenAlertsList alerts={alerts.openAlerts} onClose={alerts.close} />}

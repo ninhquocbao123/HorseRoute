@@ -86,6 +86,8 @@ export interface HorseLogRow {
   loggedAt: Date;
   createdBy: string;
   createdByName: string;
+  /** Vai trò trong chuyến của người ghi (trip_assignments.role); null nếu không còn được phân công. */
+  createdByCrewRole?: import('@my-project/shared').CrewRole | null;
   correctsLogId: string | null;
 }
 

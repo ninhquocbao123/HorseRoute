@@ -262,13 +262,24 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
   - Lưu ý: thẻ tổng `inTransit` chỉ đếm chuyến `IN_TRANSIT`, còn `openIncidents` đếm cả sự cố của chuyến `READY`. Hai con số này đúng nghĩa, giữ nguyên.
 - **Thời điểm**: làm được ngay, độc lập với các bước khác.
 
-### 5.5 Nhật ký ngựa → chuyển sang actor Escort (lên kế hoạch sau)
-- **Quyết định**: Nhóm sẽ thêm actor **Escort (hộ tống)** đi cùng tài xế. Escort chuyên quản lý ngựa và cập nhật trạng thái ngựa (nhật ký).
-- **Ảnh hưởng tới màn tài xế**:
-  - Không làm form nhật ký.
-  - [HorseLogForm.tsx](../apps/web/src/features/tracking/driver/HorseLogForm.tsx) giữ nguyên cho tới khi có kế hoạch Escort.
-  - Khi có actor này, thẻ "Ghi chú từ hộ tống" ở D1b sẽ lọc được chính xác. Hiện tại thì chưa (xem mục 3.1).
-- **Thời điểm**: kế hoạch riêng, sau.
+### 5.5 Nhật ký ngựa → thuộc về Hộ tống; chia quyền Tài xế / Hộ tống (26/10/2026)
+- **Quyết định**: chuyến có hai vai trò crew trong `trip_assignments.role` (KHÔNG dùng `users.role`, cả hai đều là `DRIVER_ESCORT`): **DRIVER** lái xe và ghi mốc; **ESCORT** chăm ngựa và ghi nhật ký ngựa. Không migration.
+- **Bảng chia quyền (API, kiểm tra theo `trip_assignments.role` của chuyến)**:
+
+| Thao tác | Tài xế (DRIVER) | Hộ tống (ESCORT) | Không phân công |
+|---|---|---|---|
+| `POST /legs/:id/milestones` (xuất phát, đến trạm, thông quan, giao) | ✅ | ❌ 403 "Chỉ tài xế của chuyến mới được ghi mốc/gửi vị trí." | ❌ 403 |
+| `POST /legs/:id/complete` (hoàn thành chặng trung gian) | ✅ | ❌ 403 (cùng thông điệp) | ❌ 403 |
+| `POST /trips/:id/positions` (GPS) | ✅ | ❌ 403 (cùng thông điệp) | ❌ 404 |
+| `POST /legs/:id/horse-logs` (nhật ký ngựa) | ❌ 403 "Nhật ký ngựa do hộ tống ghi." | ✅ | ❌ 403 |
+| `GET /trips/:id/horse-logs` (đọc) | ✅ | ✅ | 404 |
+| `POST /trips/:id/incidents` (báo sự cố) | ✅ | ✅ | 404 |
+
+- `GET /trips/:id/horse-logs` trả thêm `createdByCrewRole` (DRIVER / ESCORT / null nếu người ghi không còn được phân công) bằng JOIN `trip_assignments` (`IHorseLog` trong shared + OpenAPI).
+- **Màn tài xế**: thẻ "Ghi chú từ hộ tống" lọc nhật ký mới nhất có ghi chú với `createdByCrewRole = ESCORT`. [HorseLogForm.tsx](../apps/web/src/features/tracking/driver/HorseLogForm.tsx) vẫn giữ file nhưng không hiện.
+- **Màn hộ tống (tạm thời, chế độ chỉ xem)**: khi `crewRole = ESCORT` ẩn "Bắt đầu chuyến đi", "Check-in chặng", badge/công tắc GPS (hook GPS không chạy), checklist trước khi chạy và thẻ "Ghi chú từ hộ tống"; có dòng "Bạn là hộ tống của chuyến này — tài xế {tên} ghi mốc chặng."; giữ Báo cáo sự cố, bản đồ, các chặng, thẻ số liệu, cảnh báo/thông báo, lịch sử. **Màn E1/E2 (hộ tống: nhật ký ngựa) sẽ thay chế độ chỉ xem này.**
+- **Form báo sự cố**: loại mặc định theo vai trò — tài xế "Hỏng xe · Khác", hộ tống "Y tế ngựa · Khác" (vẫn đổi được).
+- **Thời điểm**: màn E1/E2 làm sau.
 
 ### 5.6 Giới hạn tốc độ và số cứu hộ → `system_parameters`
 - **Quyết định**:
@@ -436,7 +447,7 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
   - Thẻ "Lộ trình chuyến đi": góc phải "ETA dd/MM HH:mm" (giờ đến dự kiến chặng cuối). Bản đồ vẫn `MapFallback`.
   - [LiveStatsCards.tsx](../apps/web/src/features/tracking/driver/LiveStatsCards.tsx): "Chặng tiếp" (điểm đến chặng hiện tại + giờ dự kiến), "Tốc độ" ("—", "Có ở bước bật GPS"), "Đã chạy" (từ giờ xuất phát thực tế chặng 1; dòng phụ "nghỉ tiếp sau …" hoặc "trễ …" màu cảnh báo). Tự cập nhật mỗi 60 giây.
   - `StopTimeline` 3 trạng thái: ✓ đã qua, 🚚 đang tới (điểm đến của chặng hiện tại), ○ chưa tới.
-  - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú của **người khác** tài khoản đang đăng nhập (5.5: chưa lọc được theo vai trò escort). Không có thì ẩn.
+  - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú do **hộ tống** ghi (`createdByCrewRole = ESCORT`, mục 5.5). Không có thì ẩn.
 - Mốc DELIVERED cuối cùng giữ luồng cũ; xong thì trang quay về "Chuyến vận chuyển", badge "Đã giao xong", thông báo "Tất cả các chặng đã hoàn thành".
 - Còn lệch Figma: không có "Còn … km", badge GPS, tốc độ thật (bước H); ghi chú "Nghỉ đêm" (không có dữ liệu); font và icon như D1; khung "Cảnh báo từ điều phối viên" không có trên Figma.
 

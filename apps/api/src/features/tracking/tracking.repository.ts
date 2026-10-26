@@ -550,11 +550,13 @@ export class TrackingRepository {
         hl.logged_at AS loggedAt,
         CAST(hl.created_by AS CHAR) AS createdBy,
         u.full_name AS createdByName,
+        ta.role AS createdByCrewRole,
         CAST(hl.corrects_log_id AS CHAR) AS correctsLogId
       FROM horse_logs hl
       JOIN legs l ON l.id = hl.leg_id
       JOIN horses h ON h.id = hl.horse_id
       JOIN users u ON u.id = hl.created_by
+      LEFT JOIN trip_assignments ta ON ta.trip_id = l.trip_id AND ta.user_id = hl.created_by
       WHERE l.trip_id = ?
       ORDER BY hl.logged_at ASC, hl.id ASC`,
       [tripId]

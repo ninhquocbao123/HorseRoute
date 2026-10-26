@@ -65,6 +65,8 @@ export interface IHorseLog {
   loggedAt: string; // ISO UTC
   createdBy: string; // userId
   createdByName: string;
+  /** Vai trò trong chuyến của người ghi (DRIVER/ESCORT); null nếu không còn được phân công. */
+  createdByCrewRole: CrewRole | null;
   correctsLogId: string | null; // if this entry corrects an earlier one
   attachments: ILogAttachment[];
 }

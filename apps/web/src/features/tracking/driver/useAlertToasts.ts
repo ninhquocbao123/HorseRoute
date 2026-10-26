@@ -34,6 +34,8 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
   /** Cảnh báo chưa đóng, mới nhất trước (cho danh sách trong drawer). */
   const [openAlerts, setOpenAlerts] = useState<AlertLike[]>([]);
   const shown = useRef<{ id: string; more: number } | null>(null);
+  /** Danh sách đang mở: tạm ẩn thẻ nổi để khỏi che danh sách; đóng danh sách thì hiện lại. */
+  const paused = useRef(false);
   const noticeRef = useRef(notice);
   noticeRef.current = notice;
   const moreRef = useRef(onMore);
@@ -46,6 +48,11 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
     const open = [...queue.current.values()].sort(newest);
     setOpenAlerts([...open].reverse());
     const top = open[open.length - 1];
+    if (paused.current) {
+      if (shown.current) noticeRef.current.dismissAlert(shown.current.id);
+      shown.current = null;
+      return;
+    }
     if (!top) {
       if (shown.current) noticeRef.current.dismissAlert(shown.current.id);
       shown.current = null;
@@ -61,7 +68,12 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
         shown.current = null; // thẻ đã tự đóng: không cần tắt lại
         closeAlert(top.id);
       },
-      onMore: () => moreRef.current(),
+      onMore: () => {
+        paused.current = true;
+        noticeRef.current.dismissAlert(top.id);
+        shown.current = null;
+        moreRef.current();
+      },
     });
   }, [userId]);
 
@@ -102,5 +114,8 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
     void load();
   }, [load]);
 
-  return { load, show, openAlerts, close: closeAlert };
+  /** Đóng danh sách cảnh báo: hiện lại thẻ nổi (cảnh báo chưa đóng mới nhất). */
+  const resume = useCallback(() => { paused.current = false; render(); }, [render]);
+
+  return { load, show, openAlerts, close: closeAlert, resume };
 }

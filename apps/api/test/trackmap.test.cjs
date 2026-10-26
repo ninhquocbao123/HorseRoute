@@ -244,7 +244,7 @@ test('map: missing coordinates produce warnings and null km, never an error', ()
 function mapRepo(overrides = {}, calls = {}) {
   return {
     findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, plannedBy: '3', customerId: '1' }),
-    getDriverAssignment: async (_trip, user) => (user === '6' ? { role: 'DRIVER' } : undefined),
+    getDriverAssignment: async (_trip, user) => (user === '6' ? { role: 'DRIVER' } : user === '8' ? { role: 'ESCORT' } : undefined),
     getTripMapLegs: async () => [legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-60) })],
     getLatestPosition: async () => ({ legId: '10', latitude: '11.02', longitude: '106.35', accuracyM: 5, speedMps: '10', headingDeg: null, recordedAt: at(-1) }),
     getSpeedLimitKmh: async () => 80,
@@ -298,6 +298,7 @@ test('POST positions: validation, assignment, IN_TRANSIT, running non-air leg; d
   await bad({ points: [{ latitude: '11', longitude: 106.35, recordedAt: at(-1).toISOString() }] });
 
   await assert.rejects(() => service.recordPositions({ id: '3', role: Role.COORDINATOR }, '100', { points: [point()] }), e => e.getStatus() === 403);
+  await assert.rejects(() => service.recordPositions({ id: '8', role: Role.DRIVER_ESCORT }, '100', { points: [point()] }), e => e.getStatus() === 403 && /Chỉ tài xế của chuyến/.test(e.message), 'ESCORT không gửi GPS');
   await assert.rejects(() => service.recordPositions({ id: '9', role: Role.DRIVER_ESCORT }, '100', { points: [point()] }), e => e.getStatus() === 404);
   const conflict = repo => assert.rejects(() => new TrackingService(mapRepo(repo)).recordPositions(driver, '100', { points: [point()] }), e => e.getStatus() === 409);
   await conflict({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.READY, plannedBy: '3' }) });

@@ -1,4 +1,4 @@
-import { Role } from '@my-project/shared';
+import { CrewRole, Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { TrackingRepository } from './tracking.repository';
 import {
@@ -175,6 +175,8 @@ function retentionDays() {
 export interface TrackingRealtime {
   emitToUsers(userIds: string[], event: string, payload: unknown): void;
 }
+/** Ghi mốc / hoàn thành chặng / gửi GPS chỉ dành cho crew có vai trò DRIVER trong chuyến (trip_assignments.role). */
+const DRIVER_ONLY = 'Chỉ tài xế của chuyến mới được ghi mốc/gửi vị trí.';
 const realtimeLogger = new Logger('TrackingRealtime');
 
 export class TrackingService {
@@ -314,6 +316,7 @@ export class TrackingService {
       if (!assignment) {
         throw new ForbiddenException('Bạn không được phân công chuyến này.');
       }
+      if (assignment.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
 
       // Check duplicate milestone
       const duplicate = await repo.hasMilestone(legId, input.milestoneType);
@@ -517,6 +520,7 @@ export class TrackingService {
 
       const assignment = await repo.getDriverAssignment(leg.tripId, String(account.id));
       if (!assignment) throw new ForbiddenException('Bạn không được phân công chuyến này.');
+      if (assignment.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
 
       const allLegs = await repo.lockAllTripLegs(leg.tripId);
       if (leg.seqNo === allLegs.length) {
@@ -690,9 +694,9 @@ export class TrackingService {
       return await this.repository.transaction(async repo => {
         const leg = await repo.lockLegForUpdate(legId);
         if (!leg) throw new NotFoundException('Không tìm thấy chặng.');
-        if (!(await repo.getDriverAssignment(leg.tripId, String(account.id)))) {
-          throw new ForbiddenException('Bạn không được phân công chuyến này.');
-        }
+        const assignment = await repo.getDriverAssignment(leg.tripId, String(account.id));
+        if (!assignment) throw new ForbiddenException('Bạn không được phân công chuyến này.');
+        if (assignment.role !== CrewRole.ESCORT) throw new ForbiddenException('Nhật ký ngựa do hộ tống ghi.');
         if (leg.orderStatus !== OrderStatus.IN_TRANSIT || leg.status === LegStatus.NOT_STARTED) {
           throw new ConflictException('Chỉ ghi nhật ký ngựa khi chuyến đang vận chuyển và chặng đã xuất phát.');
         }
@@ -1054,6 +1058,7 @@ export class TrackingService {
       loggedAt: row.loggedAt.toISOString(),
       createdBy: row.createdBy,
       createdByName: row.createdByName,
+      createdByCrewRole: row.createdByCrewRole ?? null,
       correctsLogId: row.correctsLogId,
       attachments: attachments.filter(a => a.horseLogId === row.id).map(toAttachment),
     }));
@@ -1115,6 +1120,7 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(positionsBatchSchema, body);
     const trip = await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
+    if ((await this.repository.getDriverAssignment(tripId, String(account.id)))?.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
     if (trip.orderStatus !== OrderStatus.IN_TRANSIT) {
       throw new ConflictException('Chỉ nhận vị trí khi chuyến đang vận chuyển (IN_TRANSIT).');
     }
