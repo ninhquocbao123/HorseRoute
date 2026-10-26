@@ -30,7 +30,7 @@ Ký hiệu: ✅ đã có, dùng được ngay · ⚠️ có nhưng lệch hoặc
 
 **Phần dùng chung**
 - **Sidebar**: logo "Vận chuyển ngựa", badge "ESCORT · Hộ tống", nhóm "Điều hướng" **2 mục**: *Quản lý ngựa* (icon thức ăn), *Trạng thái ngựa* (icon máy ảnh). Thẻ người dùng ở đáy (tên, "Hộ tống", đăng xuất).
-- **Topbar**: breadcrumb "Hộ tống / …", tiêu đề, mô tả, chuông thông báo, ô ngày. Ô tìm kiếm "Tìm mã đơn, khách hàng…" trên Figma **bỏ** (hộ tống chỉ có một chuyến đang hoạt động, giống quyết định UI-1 của tài xế).
+- **Topbar**: breadcrumb "Hộ tống / …", tiêu đề, mô tả, nút "Báo sự cố" nhỏ (đã chốt 6.7), chuông thông báo, ô ngày. Ô tìm kiếm "Tìm mã đơn, khách hàng…" trên Figma **bỏ** (hộ tống chỉ có một chuyến đang hoạt động, giống quyết định UI-1 của tài xế).
 - **Thông báo nổi + chuông**: dùng lại nguyên bộ UI-2 (cảnh báo điều phối, "+N cảnh báo khác", sự cố được tiếp nhận, `notification:new`).
 
 ---
@@ -71,12 +71,13 @@ Thiết kế dưới đây là **bản đã điều chỉnh** theo quyết đị
 | Nhiệt độ ("37,8 °C") | Số thập phân | Chưa có cột | ❌ `horse_logs.body_temp_c` |
 | Nhịp tim ("38 lần/phút") | Số nguyên | Chưa có cột | ❌ `horse_logs.heart_rate_bpm` |
 | Ăn uống ("Bình thường") | Bình thường / Giảm / Bỏ | Chưa có cột (`condition_status` là tình trạng chung, không thay được) | ❌ `horse_logs.appetite` |
-| Ảnh tình trạng (Toàn thân / Chân & móng / Trong khoang / Chụp ảnh) | Ảnh có nhãn, đi cùng báo cáo | `attachments` có `caption`, `POST horse-logs` nhận `photos` nhưng **chưa nhận `captions`** (sự cố thì có) | ⚠️ |
+| Ảnh tình trạng (Toàn thân / Chân & móng / Trong khoang / Chụp ảnh) | Ảnh có nhãn, đi cùng báo cáo; **bắt buộc ≥ 1 ảnh khi gửi** với `OFF_FEED / STRESSED / CLIMATE_CHANGE` (đã chốt 6.9) | `attachments` có `caption`, `POST horse-logs` nhận `photos` nhưng **chưa nhận `captions`** (sự cố thì có) | ⚠️ |
 | Ghi chú cho khách hàng | Văn bản tối đa 1000 ký tự | `horse_logs.note` hiện là ghi chú nội bộ | ⚠️ thêm `customer_note` riêng (xem 4.1) |
 | Tick "Gửi thông báo đến khách hàng {tên}" | Quyết định có thông báo cho khách không | Chưa có | ❌ `horse_logs.send_to_customer` |
+| "Áp dụng cho tất cả ngựa" (mới, đã chốt 6.4) | Sao chép nội dung form sang từng ngựa còn lại, mỗi ngựa một báo cáo riêng | Chỉ FE (tạo nhiều báo cáo qua `POST /legs/:id/horse-logs`) | ❌ |
 | "Lưu nháp" | Lưu báo cáo chưa gửi, sửa tiếp được | Chưa có (`horse_logs` hiện chỉ thêm mới) | ❌ `report_status = DRAFT` + API sửa nháp |
 | "Gửi báo cáo cho khách hàng" | Gửi ngay tới khách, không duyệt; điều phối luôn thấy | Chưa có | ❌ `report_status = SENT`, `sent_at`, socket + thông báo |
-| Cột "Báo cáo đã gửi hôm nay" | Mỗi báo cáo: tên ngựa, badge trạng thái, ảnh thu nhỏ, giờ, "Khách đã xem" / "Đã gửi". Bản "Lúc lên xe — cả 2 ngựa" trên Figma = một báo cáo cho nhiều ngựa | Chưa có `customer_viewed_at`; chưa có truy vấn theo ngày | ❌. **Quy ước**: mỗi báo cáo ứng với **một ngựa** (không có báo cáo cả đoàn, xem câu hỏi mở 6.4) |
+| Cột "Báo cáo đã gửi hôm nay" | Mỗi báo cáo: tên ngựa, badge trạng thái, ảnh thu nhỏ, giờ, "Khách đã xem" / "Đã gửi". Bản "Lúc lên xe — cả 2 ngựa" trên Figma = một báo cáo cho nhiều ngựa | Chưa có `customer_viewed_at`; chưa có truy vấn theo ngày | ❌. **Quy ước**: mỗi báo cáo ứng với **một ngựa** (không có báo cáo cả đoàn; có nút "Áp dụng cho tất cả ngựa", đã chốt 6.4) |
 | Nhãn "Khách đã xem" | Thời điểm khách mở báo cáo | `horse_logs.customer_viewed_at` + API khách | ❌ |
 
 ### 2.3 E0: Màn trống (hộ tống chưa có chuyến)
@@ -84,7 +85,7 @@ Thiết kế dưới đây là **bản đã điều chỉnh** theo quyết đị
 | Khối UI | Nguồn | TT |
 |---|---|---|
 | "Bạn chưa có chuyến được phân công" + nút "Tải lại" | `GET /tracking/driver/trips` rỗng | ✅ (dùng lại `DriverWorkspace` phần empty state) |
-| Nút "Xem lịch sử giao hàng" của tài xế | Hộ tống chưa có màn lịch sử | ❌ để sau (câu hỏi mở 6.6) |
+| Nút "Xem lịch sử giao hàng" của tài xế | Hộ tống chưa có màn lịch sử | ❌ để sau (đã chốt 6.6) |
 
 ### 2.4 Phần dùng chung
 
@@ -139,7 +140,7 @@ Thiết kế dưới đây là **bản đã điều chỉnh** theo quyết đị
 | `note` dùng chung ý nghĩa | Hiện là ghi chú nội bộ và nguồn của thẻ "Ghi chú từ hộ tống" ở màn tài xế. Ghi chú gửi khách phải tách cột để không lộ ghi chú nội bộ cho khách |
 | Chặn xem ảnh với khách | `getAttachmentFile` chỉ cho Manager/Coordinator/Specialist/Driver; khách nhận 404 |
 | Ops chưa biết báo cáo nháp | `GET /trips/:id/timeline` có `horseLogs`; phải **lọc bỏ nháp** (điều phối chỉ thấy `SENT` và nhật ký cũ) |
-| Quy tắc ghi nhật ký | Chỉ khi `IN_TRANSIT` và chặng đã xuất phát. Hộ tống cần ghi cả lúc chất ngựa (đơn `READY`)? (câu hỏi mở 6.2) |
+| Quy tắc ghi nhật ký | Hiện chỉ khi `IN_TRANSIT` và chặng đã xuất phát. **Đã chốt 6.2**: cho ghi khi `READY` và `IN_TRANSIT`, chặn `DELIVERED` (khi `READY` dùng chặng đầu làm `leg_id`) |
 
 ### 3.2 Frontend
 
@@ -182,6 +183,8 @@ Migration đánh số **từ `1800000013000`** theo quy ước chung (không dù
 
 Chỉ mục: `(report_status, sent_at)` hoặc `(horse_id, report_status, logged_at)` để lấy "báo cáo mới nhất của ngựa". Ràng buộc: `report_status = 'SENT'` thì `sent_at` không null (kiểm ở service, không cần CHECK).
 
+**Cột và ràng buộc chi tiết (Bước 1)**: `body_temp_c DECIMAL(3,1)`, `heart_rate_bpm SMALLINT UNSIGNED`, `appetite ENUM('NORMAL','REDUCED','REFUSED')`, `customer_note VARCHAR(1000)`, `report_status ENUM('DRAFT','SENT')`, `send_to_customer TINYINT(1) NOT NULL DEFAULT 0` (cột duy nhất không nullable, có DEFAULT nên dòng cũ tự bằng 0), `sent_at`, `customer_viewed_at` (`DATETIME`, UTC). CHECK: `ck_horse_logs_temp` (30,0–45,0), `ck_horse_logs_hr` (10–200), `ck_horse_logs_sent` (đã gửi thì có `sent_at`), `ck_horse_logs_viewed` (chỉ `SENT` mới có `customer_viewed_at`). Chỉ mục `idx_horse_logs_report (horse_id, report_status, logged_at)`.
+
 **Quy tắc**: nhật ký cũ (`report_status IS NULL`) và báo cáo `SENT` bất biến; chỉ `DRAFT` được sửa / xóa, và chỉ người tạo. Ảnh dùng `attachments.horse_log_id` + `caption`.
 
 ### 4.2 Bảng mới `horse_care_activities` (ghi nhận hoạt động chăm sóc)
@@ -202,7 +205,7 @@ Chỉ mục: `(report_status, sent_at)` hoặc `(horse_id, report_status, logged
 | `created_at` | `datetime` default `utc_timestamp()` | |
 | `corrects_activity_id` | `bigint unsigned`, null FK chính nó | Đính chính (bảng chỉ thêm mới như `horse_logs`) |
 
-Chỉ mục `(trip_id, performed_at)`, `(horse_id, performed_at)`. Ràng buộc kiểm ở service theo `activity_type` (đúng trường nào bắt buộc, trường kia phải rỗng). **Không** có bảng lịch / mục tiêu (quyết định 1).
+Chỉ mục `(trip_id, performed_at)`, `(horse_id, performed_at)`. Ràng buộc: service kiểm trước để trả 400, DB có CHECK phòng thủ: `ck_care_horse` (chỉ `REST` được `horse_id` NULL), `ck_care_feed`, `ck_care_water` (`amount_liters` 0,1–200 bắt buộc), `ck_care_rest` (`duration_minutes` 1–720 bắt buộc); FK tới `trips`, `legs`, `horses`, `users` và chính bảng (`corrects_activity_id`); `trips.repository.hasHistory` cũng khóa theo bảng này. **Không** có bảng lịch / mục tiêu (quyết định 1).
 
 ### 4.3 Chỉ số "Hôm nay" và "Lần cho ăn gần nhất"
 
@@ -241,7 +244,7 @@ Không lưu, tính khi đọc: lít nước = `SUM(amount_liters)` của `WATER`
 - Phần hiển thị bên khách do Bảo làm; hợp đồng API ở mục 7.7.
 
 ### 5.7 Hộ tống chưa có chuyến
-- Màn trống giống tài xế (E0). Lịch sử: chưa làm (câu hỏi mở 6.6).
+- Màn trống giống tài xế (E0). Lịch sử: chưa làm (đã chốt 6.6).
 
 ### 5.8 Bảng quyền cho API mới
 
@@ -262,18 +265,49 @@ Người không được phân công chuyến: 404 (như các API tracking hiệ
 
 ---
 
-## 6. Câu hỏi mở còn lại
+## 6. Câu hỏi đã chốt (26/10/2026)
 
-1. **Ghi chú trên thẻ "Ghi chú từ hộ tống" của tài xế**: giữ `note` (nội bộ) hay hiện cả `customer_note`? Đề xuất hiện `COALESCE(note, customer_note)` của báo cáo / nhật ký mới nhất do ESCORT ghi.
-2. **Khi nào hộ tống được ghi?** Quy tắc hiện tại: đơn `IN_TRANSIT` và chặng đã xuất phát. Chất ngựa lên xe (đơn `READY`) có cần ghi cho ăn / báo cáo "Lúc lên xe" như mẫu Figma không? Đề xuất cho phép cả `READY` với hoạt động chăm sóc và báo cáo, vẫn chặn khi `DELIVERED`.
-3. **Sửa sai hoạt động chăm sóc**: bảng chỉ thêm mới, sửa bằng bản đính chính (`corrects_activity_id`) giống `horse_logs`. Đồng ý? (hay cho xóa trong 5 phút).
-4. **Báo cáo cho cả đoàn** ("Lúc lên xe · cả 2 ngựa" trên Figma): giữ quy ước 1 báo cáo = 1 ngựa; muốn gửi cả đoàn thì hộ tống tạo từng ngựa (có thể có nút "Áp dụng cho tất cả ngựa" sao chép form). Đồng ý?
-5. **Khách thấy gì khi báo cáo được đính chính**: chỉ bản mới nhất, hay cả chuỗi? Đề xuất chỉ bản mới nhất của mỗi lần đính chính, bản cũ ẩn với khách.
-6. **Hộ tống có cần "Lịch sử giao hàng" không?** Sidebar Figma chỉ 2 mục. Đề xuất bỏ ở đợt này.
-7. **Báo sự cố chung của hộ tống** (hỏng xe, tắc đường): API cho phép, sidebar không có mục. Đề xuất giữ nút "Báo sự cố" nhỏ ở topbar E1 (hoặc trong menu người dùng) bên cạnh "Báo sự cố y tế" trên thẻ ngựa.
-8. **Một tài khoản vừa DRIVER vừa ESCORT ở hai chuyến**: shell theo `crewRole` của **chuyến đang hoạt động**. Chấp nhận hay cần bộ chọn vai trò?
-9. **Ảnh bắt buộc?** Báo cáo gửi khách có cần ít nhất 1 ảnh (Toàn thân) không? Đề xuất: không bắt buộc với "Sức khỏe ổn định", bắt buộc ≥ 1 ảnh với 3 trạng thái còn lại.
-10. **Ngưỡng nhiệt độ / nhịp tim**: có cảnh báo tự động khi ngoài khoảng bình thường (ví dụ nhiệt độ > 38,5 °C) không? Đề xuất chỉ kiểm khoảng hợp lệ để chặn nhập sai, chưa cảnh báo tự động.
+Mỗi mục giữ **đề xuất gốc** và ghi **quyết định** của nhóm.
+
+### 6.1 Thẻ "Ghi chú từ hộ tống" của tài xế
+- **Đề xuất gốc**: giữ `note` (nội bộ) hay hiện cả `customer_note`? Đề xuất hiện `COALESCE(note, customer_note)` của bản ghi mới nhất do ESCORT ghi.
+- **Quyết định**: hiện `COALESCE(note, customer_note)` của nhật ký / báo cáo mới nhất có ghi chú do ESCORT ghi (`createdByCrewRole = ESCORT`). Làm ở Bước 3.
+
+### 6.2 Khi nào hộ tống được ghi
+- **Đề xuất gốc**: hiện chỉ khi đơn `IN_TRANSIT` và chặng đã xuất phát; cho phép cả `READY` (lúc chất ngựa), vẫn chặn `DELIVERED`.
+- **Quyết định**: **cho ghi khi đơn `READY` và `IN_TRANSIT`, chặn `DELIVERED`**, áp cho hoạt động chăm sóc và báo cáo sức khỏe (cả `POST /legs/:id/horse-logs`). Khi `READY` chưa có chặng đã xuất phát nên `leg_id` lấy chặng đầu tiên của chuyến. Làm ở Bước 2/3.
+
+### 6.3 Sửa sai hoạt động chăm sóc
+- **Đề xuất gốc**: bảng chỉ thêm mới, sửa bằng bản đính chính (`corrects_activity_id`) giống `horse_logs`; hay cho xóa trong 5 phút.
+- **Quyết định**: **đính chính bằng `corrects_activity_id`, không xóa.** Danh sách và tổng "Hôm nay" bỏ qua bản gốc đã bị đính chính.
+
+### 6.4 Báo cáo cho cả đoàn
+- **Đề xuất gốc**: 1 báo cáo = 1 ngựa; hộ tống tạo từng ngựa, có thể có nút "Áp dụng cho tất cả ngựa".
+- **Quyết định**: **1 báo cáo = 1 ngựa + nút "Áp dụng cho tất cả ngựa"** trên E2: sao chép nội dung form (trạng thái, ghi chú, ảnh) sang từng ngựa còn lại, mỗi ngựa vẫn là một báo cáo riêng, hộ tống chỉnh số đo (nhiệt độ, nhịp tim) từng con trước khi gửi.
+
+### 6.5 Báo cáo được đính chính, khách thấy gì
+- **Đề xuất gốc**: chỉ bản mới nhất của mỗi lần đính chính, bản cũ ẩn với khách.
+- **Quyết định**: **khách chỉ thấy bản mới nhất.** `GET /orders/:orderId/horse-reports` loại bản gốc đã bị bản `SENT` khác đính chính (`corrects_log_id`). Hộ tống và điều phối vẫn thấy cả chuỗi.
+
+### 6.6 Lịch sử giao hàng của hộ tống
+- **Đề xuất gốc**: bỏ ở đợt này.
+- **Quyết định**: **chưa làm lịch sử hộ tống.** Màn trống E0 chỉ có "Tải lại".
+
+### 6.7 Báo sự cố chung của hộ tống
+- **Đề xuất gốc**: nút "Báo sự cố" nhỏ ở topbar bên cạnh "Báo sự cố y tế" trên thẻ ngựa.
+- **Quyết định**: **nút "Báo sự cố" nhỏ trên topbar E1/E2** (mở form sự cố mặc định "Y tế ngựa · Khác"); nút "Báo sự cố y tế" trên thẻ ngựa / E2 mở cùng form với ngựa chọn sẵn.
+
+### 6.8 Một tài khoản vừa DRIVER vừa ESCORT ở hai chuyến
+- **Đề xuất gốc**: shell theo `crewRole` của chuyến đang hoạt động.
+- **Quyết định**: **shell theo `crewRole` của chuyến đang hoạt động** (chưa có chuyến thì theo chuyến lịch sử gần nhất, mặc định tài xế). Không có bộ chọn vai trò.
+
+### 6.9 Ảnh bắt buộc
+- **Đề xuất gốc**: không bắt buộc với "Sức khỏe ổn định", bắt buộc ≥ 1 ảnh với 3 trạng thái còn lại.
+- **Quyết định**: **bắt buộc ≥ 1 ảnh với `OFF_FEED / STRESSED / CLIMATE_CHANGE`** khi **gửi** (nháp được thiếu ảnh); API trả 400, FE chặn trước.
+
+### 6.10 Ngưỡng nhiệt độ / nhịp tim
+- **Đề xuất gốc**: chỉ kiểm khoảng hợp lệ, chưa cảnh báo tự động.
+- **Quyết định**: **chỉ kiểm khoảng hợp lệ** (nhiệt độ 30,0–45,0 °C, nhịp tim 10–200 lần/phút, kiểm ở service và CHECK ở DB). Không cảnh báo tự động.
 
 ---
 
@@ -289,30 +323,30 @@ Người không được phân công chuyến: 404 (như các API tracking hiệ
 *Phụ thuộc*: không. *Rủi ro*: trùng timestamp migration với nhóm; kiểm `migration:show` và hỏi Bảo trước khi đặt số.
 
 ### Bước 2. API hoạt động chăm sóc (1–1,5 ngày)
-1. `POST /trips/:id/care-activities` (ESCORT, kiểm trường theo loại, giờ như mốc, đính chính) và `GET` (+ `from`, `to`), kèm `summary` tùy chọn.
+1. `POST /trips/:id/care-activities` (ESCORT, đơn `READY` hoặc `IN_TRANSIT`, chặn `DELIVERED`; kiểm trường theo loại, giờ như mốc, đính chính bằng `corrects_activity_id`, không xóa) và `GET` (+ `from`, `to`), kèm `summary` tùy chọn.
 2. Test: unit từng vai trò (DRIVER 403, ESCORT, không phân công 404), flow4 MySQL (ghi, đọc, đính chính, rollback khi lỗi).
 3. Dữ liệu demo: thêm hoạt động chăm sóc vào `seed-flow4-demo`.
 
 *Phụ thuộc*: Bước 1.
 
 ### Bước 3. API báo cáo sức khỏe (2,5–3 ngày)
-1. Mở rộng `POST /legs/:id/horse-logs` (trường mới, `captions`, nháp / gửi); `PATCH`, `DELETE` nháp, `POST /horse-logs/:id/send`.
+1. Mở rộng `POST /legs/:id/horse-logs` (trường mới, `captions`, nháp / gửi; cho `READY` và `IN_TRANSIT`; **gửi** các trạng thái `OFF_FEED / STRESSED / CLIMATE_CHANGE` phải có ≥ 1 ảnh; chỉ kiểm khoảng hợp lệ cho nhiệt độ / nhịp tim); `PATCH`, `DELETE` nháp, `POST /horse-logs/:id/send`.
 2. Gửi khách: `send_to_customer`, `sent_at`, thông báo IN_APP cho khách (`HORSE_REPORT`, liên kết đơn), socket `tracking:horse_report` tới `user:{customerId}`; trạng thái bất thường → thông báo nổi bật cho điều phối (`HORSE_REPORT_ALERT`) + `notification:new`.
-3. Khách: `GET /orders/:orderId/horse-reports`, `POST …/:id/view` (đặt `customer_viewed_at`, socket `tracking:horse_report_viewed` tới hộ tống), mở `GET /attachments/:id` cho ảnh báo cáo đã gửi.
-4. Ops / tài xế: lọc nháp khỏi `timeline.horseLogs` và `GET /trips/:id/horse-logs` (trừ người tạo); thẻ "Ghi chú từ hộ tống" theo mục 6.1.
+3. Khách: `GET /orders/:orderId/horse-reports` (chỉ bản mới nhất của chuỗi đính chính), `POST …/:id/view` (đặt `customer_viewed_at`, socket `tracking:horse_report_viewed` tới hộ tống), mở `GET /attachments/:id` cho ảnh báo cáo đã gửi.
+4. Ops / tài xế: lọc nháp khỏi `timeline.horseLogs` và `GET /trips/:id/horse-logs` (trừ người tạo); thẻ "Ghi chú từ hộ tống" lấy `COALESCE(note, customer_note)` (đã chốt 6.1).
 5. Test: unit + flow4 MySQL (nháp → sửa → gửi, quyền 2 chiều, khách của đơn khác 404, ảnh, thông báo / socket đúng phòng và chỉ sau commit, rollback).
 
 *Phụ thuộc*: Bước 1, 2 (khung test). *Rủi ro*: chạm socket và thông báo của Bảo (chỉ thêm, liệt kê chỗ sửa để báo bạn ấy).
 
 ### Bước 4. Khung hộ tống + E1 (2 ngày)
-1. Tham số hóa `DriverShell` (nav, nhãn vai trò, bỏ tìm kiếm, `heading`), `EscortDashboard`, màn trống E0.
+1. Tham số hóa `DriverShell` (nav, nhãn vai trò, bỏ tìm kiếm, nút "Báo sự cố" nhỏ trên topbar, `heading`; shell theo `crewRole` chuyến đang hoạt động), `EscortDashboard`, màn trống E0.
 2. `CareLogPage`: thẻ ngựa (badge tình trạng, "Lần cho ăn gần nhất"), danh sách hoạt động hôm nay, `QuickLogCard` (ô lượng đổi theo loại, lùi giờ, nháp `useDraft`), thẻ "Hôm nay", nút "Báo sự cố y tế".
 3. Bỏ nhánh chỉ-xem của màn tài xế. Cập nhật test `driver.browser.cjs` (phần hộ tống) và thêm `escort.browser.cjs`.
 
 *Phụ thuộc*: Bước 2.
 
 ### Bước 5. E2 + "Báo sự cố y tế" (2–2,5 ngày)
-1. `HorseReportPage`: chọn ngựa + thời điểm, 4 chip trạng thái, nhiệt độ / nhịp tim / ăn uống, `LabeledPhotoGrid` (nhãn Toàn thân / Chân & móng / Trong khoang), ghi chú cho khách, tick gửi khách, "Lưu nháp" / "Gửi báo cáo".
+1. `HorseReportPage`: chọn ngựa + thời điểm, nút "Áp dụng cho tất cả ngựa", 4 chip trạng thái, nhiệt độ / nhịp tim / ăn uống, `LabeledPhotoGrid` (nhãn Toàn thân / Chân & móng / Trong khoang), ghi chú cho khách, tick gửi khách, "Lưu nháp" / "Gửi báo cáo".
 2. Cột "Báo cáo đã gửi hôm nay" (badge, ảnh thu nhỏ, "Khách đã xem" / "Đã gửi" cập nhật qua socket), mở lại nháp để sửa.
 3. Nút "Báo sự cố y tế" mở `IncidentReportPage` với ngựa và loại chọn sẵn.
 4. Test trình duyệt: gửi / nháp / sửa, 4 trạng thái, quyền, socket "khách đã xem" giả lập.
