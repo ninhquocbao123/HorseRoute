@@ -21,6 +21,9 @@ export function trackingRoutes(service: TrackingService) {
   // Giai đoạn 2: nhật ký ngựa, sự cố, cảnh báo, tệp đính kèm (quyền theo chuyến kiểm tra trong service)
   router.post('/legs/:legId/horse-logs', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createHorseLog);
   router.get('/trips/:tripId/horse-logs', authorize(...internal), controller.horseLogs);
+  // Hoạt động chăm sóc (gap-analysis-escort.md): chỉ hộ tống ghi; đọc cho mọi vai trò nội bộ trong phạm vi chuyến
+  router.post('/trips/:tripId/care-activities', authorize(Role.DRIVER_ESCORT), controller.createCareActivity);
+  router.get('/trips/:tripId/care-activities', authorize(...internal), controller.careActivities);
   router.post('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createIncident);
   router.get('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER), controller.incidents);
   router.patch('/incidents/:id', authorize(Role.COORDINATOR), controller.updateIncident);

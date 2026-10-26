@@ -45,7 +45,7 @@ Token Mapbox của web (`VITE_MAPBOX_TOKEN`) vẫn lấy từ `apps/web/.env` n�
 
 ## 4. Dữ liệu mẫu cho tài xế / hộ tống
 
-- **Đang chạy** `WDP-DEMO-F4-A` (chuyến #200, 3 ngựa): chặng 1 Long An → cửa khẩu Mộc Bài đã xong, chặng 2 Mộc Bài → Phnom Penh đang chạy bằng đường bộ, chặng 3 → Cảng Sihanoukville chưa đi. Có 14 điểm GPS, 2 cảnh báo điều phối (kẹt xe, thời tiết), 1 ghi chú hộ tống, 1 sự cố mức vàng. Hai tài khoản tài xế và hộ tống cùng thấy chuyến này.
+- **Đang chạy** `WDP-DEMO-F4-A` (chuyến #200, 3 ngựa): chặng 1 Long An → cửa khẩu Mộc Bài đã xong, chặng 2 Mộc Bài → Phnom Penh đang chạy bằng đường bộ, chặng 3 → Cảng Sihanoukville chưa đi. Có 14 điểm GPS, 2 cảnh báo điều phối (kẹt xe, thời tiết), 1 ghi chú hộ tống, 1 sự cố mức vàng. Dữ liệu hộ tống (migration `EscortHorseCare`): 7 hoạt động chăm sóc hôm nay do hộ tống ghi (có 1 bản đính chính 80 L → 8 L), 1 báo cáo sức khỏe `SENT` gửi khách (Bỏ ăn, chưa xem) và 1 báo cáo `DRAFT`. Hai tài khoản tài xế và hộ tống cùng thấy chuyến này.
 - **Sắp tới** `WDP-DEMO-F4-NEXT` (chuyến #205, READY): cùng tài xế, nên màn chuyến hiện dòng "Còn 1 chuyến sắp tới".
 - **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng).
 - `WDP-DEMO-F4-B` (tài xế khác, READY) và `WDP-DEMO-F4-C` (kế hoạch chờ duyệt) để thử cô lập quyền.

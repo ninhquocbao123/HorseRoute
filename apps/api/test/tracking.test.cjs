@@ -835,3 +835,159 @@ test('Horse log list carries createdByCrewRole (DRIVER / ESCORT / null)', async 
   const logs = await new TrackingService(stage2Repo({ getTripHorseLogs: async () => rows })).getTripHorseLogs(coordinator, '100');
   assert.deepEqual(logs.map(item => item.createdByCrewRole), ['ESCORT', 'DRIVER', null]);
 });
+
+// ─── Hoạt động chăm sóc (gap-analysis-escort.md Bước 2) ───────────────────────
+function careRepo(overrides = {}, calls = {}) {
+  const rows = [];
+  const repo = stage2Repo({
+    getMaxRetroactiveMinutes: async () => 120,
+    getCurrentLegId: async () => '10',
+    insertCareActivity: async input => { calls.inserted = input; const id = String(800 + rows.length); rows.push({ ...input, id }); return id; },
+    findCareActivity: async id => calls.original && calls.original.id === id ? calls.original : undefined,
+    getCareActivities: async (tripId, range, onlyId) => {
+      calls.query = { tripId, range, onlyId };
+      if (onlyId) return calls.rowFor ? [calls.rowFor(onlyId)] : [];
+      return calls.list ?? [];
+    },
+    getLastFeedByHorse: async tripId => { calls.lastFeedTrip = tripId; return calls.lastFeeds ?? []; },
+    ...overrides,
+  }, calls);
+  return repo;
+}
+const careBody = (overrides = {}) => ({ activityType: 'FEED', horseId: '21', feedDescription: 'Cỏ khô 3 kg', performedAt: new Date().toISOString(), ...overrides });
+const careRow = (overrides = {}) => ({
+  id: '800', tripId: '100', legId: '10', horseId: '21', horseName: 'Bạch Mã', activityType: 'FEED', feedDescription: 'Cỏ khô 3 kg', amountLiters: null,
+  durationMinutes: null, note: null, performedAt: new Date('2026-10-26T05:00:00Z'), createdBy: '6', createdByName: 'Hộ tống', createdAt: new Date('2026-10-26T05:01:00Z'), correctsActivityId: null, ...overrides,
+});
+
+test('Care activity POST: only the ESCORT of the trip; DRIVER 403, stranger 404, other roles 403', async () => {
+  const create = (account, repo = careRepo()) => new TrackingService(repo).createCareActivity(account, '100', careBody());
+  const calls = {};
+  calls.rowFor = id => careRow({ id });
+  const ok = await new TrackingService(careRepo({}, calls)).createCareActivity(escort, '100', careBody());
+  assert.equal(ok.activityType, 'FEED');
+  assert.equal(calls.inserted.createdBy, '6');
+  assert.equal(calls.inserted.legId, '10', 'legId từ chặng đang chạy');
+  assert.ok(calls.audits.some(a => a[1] === 'CARE_ACTIVITY' && a[3] === 'CREATE_CARE_ACTIVITY'), 'audit');
+  await assert.rejects(() => create(driver), e => e.getStatus() === 403 && /hộ tống/.test(e.message));
+  await assert.rejects(() => create({ id: '9', role: Role.DRIVER_ESCORT }, careRepo({ getDriverAssignment: async (_t, id) => (id === '6' ? { role: 'ESCORT' } : undefined) })), e => e.getStatus() === 404);
+  for (const account of [coordinator, { id: '2', role: Role.MANAGER }, { id: '8', role: Role.SPECIALIST }, { id: '1', role: Role.CUSTOMER }]) {
+    await assert.rejects(() => create(account), e => e.getStatus() === 403);
+  }
+});
+
+test('Care activity POST: order status rules (READY and IN_TRANSIT allowed, DELIVERED / others 409) and leg inference', async () => {
+  const withStatus = (status, extra = {}) => careRepo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: status, plannedBy: '3', customerId: '2' }), ...extra }, { rowFor: id => careRow({ id }) });
+  for (const status of [OrderStatus.READY, OrderStatus.IN_TRANSIT]) {
+    assert.ok((await new TrackingService(withStatus(status)).createCareActivity(escort, '100', careBody())).id, status);
+  }
+  for (const status of [OrderStatus.DELIVERED, OrderStatus.PREPARING, OrderStatus.CANCELLED]) {
+    await assert.rejects(() => new TrackingService(withStatus(status)).createCareActivity(escort, '100', careBody()), e => e.getStatus() === 409, status);
+  }
+  const calls = { rowFor: id => careRow({ id }) };
+  await new TrackingService(careRepo({ getCurrentLegId: async () => null }, calls)).createCareActivity(escort, '100', careBody());
+  assert.equal(calls.inserted.legId, null, 'chưa xuất phát: legId null');
+});
+
+test('Care activity POST: fields must match the type; empty means null; ranges and one decimal for liters', async () => {
+  const service = () => new TrackingService(careRepo({}, { rowFor: id => careRow({ id }) }));
+  const bad = body => assert.rejects(() => service().createCareActivity(escort, '100', body), e => e.getStatus() === 400, JSON.stringify(body));
+  const when = new Date().toISOString();
+  // FEED
+  await bad(careBody({ horseId: null }));
+  await bad(careBody({ feedDescription: undefined }));
+  await bad(careBody({ feedDescription: '   ' }));
+  await bad(careBody({ amountLiters: 5 }));
+  await bad(careBody({ durationMinutes: 10 }));
+  // WATER
+  await bad({ activityType: 'WATER', horseId: '21', performedAt: when });
+  await bad({ activityType: 'WATER', horseId: '21', amountLiters: 0.05, performedAt: when });
+  await bad({ activityType: 'WATER', horseId: '21', amountLiters: 201, performedAt: when });
+  await bad({ activityType: 'WATER', horseId: '21', amountLiters: 5.55, performedAt: when });
+  await bad({ activityType: 'WATER', horseId: '21', amountLiters: 5, feedDescription: 'x', performedAt: when });
+  await bad({ activityType: 'WATER', horseId: null, amountLiters: 5, performedAt: when });
+  // REST
+  await bad({ activityType: 'REST', performedAt: when });
+  await bad({ activityType: 'REST', durationMinutes: 0, performedAt: when });
+  await bad({ activityType: 'REST', durationMinutes: 721, performedAt: when });
+  await bad({ activityType: 'REST', durationMinutes: 1.5, performedAt: when });
+  await bad({ activityType: 'REST', durationMinutes: 20, amountLiters: 3, performedAt: when });
+  // chung
+  await bad(careBody({ activityType: 'SLEEP' }));
+  await bad(careBody({ note: 'x'.repeat(256) }));
+  await bad(careBody({ extra: 1 }));
+  await bad(careBody({ performedAt: new Date(Date.now() + 10 * 60_000).toISOString() })); // tương lai
+  await bad(careBody({ performedAt: new Date(Date.now() - 3 * 3600_000).toISOString() })); // quá cửa sổ nhập bù (120 phút)
+  await bad(careBody({ performedAt: '2026-10-26 10:00:00' }));
+  // hợp lệ
+  assert.ok((await service().createCareActivity(escort, '100', { activityType: 'WATER', horseId: '21', amountLiters: 10.5, performedAt: when })).id);
+  assert.ok((await service().createCareActivity(escort, '100', { activityType: 'REST', horseId: null, durationMinutes: 20, note: 'Nghỉ trước cửa khẩu', performedAt: when })).id);
+});
+
+test('Care activity POST: horse must belong to the order; corrections need same trip, horse and type and an uncorrected original', async () => {
+  const calls = { rowFor: id => careRow({ id }) };
+  await assert.rejects(() => new TrackingService(careRepo({ checkHorseBelongsToOrder: async () => false }, calls)).createCareActivity(escort, '100', careBody()), e => e.getStatus() === 400);
+  const original = { id: '700', tripId: '100', horseId: '21', activityType: 'FEED', corrected: false };
+  const correct = (patch, bodyPatch = {}) => new TrackingService(careRepo({}, { ...calls, original: { ...original, ...patch } })).createCareActivity(escort, '100', careBody({ correctsActivityId: '700', ...bodyPatch }));
+  assert.ok((await correct({})).id);
+  await assert.rejects(() => correct({ horseId: '22' }), e => e.getStatus() === 400, 'sai ngựa');
+  await assert.rejects(() => correct({ activityType: 'WATER' }), e => e.getStatus() === 400, 'sai loại');
+  await assert.rejects(() => correct({ tripId: '101' }), e => e.getStatus() === 400, 'sai chuyến');
+  await assert.rejects(() => new TrackingService(careRepo({}, calls)).createCareActivity(escort, '100', careBody({ correctsActivityId: '999' })), e => e.getStatus() === 400, 'không tồn tại');
+  await assert.rejects(() => correct({ corrected: true }), e => e.getStatus() === 409, 'đã bị đính chính');
+  // REST cả đoàn đính chính REST cả đoàn
+  assert.ok((await new TrackingService(careRepo({}, { ...calls, original: { id: '701', tripId: '100', horseId: null, activityType: 'REST', corrected: false } }))
+    .createCareActivity(escort, '100', { activityType: 'REST', horseId: null, durationMinutes: 25, correctsActivityId: '701', performedAt: new Date().toISOString() })).id);
+});
+
+test('Care activity POST: a failing insert or audit rejects the whole request', async () => {
+  const failing = careRepo({ insertCareActivity: async () => { throw new Error('db down'); } }, { rowFor: id => careRow({ id }) });
+  await assert.rejects(() => new TrackingService(failing).createCareActivity(escort, '100', careBody()), /db down/);
+  const noAudit = careRepo({ audit: async () => { throw new Error('audit down'); } }, { rowFor: id => careRow({ id }) });
+  await assert.rejects(() => new TrackingService(noAudit).createCareActivity(escort, '100', careBody()), /audit down/);
+});
+
+test('Care activities GET: roles, scope, range rules, summary and hidden corrected rows', async () => {
+  const at = iso => new Date(iso);
+  const list = [
+    careRow({ id: '806', activityType: 'REST', horseId: null, horseName: null, feedDescription: null, durationMinutes: 20, performedAt: at('2026-10-26T07:00:00Z') }),
+    careRow({ id: '805', activityType: 'WATER', horseId: '22', horseName: 'Hắc Mã', feedDescription: null, amountLiters: '8.5', performedAt: at('2026-10-26T06:30:00Z') }),
+    careRow({ id: '804', activityType: 'FEED', horseId: '21', performedAt: at('2026-10-26T06:00:00Z') }),
+    careRow({ id: '803', activityType: 'FEED', horseId: '21', performedAt: at('2026-10-26T05:00:00Z'), correctsActivityId: '802' }),
+    careRow({ id: '801', activityType: 'FEED', horseId: '22', horseName: 'Hắc Mã', performedAt: at('2026-10-26T04:00:00Z') }),
+    careRow({ id: '800', activityType: 'REST', horseId: null, feedDescription: null, durationMinutes: 15, performedAt: at('2026-10-26T03:00:00Z') }),
+    careRow({ id: '799', activityType: 'WATER', horseId: '21', feedDescription: null, amountLiters: 10, performedAt: at('2026-10-26T02:00:00Z') }),
+  ];
+  // Lần cho ăn gần nhất lấy riêng trên toàn chuyến (kể cả hôm trước, ngoài from/to)
+  const calls = { list, lastFeeds: [{ horseId: '21', performedAt: at('2026-10-26T06:00:00Z') }, { horseId: '22', performedAt: at('2026-10-25T22:00:00Z') }] };
+  const read = (account, query = {}) => new TrackingService(careRepo({}, calls)).getCareActivities(account, '100', query);
+  const result = await read(escort, { from: '2026-10-26T00:00:00.000Z', to: '2026-10-27T00:00:00.000Z' });
+  assert.equal(result.activities.length, 7);
+  assert.equal(result.activities[0].id, '806');
+  assert.equal(result.activities[1].amountLiters, 8.5, 'DECIMAL → number');
+  assert.equal(result.activities[3].correctsActivityId, '802', 'bản đính chính mang correctsActivityId');
+  assert.deepEqual(result.summary, {
+    waterLiters: 18.5, meals: 3, rests: 2, restMinutes: 35,
+    lastFeedAtByHorse: { 21: '2026-10-26T06:00:00.000Z', 22: '2026-10-25T22:00:00.000Z' },
+  });
+  assert.equal(calls.lastFeedTrip, '100', 'truy vấn theo cả chuyến, không truyền from/to');
+  assert.equal(calls.query.range.from.toISOString(), '2026-10-26T00:00:00.000Z');
+  // không có from/to: toàn bộ danh sách, không lọc khoảng
+  await read(escort);
+  assert.equal(calls.query.range, undefined);
+  // vai trò: Driver (crew), Coordinator của chuyến, Manager, Specialist đọc được; Customer 403
+  for (const account of [driver, escort, coordinator, { id: '2', role: Role.MANAGER }, { id: '8', role: Role.SPECIALIST }]) assert.equal((await read(account)).activities.length, 7);
+  await assert.rejects(() => read({ id: '1', role: Role.CUSTOMER }), e => e.getStatus() === 403);
+  await assert.rejects(() => read({ id: '99', role: Role.COORDINATOR }), e => e.getStatus() === 404);
+  await assert.rejects(() => new TrackingService(careRepo({ getDriverAssignment: async () => undefined }, calls)).getCareActivities(driver, '100', {}), e => e.getStatus() === 404);
+  // khoảng thời gian
+  const badRange = query => assert.rejects(() => read(escort, query), e => e.getStatus() === 400, JSON.stringify(query));
+  await badRange({ from: '2026-10-26T00:00:00.000Z' });
+  await badRange({ to: '2026-10-27T00:00:00.000Z' });
+  await badRange({ from: '2026-10-27T00:00:00.000Z', to: '2026-10-26T00:00:00.000Z' });
+  await badRange({ from: '2026-10-26T00:00:00.000Z', to: '2026-10-26T00:00:00.000Z' });
+  await badRange({ from: '2026-10-01T00:00:00.000Z', to: '2026-10-09T00:00:00.000Z' }); // 8 ngày
+  await badRange({ from: 'hôm nay', to: 'mai' });
+  assert.ok((await read(escort, { from: '2026-10-19T00:00:00.000Z', to: '2026-10-26T00:00:00.000Z' })).activities, 'đúng 7 ngày thì được');
+  assert.deepEqual((await new TrackingService(careRepo({}, { list: [] })).getCareActivities(escort, '100', {})).summary, { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} });
+});

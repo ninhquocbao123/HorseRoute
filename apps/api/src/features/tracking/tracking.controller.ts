@@ -30,6 +30,14 @@ export class TrackingController {
     res.status(201).json(await this.service.createHorseLog(req.account, String(req.params.legId), req.body, uploads(req.files)));
   };
 
+  createCareActivity: RequestHandler = async (req, res) => {
+    res.status(201).json(await this.service.createCareActivity(req.account, String(req.params.tripId), req.body));
+  };
+
+  careActivities: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCareActivities(req.account, String(req.params.tripId), req.query));
+  };
+
   horseLogs: RequestHandler = async (req, res) => {
     res.json(await this.service.getTripHorseLogs(req.account, String(req.params.tripId)));
   };
