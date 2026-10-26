@@ -97,6 +97,27 @@ async function main() {
     notifications: await count('SELECT COUNT(*) AS n FROM notifications'),
   });
 
+
+  // ── Báo cáo sức khỏe ngựa: tiện ích dùng cho 3 check (READY / IN_TRANSIT / DELIVERED) ─────────────
+  const reportForm = (fields, photos = 0, captions = []) => {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.set(key, String(value));
+    for (const caption of captions) form.append('captions', caption);
+    for (let index = 0; index < photos; index++) form.append('photos', new Blob([PNG], { type: 'image/png' }), `p${index}.png`);
+    return form;
+  };
+  const baseReport = (extra = {}) => ({ horseId: '21', conditionStatus: 'OFF_FEED', loggedAt: minutesAgo(5), reportStatus: 'DRAFT', customerNote: 'Silver ăn ít khẩu phần trưa', sendToCustomer: true, ...extra });
+  /** Xóa báo cáo (và ảnh, thông báo của chúng) để các check cũ phía sau không bị lệch số liệu. `keepDrafts` giữ nháp. */
+  const purgeReports = async ({ keepDrafts = false } = {}) => {
+    const where = `report_status IS NOT NULL${keepDrafts ? " AND report_status <> 'DRAFT'" : ''}`;
+    const files = await q(`SELECT storage_path AS p FROM attachments WHERE horse_log_id IN (SELECT id FROM horse_logs WHERE ${where})`);
+    await q(`DELETE FROM attachments WHERE horse_log_id IN (SELECT id FROM horse_logs WHERE ${where})`);
+    for (const file of files) fs.rmSync(path.join(storageDir, file.p), { force: true });
+    await q(`UPDATE horse_logs SET corrects_log_id = NULL WHERE ${where}`);
+    await q(`DELETE FROM horse_logs WHERE ${where}`);
+    await q("DELETE FROM notifications WHERE event_type LIKE 'HORSE_REPORT%'");
+  };
+
   await check('Authentication and role gates: anonymous 401, customer cannot read internal trip data, wrong roles 403', async () => {
     await expectStatus(401, 'GET', '/driver/trips');
     await expectStatus(403, 'GET', '/driver/trips', { as: ids.coordA });
@@ -235,6 +256,160 @@ async function main() {
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_care_activities'), rows, 'rollback: không còn dòng hoạt động');
   });
 
+  await check('Health report (order READY): validation, draft → edit → send, visibility, notifications, customer view, correction, rollback', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'READY');
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), 0);
+    const files = stored();
+    // Dữ liệu sai / sai quyền / sai chặng: không để lại dòng hay tệp mồ côi
+    for (const [status, fields, photos, as, url] of [
+      [400, baseReport({ bodyTempC: 50 }), 0, ids.escort], [400, baseReport({ heartRateBpm: 500 }), 0, ids.escort],
+      [400, baseReport({ reportStatus: 'SENT' }), 0, ids.escort], // OFF_FEED gửi thiếu ảnh
+      [400, baseReport({ reportStatus: 'SENT', customerNote: '' }), 1, ids.escort], // gửi khách thiếu ghi chú
+      [400, { horseId: '21', conditionStatus: 'STABLE', loggedAt: minutesAgo(5), customerNote: 'x' }, 0, ids.escort], // trường báo cáo thiếu reportStatus
+      [400, baseReport({ horseId: '23' }), 0, ids.escort],
+      [409, baseReport(), 0, ids.escort, '/legs/11/horse-logs'], // đơn READY chỉ ghi vào chặng đầu
+      [403, baseReport(), 0, ids.driver], [403, baseReport(), 0, ids.driver2], [403, baseReport(), 0, ids.coordA],
+    ]) {
+      await expectStatus(status, 'POST', url ?? '/legs/10/horse-logs', { as, body: reportForm(fields, photos) });
+    }
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), 0);
+    assert.equal(stored(), files, 'ảnh của request bị từ chối không còn trên đĩa');
+
+    // Tạo nháp (1 ảnh có nhãn). Thiếu ảnh / ghi chú vẫn lưu được nháp.
+    const draft = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED', note: 'Nội bộ: theo dõi thêm' }), 1, ['Toàn thân']) });
+    assert.deepEqual([draft.reportStatus, draft.sentAt, draft.sendToCustomer, draft.bodyTempC, draft.heartRateBpm, draft.appetite], ['DRAFT', null, true, 37.8, 38, 'REDUCED']);
+    assert.equal(draft.attachments[0].caption, 'Toàn thân');
+    const lone = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ horseId: '22', conditionStatus: 'STRESSED', customerNote: '' }), 0) });
+    assert.equal(lone.attachments.length, 0);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM notifications WHERE event_type LIKE \'HORSE_REPORT%\''), 0, 'nháp không thông báo');
+
+    // Ai thấy nháp: chỉ người tạo (API đọc, timeline, ảnh)
+    assert.deepEqual((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.escort })).map(item => item.id), [draft.id, lone.id]);
+    for (const as of [ids.driver, ids.coordA, ids.manager, ids.specialist]) {
+      assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as })).length, 0, `nháp ẩn với ${as}`);
+      assert.equal((await expectStatus(200, 'GET', '/trips/100/timeline', { as })).horseLogs.length, 0);
+    }
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/timeline', { as: ids.escort })).horseLogs.length, 2);
+    const draftPhoto = draft.attachments[0].id;
+    assert.equal((await call('GET', `/attachments/${draftPhoto}`, { as: ids.escort })).status, 200);
+    for (const as of [ids.driver, ids.coordA, ids.manager, ids.specialist, ids.customer]) assert.equal((await call('GET', `/attachments/${draftPhoto}`, { as })).status, 404, `ảnh nháp ẩn với ${as}`);
+    assert.deepEqual(await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer }), []);
+
+    // Sửa nháp: đổi nội dung, bỏ ảnh cũ, thêm ảnh mới; quyền và giới hạn
+    const patch = (as, fields, photos = 0, captions = []) => call('PATCH', `/horse-logs/${draft.id}`, { as, body: reportForm(fields, photos, captions) });
+    const edited = { conditionStatus: 'CLIMATE_CHANGE', loggedAt: minutesAgo(4), customerNote: 'Trời nóng, đã bổ sung nước', bodyTempC: 38.2, sendToCustomer: true };
+    assert.equal((await patch(ids.driver, edited)).status, 403);
+    assert.equal((await patch(ids.driver2, edited)).status, 404);
+    assert.equal((await patch(ids.customer, edited)).status, 403);
+    assert.equal((await patch(ids.escort, { ...edited, bodyTempC: 99 })).status, 400);
+    assert.equal((await patch(ids.escort, edited, 3)).status, 400, 'vượt 3 ảnh');
+    assert.equal((await call('PATCH', `/horse-logs/${draft.id}`, { as: ids.escort, body: reportForm({ ...edited, removeAttachmentIds: '99999' }) })).status, 400, 'ảnh không thuộc báo cáo');
+    assert.equal(stored(), files + 1, 'các request lỗi không thêm / xóa tệp');
+    const removeForm = reportForm(edited, 1, ['Chân & móng']);
+    removeForm.append('removeAttachmentIds', draftPhoto);
+    const editedLog = await expectStatus(200, 'PATCH', `/horse-logs/${draft.id}`, { as: ids.escort, body: removeForm });
+    assert.deepEqual([editedLog.conditionStatus, editedLog.bodyTempC, editedLog.heartRateBpm, editedLog.appetite, editedLog.note], ['CLIMATE_CHANGE', 38.2, null, null, null], 'PATCH thay toàn bộ nội dung, trường vắng bị xóa');
+    assert.deepEqual(editedLog.attachments.map(item => item.caption), ['Chân & móng']);
+    assert.equal(stored(), files + 1, 'ảnh cũ bị xóa khỏi đĩa, ảnh mới được lưu');
+    assert.equal((await call('GET', `/attachments/${draftPhoto}`, { as: ids.escort })).status, 404);
+
+    // Gửi: nháp thiếu ảnh 400; thông báo lỗi giữa chừng thì rollback; gửi thành công thông báo đúng người, đúng liên kết
+    await expectStatus(400, 'POST', `/horse-logs/${lone.id}/send`, { as: ids.escort, body: {} });
+    await expectStatus(403, 'POST', `/horse-logs/${draft.id}/send`, { as: ids.driver, body: {} });
+    await expectStatus(404, 'POST', `/horse-logs/${draft.id}/send`, { as: ids.driver2, body: {} });
+    await expectStatus(404, 'POST', '/horse-logs/999999/send', { as: ids.escort, body: {} });
+    const before = await snapshot();
+    await failOn('notifications');
+    try { await expectStatus(500, 'POST', `/horse-logs/${draft.id}/send`, { as: ids.escort, body: {} }); } finally { await clearTrigger(); }
+    assert.deepEqual(await snapshot(), before, 'rollback: không đổi trạng thái, không thông báo, không audit');
+    assert.deepEqual((await q('SELECT report_status AS s, sent_at AS at FROM horse_logs WHERE id = ?', [draft.id]))[0], { s: 'DRAFT', at: null });
+    const sent = await expectStatus(200, 'POST', `/horse-logs/${draft.id}/send`, { as: ids.escort });
+    assert.equal(sent.reportStatus, 'SENT');
+    assert.ok(sent.sentAt);
+    const notices = await q("SELECT recipient_id AS r, event_type AS e, related_type AS t, related_id AS id FROM notifications WHERE event_type LIKE 'HORSE_REPORT%' ORDER BY recipient_id");
+    assert.deepEqual(notices.map(n => [Number(n.r), n.e, n.t, Number(n.id)]), [[1, 'HORSE_REPORT', 'ORDER', 50], [3, 'HORSE_REPORT_ALERT', 'TRIP', 100]]);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'SEND_HORSE_REPORT'"), 1);
+    // Bất biến: gửi lại / sửa / xóa → 409
+    await expectStatus(409, 'POST', `/horse-logs/${draft.id}/send`, { as: ids.escort, body: {} });
+    await expectStatus(409, 'PATCH', `/horse-logs/${draft.id}`, { as: ids.escort, body: reportForm(edited) });
+    await expectStatus(409, 'DELETE', `/horse-logs/${draft.id}`, { as: ids.escort });
+    assert.equal(await count('SELECT COUNT(*) AS n FROM notifications WHERE event_type LIKE \'HORSE_REPORT%\''), 2, 'không thông báo đôi');
+    // Sau khi gửi, mọi người đọc nội bộ đều thấy bản đã gửi; nháp còn lại vẫn ẩn
+    for (const as of [ids.driver, ids.coordA, ids.manager, ids.specialist]) assert.deepEqual((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as })).map(item => item.id), [draft.id]);
+
+    // Khách: đúng JSON hợp đồng, ảnh, đơn người khác 404, vai trò khác 403
+    const reports = await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer });
+    assert.equal(reports.length, 1);
+    const report = reports[0];
+    assert.deepEqual(Object.keys(report).sort(), ['appetite', 'bodyTempC', 'conditionStatus', 'customerNote', 'escortName', 'heartRateBpm', 'horseId', 'horseName', 'id', 'loggedAt', 'photos', 'sentAt', 'viewedAt']);
+    assert.deepEqual([report.id, report.horseName, report.conditionStatus, report.bodyTempC, report.customerNote, report.escortName, report.viewedAt], [draft.id, 'Bạch Mã', 'CLIMATE_CHANGE', 38.2, 'Trời nóng, đã bổ sung nước', 'Hộ Tống', null]);
+    assert.deepEqual(report.photos.map(({ caption, fileType }) => ({ caption, fileType })), [{ caption: 'Chân & móng', fileType: 'PNG' }]);
+    await expectStatus(404, 'GET', '/orders/50/horse-reports', { as: ids.customer2 });
+    for (const as of [ids.escort, ids.driver, ids.coordA, ids.manager]) await expectStatus(403, 'GET', '/orders/50/horse-reports', { as });
+    const photoId = report.photos[0].id;
+    const asCustomer = await call('GET', `/attachments/${photoId}`, { as: ids.customer });
+    assert.equal(asCustomer.status, 200);
+    assert.deepEqual(asCustomer.data, PNG);
+    assert.equal((await call('GET', `/attachments/${photoId}`, { as: ids.customer2 })).status, 404);
+    // Đánh dấu đã xem: idempotent, đơn người khác 404, báo cáo không thuộc đơn 404
+    await expectStatus(404, 'POST', `/orders/50/horse-reports/${draft.id}/view`, { as: ids.customer2 });
+    await expectStatus(404, 'POST', `/orders/50/horse-reports/${lone.id}/view`, { as: ids.customer });
+    await expectStatus(403, 'POST', `/orders/50/horse-reports/${draft.id}/view`, { as: ids.escort });
+    const first = await expectStatus(200, 'POST', `/orders/50/horse-reports/${draft.id}/view`, { as: ids.customer });
+    const second = await expectStatus(200, 'POST', `/orders/50/horse-reports/${draft.id}/view`, { as: ids.customer });
+    assert.ok(first.viewedAt);
+    assert.equal(second.viewedAt, first.viewedAt, 'lần sau giữ nguyên thời điểm đầu');
+    assert.equal((await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer }))[0].viewedAt, first.viewedAt);
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.coordA }))[0].customerViewedAt, first.viewedAt);
+
+    // Đính chính: khách chỉ thấy bản mới nhất; bản đính chính chỉ nội bộ thì khách vẫn thấy bản trước
+    await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STABLE', correctsLogId: lone.id, horseId: '21' })) }); // lone là nháp của ngựa khác
+    const fix = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STABLE', customerNote: 'Đã ổn định lại', correctsLogId: draft.id })) });
+    assert.equal(fix.correctsLogId, draft.id);
+    assert.deepEqual((await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer })).map(item => item.id), [fix.id], 'bản gốc bị ẩn với khách');
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.coordA })).length, 2, 'điều phối vẫn thấy cả chuỗi');
+    await expectStatus(409, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STABLE', customerNote: 'x', correctsLogId: draft.id })) });
+    // (a) Bản gốc đã gửi khách thì bản đính chính phải gửi khách: gửi ngay với sendToCustomer=false → 400, không để lại dòng
+    const logsBefore = await count('SELECT COUNT(*) AS n FROM horse_logs');
+    const fixBody = extra => reportForm(baseReport({ conditionStatus: 'STABLE', customerNote: 'Cập nhật mới', correctsLogId: fix.id, ...extra }));
+    const refused = await expectStatus(400, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'SENT', sendToCustomer: false }) });
+    assert.match(JSON.stringify(refused), /phải gửi cho khách hàng/);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logsBefore);
+    // Nháp thì vẫn lưu được; gửi nháp nội bộ để sửa chuỗi khách → nội bộ → khách là không thể
+    const internalDraft = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', sendToCustomer: false }) });
+    const refusedSend = await expectStatus(400, 'POST', `/horse-logs/${internalDraft.id}/send`, { as: ids.escort, body: {} });
+    assert.match(JSON.stringify(refusedSend), /phải gửi cho khách hàng/);
+    assert.equal((await q('SELECT report_status AS s FROM horse_logs WHERE id = ?', [internalDraft.id]))[0].s, 'DRAFT');
+    // (b) Hai nháp cùng đính chính một bản gốc: gửi được một, bản thứ hai 409 và vẫn là nháp
+    const draftOne = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', customerNote: 'Bản thứ nhất' }) });
+    const draftTwo = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'DRAFT', customerNote: 'Bản thứ hai' }) });
+    const notified = await count("SELECT COUNT(*) AS n FROM notifications WHERE event_type = 'HORSE_REPORT'");
+    await expectStatus(200, 'POST', `/horse-logs/${draftTwo.id}/send`, { as: ids.escort, body: {} });
+    const conflict = await expectStatus(409, 'POST', `/horse-logs/${draftOne.id}/send`, { as: ids.escort, body: {} });
+    assert.match(JSON.stringify(conflict), /đã được đính chính/);
+    assert.equal((await q('SELECT report_status AS s FROM horse_logs WHERE id = ?', [draftOne.id]))[0].s, 'DRAFT');
+    assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE event_type = 'HORSE_REPORT'"), notified + 1, 'bản bị chặn không thông báo');
+    await expectStatus(409, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: fixBody({ reportStatus: 'SENT' }) }); // gốc đã có bản đính chính đã gửi
+    // (c) Khách chỉ thấy đúng một phiên bản của chuỗi (bản mới nhất)
+    const visible = await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer });
+    assert.deepEqual(visible.map(item => item.id), [draftTwo.id], 'khách chỉ thấy bản đính chính mới nhất, không còn bản gốc');
+    assert.equal(visible[0].customerNote, 'Bản thứ hai');
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/horse-logs', { as: ids.coordA })).filter(item => item.horseId === '21').length, 3, 'điều phối vẫn thấy cả chuỗi');
+    for (const id of [draftOne.id, internalDraft.id]) await expectStatus(204, 'DELETE', `/horse-logs/${id}`, { as: ids.escort });
+    assert.deepEqual((await q("SELECT recipient_id AS r, event_type AS e FROM notifications WHERE event_type LIKE 'HORSE_REPORT%' ORDER BY id")).map(n => [Number(n.r), n.e]), [[1, 'HORSE_REPORT'], [3, 'HORSE_REPORT_ALERT'], [1, 'HORSE_REPORT'], [1, 'HORSE_REPORT']], 'STABLE không báo điều phối; mỗi bản gửi khách chỉ báo khách một lần');
+
+    // Xóa nháp: xóa dòng, ảnh và tệp; sau đó dọn dữ liệu của check này
+    const again = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport(), 2, ['a', 'b']) });
+    const withFiles = stored();
+    await expectStatus(403, 'DELETE', `/horse-logs/${again.id}`, { as: ids.driver });
+    await expectStatus(204, 'DELETE', `/horse-logs/${again.id}`, { as: ids.escort });
+    assert.equal(stored(), withFiles - 2);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs WHERE id = ?', [again.id]), 0);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM attachments WHERE horse_log_id = ?', [again.id]), 0);
+    await purgeReports();
+    assert.equal(stored(), files);
+  });
+
   await check('Retroactive window T comes from system_parameters.LEG_BACK', async () => {
     await q("INSERT INTO system_parameters(param_code,param_value,description) VALUES ('LEG_BACK','30','test')");
     assert.equal((await depart(minutesAgo(45))).status, 400);
@@ -324,7 +499,7 @@ async function main() {
     assert.equal((await call('GET', `/attachments/${attachmentId}`, { as: ids.coordA })).status, 200);
     assert.equal((await call('GET', `/attachments/${attachmentId}`, { as: ids.coordB })).status, 404);
     assert.equal((await call('GET', `/attachments/${attachmentId}`, { as: ids.driver2 })).status, 404);
-    assert.equal((await call('GET', `/attachments/${attachmentId}`, { as: ids.customer })).status, 403);
+    assert.equal((await call('GET', `/attachments/${attachmentId}`, { as: ids.customer })).status, 404, 'khách mở route ảnh nhưng ảnh nhật ký cũ không phải của họ');
 
     // Correction points to the original, same horse and trip; the log itself is immutable (no PUT/PATCH/DELETE).
     const corrected = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: { horseId: '21', conditionStatus: 'STABLE', loggedAt: minutesAgo(2), correctsLogId: created.id } });
@@ -356,6 +531,25 @@ async function main() {
     } finally { await clearTrigger(); }
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logs);
     assert.equal(stored(), files, 'no orphan file after rollback');
+  });
+
+  await check('Health report (order IN_TRANSIT): only a started leg; sent report reaches the customer; one draft is kept for the DELIVERED check', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'IN_TRANSIT');
+    const legStatus = id => q('SELECT status FROM legs WHERE id = ?', [id]).then(rows => rows[0].status);
+    assert.equal(await legStatus(11), 'NOT_STARTED');
+    await expectStatus(409, 'POST', '/legs/11/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'DRAFT' })) });
+    const sent = await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'SENT', conditionStatus: 'STRESSED' }), 1, ['Trong khoang']) });
+    assert.equal(sent.reportStatus, 'SENT');
+    const reports = await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer });
+    assert.deepEqual(reports.map(item => item.id), [sent.id], 'nhật ký cũ không lẫn vào danh sách của khách');
+    assert.deepEqual((await q("SELECT recipient_id AS r, event_type AS e FROM notifications WHERE event_type LIKE 'HORSE_REPORT%' ORDER BY recipient_id")).map(n => [Number(n.r), n.e]), [[1, 'HORSE_REPORT'], [3, 'HORSE_REPORT_ALERT']]);
+    assert.equal((await call('GET', `/attachments/${reports[0].photos[0].id}`, { as: ids.customer })).status, 200);
+    // Ảnh của nhật ký cũ / sự cố không bao giờ mở cho khách
+    const legacyPhoto = (await q("SELECT a.id FROM attachments a JOIN horse_logs h ON h.id = a.horse_log_id WHERE h.report_status IS NULL LIMIT 1"))[0].id;
+    assert.equal((await call('GET', `/attachments/${legacyPhoto}`, { as: ids.customer })).status, 404);
+    await purgeReports();
+    await expectStatus(201, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ conditionStatus: 'STABLE' }), 1, ['Toàn thân']) });
+    assert.equal(await count("SELECT COUNT(*) AS n FROM horse_logs WHERE report_status = 'DRAFT'"), 1);
   });
 
   await check('Incident: HORSE_MEDICAL is HIGH and notifies managers and the trip coordinator; dashboard counts open incidents', async () => {
@@ -562,6 +756,19 @@ async function main() {
     await expectStatus(409, 'POST', '/trips/100/care-activities', { as: ids.escort, body: { activityType: 'FEED', horseId: '21', feedDescription: 'Sau khi giao', performedAt: minutesAgo(1) } });
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_care_activities'), before);
     assert.ok((await expectStatus(200, 'GET', '/trips/100/care-activities', { as: ids.escort })).activities.length > 0);
+  });
+
+  await check('Health report (order DELIVERED): writing and sending are blocked, a leftover draft can still be deleted', async () => {
+    assert.equal((await q("SELECT status FROM orders WHERE id=50"))[0].status, 'DELIVERED');
+    const draft = (await q("SELECT CAST(id AS CHAR) AS id FROM horse_logs WHERE report_status = 'DRAFT'"))[0].id;
+    await expectStatus(409, 'POST', '/legs/10/horse-logs', { as: ids.escort, body: reportForm(baseReport({ reportStatus: 'DRAFT' })) });
+    await expectStatus(409, 'PATCH', `/horse-logs/${draft}`, { as: ids.escort, body: reportForm({ conditionStatus: 'STABLE', loggedAt: minutesAgo(1) }) });
+    await expectStatus(409, 'POST', `/horse-logs/${draft}/send`, { as: ids.escort, body: {} });
+    assert.deepEqual(await expectStatus(200, 'GET', '/orders/50/horse-reports', { as: ids.customer }), [], 'khách vẫn đọc được (rỗng vì chưa có bản gửi)');
+    const files = stored();
+    await expectStatus(204, 'DELETE', `/horse-logs/${draft}`, { as: ids.escort });
+    assert.equal(stored(), files - 1);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs WHERE report_status IS NOT NULL'), 0);
   });
 
   await check('Correction: reason required, ownership, sequence rules; milestones and order stay consistent with audit trail', async () => {

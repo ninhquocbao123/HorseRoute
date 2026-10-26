@@ -9,6 +9,23 @@ import type { LngLat } from './trackmap.geo';
 
 const coordinate = (value: unknown) => value === null || value === undefined ? null : Number(value);
 
+/** Cột báo cáo sức khỏe khi tạo mới. */
+export interface HorseReportColumns {
+  reportStatus: import('@my-project/shared').HorseReportStatus;
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  sendToCustomer: boolean;
+}
+
+/** Nội dung chỉnh được của nháp. */
+export interface HorseReportEditable extends Omit<HorseReportColumns, 'reportStatus'> {
+  conditionStatus: import('@my-project/shared').HorseConditionStatus;
+  note: string | null;
+  loggedAt: string;
+}
+
 export class TrackingRepository {
   constructor(private readonly db: DataSource | EntityManager) {}
 
@@ -394,12 +411,14 @@ export class TrackingRepository {
     return rows.filter((row: { recipientId: string }) => (seen.has(row.recipientId) ? false : (seen.add(row.recipientId), true)));
   }
 
-  async notify(recipientId: string, eventType: string, content: string, relatedType: string, relatedId: string): Promise<void> {
-    await this.db.query(
+  /** Tạo thông báo IN_APP; trả mã để đẩy `notification:new` sau khi commit. */
+  async notify(recipientId: string, eventType: string, content: string, relatedType: string, relatedId: string): Promise<string> {
+    const result = await this.db.query(
       `INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel)
       VALUES (?, ?, ?, ?, ?, 'IN_APP')`,
       [recipientId, eventType, content, relatedType, relatedId]
     );
+    return String(result?.insertId ?? '');
   }
 
   async notifyStakeholders(tripId: string, orderId: string, eventType: string, content: string): Promise<void> {
@@ -430,14 +449,45 @@ export class TrackingRepository {
     return rows.length > 0;
   }
 
-  async findHorseLog(logId: string): Promise<{ id: string; horseId: string; legId: string; tripId: string } | undefined> {
+  /**
+   * Nhật ký / báo cáo kèm ngữ cảnh đơn và chuyến. `lock` khóa dòng báo cáo (sửa / xóa / gửi) để hai request không gửi đôi.
+   * `corrected` = đã có bản ĐÃ GỬI (hoặc nhật ký cũ) đính chính nó; nháp đính chính chưa tính (hai nháp cùng sửa một bản được phép tồn tại, bản gửi sau bị chặn).
+   */
+  async findHorseLog(logId: string, lock = false): Promise<{
+    id: string;
+    horseId: string;
+    horseName: string;
+    legId: string;
+    tripId: string;
+    orderId: string;
+    orderCode: string;
+    orderStatus: OrderStatus;
+    customerId: string;
+    plannedBy: string;
+    createdBy: string;
+    conditionStatus: import('@my-project/shared').HorseConditionStatus;
+    customerNote: string | null;
+    reportStatus: import('@my-project/shared').HorseReportStatus | null;
+    sendToCustomer: boolean;
+    correctsLogId: string | null;
+    corrected: boolean;
+  } | undefined> {
     const [row] = await this.db.query(
-      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, CAST(hl.leg_id AS CHAR) AS legId,
-        CAST(l.trip_id AS CHAR) AS tripId
-      FROM horse_logs hl JOIN legs l ON l.id = hl.leg_id WHERE hl.id = ?`,
+      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, h.name AS horseName, CAST(hl.leg_id AS CHAR) AS legId,
+        CAST(l.trip_id AS CHAR) AS tripId, CAST(t.order_id AS CHAR) AS orderId, o.order_code AS orderCode, o.status AS orderStatus,
+        CAST(o.customer_id AS CHAR) AS customerId, CAST(t.planned_by AS CHAR) AS plannedBy, CAST(hl.created_by AS CHAR) AS createdBy,
+        hl.condition_status AS conditionStatus, hl.customer_note AS customerNote, hl.report_status AS reportStatus,
+        hl.send_to_customer AS sendToCustomer, CAST(hl.corrects_log_id AS CHAR) AS correctsLogId,
+        EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id AND (c.report_status IS NULL OR c.report_status = 'SENT')) AS corrected
+      FROM horse_logs hl
+      JOIN legs l ON l.id = hl.leg_id
+      JOIN trips t ON t.id = l.trip_id
+      JOIN orders o ON o.id = t.order_id
+      JOIN horses h ON h.id = hl.horse_id
+      WHERE hl.id = ?${lock ? ' FOR UPDATE OF hl' : ''}`,
       [logId]
     );
-    return row;
+    return row ? { ...row, sendToCustomer: Boolean(Number(row.sendToCustomer)), corrected: Boolean(Number(row.corrected)) } : undefined;
   }
 
   async legBelongsToTrip(legId: string, tripId: string): Promise<boolean> {
@@ -453,11 +503,15 @@ export class TrackingRepository {
     tripId: string;
     horseLogId: string | null;
     incidentId: string | null;
+    /** Chỉ có với ảnh của nhật ký ngựa: trạng thái báo cáo và người tạo (ảnh nháp chỉ người tạo xem được). */
+    reportStatus?: string | null;
+    logCreatedBy?: string | null;
   } | undefined> {
     const [row] = await this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id, a.original_name AS originalName, a.file_type AS fileType,
         a.storage_path AS storagePath, CAST(COALESCE(l.trip_id, i.trip_id) AS CHAR) AS tripId,
-        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId
+        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId,
+        h.report_status AS reportStatus, CAST(h.created_by AS CHAR) AS logCreatedBy
       FROM attachments a
       LEFT JOIN horse_logs h ON h.id = a.horse_log_id
       LEFT JOIN legs l ON l.id = h.leg_id
@@ -530,17 +584,112 @@ export class TrackingRepository {
     note: string | null,
     loggedAt: string,
     createdBy: string,
-    correctsLogId: string | null
+    correctsLogId: string | null,
+    report?: HorseReportColumns
   ): Promise<string> {
+    // Nhật ký cũ không truyền `report`: các cột báo cáo giữ giá trị mặc định (NULL / 0).
     const result = await this.db.query(
-      `INSERT INTO horse_logs (horse_id, leg_id, condition_status, note, logged_at, created_by, corrects_log_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [horseId, legId, conditionStatus, note, new Date(loggedAt), createdBy, correctsLogId]
+      `INSERT INTO horse_logs (horse_id, leg_id, condition_status, note, logged_at, created_by, corrects_log_id,
+        body_temp_c, heart_rate_bpm, appetite, customer_note, report_status, send_to_customer, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${report?.reportStatus === 'SENT' ? 'UTC_TIMESTAMP()' : 'NULL'})`,
+      [horseId, legId, conditionStatus, note, new Date(loggedAt), createdBy, correctsLogId,
+        report?.bodyTempC ?? null, report?.heartRateBpm ?? null, report?.appetite ?? null, report?.customerNote ?? null,
+        report?.reportStatus ?? null, report?.sendToCustomer ? 1 : 0]
     );
     return String(result.insertId);
   }
 
-  async getTripHorseLogs(tripId: string): Promise<import('./tracking.dto').HorseLogRow[]> {
+  /** Sửa nháp: thay toàn bộ nội dung chỉnh được. Chỉ chạy trên dòng còn DRAFT. */
+  async updateHorseReport(logId: string, fields: HorseReportEditable): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET condition_status = ?, note = ?, logged_at = ?, customer_note = ?, body_temp_c = ?, heart_rate_bpm = ?,
+        appetite = ?, send_to_customer = ?
+      WHERE id = ? AND report_status = 'DRAFT'`,
+      [fields.conditionStatus, fields.note, new Date(fields.loggedAt), fields.customerNote, fields.bodyTempC, fields.heartRateBpm,
+        fields.appetite, fields.sendToCustomer ? 1 : 0, logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  /** DRAFT → SENT (giờ UTC của DB). Trả số dòng đổi: 0 nghĩa là không còn là nháp. */
+  async markHorseReportSent(logId: string, sendToCustomer: boolean): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET report_status = 'SENT', send_to_customer = ?, sent_at = UTC_TIMESTAMP()
+      WHERE id = ? AND report_status = 'DRAFT'`,
+      [sendToCustomer ? 1 : 0, logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  async deleteHorseReport(logId: string): Promise<number> {
+    const result = await this.db.query(`DELETE FROM horse_logs WHERE id = ? AND report_status = 'DRAFT'`, [logId]);
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  /** Ảnh hiện có của một nhật ký (để đếm, xóa và dọn tệp). */
+  async getLogAttachmentRefs(logId: string): Promise<{ id: string; storagePath: string }[]> {
+    return this.db.query(`SELECT CAST(id AS CHAR) AS id, storage_path AS storagePath FROM attachments WHERE horse_log_id = ?`, [logId]);
+  }
+
+  async deleteAttachments(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await this.db.query(`DELETE FROM attachments WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+  }
+
+  /** Chặng đầu tiên của chuyến: nơi ghi nhật ký khi đơn READY (chưa chặng nào chạy). */
+  async getFirstLegId(tripId: string): Promise<string | null> {
+    const [row] = await this.db.query(`SELECT CAST(id AS CHAR) AS id FROM legs WHERE trip_id = ? ORDER BY seq_no ASC LIMIT 1`, [tripId]);
+    return row?.id ?? null;
+  }
+
+  /**
+   * Báo cáo khách xem được của một đơn: SENT + gửi khách; bỏ bản gốc đã có bản đính chính cũng SENT + gửi khách (khách chỉ thấy bản mới nhất).
+   */
+  async getCustomerHorseReports(orderId: string): Promise<import('./tracking.dto').CustomerHorseReportRow[]> {
+    return this.db.query(
+      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, h.name AS horseName, hl.condition_status AS conditionStatus,
+        hl.body_temp_c AS bodyTempC, hl.heart_rate_bpm AS heartRateBpm, hl.appetite, hl.customer_note AS customerNote,
+        hl.logged_at AS loggedAt, hl.sent_at AS sentAt, hl.customer_viewed_at AS viewedAt, u.full_name AS escortName,
+        CAST(hl.created_by AS CHAR) AS createdBy
+      FROM horse_logs hl
+      JOIN horses h ON h.id = hl.horse_id
+      JOIN users u ON u.id = hl.created_by
+      WHERE h.order_id = ? AND hl.report_status = 'SENT' AND hl.send_to_customer = 1
+        AND NOT EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id AND c.report_status = 'SENT' AND c.send_to_customer = 1)
+      ORDER BY hl.sent_at DESC, hl.id DESC LIMIT 200`,
+      [orderId]
+    );
+  }
+
+  /** Đặt "khách đã xem" lần đầu. Trả số dòng đổi: 1 = lần đầu, 0 = đã xem từ trước. */
+  async markHorseReportViewed(logId: string): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET customer_viewed_at = UTC_TIMESTAMP() WHERE id = ? AND customer_viewed_at IS NULL AND report_status = 'SENT'`,
+      [logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  async getHorseReportViewedAt(logId: string): Promise<Date | null> {
+    const [row] = await this.db.query(`SELECT customer_viewed_at AS viewedAt FROM horse_logs WHERE id = ?`, [logId]);
+    return row?.viewedAt ?? null;
+  }
+
+  /** Ảnh có thuộc báo cáo đã gửi cho khách này (đơn của họ) không. */
+  async isReportPhotoVisibleToCustomer(attachmentId: string, customerId: string): Promise<boolean> {
+    const rows = await this.db.query(
+      `SELECT a.id FROM attachments a
+      JOIN horse_logs hl ON hl.id = a.horse_log_id
+      JOIN horses h ON h.id = hl.horse_id
+      JOIN orders o ON o.id = h.order_id
+      WHERE a.id = ? AND hl.report_status = 'SENT' AND hl.send_to_customer = 1 AND o.customer_id = ? LIMIT 1`,
+      [attachmentId, customerId]
+    );
+    return rows.length > 0;
+  }
+
+  /** Nháp chỉ người tạo (`viewerId`) thấy; nhật ký cũ và báo cáo đã gửi hiện cho mọi vai trò đọc nội bộ. */
+  async getTripHorseLogs(tripId: string, viewerId: string): Promise<import('./tracking.dto').HorseLogRow[]> {
     return this.db.query(
       `SELECT CAST(hl.id AS CHAR) AS id,
         CAST(hl.horse_id AS CHAR) AS horseId,
@@ -566,9 +715,9 @@ export class TrackingRepository {
       JOIN horses h ON h.id = hl.horse_id
       JOIN users u ON u.id = hl.created_by
       LEFT JOIN trip_assignments ta ON ta.trip_id = l.trip_id AND ta.user_id = hl.created_by
-      WHERE l.trip_id = ?
+      WHERE l.trip_id = ? AND (hl.report_status IS NULL OR hl.report_status = 'SENT' OR hl.created_by = ?)
       ORDER BY hl.logged_at ASC, hl.id ASC`,
-      [tripId]
+      [tripId, viewerId]
     );
   }
 

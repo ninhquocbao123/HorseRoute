@@ -258,7 +258,7 @@ Không lưu, tính khi đọc: lít nước = `SUM(amount_liters)` của `WATER`
 | `GET /trips/:id/horse-logs` (đọc) | ✅ (không thấy nháp của người khác) | ✅ (thấy nháp của mình) | ✅ (chỉ `SENT` + nhật ký cũ) | ❌ 403 | ✅ Manager; Specialist như hiện có |
 | `GET /orders/:orderId/horse-reports` | ❌ 403 | ❌ 403 | ❌ 403 | ✅ (chỉ `SENT` + `send_to_customer = 1`) | ❌ 403 |
 | `POST /orders/:orderId/horse-reports/:id/view` | ❌ 403 | ❌ 403 | ❌ 403 | ✅ | ❌ 403 |
-| `GET /attachments/:id` (ảnh báo cáo) | ✅ | ✅ | ✅ | ✅ chỉ ảnh báo cáo đã gửi cho mình | như hiện có |
+| `GET /attachments/:id` (ảnh báo cáo) | ✅ (không xem ảnh nháp) | ✅ (xem ảnh nháp của mình) | ✅ (không xem ảnh nháp) | ✅ chỉ ảnh báo cáo đã gửi cho đơn của mình, còn lại 404 | như hiện có (không xem ảnh nháp) |
 | `POST /trips/:id/incidents` (kể cả `HORSE_MEDICAL`) | ✅ | ✅ | ❌ 403 | ❌ 403 | ❌ 403 |
 
 Người không được phân công chuyến: 404 (như các API tracking hiện có). Khách không phải chủ đơn: 404.
@@ -332,6 +332,16 @@ Mỗi mục giữ **đề xuất gốc** và ghi **quyết định** của nhóm
 *Phụ thuộc*: Bước 1.
 
 ### Bước 3. API báo cáo sức khỏe (2,5–3 ngày)
+
+> **Đã làm (26/10/2026)**, không cần migration mới (`notifications.event_type` là `varchar(50)`, `related_type` là `varchar(30)`).
+> - `POST /legs/:legId/horse-logs` giữ route cũ. Không có `reportStatus` = nhật ký cũ (bất biến); có `reportStatus` (`DRAFT` | `SENT`) = báo cáo sức khỏe với `customerNote`, `bodyTempC`, `heartRateBpm`, `appetite`, `sendToCustomer`, `captions[]` (nhãn ảnh). Đơn `READY` ghi vào **chặng đầu** của chuyến (chặng khác: 409); `IN_TRANSIT` giữ luật cũ (chặng đã xuất phát); `DELIVERED`: 409.
+> - `PATCH /horse-logs/:id` (**thay toàn bộ nội dung**: trường vắng = xóa; thêm ảnh bằng `photos`, bỏ ảnh bằng `removeAttachmentIds`; tổng ≤ 3 ảnh), `DELETE /horse-logs/:id` (204, xóa cả ảnh và tệp), `POST /horse-logs/:id/send` (body tùy chọn `{ sendToCustomer }`). Chỉ nháp của chính hộ tống tạo: người khác cùng chuyến 403, ngoài chuyến 404, bản đã gửi / nhật ký cũ 409.
+> - Luật gửi: `OFF_FEED` / `STRESSED` / `CLIMATE_CHANGE` cần ≥ 1 ảnh; `sendToCustomer` cần `customerNote` (400). Nháp thiếu cả hai vẫn lưu được. Sửa / gửi khi đơn không còn `READY` / `IN_TRANSIT`: 409 (xóa nháp vẫn được).
+> - Khi gửi, trong cùng transaction: `sent_at`, thông báo `HORSE_REPORT` (liên kết `ORDER`) cho khách nếu `sendToCustomer`, thông báo `HORSE_REPORT_ALERT` (liên kết `TRIP`) cho điều phối viên lập chuyến nếu trạng thái bất thường (kể cả khi không gửi khách). Sau commit: socket `tracking:horse_report` + `notification:new` tới khách, `notification:new` tới điều phối; `tracking:horse_report_viewed` tới hộ tống khi khách mở lần đầu.
+> - Đọc nội bộ (`GET /trips/:id/horse-logs`, `timeline`): nháp chỉ người tạo thấy; còn lại thấy nhật ký cũ + báo cáo đã gửi. Ảnh của nháp chỉ người tạo tải được. Thẻ "Ghi chú từ hộ tống" của tài xế dùng `note` rồi `customerNote` (web `latestEscortNote`, bỏ qua `DRAFT`).
+> - Đính chính: bản gốc phải là báo cáo đã gửi (hoặc nhật ký cũ); báo cáo đã có bản đính chính không đính chính lại được (409); nháp thì sửa, không đính chính (400).
+> - Khách: `GET /orders/:orderId/horse-reports`, `POST /orders/:orderId/horse-reports/:id/view`, `GET /attachments/:id` mở cho khách với ảnh báo cáo đã gửi cho đơn của họ. Quy ước: nếu bản gốc là `SENT` + gửi khách thì bản đính chính **bắt buộc** `sendToCustomer = true` khi gửi (gửi ngay hoặc gửi nháp; nháp vẫn lưu được) → 400; nhờ vậy chuỗi khách → nội bộ → khách không xảy ra và khách luôn thấy đúng một phiên bản. Khi gửi nháp đính chính, API khóa bản gốc rồi kiểm lại: bản gốc đã có bản đính chính khác đã gửi (hai nháp cùng sửa một bản) → 409.
+> - Không sửa file của Bảo (`socket.service.ts`, `lib/socket.ts`): dùng `emitToUsers` đã có.
 1. Mở rộng `POST /legs/:id/horse-logs` (trường mới, `captions`, nháp / gửi; cho `READY` và `IN_TRANSIT`; **gửi** các trạng thái `OFF_FEED / STRESSED / CLIMATE_CHANGE` phải có ≥ 1 ảnh; chỉ kiểm khoảng hợp lệ cho nhiệt độ / nhịp tim); `PATCH`, `DELETE` nháp, `POST /horse-logs/:id/send`.
 2. Gửi khách: `send_to_customer`, `sent_at`, thông báo IN_APP cho khách (`HORSE_REPORT`, liên kết đơn), socket `tracking:horse_report` tới `user:{customerId}`; trạng thái bất thường → thông báo nổi bật cho điều phối (`HORSE_REPORT_ALERT`) + `notification:new`.
 3. Khách: `GET /orders/:orderId/horse-reports` (chỉ bản mới nhất của chuỗi đính chính), `POST …/:id/view` (đặt `customer_viewed_at`, socket `tracking:horse_report_viewed` tới hộ tống), mở `GET /attachments/:id` cho ảnh báo cáo đã gửi.
@@ -385,7 +395,7 @@ Mỗi mục giữ **đề xuất gốc** và ghi **quyết định** của nhóm
 }]
 ```
 
-- Mới nhất trước; chỉ báo cáo `SENT` với `send_to_customer = 1`. `photos[].id` dùng với `GET /api/v1/tracking/attachments/:id` (có token, trả tệp) như ảnh của các màn khác.
+- Mới nhất trước (`sentAt`), tối đa 200; chỉ báo cáo `SENT` với `send_to_customer = 1`. Bản gốc đã được đính chính bởi một bản `SENT` + gửi khách khác bị ẩn (khách chỉ thấy bản mới nhất). Bản đính chính của một báo cáo đã gửi khách luôn phải gửi khách (400 nếu không), hai nháp cùng đính chính một bản chỉ gửi được một (409). Gửi khách luôn có `customerNote`. `photos[].id` dùng với `GET /api/v1/tracking/attachments/:id` (có token, trả tệp) như ảnh của các màn khác.
 - Đơn của người khác: `404`. Vai trò không phải khách: `403`.
 
 **Đánh dấu đã xem**: `POST /api/v1/tracking/orders/:orderId/horse-reports/:id/view` → `200 { "viewedAt": "…" }` (idempotent: gọi lại giữ nguyên thời điểm đầu). Gọi khi khách **mở chi tiết** một báo cáo, không gọi khi chỉ tải danh sách.

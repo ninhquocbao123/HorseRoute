@@ -6,10 +6,16 @@ import { trackingApi } from '../tracking.api';
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 const REFRESH_MS = 2 * 60_000;
 
-/** Nhật ký mới nhất có ghi chú do HỘ TỐNG của chuyến ghi (createdByCrewRole = ESCORT). */
+/** Ghi chú hiển thị của một nhật ký / báo cáo: COALESCE(note, customer_note) (quyết định 6.1). */
+export const escortNoteText = (log: IHorseLog) => log.note?.trim() || log.customerNote?.trim() || '';
+
+/**
+ * Nhật ký mới nhất có ghi chú do HỘ TỐNG của chuyến ghi (createdByCrewRole = ESCORT).
+ * API không trả nháp cho tài xế; vẫn bỏ qua DRAFT phòng khi gặp dữ liệu lạ.
+ */
 export function latestEscortNote(logs: IHorseLog[]) {
   return logs
-    .filter(log => log.createdByCrewRole === 'ESCORT' && log.note?.trim())
+    .filter(log => log.createdByCrewRole === 'ESCORT' && log.reportStatus !== 'DRAFT' && escortNoteText(log))
     .reduce<IHorseLog | null>((latest, log) => (!latest || Date.parse(log.loggedAt) > Date.parse(latest.loggedAt) ? log : latest), null);
 }
 
@@ -41,7 +47,7 @@ export default function EscortNoteCard({ tripId, refreshKey }: { tripId: string;
       <h3 id="drv-escort-note-title" className="drv-card-title">Ghi chú từ hộ tống</h3>
       <p>
         <CommentOutlined aria-hidden="true" />
-        <span><time dateTime={note.loggedAt}>{time.format(new Date(note.loggedAt))}</time> · {note.note}</span>
+        <span><time dateTime={note.loggedAt}>{time.format(new Date(note.loggedAt))}</time> · {escortNoteText(note)}</span>
       </p>
     </section>
   );

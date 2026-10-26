@@ -31,3 +31,10 @@ export const HORSE_VITALS_RANGE = {
   bodyTempC: { min: 30, max: 45 },
   heartRateBpm: { min: 10, max: 200 },
 } as const;
+
+/** Trạng thái bắt buộc có ≥ 1 ảnh khi gửi báo cáo (nháp được thiếu ảnh). */
+export const HORSE_REPORT_PHOTO_REQUIRED_STATUSES: HorseConditionStatus[] = (Object.keys(HORSE_CONDITION_META) as HorseConditionStatus[])
+  .filter(status => HORSE_CONDITION_META[status].attention);
+
+/** Số ảnh tối đa của một báo cáo sức khỏe. */
+export const HORSE_REPORT_MAX_PHOTOS = 3;

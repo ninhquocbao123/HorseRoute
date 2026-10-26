@@ -16,6 +16,7 @@ async function fixture() {
   const tracking = Object.fromEntries(
     ['getDriverTrips', 'getTripDetail', 'recordMilestone', 'completeIntermediateLeg', 'correctLeg', 'createHorseLog', 'getTripHorseLogs',
       'createIncident', 'getTripIncidents', 'updateIncident', 'createAlert', 'getTripAlerts', 'createCareActivity', 'getCareActivities',
+      'updateHorseReport', 'deleteHorseReport', 'sendHorseReport', 'getCustomerHorseReports', 'viewHorseReport',
       'getOrderTimeline', 'getTripTimeline', 'getActiveTrips'].map(name => [name, record(name)])
   );
   tracking.getAttachmentFile = async () => ({ buffer: PNG, originalName: 'ảnh ngựa.png', fileType: 'PNG' });
@@ -56,7 +57,16 @@ test('Tracking HTTP routes: role gates, multipart photos and attachment headers'
         ['PATCH', '/api/v1/tracking/incidents/1', '2'],
         ['POST', '/api/v1/tracking/trips/1/alerts', '2'],
         ['PATCH', '/api/v1/tracking/legs/1/correct', '5'],
-        ['GET', '/api/v1/tracking/attachments/1', '1'],
+        ['PATCH', '/api/v1/tracking/horse-logs/1', '1'],
+        ['PATCH', '/api/v1/tracking/horse-logs/1', '4'],
+        ['DELETE', '/api/v1/tracking/horse-logs/1', '2'],
+        ['POST', '/api/v1/tracking/horse-logs/1/send', '1'],
+        ['POST', '/api/v1/tracking/horse-logs/1/send', '4'],
+        ['GET', '/api/v1/tracking/orders/1/horse-reports', '2'],
+        ['GET', '/api/v1/tracking/orders/1/horse-reports', '4'],
+        ['GET', '/api/v1/tracking/orders/1/horse-reports', '5'],
+        ['POST', '/api/v1/tracking/orders/1/horse-reports/2/view', '5'],
+        ['POST', '/api/v1/tracking/orders/1/horse-reports/2/view', '4'],
         ['GET', '/api/v1/tracking/orders/1/timeline', '2'],
         ['GET', '/api/v1/tracking/orders/1/timeline', '5'],
         ['GET', '/api/v1/tracking/trips/1/timeline', '1'],
@@ -81,6 +91,15 @@ test('Tracking HTTP routes: role gates, multipart photos and attachment headers'
       assert.equal((await f.request('/api/v1/tracking/trips/7/alerts', { id: '4', method: 'POST', body: { alertType: 'WEATHER', content: 'Mưa lớn' } })).status, 201);
       assert.equal((await f.request('/api/v1/tracking/trips/7/horse-logs', { id: '3' })).status, 200);
       assert.equal((await f.request('/api/v1/tracking/orders/8/timeline', { id: '1' })).status, 200);
+      // Báo cáo sức khỏe: hộ tống sửa / xóa / gửi nháp (quyền người tạo kiểm trong service); khách đọc và đánh dấu đã xem
+      assert.equal((await f.request('/api/v1/tracking/horse-logs/31', { id: '5', method: 'PATCH', body: { conditionStatus: 'STABLE' } })).status, 200);
+      assert.equal((await f.request('/api/v1/tracking/horse-logs/31', { id: '5', method: 'DELETE' })).status, 204);
+      assert.equal((await f.request('/api/v1/tracking/horse-logs/31/send', { id: '5', method: 'POST' })).status, 200);
+      assert.equal((await f.request('/api/v1/tracking/orders/8/horse-reports', { id: '1' })).status, 200);
+      assert.equal((await f.request('/api/v1/tracking/orders/8/horse-reports/31/view', { id: '1', method: 'POST' })).status, 200);
+      assert.equal((await f.request('/api/v1/tracking/attachments/1', { id: '1' })).status, 200, 'khách mở được route ảnh (quyền kiểm trong service)');
+      assert.deepEqual(f.calls.find(call => call.name === 'viewHorseReport').args, ['8', '31']);
+      assert.equal(f.calls.find(call => call.name === 'deleteHorseReport').args[0], '31');
       assert.equal((await f.request('/api/v1/tracking/trips/7/timeline', { id: '3' })).status, 200);
       assert.equal((await f.request('/api/v1/tracking/operations/active-trips', { id: '2' })).status, 200);
       assert.equal((await f.request('/api/v1/tracking/operations/active-trips', { id: '4' })).status, 200);
