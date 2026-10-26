@@ -1,14 +1,14 @@
 // Cảnh báo điều phối dạng thông báo nổi: MỘT thẻ duy nhất (cảnh báo chưa đóng mới nhất) + dòng "+N cảnh báo khác".
 // Chỉ cảnh báo CHƯA đóng của chuyến đang hoạt động; đã đóng thì không hiện lại (id lưu localStorage theo tài khoản).
 // Chống trùng theo alertId: socket + polling + kết nối lại có phát/tải cùng một cảnh báo nhiều lần cũng chỉ một thẻ.
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IAlert } from '@my-project/shared';
 import { trackingApi } from '../tracking.api';
 import type { DriverNotice } from './DriverNotices';
 
 const MAX_STORED = 200;
 const storeKey = (userId: string) => `wdp:tracking:alerts-closed:${userId}`;
-type AlertLike = Pick<IAlert, 'id' | 'alertType' | 'content' | 'sentByName' | 'sentAt'>;
+export type AlertLike = Pick<IAlert, 'id' | 'alertType' | 'content' | 'sentByName' | 'sentAt'>;
 
 function readClosed(userId: string): string[] {
   try {
@@ -31,14 +31,20 @@ const newest = (a: AlertLike, b: AlertLike) => Date.parse(a.sentAt) - Date.parse
 
 export function useAlertToasts(userId: string, tripId: string | null, notice: DriverNotice, onMore: () => void) {
   const queue = useRef(new Map<string, AlertLike>());
+  /** Cảnh báo chưa đóng, mới nhất trước (cho danh sách trong drawer). */
+  const [openAlerts, setOpenAlerts] = useState<AlertLike[]>([]);
   const shown = useRef<{ id: string; more: number } | null>(null);
   const noticeRef = useRef(notice);
   noticeRef.current = notice;
   const moreRef = useRef(onMore);
   moreRef.current = onMore;
 
+  const closeRef = useRef<(id: string) => void>(() => undefined);
+  const closeAlert = (id: string) => closeRef.current(id);
+
   const render = useCallback(() => {
     const open = [...queue.current.values()].sort(newest);
+    setOpenAlerts([...open].reverse());
     const top = open[open.length - 1];
     if (!top) {
       if (shown.current) noticeRef.current.dismissAlert(shown.current.id);
@@ -52,14 +58,19 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
     noticeRef.current.alert({
       ...top, more,
       onClose: () => {
-        writeClosed(userId, [...readClosed(userId), top.id]);
-        queue.current.delete(top.id);
-        shown.current = null;
-        render();
+        shown.current = null; // thẻ đã tự đóng: không cần tắt lại
+        closeAlert(top.id);
       },
       onMore: () => moreRef.current(),
     });
   }, [userId]);
+
+  /** Đóng một cảnh báo (nút trên thẻ hoặc trong danh sách): ghi nhớ đã đóng, hiện cảnh báo kế tiếp. */
+  closeRef.current = (id: string) => {
+    writeClosed(userId, [...readClosed(userId), id]);
+    queue.current.delete(id);
+    render();
+  };
 
   const add = useCallback((alert: AlertLike) => {
     const id = String(alert.id);
@@ -91,5 +102,5 @@ export function useAlertToasts(userId: string, tripId: string | null, notice: Dr
     void load();
   }, [load]);
 
-  return { load, show };
+  return { load, show, openAlerts, close: closeAlert };
 }

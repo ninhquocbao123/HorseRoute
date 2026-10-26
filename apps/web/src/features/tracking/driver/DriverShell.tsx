@@ -6,6 +6,7 @@ import LogoutDialog from '../../auth/pages/components/LogoutDialog';
 import NotificationsPanel from '../../notifications/NotificationsPanel';
 import { useNotifications } from '../../notifications/useNotifications';
 import { DriverNoticeProvider, useDriverNotice } from './DriverNotices';
+import { OpenAlertsList } from './OpenAlertsList';
 import { useAlertToasts } from './useAlertToasts';
 import { useDriverRealtime } from './useDriverRealtime';
 import './driver-shell.css';
@@ -49,8 +50,8 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
   const [bellOpen, setBellOpen] = useState(false);
   const { panelProps, unreadCount, addNotice, refresh } = useNotifications(String(account.id));
   const notice = useDriverNotice();
-  const [alertsOnly, setAlertsOnly] = useState(false);
-  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsOnly(true); setBellOpen(true); });
+  const [alertsListOpen, setAlertsListOpen] = useState(false);
+  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsListOpen(true); setBellOpen(true); });
   useDriverRealtime({
     onAlert: payload => alerts.show({ id: payload.alertId, alertType: payload.alertType as never, content: payload.content, sentByName: payload.sentByName, sentAt: payload.sentAt }),
     onIncidentUpdated: payload => notice.info(
@@ -105,7 +106,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
               />
             )}
             <Badge count={unreadCount} size="small" offset={[-6, 6]}>
-              <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => { setAlertsOnly(false); setBellOpen(true); }} />
+              <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => { setAlertsListOpen(false); setBellOpen(true); }} />
             </Badge>
             <span className="drs-tool drs-date"><CalendarOutlined aria-hidden="true" /><time dateTime={new Date().toISOString().slice(0, 10)}>{date.charAt(0).toUpperCase() + date.slice(1)}</time></span>
           </div>
@@ -117,11 +118,8 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
         open={bellOpen} onClose={() => setBellOpen(false)} size={520} title="Thông báo" className="drs-notifications"
         extra={<Button size="small" type="text" icon={<ReloadOutlined />} aria-label="Làm mới thông báo" onClick={panelProps.onRefresh} loading={panelProps.loading} />}
       >
-        <NotificationsPanel
-          {...panelProps} compact accentOf={accentOf}
-          notifications={alertsOnly ? panelProps.notifications.filter(item => item.event_type === 'TRIP_ALERT') : panelProps.notifications}
-          filterLabel={alertsOnly ? 'Cảnh báo điều phối' : undefined} onClearFilter={() => setAlertsOnly(false)}
-        />
+        {alertsListOpen && <OpenAlertsList alerts={alerts.openAlerts} onClose={alerts.close} />}
+        <NotificationsPanel {...panelProps} compact accentOf={accentOf} />
       </Drawer>
     </div>
   );

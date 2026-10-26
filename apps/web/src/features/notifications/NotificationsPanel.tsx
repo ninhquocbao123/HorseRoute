@@ -1,5 +1,5 @@
 import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Empty, List, Segmented, Tag, Tooltip } from 'antd';
+import { Alert, Button, Card, Empty, List, Segmented, Tooltip } from 'antd';
 import { timeAgo } from './time-ago';
 import './notifications.css';
 
@@ -21,12 +21,9 @@ type Props = {
   compact?: boolean;
   /** Màu viền trái / chấm của thông báo chưa đọc theo loại. */
   accentOf?: (notice: Notice) => string;
-  /** Đang lọc theo loại: hiện chip có nút bỏ lọc. */
-  filterLabel?: string;
-  onClearFilter?: () => void;
 };
 
-export default function NotificationsPanel({notifications,loading,error,unreadOnly,markingId,onUnreadChange,onRefresh,onMarkRead,onOpen,onMarkAllRead,compact,accentOf,filterLabel,onClearFilter}:Props) {
+export default function NotificationsPanel({notifications,loading,error,unreadOnly,markingId,onUnreadChange,onRefresh,onMarkRead,onOpen,onMarkAllRead,compact,accentOf}:Props) {
   const unreadCount=notifications.filter(notification=>!notification.is_read).length;
   const filtered=notifications.filter(notification=>!unreadOnly||!notification.is_read);
   return <Card className={compact?"notification-center is-compact":"notification-center"} bordered={false}>
@@ -35,7 +32,6 @@ export default function NotificationsPanel({notifications,loading,error,unreadOn
     <div className="notification-center__summary" aria-label="Tổng quan thông báo"><div><span>Tổng thông báo</span><strong>{notifications.length}</strong></div><div><span>Chưa đọc</span><strong>{unreadCount}</strong></div><div><span>Đã đọc</span><strong>{notifications.length-unreadCount}</strong></div></div>
     </>}
     <div className="notification-center__toolbar"><Segmented value={unreadOnly?'unread':'all'} options={[{label:`Tất cả (${notifications.length})`,value:'all'},{label:`Chưa đọc (${unreadCount})`,value:'unread'}]} onChange={value=>onUnreadChange(value==='unread')}/>{onMarkAllRead&&unreadCount>0&&<Button type="link" size="small" className="notification-center__mark-all" onClick={onMarkAllRead}>Đánh dấu tất cả đã đọc</Button>}</div>
-    {filterLabel&&<div className="notification-center__filter"><Tag closable onClose={onClearFilter}>{filterLabel}</Tag></div>}
     {error&&<Alert type="error" showIcon message="Không thể tải thông báo" description={error} action={<Button size="small" danger onClick={onRefresh}>Thử lại</Button>}/>}
     <List className="notification-center__list" loading={loading} dataSource={error?[]:filtered} locale={{emptyText:!loading&&!error?<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={unreadOnly?'Bạn đã đọc tất cả thông báo':'Chưa có thông báo'}/>:null}} renderItem={notification=>{const unread=!notification.is_read;const openable=onOpen&&(notification.order_id||(notification.related_type==='ORDER'&&notification.related_id));return <List.Item className={unread?'notification-center__item is-unread':'notification-center__item'} style={unread&&accentOf?({'--nc-accent':accentOf(notification)} as React.CSSProperties):undefined}>
       <div className="notification-center__row" role={unread?'button':undefined} tabIndex={unread?0:undefined} aria-label={unread?'Đánh dấu đã đọc: '+notification.content:undefined} onClick={()=>{if(unread&&markingId===null)onMarkRead(notification.id);}} onKeyDown={event=>{if(unread&&markingId===null&&(event.key==='Enter'||event.key===' ')){event.preventDefault();onMarkRead(notification.id);}}}>
