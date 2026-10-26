@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Button, Modal, Switch } from 'antd';
+import { Button, Modal, Switch, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import type { IDriverTripSummary, ITripMap, ITripTrackPoint } from '@my-project/shared';
 import MapView from '../../trackmap/MapView';
 import { DriverRouteMap } from '../../trackmap/lazy-maps';
@@ -52,7 +53,7 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
         )}
         {gps && <GpsBadge gps={gps} />}
       </div>
-      {gps && <GpsControls gps={gps} />}
+      {gps && <GpsConsent gps={gps} />}
       {(() => {
         // "Chưa có tọa độ cho X" của API được thay bằng câu hướng dẫn rõ hơn (một dòng cho mỗi điểm).
         const notes = [...(map?.warnings ?? []).filter(warning => !warning.startsWith('Chưa có tọa độ cho ')), ...missingCoordinateNotes(map)];
@@ -68,43 +69,48 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
   );
 }
 
-/** Badge phủ góc trên trái bản đồ: 3 trạng thái chính như yêu cầu (đang chia sẻ / chưa bật / mất mạng). */
+/**
+ * Badge góc trên-trái bản đồ gộp trạng thái + công tắc "Chia sẻ vị trí" (luôn thấy, không cần cuộn). Lời giải thích dài nằm trong tooltip;
+ * lý do dừng/bị chặn (cần người dùng biết ngay) hiện thành một dòng ngắn ngay dưới badge.
+ */
 function GpsBadge({ gps }: { gps: GpsSharing }) {
-  const { status, queued } = gps;
+  const { status, queued, enabled, stopReason, lastSentAt } = gps;
   const view = status === 'sharing' ? { tone: 'is-on', text: 'Đang chia sẻ GPS với điều phối' }
     : status === 'offline' ? { tone: 'is-warn', text: `Mất mạng – sẽ gửi bù${queued ? ` (${queued} điểm)` : ''}` }
     : status === 'locating' ? { tone: 'is-off', text: 'Đang chờ tín hiệu GPS…' }
     : { tone: 'is-off', text: 'Chưa bật vị trí' };
-  return <span className={'drv-gps-badge ' + view.tone} role="status">{view.text}</span>;
-}
-
-function GpsControls({ gps }: { gps: GpsSharing }) {
-  const { status, enabled, stopReason, lastSentAt } = gps;
-  const help = status === 'denied'
+  const alert = status === 'denied'
     ? 'Trình duyệt đang chặn vị trí. Bấm biểu tượng ổ khóa cạnh địa chỉ trang → Vị trí → Cho phép, rồi tải lại trang.'
     : status === 'unsupported' ? 'Trình duyệt này không hỗ trợ lấy vị trí.'
-    : status === 'stopped' ? stopReason
-    : enabled && lastSentAt ? `Đã gửi lúc ${time.format(new Date(lastSentAt))}. Chỉ gửi khi trang này đang mở.`
+    : status === 'stopped' ? stopReason : '';
+  const help = enabled && lastSentAt ? `Đã gửi lúc ${time.format(new Date(lastSentAt))}. Chỉ gửi khi trang này đang mở.`
     : enabled ? 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng trong lúc chạy.'
     : 'Bật để điều phối viên thấy xe của bạn trên bản đồ.';
   return (
-    <div className="drv-gps-controls">
-      <label className="drv-gps-switch">
-        <Switch checked={enabled} onChange={on => (on ? gps.enable() : gps.disable())} aria-label="Chia sẻ vị trí" />
-        <span>Chia sẻ vị trí</span>
-      </label>
-      <small className={status === 'denied' || status === 'stopped' ? 'is-warn' : undefined}>{help}</small>
-      <Modal
-        open={gps.consentOpen} title="Chia sẻ vị trí với điều phối viên?" centered
-        okText="Đồng ý và bật" cancelText="Để sau" onOk={gps.acceptConsent} onCancel={gps.declineConsent}
-      >
-        <ul className="drv-consent">
-          <li>Vị trí của máy này được gửi khoảng 30 giây một lần, <strong>chỉ khi chuyến đang chạy và trang này đang mở</strong>.</li>
-          <li>Điều phối viên, quản lý và chuyên viên của chuyến xem được vị trí; khách hàng không xem được.</li>
-          <li>Tự dừng khi chuyến giao xong hoặc khi đang ở chặng bay. Dữ liệu vị trí tự xóa sau 30 ngày.</li>
-          <li>Bạn tắt được bất cứ lúc nào bằng công tắc “Chia sẻ vị trí”.</li>
-        </ul>
-      </Modal>
+    <div className="drv-gps-overlay">
+      <div className={'drv-gps-badge ' + view.tone}>
+        <span role="status" className="drv-gps-text">{view.text}</span>
+        <Switch size="small" checked={enabled} onChange={on => (on ? gps.enable() : gps.disable())} aria-label="Chia sẻ vị trí" />
+        <Tooltip title={help} placement="bottomLeft"><InfoCircleOutlined className="drv-gps-info" aria-label="Giải thích chia sẻ vị trí" tabIndex={0} /></Tooltip>
+      </div>
+      {alert && <p className="drv-gps-alert" role="alert">{alert}</p>}
     </div>
+  );
+}
+
+/** Hộp thoại đồng ý chia sẻ vị trí lần đầu (nội dung giải thích đầy đủ nằm ở đây). */
+function GpsConsent({ gps }: { gps: GpsSharing }) {
+  return (
+    <Modal
+      open={gps.consentOpen} title="Chia sẻ vị trí với điều phối viên?" centered
+      okText="Đồng ý và bật" cancelText="Để sau" onOk={gps.acceptConsent} onCancel={gps.declineConsent}
+    >
+      <ul className="drv-consent">
+        <li>Vị trí của máy này được gửi khoảng 30 giây một lần, <strong>chỉ khi chuyến đang chạy và trang này đang mở</strong>.</li>
+        <li>Điều phối viên, quản lý và chuyên viên của chuyến xem được vị trí; khách hàng không xem được.</li>
+        <li>Tự dừng khi chuyến giao xong hoặc khi đang ở chặng bay. Dữ liệu vị trí tự xóa sau 30 ngày.</li>
+        <li>Bạn tắt được bất cứ lúc nào bằng công tắc “Chia sẻ vị trí” ở góc bản đồ.</li>
+      </ul>
+    </Modal>
   );
 }

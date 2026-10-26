@@ -1,5 +1,6 @@
 import { INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
 import type { NextAction } from '../tracking.format';
+import { headingLeg, isStopped, tripPhase } from './trip-phase';
 
 // antd preset colors: every status and action has its own color so the driver reads state at a glance.
 export const ORDER_TAG: Record<string, { label: string; color: string }> = {
@@ -37,8 +38,11 @@ export const tripProgress = (legs: ILegTracking[]) => {
   return { done, total: legs.length, percent: legs.length ? Math.round((done / legs.length) * 100) : 0 };
 };
 
-/** `current`: điểm đến của chặng đang chạy khi chuyến IN_TRANSIT (D1b: "đang tới"). */
-export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean; current: boolean };
+/**
+ * D1b (chỉ khi `running`): `current` = điểm đến của chặng đang chạy ("đang tới"); `stopped` = điểm xe đang dừng (AT_STOP, hoặc chặng trước
+ * đã xong còn chặng sau chưa xuất phát); `next` = điểm kế tiếp khi xe đang dừng. Một điểm chỉ mang tối đa một trong ba cờ.
+ */
+export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean; current: boolean; stopped: boolean; next: boolean };
 
 const STOP_NOTE: Record<string, string> = {
   REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
@@ -53,22 +57,28 @@ const localDay = (iso: string) => {
  * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
  * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
  */
-export function tripStops(legs: ILegTracking[], horseCount: number, currentLegId: string | null = null): TripStop[] {
+export function tripStops(legs: ILegTracking[], horseCount: number, running = false): TripStop[] {
   if (!legs.length) return [];
+  const phase = running ? tripPhase(legs) : ({ kind: 'none' } as const);
+  const stoppedId = phase.kind === 'stopped' ? phase.stop.id : phase.kind === 'between' ? phase.prev?.id ?? null : null;
+  const headingId = headingLeg(phase)?.id ?? null;
+  const waiting = isStopped(phase);
   const first = legs[0];
   const startDay = localDay(first.plannedDepartureAt);
   const start: TripStop = {
     key: 'start', name: first.fromLocationName, note: `Nhận ${horseCount} ngựa`,
-    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED', current: false,
+    plannedAt: first.plannedDepartureAt, dayOffset: 0, reached: first.status !== 'NOT_STARTED', current: false, stopped: false, next: false,
   };
   return [start, ...legs.map((leg, index) => ({
     key: leg.id,
     name: leg.toLocationName,
-    note: index === legs.length - 1 ? 'Bàn giao' : STOP_NOTE[leg.toLocationType] ?? 'Điểm dừng',
+    note: leg.id === stoppedId ? 'Đang dừng' : (waiting && leg.id === headingId ? 'Kế tiếp · ' : '') + (index === legs.length - 1 ? 'Bàn giao' : STOP_NOTE[leg.toLocationType] ?? 'Điểm dừng'),
     plannedAt: leg.plannedArrivalAt,
     dayOffset: localDay(leg.plannedArrivalAt) - startDay,
     reached: leg.status === 'AT_STOP' || leg.status === 'COMPLETED',
-    current: leg.id === currentLegId && leg.status !== 'AT_STOP' && leg.status !== 'COMPLETED',
+    current: phase.kind === 'moving' && leg.id === headingId,
+    stopped: leg.id === stoppedId,
+    next: waiting && leg.id === headingId,
   }))];
 }
 

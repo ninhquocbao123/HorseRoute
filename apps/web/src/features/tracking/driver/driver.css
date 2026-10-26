@@ -302,16 +302,15 @@
 /* ─── H2: bản đồ thật + chia sẻ GPS ──────────────────────────────────────── */
 .drv-map-wrap { position: relative; overflow: hidden; border-radius: 18px; }
 .drv-route-card .trackmap { border-radius: 18px; border-color: var(--drs-line); }
-.drv-gps-badge { position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
-  border-radius: 99px; background: #fff; box-shadow: 0 10px 22px rgb(18 56 43 / 16%); font-size: 12px; font-weight: 600; color: var(--drs-ink); }
-.drv-gps-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #9db0b2; }
+.drv-gps-overlay { position: absolute; top: 12px; left: 12px; z-index: 2; display: grid; gap: 6px; max-width: calc(100% - 72px); justify-items: start; }
+.drv-gps-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px; border-radius: 99px; background: #fff; box-shadow: 0 10px 22px rgb(18 56 43 / 16%); font-size: 12px; font-weight: 600; color: var(--drs-ink); }
+.drv-gps-badge::before { content: ""; width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #9db0b2; }
 .drv-gps-badge.is-on::before { background: #22c55e; box-shadow: 0 0 0 3px rgb(34 197 94 / 20%); }
 .drv-gps-badge.is-warn { color: #92400e; }
 .drv-gps-badge.is-warn::before { background: #f59e0b; }
-.drv-gps-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.drv-gps-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--drs-ink); cursor: pointer; }
-.drv-gps-controls small { flex: 1; min-width: 220px; font-size: 12px; color: var(--drs-muted); }
-.drv-gps-controls small.is-warn { color: var(--drs-red-text); }
+.drv-gps-text { white-space: nowrap; }
+.drv-gps-info { color: var(--drs-muted); font-size: 14px; cursor: help; }
+.drv-gps-alert { margin: 0; padding: 6px 10px; border-radius: 10px; background: var(--drs-red-bg); color: var(--drs-red-text); font-size: 12px; font-weight: 600; box-shadow: 0 6px 14px rgb(18 56 43 / 12%); }
 .drv-map-warnings { margin: 0; padding: 0 0 0 18px; font-size: 12px; color: var(--drs-muted); display: grid; gap: 2px; }
 .drv-map-estimate { margin: 0; font-size: 12px; color: var(--drs-muted); font-style: italic; }
 .drv-consent { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
@@ -334,3 +333,15 @@
 /* Thông báo lỗi /map nằm trong khung bản đồ */
 .drv-map-error { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px;
   border-radius: 12px; background: var(--drs-red-bg); color: var(--drs-red-text); font-size: 12px; font-weight: 600; box-shadow: 0 10px 22px rgb(18 56 43 / 16%); }
+
+/* ─── Xe đang DỪNG (D1b): điểm đang dừng + điểm kế tiếp ─────────────────── */
+.drv-stops li.is-stopped { color: var(--drs-ink); }
+.drv-stops li.is-stopped .drv-stop-mark { background: #fff; border: 3px solid var(--drs-gold); color: #a16207; font-size: 13px; box-shadow: 0 0 0 3px rgb(244 185 66 / 25%); }
+.drv-stops li.is-stopped .drv-stop-mark::after { content: none; }
+.drv-stops li.is-stopped .drv-stop-text strong { font-weight: 800; }
+.drv-stops li.is-stopped .drv-stop-text small { color: #a16207; font-weight: 700; }
+.drv-stops li.is-next { color: var(--drs-ink); }
+.drv-stops li.is-next .drv-stop-mark { border-color: var(--drs-navy2); border-style: dashed; }
+.drv-stops li.is-next .drv-stop-mark::after { background: var(--drs-navy2); }
+.drv-stops li.is-next .drv-stop-text strong { font-weight: 700; }
+.drv-stops li.is-next .drv-stop-text small { color: var(--drs-navy2); font-weight: 600; }

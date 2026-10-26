@@ -163,8 +163,9 @@ const { pathToFileURL } = require('node:url');
     });
 
     const open = async view => {
-      await page.goto(`http://127.0.0.1:5190/test/portal.html?view=${view}`);
-      await page.waitForLoadState('networkidle');
+      // Lần tải đầu Vite biên dịch hàng trăm module nên có thể quá 30 giây khi máy đang bận: nới hạn để test không lỗi vì thời gian.
+      await page.goto(`http://127.0.0.1:5190/test/portal.html?view=${view}`, { timeout: 120_000 });
+      await page.waitForLoadState('networkidle', { timeout: 120_000 });
     };
     const noOverflow = async label => {
       const { scroll, inner } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
@@ -271,6 +272,7 @@ const { pathToFileURL } = require('node:url');
     await page.locator('.drv-checklist').getByText('Lốp, phanh, đèn đã kiểm tra').click();
     await page.locator('.drv-checklist').getByText('Giấy kiểm dịch mang theo').click();
     await open('trip');
+    await page.locator('.drv-checklist .ant-checkbox-wrapper-checked').first().waitFor(); // chờ trang vẽ xong checklist (networkidle chưa đảm bảo)
     assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper-checked').count(), 2, 'tick còn sau khi tải lại');
     assert.equal(await page.locator('.drv-action').count(), 1, 'chỉ một nút hành động chính');
     await action('Bắt đầu chuyến đi').click();
@@ -417,7 +419,10 @@ const { pathToFileURL } = require('node:url');
     assert.ok(firstBatch.some(point => point.latitude === 10.92 && point.longitude === 106.75), 'có điểm mới nhất');
     assert.ok(firstBatch.every(point => /Z$/.test(point.recordedAt)), 'recordedAt dạng UTC ISO');
     await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
-    await page.locator('.drv-gps-controls small', { hasText: /^Đã gửi lúc \d{2}:\d{2}/ }).waitFor();
+    // Lời giải thích dài nằm trong tooltip của biểu tượng (i) ở badge
+    await page.getByLabel('Giải thích chia sẻ vị trí').hover();
+    await page.getByRole('tooltip', { name: /^Đã gửi lúc \d{2}:\d{2}\. Chỉ gửi khi trang này đang mở\.$/ }).waitFor();
+    await page.mouse.move(5, 5);
 
     // Mất mạng: giữ hàng đợi trong localStorage, badge "Mất mạng – sẽ gửi bù"; tải lại trang thì gửi bù (đã đồng ý nên tự bật lại)
     state.positionsMode = 'offline';
@@ -455,7 +460,7 @@ const { pathToFileURL } = require('node:url');
     const before409 = calls.positions.length;
     await moveTo(10.97, 106.85);
     await runBatch(() => calls.positions.length > before409, 'lô bị từ chối 409');
-    await page.locator('.drv-gps-controls small', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
+    await page.locator('.drv-gps-alert', { hasText: 'Chuyến không còn nhận vị trí' }).waitFor();
     assert.equal(await gpsSwitch().getAttribute('aria-checked'), 'false');
     assert.equal(await badge().innerText(), 'Chưa bật vị trí');
     const after409 = calls.positions.length;
