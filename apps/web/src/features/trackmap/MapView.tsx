@@ -3,7 +3,7 @@ import MapFallback from './MapFallback';
 import { mapAvailability, type MapConfig, type MapUnavailableReason } from './map-style';
 import './trackmap.css';
 
-type MapRuntime = { config: MapConfig; height: number; label: string; fail: (reason: MapUnavailableReason) => void };
+type MapRuntime = { config: MapConfig; height: number | string; label: string; fail: (reason: MapUnavailableReason) => void };
 const MapRuntimeContext = createContext<MapRuntime | null>(null);
 
 /** For lazy map components rendered inside <MapView>. */
@@ -26,7 +26,7 @@ class MapErrorBoundary extends Component<{ onError: () => void; children: ReactN
  * Falls back when the map is turned off, has no token, lacks WebGL 2, or fails to load; `hint` tells the user
  * how to carry on without it.
  */
-export default function MapView({ height = 320, label, hint, children }: { height?: number; label: string; hint?: ReactNode; children: ReactNode }) {
+export default function MapView({ height = 320, label, hint, children }: { height?: number | string; label: string; hint?: ReactNode; children: ReactNode }) {
   const availability = useMemo(mapAvailability, []);
   const [failure, setFailure] = useState<MapUnavailableReason | null>(null);
   const [attempt, setAttempt] = useState(0);

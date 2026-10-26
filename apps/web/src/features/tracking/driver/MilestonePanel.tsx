@@ -52,7 +52,7 @@ export default function MilestonePanel({ trip, onChanged }: { trip: IDriverTripS
               <div className={'drv-history-leg' + (leg?.id === item.id ? ' is-current' : '')}>
                 <div className="drv-history-head">
                   <strong>Chặng {item.seqNo}: {item.fromLocationName} → {item.toLocationName}</strong>
-                  <Tag color={LEG_TAG[item.status]?.color}>{LEG_TAG[item.status]?.label}</Tag>
+                  <Tag bordered={false} className="drv-status-tag">{LEG_TAG[item.status]?.label}</Tag>
                 </div>
                 {item.milestones.length > 0 ? (
                   <ul>
