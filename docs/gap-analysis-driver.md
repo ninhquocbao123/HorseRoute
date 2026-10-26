@@ -463,6 +463,8 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Quyền hộ tống: API ghi mốc/hoàn thành chặng/gửi vị trí/báo sự cố cho mọi người được phân công chuyến (cả DRIVER và ESCORT), không phân biệt `assignment.role`; FE hiện nút Bắt đầu/Check-in/chia sẻ GPS cho cả hai vai trò. Chưa đổi; cần chốt với chủ nghiệp vụ.
 - Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
 
+**Quy ước migration (từ 26/10/2026):** timestamp migration mới của cả nhóm bắt đầu từ **1800000013000** trở lên và không dùng lại số đã có. Sau khi gộp dev vào long, `migration:show` có 4 cặp trùng timestamp giữa các luồng: 1800000007000 (PricingVersions / DriverIncidentDetails), 1800000008000 (ManagerQuotes / HotlineParam), 1800000009000 (VmaxParam / CustomerProfiles) và 1800000010000 (SpecialistAssessments / RouteCacheFull). TypeORM vẫn chạy được vì tên lớp khác nhau và migration độc lập; không đổi tên các migration đã chạy trên Aiven (đổi tên sẽ khiến TypeORM coi là migration mới).
+
 ### 6.2 Bổ sung để không vướng D2
 
 **1. Chốt thêm các cột D2 cần.** Mục 5 mới chốt `severity` và `sub_type`. D2 còn cần thêm các cột sau:
