@@ -10,3 +10,6 @@ test-results/
 
 **/var/private-documents/
 
+
+# Cấu hình API demo cục bộ (có mật khẩu DB demo)
+.env.demo

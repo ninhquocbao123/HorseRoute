@@ -82,7 +82,7 @@ export function HistoryList({ history, details, search, onOpen }: {
         onRow={trip => ({ onClick: () => onOpen(trip.id), className: 'drv-history-row' })}
         columns={[
           {
-            title: 'Mã đơn', dataIndex: 'orderCode', width: 130,
+            title: 'Mã đơn', dataIndex: 'orderCode', width: 176,
             render: (code: string, trip) => (
               <button type="button" className="drv-link" onClick={event => { event.stopPropagation(); onOpen(trip.id); }}>{code}</button>
             ),
