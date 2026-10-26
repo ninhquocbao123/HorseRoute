@@ -18,7 +18,7 @@ cd apps/api
 DEMO_DB_PORT=33062 DEMO_DB_PASSWORD=demo node scripts/seed-flow4-demo.cjs
 ```
 
-Seed (`apps/api/scripts/seed-flow4-demo.cjs`) từ chối mọi host khác ngoài máy này và chỉ đụng database `wdp_flow4_demo`. Nó nạp `test/fixtures/schema.sql` rồi chạy **tất cả** migration trong `src/database/migrations` (trừ Init) theo thứ tự timestamp, nên DB luôn khớp code hiện tại. Chạy lại seed bất cứ lúc nào để làm mới dữ liệu (đặc biệt tín hiệu GPS, xem mục 4).
+Seed (`apps/api/scripts/seed-flow4-demo.cjs`) từ chối mọi host khác ngoài máy này và chỉ đụng database `wdp_flow4_demo` (mặc định; đặt `DEMO_DB_NAME=wdp_flow4_demo_x` để seed một DB riêng mà không ghi đè DB đang dùng — tên phải bắt đầu bằng `wdp_flow4_demo`). Nó nạp `test/fixtures/schema.sql` rồi chạy **tất cả** migration trong `src/database/migrations` (trừ Init) theo thứ tự timestamp, nên DB luôn khớp code hiện tại. Chạy lại seed bất cứ lúc nào để làm mới dữ liệu (đặc biệt tín hiệu GPS, xem mục 4).
 
 ## 2. Chạy
 

@@ -421,7 +421,7 @@ const { pathToFileURL } = require('node:url');
     await until(async () => (await queueLength()) === 0, 'gửi xong thì xóa hàng đợi');
     // Lời giải thích dài nằm trong tooltip của biểu tượng (i) ở badge
     await page.getByLabel('Giải thích chia sẻ vị trí').hover();
-    await page.getByRole('tooltip', { name: /^Đã gửi lúc \d{2}:\d{2}\. Chỉ gửi khi trang này đang mở\.$/ }).waitFor();
+    await page.getByRole('tooltip', { name: 'Chỉ gửi khi trang này đang mở; giữ màn hình sáng.' }).waitFor();
     await page.mouse.move(5, 5);
 
     // Mất mạng: giữ hàng đợi trong localStorage, badge "Mất mạng – sẽ gửi bù"; tải lại trang thì gửi bù (đã đồng ý nên tự bật lại)
@@ -507,13 +507,15 @@ const { pathToFileURL } = require('node:url');
     assert.equal(await page.locator('.drv-checklist .ant-checkbox-wrapper').count(), 3);
     assert.equal(await page.getByRole('link', { name: 'Gọi điều phối: Điều Phối A' }).getAttribute('href'), 'tel:0903');
     assert.equal(await page.getByRole('link', { name: 'Cứu hộ 24/7: 1900 1080' }).getAttribute('href'), 'tel:19001080');
-    await page.getByText('Mức nghiêm trọng sẽ gửi thông báo khẩn ngay tới điều phối viên.').waitFor();
+    const redNotice = page.getByText('Mức nghiêm trọng sẽ gửi thông báo khẩn ngay tới điều phối viên.');
+    assert.equal(await redNotice.count(), 0, 'cảnh báo chỉ hiện khi chọn Nghiêm trọng');
     assert.equal(await page.locator('.drv-reported-list').count(), 0, 'chưa có sự cố nào');
     // Thiếu thông tin: không gửi
     await submitReport();
     await page.getByText('Chọn mức độ sự cố.').waitFor();
     assert.equal(calls.incidents.length, 0);
     await page.getByRole('radio', { name: /^Nghiêm trọng/ }).click();
+    await redNotice.waitFor();
     await pick('Loại sự cố', 'Hỏng xe · Nổ lốp');
     await page.getByLabel('Mô tả chi tiết').fill('Lốp sau phải nổ khi đang chạy 60 km/h');
     assert.equal(await page.getByLabel('Con ngựa liên quan').count(), 0, 'chỉ hiện ô chọn ngựa khi liên quan tới ngựa');
