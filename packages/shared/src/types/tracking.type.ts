@@ -201,7 +201,7 @@ export interface IAlert {
   sentByName: string;
   sentAt: string;
   /**
-   * Thông báo IN_APP (`TRIP_ALERT`) tương ứng của CHÍNH người gọi, ghép theo chuyến + nội dung + giờ gần nhất; null khi không có
+   * Thông báo IN_APP (`TRIP_ALERT`) tương ứng của CHÍNH người gọi, ghép MỘT-MỘT theo thứ tự (cùng chuyến + người nhận + nội dung: cảnh báo thứ k ↔ thông báo thứ k); null khi không có
    * (người gọi không nhận thông báo, hoặc cảnh báo cũ trước khi có thông báo). Toast chỉ hiện cho cảnh báo có thông báo chưa đọc.
    */
   notificationId: string | null;

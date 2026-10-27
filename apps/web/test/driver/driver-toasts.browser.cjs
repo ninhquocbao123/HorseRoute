@@ -76,4 +76,27 @@ run('driver-toasts', async h => {
   await open('trip');
   await page.getByRole('button', { name: 'Thông báo, 12 chưa đọc' }).waitFor();
   assert.equal(await page.locator('.ant-badge-count').innerText(), '9+');
+
+  // 7. Hai cảnh báo CÙNG nội dung = hai thông báo riêng: tắt một toast thì toast kia vẫn còn (không đọc nhầm cả hai)
+  calls.read.length = 0;
+  state.notices = [];
+  const first = alertOf('21', 'Mưa lớn trên tuyến', 'WEATHER', true);
+  const second = alertOf('22', 'Mưa lớn trên tuyến', 'WEATHER', true);
+  assert.notEqual(first.notificationId, second.notificationId);
+  state.alerts = [first, second];
+  await open('trip');
+  await cardCount(1);
+  assert.match(await cards().first().innerText(), /Mưa lớn trên tuyến[\s\S]*\+1 cảnh báo khác/, 'hai cảnh báo cùng nội dung: một thẻ + "+1"');
+  await page.getByRole('button', { name: 'Thông báo, 2 chưa đọc' }).waitFor();
+  await closeFirst();
+  await page.getByRole('button', { name: 'Thông báo, 1 chưa đọc' }).waitFor();
+  assert.deepEqual(calls.read, [second.notificationId], 'chỉ thông báo của cảnh báo mới nhất được đánh dấu đã đọc');
+  await cardCount(1);
+  assert.equal(await page.locator('.drv-toast-more').count(), 0, 'toast còn lại là cảnh báo kia, không còn "+N"');
+  assert.equal(first.notificationRead, false, 'cảnh báo thứ nhất vẫn chưa đọc');
+  await open('trip');
+  await cardCount(1);
+  await closeFirst();
+  assert.deepEqual(calls.read, [second.notificationId, first.notificationId]);
+  await cardCount(0);
 });

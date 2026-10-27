@@ -171,7 +171,7 @@ export const trackingSchemas = {
   }, ['status']),
   AlertInput: object({ alertType, content: { type: 'string', minLength: 5, maxLength: 500 } }),
   Alert: object({ id, tripId: id, alertType, content: { type: 'string' }, sentBy: id, sentByName: { type: 'string' }, sentAt: time,
-    notificationId: nullable({ ...id, description: 'Thông báo IN_APP TRIP_ALERT tương ứng của CHÍNH người gọi (ghép theo chuyến + nội dung + giờ gần nhất); null khi không có.' }),
+    notificationId: nullable({ ...id, description: 'Thông báo IN_APP TRIP_ALERT tương ứng của CHÍNH người gọi (ghép một-một theo thứ tự: cùng chuyến + nội dung, cảnh báo thứ k ↔ thông báo thứ k; mỗi thông báo chỉ gán cho một cảnh báo, thừa thì null); null khi không có.' }),
     notificationRead: nullable({ type: 'boolean', description: 'Thông báo đó đã đọc chưa; null khi không có thông báo.' }) }),
 
   TimelineMilestone: object({ milestoneType, occurredAt: time, recordedByName: { type: 'string' } }),

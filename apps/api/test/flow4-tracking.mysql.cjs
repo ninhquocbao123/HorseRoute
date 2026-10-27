@@ -648,11 +648,20 @@ async function main() {
     await q('UPDATE notifications SET is_read = 1 WHERE id = ?', [mine[0].notificationId]);
     assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver }))[0].notificationRead, true, 'đã đọc phản ánh ngay');
     assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort }))[0].notificationRead, false, 'đọc của người này không ảnh hưởng người kia');
-    // Hai cảnh báo cùng nội dung: ghép theo giờ gần nhất, không dùng chung một thông báo (cách nhau vài giây: DATETIME chỉ chính xác tới giây và làm tròn khác nhau ở alerts.sent_at và notifications.created_at)
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Hai cảnh báo cùng nội dung gửi liên tiếp (cùng giây): ghép MỘT-MỘT theo thứ tự, không dùng chung một thông báo
     await expectStatus(201, 'POST', '/trips/100/alerts', { as: ids.coordA, body });
     const twice = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
     assert.equal(new Set(twice.map(item => item.notificationId)).size, 2, 'mỗi cảnh báo một thông báo riêng');
+    const ownNotices = (await q("SELECT CAST(id AS CHAR) AS id FROM notifications WHERE event_type='TRIP_ALERT' AND recipient_id = ? ORDER BY created_at, id", [ids.escort])).map(row => row.id);
+    assert.deepEqual(twice.map(item => item.notificationId), ownNotices, 'cảnh báo thứ k ↔ thông báo thứ k');
+    // Đọc thông báo của cảnh báo thứ nhất: cảnh báo thứ hai vẫn chưa đọc
+    await q('UPDATE notifications SET is_read = 1 WHERE id = ?', [twice[0].notificationId]);
+    const afterRead = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.deepEqual(afterRead.map(item => item.notificationRead), [true, false], 'đọc cái thứ nhất không làm cái thứ hai thành đã đọc');
+    // Thừa cảnh báo (thiếu thông báo) thì null, không ghép chung: bỏ thông báo thứ nhất → cảnh báo thứ nhất nhận thông báo còn lại, cảnh báo thứ hai null
+    await q('DELETE FROM notifications WHERE id = ?', [twice[0].notificationId]);
+    const surplus = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.deepEqual(surplus.map(item => item.notificationId), [twice[1].notificationId, null], 'mỗi thông báo chỉ gán cho một cảnh báo, thừa thì null');
     await q("DELETE FROM alerts WHERE id = ?", [twice[1].id]);
     await q("UPDATE notifications SET is_read = 0 WHERE event_type='TRIP_ALERT'");
   });
