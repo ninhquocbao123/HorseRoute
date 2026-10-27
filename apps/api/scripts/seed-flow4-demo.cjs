@@ -159,8 +159,20 @@ async function main() {
         [200, l2, 5, lat.toFixed(6), lng.toFixed(6), 8, (15 + (n % 3)).toFixed(2), 285, new Date(Date.now() - (13 - n) * 4 * 60000 - 60000)]
       );
     }
-    await runner.query("INSERT INTO alerts(trip_id,alert_type,content,sent_by,sent_at) VALUES (200,'TRAFFIC','Kẹt xe nhẹ khoảng km 38 trên QL22, nên giảm tốc và giữ khoảng cách.',4,?),(200,'WEATHER','Mưa lớn dự báo từ 16:00 tại Phnom Penh, kiểm tra bạt che khoang ngựa.',4,?)",
-      [hoursFromNow(-1), hoursFromNow(-0.3)]);
+    // Cảnh báo điều phối + thông báo IN_APP tương ứng cho từng người nhận, đúng như API thật (notifyCrewAndManagers: quản lý, crew, khách của đơn).
+    // Toast của tài xế/hộ tống chỉ hiện cho cảnh báo có thông báo chưa đọc, nên seed phải tạo cả hai.
+    const alertLabel = { TRAFFIC: 'giao thông', WEATHER: 'thời tiết' };
+    for (const [type, content, sentAt] of [
+      ['TRAFFIC', 'Kẹt xe nhẹ khoảng km 38 trên QL22, nên giảm tốc và giữ khoảng cách.', hoursFromNow(-1)],
+      ['WEATHER', 'Mưa lớn dự báo từ 16:00 tại Phnom Penh, kiểm tra bạt che khoang ngựa.', hoursFromNow(-0.3)],
+    ]) {
+      await runner.query('INSERT INTO alerts(trip_id,alert_type,content,sent_by,sent_at) VALUES (200,?,?,4,?)', [type, content, sentAt]);
+      for (const recipient of [2, 5, 6, 7]) {
+        await runner.query(
+          "INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel,is_read,created_at) VALUES (?,'TRIP_ALERT',?,'TRIP',200,'IN_APP',0,?)",
+          [recipient, `Cảnh báo ${alertLabel[type]} chuyến 200 (đơn WDP-DEMO-F4-A): ${content}`, sentAt]);
+      }
+    }
     await runner.query("INSERT INTO horse_logs(horse_id,leg_id,condition_status,note,logged_at,created_by) VALUES (?,?,'STABLE','Cả ba ngựa uống nước đủ, ăn uống bình thường, không có dấu hiệu căng thẳng.',?,6)", [h1, l2, hoursFromNow(-0.2)]);
     // Nhật ký chăm sóc (hộ tống 6 ghi hôm nay) và báo cáo sức khỏe (1 đã gửi cho khách, 1 nháp) — migration EscortHorseCare.
     const care = async (horse, type, at, fields = {}) => {
@@ -198,23 +210,66 @@ async function main() {
     await addLeg(205, 2, 2, 3, 5, hoursFromNow(29), hoursFromNow(32));
 
     // ── Lịch sử: 4 chuyến ĐÃ GIAO của tài xế 5 + hộ tống 6 (5, 12, 20, 35 ngày trước) ──
-    const history = [[110, 210, 'WDP-DEMO-F4-H1', 5, 1, false], [111, 211, 'WDP-DEMO-F4-H2', 12, 3, true], [112, 212, 'WDP-DEMO-F4-H3', 20, 2, false], [113, 213, 'WDP-DEMO-F4-H4', 35, 1, false]];
-    for (const [orderId, tripId, code, daysAgo, horses, withIncident] of history) {
+    // H4: hai tài khoản đổi vai (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: tài xế 5 và hộ tống 6 chỉ thấy H1–H3.
+    const swapped = [[6, 'DRIVER'], [5, 'ESCORT']];
+    const history = [[110, 210, 'WDP-DEMO-F4-H1', 5, 1, false], [111, 211, 'WDP-DEMO-F4-H2', 12, 3, true], [112, 212, 'WDP-DEMO-F4-H3', 20, 2, false], [113, 213, 'WDP-DEMO-F4-H4', 35, 1, false, swapped]];
+    const delivered = {};
+    for (const [orderId, tripId, code, daysAgo, horses, withIncident, tripCrew = crew] of history) {
       const start = hoursFromNow(-daysAgo * 24);
       const at = h => new Date(start.getTime() + h * 3600000);
-      await addOrder(orderId, code, orderId % 2 ? 8 : 7, 'DELIVERED', horses, { date: start });
-      await addTrip(tripId, orderId, 'APPROVED', 4, start, at(9), crew);
+      const horseIds = await addOrder(orderId, code, orderId % 2 ? 8 : 7, 'DELIVERED', horses, { date: start });
+      await addTrip(tripId, orderId, 'APPROVED', 4, start, at(9), tripCrew);
       const vehicle = tripId % 2 ? 6 : 5;
       const a = await addLeg(tripId, 1, 1, 2, vehicle, start, at(2.5), 'COMPLETED', start, at(2.4));
       await milestone(a, 'DEPARTED', start); await milestone(a, 'ARRIVED_AT_STOP', at(2.4)); await milestone(a, 'CUSTOMS_CLEARED', at(3));
       const b = await addLeg(tripId, 2, 2, 3, vehicle, at(3.5), at(9), 'COMPLETED', at(3.5), at(8.8));
       await milestone(b, 'DEPARTED', at(3.5)); await milestone(b, 'DELIVERED', at(8.8));
+      delivered[tripId] = { horseIds, legA: a, legB: b, start };
       if (withIncident) {
         await runner.query(
           `INSERT INTO incidents(trip_id,leg_id,incident_type,description,urgency,status,reported_by,reported_at,received_by,handling_note,closed_at,severity,sub_type,damage_target)
            VALUES (?,?,'HORSE_MEDICAL','Một ngựa có dấu hiệu bỏ ăn, hộ tống kiểm tra thân nhiệt.','HIGH','CLOSED',6,?,4,'Bác sĩ thú y kiểm tra tại trạm, ngựa ổn định.',?,'ORANGE','OFF_FEED_DEHYDRATION','HORSE')`,
           [tripId, b, at(5), at(7)]);
       }
+    }
+
+    // ── Hoạt động chăm sóc của chuyến hộ tống đã giao (thử chọn ngày + phân trang ở Lịch sử hộ tống) ──
+    const careDone = async (tripId, horse, type, when, fields = {}) => {
+      const trip = delivered[tripId];
+      const result = await runner.query(
+        `INSERT INTO horse_care_activities(trip_id,leg_id,horse_id,activity_type,feed_description,amount_liters,duration_minutes,note,performed_at,created_by,corrects_activity_id)
+         VALUES (?,?,?,?,?,?,?,?,?,6,?)`,
+        [tripId, trip.legB, horse, type, fields.feed ?? null, fields.liters ?? null, fields.minutes ?? null, fields.note ?? null, when, fields.corrects ?? null]
+      );
+      return result.insertId;
+    };
+    const atLocal = (from, dayOffset, hour, minute = 0) => { const d = new Date(from); d.setDate(d.getDate() + dayOffset); d.setHours(hour, minute, 0, 0); return d; };
+    // H2 (3 ngựa, 12 ngày trước): ngày 1 có 13 hoạt động hiển thị (cần 2 trang), ngày 2 có 4.
+    {
+      const { horseIds, start } = delivered[211];
+      for (const [n, horse] of horseIds.entries()) await careDone(211, horse, 'FEED', atLocal(start, 0, 6, n * 5), { feed: 'Cỏ khô 4 kg + yến mạch 1,5 kg' });
+      for (const [n, horse] of horseIds.entries()) {
+        if (n === 1) {
+          const wrong = await careDone(211, horse, 'WATER', atLocal(start, 0, 7, 10), { liters: 80, note: 'Nhập nhầm' });
+          await careDone(211, horse, 'WATER', atLocal(start, 0, 7, 12), { liters: 8, corrects: wrong }); // đính chính 80 L → 8 L
+        } else await careDone(211, horse, 'WATER', atLocal(start, 0, 7, 10 + n), { liters: 10 });
+      }
+      for (const [n, horse] of horseIds.entries()) await careDone(211, horse, 'FEED', atLocal(start, 0, 12, n * 5), { feed: 'Cỏ khô 3 kg + cà rốt' });
+      for (const [n, horse] of horseIds.entries()) await careDone(211, horse, 'WATER', atLocal(start, 0, 13, n * 5), { liters: 12 });
+      await careDone(211, null, 'REST', atLocal(start, 0, 15), { minutes: 20, note: 'Nghỉ chân giữa chặng' });
+      for (const [n, horse] of horseIds.entries()) await careDone(211, horse, 'FEED', atLocal(start, 1, 7, n * 5), { feed: 'Yến mạch 2 kg' });
+      await careDone(211, null, 'REST', atLocal(start, 1, 9), { minutes: 30 });
+    }
+    // H1 (1 ngựa, 5 ngày trước): ít hoạt động + 1 báo cáo sức khỏe đã gửi và đã được khách xem.
+    {
+      const { horseIds, start, legA } = delivered[210];
+      await careDone(210, horseIds[0], 'FEED', atLocal(start, 0, 8), { feed: 'Cỏ khô 3 kg' });
+      await careDone(210, horseIds[0], 'WATER', atLocal(start, 0, 9), { liters: 9.5 });
+      await careDone(210, null, 'REST', atLocal(start, 0, 11), { minutes: 15 });
+      await runner.query(
+        `INSERT INTO horse_logs(horse_id,leg_id,condition_status,logged_at,created_by,body_temp_c,heart_rate_bpm,appetite,customer_note,report_status,send_to_customer,sent_at,customer_viewed_at)
+         VALUES (?,?,'STABLE',?,6,37.5,34,'NORMAL','Ngựa khỏe, ăn uống bình thường suốt chặng đầu.','SENT',1,?,?)`,
+        [horseIds[0], legA, atLocal(start, 0, 10), atLocal(start, 0, 10, 5), atLocal(start, 0, 10, 40)]);
     }
 
     // ── Đơn khác dùng thử cô lập quyền ──

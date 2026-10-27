@@ -38,6 +38,21 @@ export function useNotifications(accountId: string) {
     }
   }
 
+  /**
+   * Đánh dấu đã đọc từ ngoài bảng (đóng toast, bấm thân toast): cập nhật lạc quan để badge giảm ngay, không bị `markingId` chặn;
+   * lỗi thì hoàn lại và báo. Dùng API sẵn có POST /notifications/:id/read.
+   */
+  const markReadQuiet = useCallback(async (id: string) => {
+    let wasUnread = false;
+    setNotifications(items => items.map(item => { if (item.id === id && !item.is_read) { wasUnread = true; return { ...item, is_read: 1 }; } return item; }));
+    try {
+      await api.post('/notifications/' + id + '/read');
+    } catch {
+      if (wasUnread) setNotifications(items => items.map(item => (item.id === id ? { ...item, is_read: 0 } : item)));
+      void message.error({ key: 'notifications-feedback', content: 'Chưa thể đánh dấu thông báo. Hãy thử lại.', duration: 5 });
+    }
+  }, [message]);
+
   /** Đánh dấu tất cả đã đọc bằng API sẵn có (từng thông báo chưa đọc); cái nào lỗi thì giữ chưa đọc. */
   async function markAllRead() {
     const ids = notifications.filter(item => !item.is_read).map(item => item.id);
@@ -69,6 +84,7 @@ export function useNotifications(accountId: string) {
     },
     addNotice,
     refresh,
+    markReadQuiet,
     unreadCount: notifications.filter(item => !item.is_read).length,
   };
 }

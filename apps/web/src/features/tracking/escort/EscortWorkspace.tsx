@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Empty, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import IncidentScreen from '../driver/IncidentScreen';
+import { HistoryList } from '../driver/DriverHistory';
+import EscortHistoryDetail from './EscortHistoryDetail';
 import CareLogPage from './CareLogPage';
 import type { DriverTrips } from '../driver/useDriverTrips';
 import type { RealtimeHorseReportViewed } from '../driver/useDriverRealtime';
@@ -9,14 +11,19 @@ import { useDriverNotice } from '../driver/DriverNotices';
 import '../driver/driver.css';
 import './escort.css';
 
-/** Màn hộ tống: ?view=care (E1 Quản lý ngựa) và ?view=incident (báo sự cố, mặc định Y tế ngựa). Chưa có chuyến → màn trống E0. */
-export default function EscortWorkspace({ data, view, viewedEvent, onNavigate }: {
+/**
+ * Màn hộ tống: ?view=care (E1 Quản lý ngựa), ?view=history (Lịch sử hộ tống, chỉ xem; ?trip=ID mở chi tiết) và ?view=incident
+ * (báo sự cố, mặc định Y tế ngựa). Chưa có chuyến → màn trống E0.
+ */
+export default function EscortWorkspace({ data, view, historyTripId, search, viewedEvent, onNavigate }: {
   data: DriverTrips;
   view: string;
+  historyTripId: string | null;
+  search: string;
   viewedEvent: RealtimeHorseReportViewed | null;
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, tripId?: string) => void;
 }) {
-  const { details, active, load, loading, refreshing, error } = data;
+  const { details, active, history, load, loading, refreshing, error } = data;
   const notice = useDriverNotice();
   const [done, setDone] = useState('');
   const finished = useCallback((message: string) => { setDone(message); onNavigate('care'); }, [onNavigate]);
@@ -31,6 +38,25 @@ export default function EscortWorkspace({ data, view, viewedEvent, onNavigate }:
   const retry = error && (
     <Alert type="error" showIcon message={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
   );
+
+  if (view === 'history') {
+    const opened = historyTripId ? history.find(trip => trip.id === historyTripId) : null;
+    return (
+      <div className="drv esc-root">
+        {retry}
+        {historyTripId && !opened && !error ? (
+          <Alert type="info" showIcon message="Không tìm thấy chuyến này trong lịch sử hộ tống." action={<Button size="small" onClick={() => onNavigate('history')}>Về danh sách</Button>} />
+        ) : opened ? (
+          <EscortHistoryDetail key={opened.id} trip={opened} detail={details[opened.id]} onBack={() => onNavigate('history')} />
+        ) : !error && (
+          <HistoryList
+            history={history} details={details} search={search} onOpen={id => onNavigate('history', id)}
+            title="Lịch sử hộ tống" emptyHint="Các chuyến bạn làm hộ tống và đã giao sẽ được lưu ở đây."
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="drv esc-root">

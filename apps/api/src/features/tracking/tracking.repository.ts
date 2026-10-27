@@ -967,7 +967,11 @@ export class TrackingRepository {
     return String(result.insertId);
   }
 
-  async getTripAlerts(tripId: string): Promise<import('./tracking.dto').AlertRow[]> {
+  /**
+   * Cảnh báo của chuyến. Có `recipientId` thì ghép thêm thông báo `TRIP_ALERT` của người đó (cùng chuyến, nội dung kết thúc bằng
+   * `: <nội dung cảnh báo>`, gần giờ gửi nhất) để toast biết đã đọc hay chưa; không ghép được thì null.
+   */
+  async getTripAlerts(tripId: string, recipientId: string | null = null): Promise<import('./tracking.dto').AlertRow[]> {
     return this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id,
         CAST(a.trip_id AS CHAR) AS tripId,
@@ -975,12 +979,20 @@ export class TrackingRepository {
         a.content,
         CAST(a.sent_by AS CHAR) AS sentBy,
         u.full_name AS sentByName,
-        a.sent_at AS sentAt
+        a.sent_at AS sentAt,
+        CAST(n.id AS CHAR) AS notificationId,
+        n.is_read AS notificationRead
       FROM alerts a
       JOIN users u ON u.id = a.sent_by
+      LEFT JOIN notifications n ON n.id = (
+        SELECT x.id FROM notifications x
+        WHERE x.recipient_id = ? AND x.event_type = 'TRIP_ALERT' AND x.related_type = 'TRIP' AND x.related_id = a.trip_id
+          AND RIGHT(x.content, CHAR_LENGTH(a.content) + 2) = CONCAT(': ', a.content)
+        ORDER BY ABS(TIMESTAMPDIFF(SECOND, x.created_at, a.sent_at)) ASC, x.id DESC LIMIT 1
+      )
       WHERE a.trip_id = ?
       ORDER BY a.sent_at ASC, a.id ASC`,
-      [tripId]
+      [recipientId, tripId]
     );
   }
 

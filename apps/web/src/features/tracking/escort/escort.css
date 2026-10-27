@@ -46,7 +46,22 @@
 .esc-row-main small { font-size: 12px; color: var(--drs-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .esc-tag { padding: 2px 8px; border-radius: 99px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .drs .esc-edit { border-color: var(--drs-line); color: var(--drs-navy2); font-weight: 600; border-radius: 8px; }
-.esc-history .drv-card-head > span { font-weight: 600; }
+.drs .esc-day { width: 150px; }
+.esc-history-count { margin: 4px 0 8px; font-size: 13px; color: var(--drs-muted); }
+.drs .esc-pager { margin-top: 12px; justify-content: center; }
+
+/* Chi tiết lịch sử hộ tống (chỉ xem) */
+.esc-detail-extra { display: grid; gap: 20px; }
+.esc-detail-horses ul, .esc-reports ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.esc-detail-horses ul { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.esc-detail-horses li { display: flex; align-items: center; gap: 12px; }
+.esc-detail-horses li span:last-child { display: grid; }
+.esc-detail-horses small { color: var(--drs-muted); font-size: 12px; }
+.esc-horse-photo.is-small { width: 40px; height: 40px; font-size: 20px; border-radius: 10px; }
+.esc-reports li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 4px; border-bottom: 1px solid var(--drs-line); }
+.esc-reports li:last-child { border-bottom: 0; }
+.esc-report-main { display: grid; flex: 1; min-width: 140px; }
+.esc-report-main small, .esc-report-state { font-size: 12px; color: var(--drs-muted); }
 .drs .esc-more { margin-top: 10px; }
 
 /* Ghi nhận nhanh */

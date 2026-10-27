@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, Empty, Table, Tag, Tooltip } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary, IIncident, ILegTracking } from '@my-project/shared';
@@ -49,7 +49,10 @@ function useRowExtras(ids: string[]) {
 }
 
 /** ?view=history: bảng các chuyến đã giao, mới nhất trước, phân trang 10 dòng. */
-export function HistoryList({ history, details, search, onOpen }: {
+export function HistoryList({ history, details, search, onOpen, title = 'Lịch sử giao hàng', emptyHint = 'Các chuyến bạn hoàn thành sẽ được lưu ở đây.' }: {
+  /** Tiêu đề (aria-label) của bảng: khung hộ tống dùng "Lịch sử hộ tống" */
+  title?: string;
+  emptyHint?: string;
   history: IDriverTripSummary[];
   details: Record<string, IDriverTripDetail>;
   search: string;
@@ -70,12 +73,12 @@ export function HistoryList({ history, details, search, onOpen }: {
   if (!history.length) {
     return (
       <section className="drv-card drv-empty">
-        <Empty description={<><strong>Chưa có chuyến nào đã giao</strong><p>Các chuyến bạn hoàn thành sẽ được lưu ở đây.</p></>} />
+        <Empty description={<><strong>Chưa có chuyến nào đã giao</strong><p>{emptyHint}</p></>} />
       </section>
     );
   }
   return (
-    <section className="drv-card drv-history" aria-label="Lịch sử giao hàng">
+    <section className="drv-card drv-history" aria-label={title}>
       {search.trim() && rows.length === 0 && <Alert type="info" showIcon message={`Không có chuyến nào khớp “${search.trim()}”.`} />}
       <Table<IDriverTripSummary>
         rowKey="id" size="middle" dataSource={rows} locale={{ emptyText: 'Không có chuyến nào.' }}
@@ -113,7 +116,13 @@ function legTimes(leg: ILegTracking) {
 }
 
 /** ?view=history&trip=ID: chi tiết chỉ xem của một chuyến đã giao (bản đồ toàn tuyến, các chặng giờ thực tế, sự cố). */
-export function HistoryDetail({ trip, detail, onBack }: { trip: IDriverTripSummary; detail: IDriverTripDetail | undefined; onBack: () => void }) {
+export function HistoryDetail({ trip, detail, onBack, extra }: {
+  trip: IDriverTripSummary;
+  detail: IDriverTripDetail | undefined;
+  onBack: () => void;
+  /** Khối thêm dưới chi tiết (khung hộ tống: ngựa, hoạt động chăm sóc, báo cáo sức khỏe) */
+  extra?: ReactNode;
+}) {
   const { map, failed: mapFailed, reload: reloadMap } = useTripMap(trip.id, false);
   const [incidents, setIncidents] = useState<IIncident[] | null>(null);
   const [incidentError, setIncidentError] = useState(false);
@@ -175,6 +184,7 @@ export function HistoryDetail({ trip, detail, onBack }: { trip: IDriverTripSumma
           </section>
         </div>
       </div>
+      {extra}
     </>
   );
 }

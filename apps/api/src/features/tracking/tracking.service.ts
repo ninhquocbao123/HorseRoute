@@ -1267,7 +1267,7 @@ export class TrackingService {
   async getTripAlerts(account: User, rawTripId: string): Promise<IAlert[]> {
     const tripId = parse(legIdSchema, rawTripId);
     await this.authorizeTrip(this.repository, account, tripId, [Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST, Role.DRIVER_ESCORT]);
-    return this.loadAlerts(this.repository, tripId);
+    return this.loadAlerts(this.repository, tripId, String(account.id));
   }
 
   async getAttachmentFile(account: User, rawId: string): Promise<{ buffer: Buffer; originalName: string; fileType: 'PDF' | 'JPG' | 'PNG' }> {
@@ -1375,7 +1375,7 @@ export class TrackingService {
       legs: legRows.map(leg => ({ ...mapLegWithMilestones(leg, milestones), isOverdue: isLegOverdue(leg, now) })),
       horseLogs: await this.loadHorseLogs(this.repository, tripId, String(account.id)),
       incidents: account.role === Role.SPECIALIST ? [] : await this.loadIncidents(this.repository, tripId),
-      alerts: await this.loadAlerts(this.repository, tripId),
+      alerts: await this.loadAlerts(this.repository, tripId, String(account.id)),
     };
   }
 
@@ -1481,9 +1481,15 @@ export class TrackingService {
     }));
   }
 
-  private async loadAlerts(repo: TrackingRepository, tripId: string): Promise<IAlert[]> {
-    const rows = await repo.getTripAlerts(tripId);
-    return rows.map(row => ({ ...row, sentAt: row.sentAt.toISOString() }));
+  /** `recipientId`: người xem (để ghép thông báo của chính họ); bỏ trống thì `notificationId` là null. */
+  private async loadAlerts(repo: TrackingRepository, tripId: string, recipientId: string | null = null): Promise<IAlert[]> {
+    const rows = await repo.getTripAlerts(tripId, recipientId);
+    return rows.map(row => ({
+      id: row.id, tripId: row.tripId, alertType: row.alertType, content: row.content, sentBy: row.sentBy, sentByName: row.sentByName,
+      sentAt: row.sentAt.toISOString(),
+      notificationId: row.notificationId ?? null,
+      notificationRead: row.notificationId ? Boolean(Number(row.notificationRead ?? 0)) : null,
+    }));
   }
 
   // ─── Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6) ──────────────────────────────

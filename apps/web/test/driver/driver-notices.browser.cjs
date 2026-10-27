@@ -2,7 +2,7 @@
 const { run } = require('./harness.cjs');
 
 run('driver-notices', async h => {
-  const { assert, page, context, pageErrors, now, iso, DAY, leg, trips, extraIds, state, calls, fail, conflict, horses, crew, allLegs, tripOf, field, mark, open, noOverflow, action, checkInButton, checkIn, modalClosed, dialog, confirm, pick, photo, heading, fact, stops, reportButton, stat, startTrip, incidentOf } = h;
+  const { alertOf, assert, page, context, pageErrors, now, iso, DAY, leg, trips, extraIds, state, calls, fail, conflict, horses, crew, allLegs, tripOf, field, mark, open, noOverflow, action, checkInButton, checkIn, modalClosed, dialog, confirm, pick, photo, heading, fact, stops, reportButton, stat, startTrip, incidentOf } = h;
   await page.clock.install(); // đồng hồ giả: các bước sau đẩy thời gian thay vì chờ thật
   trips[100].orderStatus = 'READY';
     trips['400'] = { orderCode: 'WDP-TEST-3', orderStatus: 'READY', customer: 'Khách Ba', dep: iso(-7200e3), legs: trips[200].legs.map(l => ({ ...l, id: '400' + l.id, status: 'NOT_STARTED' })) };
@@ -10,9 +10,12 @@ run('driver-notices', async h => {
   await open('trip'); // cần một trang thật trước khi đụng localStorage
 
     // 9. UI-2: thông báo nổi (một thẻ + "+N cảnh báo khác") + panel chuông gọn + realtime (socket giả qua móc dev) + polling khi mất kết nối
-    let alertSeq = 0;
-    const alertOf = (id, content, type = 'WEATHER') => ({ id, tripId: '400', alertType: type, content, sentBy: '4', sentByName: 'Điều phối', sentAt: iso(++alertSeq * 1000) });
-    const socketAlert = a => page.evaluate(payload => window.__wdpRealtime.emit('tracking:alert', payload), { alertId: a.id, tripId: a.tripId, alertType: a.alertType, content: a.content, sentByName: a.sentByName, sentAt: a.sentAt });
+    // Cảnh báo mới qua socket: server đã lưu cảnh báo + thông báo, FE tải lại /alerts để có notificationId.
+    const socketAlert = async a => {
+      if (!state.alerts.some(x => x.id === a.id)) state.alerts.push(a);
+      await socketEmit(a);
+    };
+    const socketEmit = a => page.evaluate(payload => window.__wdpRealtime.emit('tracking:alert', payload), { alertId: a.id, tripId: a.tripId, alertType: a.alertType, content: a.content, sentByName: a.sentByName, sentAt: a.sentAt });
     const alertCards = () => page.locator('.drv-toast.is-alert');
     const moreLink = () => page.locator('.drv-toast-more');
     const cardCount = n => page.waitForFunction(count => document.querySelectorAll('.drv-toast.is-alert').length === count, n);

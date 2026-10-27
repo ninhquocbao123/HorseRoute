@@ -58,7 +58,7 @@ exports.run = async (name, body) => {
       incidents: [], horseLogs: [], care: [], careRejects: [], track: [], latest: null, positionsMode: null, alerts: [],
       notices: [{ id: '1', content: 'Chuyến WDP-TEST-1 đã được phân công cho bạn.', is_read: 0, created_at: iso(-5 * 60e3) }],
     };
-    const calls = { milestones: [], complete: [], incidents: [], positions: [], maps: 0, care: [], careGets: 0 };
+    const calls = { milestones: [], complete: [], incidents: [], positions: [], maps: 0, care: [], careGets: 0, read: [] };
     // /map giả lập: km cố định để kiểm định dạng (tổng 1.720 km), chặng 3 là đường thẳng ước lượng.
     const COORDS = {
       'Kho HCM': [106.6, 10.85], 'Trạm Đồng Nai': [106.95, 10.95], 'Trạm Phan Thiết': [108.1, 10.93], 'Cửa khẩu Mộc Bài': [106.158, 11.076],
@@ -90,7 +90,7 @@ exports.run = async (name, body) => {
       { id: '22', name: 'Hắc Mã', passportNo: 'PP-2', orderStatus: 'NORMAL', breed: 'Arabian', birthDate: null },
     ];
     const crew = { role: 'DRIVER' };
-    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: trips[id].dep ?? iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: crew.role, legs: trips[id].legs });
+    const summary = id => ({ id, orderId: '5' + id, orderCode: trips[id].orderCode, orderStatus: trips[id].orderStatus, planStatus: 'APPROVED', plannedDepartureAt: trips[id].dep ?? iso(-3600e3), plannedArrivalAt: iso(7200e3), crewRole: trips[id].crewRole ?? crew.role, legs: trips[id].legs });
     const detail = id => ({
       ...summary(id), horses,
       crew: [{ userId: 'test', name: 'Phan Thị Lan', phone: '0901', role: 'DRIVER' }, { userId: '7', name: 'Lê Hộ Tống', phone: '0902', role: 'ESCORT' }],
@@ -120,7 +120,14 @@ exports.run = async (name, body) => {
       }
       if (p === '/notifications') return route.fulfill({ json: state.notices });
       const readNotice = /^\/notifications\/(\d+)\/read$/.exec(p);
-      if (readNotice && method === 'POST') { state.notices.find(n => n.id === readNotice[1]).is_read = 1; return route.fulfill({ json: {} }); }
+      if (readNotice && method === 'POST') {
+        calls.read.push(readNotice[1]);
+        const target = state.notices.find(n => n.id === readNotice[1]);
+        if (target) target.is_read = 1;
+        // Cảnh báo ghép với thông báo này (toast ↔ thông báo) cũng thành đã đọc.
+        for (const a of state.alerts) if (a.notificationId === readNotice[1]) a.notificationRead = true;
+        return route.fulfill({ json: {} });
+      }
       if (p === '/tracking/driver/trips') return route.fulfill({ json: ['100', '200', ...extraIds].map(summary) });
       const mapGet = /^\/tracking\/trips\/(\d+)\/map$/.exec(p);
       if (mapGet) { calls.maps++; return route.fulfill({ json: mapFor(mapGet[1]) }); }
@@ -235,6 +242,14 @@ exports.run = async (name, body) => {
     const stops = () => page.locator('.drv-stops li');
     const reportButton = () => page.locator('.drv-header-actions').getByRole('button', { name: 'Báo cáo sự cố' });
 
+    // Cảnh báo kèm thông báo (toast ↔ thông báo). `linked` = có bản ghi trong danh sách chuông (state.notices); không thì chỉ có mã (toast vẫn hoạt động).
+    let alertSeq = 0;
+    const alertOf = (id, content, type = 'WEATHER', linked = false) => {
+      const notificationId = String(500 + Number(id));
+      const label = { WEATHER: 'thời tiết', TRAFFIC: 'giao thông', BORDER: 'cửa khẩu' }[type];
+      if (linked) state.notices.push({ id: notificationId, content: `Cảnh báo ${label} chuyến 100 (đơn WDP-TEST-1): ${content}`, is_read: 0, event_type: 'TRIP_ALERT', related_type: 'TRIP', related_id: '100', created_at: iso(-60e3) });
+      return { id, tripId: '100', alertType: type, content, sentBy: '4', sentByName: 'Điều phối', sentAt: iso(++alertSeq * 1000), notificationId, notificationRead: false };
+    };
     const stat = label => page.locator('.drv-stat-card', { hasText: label });
     const incidentOf = id => ({
       id: String(id), tripId: '100', legId: null, horseId: null, horseName: null, incidentType: 'VEHICLE_BREAKDOWN', subType: 'TIRE_BURST', severity: 'RED',
@@ -248,7 +263,7 @@ exports.run = async (name, body) => {
       mark(trips[100].legs[0], 'DEPARTED', iso(-3600e3));
     };
 
-    const h = { assert, page, context, pageErrors, now, iso, DAY, leg, trips, extraIds, state, calls, fail, conflict, horses, crew, allLegs, tripOf, field, mark, open, noOverflow, action, checkInButton, checkIn, modalClosed, dialog, confirm, pick, photo, heading, fact, stops, reportButton, stat, startTrip, incidentOf };
+    const h = { alertOf, assert, page, context, pageErrors, now, iso, DAY, leg, trips, extraIds, state, calls, fail, conflict, horses, crew, allLegs, tripOf, field, mark, open, noOverflow, action, checkInButton, checkIn, modalClosed, dialog, confirm, pick, photo, heading, fact, stops, reportButton, stat, startTrip, incidentOf };
     try {
       await body(h);
       assert.deepEqual(pageErrors, [], 'lỗi JS trong trang');

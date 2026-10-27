@@ -59,7 +59,11 @@ export default function CareLogPage({ trip, detail, viewedEvent, onTripChanged }
               ))}
             </div>
           )}
-          <CareHistoryList activities={data.activities} onEdit={writable ? setEditing : undefined} />
+          <CareHistoryList
+            activities={data.activities} onEdit={writable ? setEditing : undefined} running={writable}
+            tripStart={trip.legs[0]?.actualDepartureAt ?? trip.legs[0]?.plannedDepartureAt ?? null}
+            tripEnd={trip.legs[trip.legs.length - 1]?.actualArrivalAt ?? trip.plannedArrivalAt}
+          />
         </div>
         <aside className="esc-side" aria-label="Ghi nhận và tổng hợp">
           <QuickLogCard

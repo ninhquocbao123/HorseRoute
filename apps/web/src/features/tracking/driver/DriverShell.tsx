@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Badge, Button, Drawer, Input } from 'antd';
 import { BellOutlined, CalendarOutlined, HistoryOutlined, LogoutOutlined, ReloadOutlined, SearchOutlined, TruckOutlined, WarningOutlined } from '@ant-design/icons';
 import type { CrewRole, IUser } from '@my-project/shared';
@@ -20,9 +20,10 @@ export const DRIVER_NAV: NavItem[] = [
   { id: 'incident', title: 'Báo cáo sự cố', icon: <WarningOutlined /> },
 ];
 
-/** Hộ tống (Figma E1/E2): chỉ "Quản lý ngựa" tới khi có màn E2; báo sự cố là nút nhỏ trên topbar. */
+/** Hộ tống (Figma E1/E2): Quản lý ngựa + Lịch sử hộ tống (E2 thêm ở bước sau); báo sự cố là nút nhỏ trên topbar. */
 export const ESCORT_NAV: NavItem[] = [
   { id: 'care', title: 'Quản lý ngựa', icon: <FeedIcon /> },
+  { id: 'history', title: 'Lịch sử hộ tống', icon: <HistoryOutlined /> },
 ];
 
 /** Màu viền trái của thông báo chưa đọc theo loại: cảnh báo điều phối vàng, còn lại trung tính. */
@@ -64,12 +65,20 @@ type ShellProps = {
 function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading, search, onSearch, searchPlaceholder, activeTripId = null, nav = DRIVER_NAV, topbarAction, showDescription = false, onHorseReportViewed, children }: ShellProps) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
-  const { panelProps, unreadCount, addNotice, refresh } = useNotifications(String(account.id));
+  const { panelProps, unreadCount, addNotice, refresh, markReadQuiet } = useNotifications(String(account.id));
   const notice = useDriverNotice();
   const [alertsListOpen, setAlertsListOpen] = useState(false);
-  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsListOpen(true); setBellOpen(true); });
+  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsListOpen(true); setBellOpen(true); }, {
+    markRead: id => void markReadQuiet(id),
+    openPanel: () => { setAlertsListOpen(false); setBellOpen(true); },
+  });
+  // Thông báo đọc ở bảng chuông thì toast tương ứng biến mất.
+  const { sync } = alerts;
+  const readIds = useMemo(() => new Set(panelProps.notifications.filter(item => item.is_read).map(item => item.id)), [panelProps.notifications]);
+  useEffect(() => sync(readIds), [readIds, sync]);
   useDriverRealtime({
-    onAlert: payload => alerts.show({ id: payload.alertId, alertType: payload.alertType as never, content: payload.content, sentByName: payload.sentByName, sentAt: payload.sentAt }),
+    // Cảnh báo mới: tải lại /alerts để có thông báo (notificationId) của chính mình; chỉ cảnh báo có thông báo chưa đọc mới thành toast.
+    onAlert: () => void alerts.load(),
     onIncidentUpdated: payload => notice.info(
       payload.status === 'CLOSED' ? `Sự cố #${payload.incidentId} đã được đóng` : `Điều phối viên đã tiếp nhận sự cố #${payload.incidentId}`,
       payload.status === 'CLOSED' && payload.handlingNote ? `Hướng xử lý: ${payload.handlingNote}` : undefined,
@@ -123,7 +132,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
               />
             )}
             {topbarAction}
-            <Badge count={unreadCount} size="small" offset={[-6, 6]}>
+            <Badge count={unreadCount} overflowCount={9} size="small" offset={[-6, 6]}>
               <Button className="drs-tool" icon={<BellOutlined />} aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={() => { setAlertsListOpen(false); setBellOpen(true); }} />
             </Badge>
             <span className="drs-tool drs-date"><CalendarOutlined aria-hidden="true" /><time dateTime={new Date().toISOString().slice(0, 10)}>{date.charAt(0).toUpperCase() + date.slice(1)}</time></span>

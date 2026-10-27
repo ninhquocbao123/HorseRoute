@@ -200,6 +200,12 @@ export interface IAlert {
   sentBy: string;
   sentByName: string;
   sentAt: string;
+  /**
+   * Thông báo IN_APP (`TRIP_ALERT`) tương ứng của CHÍNH người gọi, ghép theo chuyến + nội dung + giờ gần nhất; null khi không có
+   * (người gọi không nhận thông báo, hoặc cảnh báo cũ trước khi có thông báo). Toast chỉ hiện cho cảnh báo có thông báo chưa đọc.
+   */
+  notificationId: string | null;
+  notificationRead: boolean | null;
 }
 
 // ─── Trip tracking summary (trips + legs for Driver view) ─────────────────────

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Spin } from 'antd';
+import { CrewRole } from '@my-project/shared';
 import type { DashboardProps } from '../components/DashboardLayout';
 import DriverShell, { DRIVER_NAV } from '../../../tracking/driver/DriverShell';
 import DriverWorkspace from '../../../tracking/driver/DriverWorkspace';
@@ -28,7 +29,9 @@ export default function DriverDashboard({ account, logout }: DashboardProps) {
 }
 
 /** Driver/Escort dùng khung riêng (DriverShell) với 3 mục; các view cũ (assignments, milestones, horse-logs…) quy về `trip`. */
-function DriverArea({ account, logout, data }: DashboardProps & { data: DriverTrips }) {
+function DriverArea({ account, logout, data: all }: DashboardProps & { data: DriverTrips }) {
+  // Lịch sử giao hàng của tài xế chỉ gồm chuyến làm DRIVER; chuyến làm hộ tống nằm ở khung hộ tống.
+  const data = { ...all, history: all.historyFor(CrewRole.DRIVER) };
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [search, setSearch] = useState('');

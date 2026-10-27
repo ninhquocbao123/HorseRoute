@@ -45,9 +45,9 @@ Token Mapbox của web (`VITE_MAPBOX_TOKEN`) vẫn lấy từ `apps/web/.env` n�
 
 ## 4. Dữ liệu mẫu cho tài xế / hộ tống
 
-- **Đang chạy** `WDP-DEMO-F4-A` (chuyến #200, 3 ngựa): chặng 1 Long An → cửa khẩu Mộc Bài đã xong, chặng 2 Mộc Bài → Phnom Penh đang chạy bằng đường bộ, chặng 3 → Cảng Sihanoukville chưa đi. Có 14 điểm GPS, 2 cảnh báo điều phối (kẹt xe, thời tiết), 1 ghi chú hộ tống, 1 sự cố mức vàng. Dữ liệu hộ tống (migration `EscortHorseCare`): 7 hoạt động chăm sóc hôm nay do hộ tống ghi (có 1 bản đính chính 80 L → 8 L), 1 báo cáo sức khỏe `SENT` gửi khách (Bỏ ăn, chưa xem) và 1 báo cáo `DRAFT`. Hai tài khoản tài xế và hộ tống cùng thấy chuyến này.
+- **Đang chạy** `WDP-DEMO-F4-A` (chuyến #200, 3 ngựa): chặng 1 Long An → cửa khẩu Mộc Bài đã xong, chặng 2 Mộc Bài → Phnom Penh đang chạy bằng đường bộ, chặng 3 → Cảng Sihanoukville chưa đi. Có 14 điểm GPS, 2 cảnh báo điều phối (kẹt xe, thời tiết), 1 ghi chú hộ tống, 1 sự cố mức vàng. Dữ liệu hộ tống (migration `EscortHorseCare`): 7 hoạt động chăm sóc hôm nay do hộ tống ghi (có 1 bản đính chính 80 L → 8 L), 1 báo cáo sức khỏe `SENT` gửi khách (Bỏ ăn, chưa xem) và 1 báo cáo `DRAFT`. Hai tài khoản tài xế và hộ tống cùng thấy chuyến này. Mỗi cảnh báo điều phối có **thông báo IN_APP chưa đọc** cho quản lý, tài xế, hộ tống và khách của đơn (như API thật), nên toast ở góc dưới phải và bảng chuông khớp nhau: tắt toast (X) hoặc bấm thân toast là đánh dấu đã đọc.
 - **Sắp tới** `WDP-DEMO-F4-NEXT` (chuyến #205, READY): cùng tài xế, nên màn chuyến hiện dòng "Còn 1 chuyến sắp tới".
-- **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng).
+- **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng). H1–H3: tài xế 5 + hộ tống 6. **H4 đổi vai** (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: `driver@example.com` và `escort@example.com` đều chỉ thấy H1–H3 ở lịch sử của khung mình, H4 chỉ xuất hiện ở khung ngược lại. Lịch sử hộ tống (chi tiết chỉ xem): H2 có hoạt động chăm sóc trải trên 2 ngày, **13 hoạt động trong một ngày** (thử phân trang 10 dòng/trang) và 1 bản đính chính; H1 có 3 hoạt động và 1 báo cáo sức khỏe đã gửi, khách đã xem.
 - `WDP-DEMO-F4-B` (tài xế khác, READY) và `WDP-DEMO-F4-C` (kế hoạch chờ duyệt) để thử cô lập quyền.
 
 **Tín hiệu GPS chỉ "LIVE" trong 2 phút** sau khi seed (điểm cuối cách đây ~1 phút). Muốn thẻ Tốc độ và vị trí xe luôn tươi, chạy trình mô phỏng (xe chạy dọc chặng 2):
@@ -77,7 +77,7 @@ Các test dùng API giả lập (không cần DB hay server demo), vite chạy �
 $env:PLAYWRIGHT_PACKAGE='<đường dẫn playwright-core>'; $env:WEB_TEST_PORT='5181'
 node apps/web/test/driver/run-all.cjs          # 6 file tài xế + escort
 node apps/web/test/escort.browser.cjs          # chỉ hộ tống (E1)
-node apps/web/test/driver/driver-gps.browser.cjs   # từng file: driver-trip, driver-gps, driver-actions, driver-incident, driver-history, driver-notices
+node apps/web/test/driver/driver-gps.browser.cjs   # từng file: driver-trip, driver-gps, driver-actions, driver-incident, driver-history, driver-notices, driver-toasts
 ```
 
 Khung chung (dữ liệu giả, route API, helper) nằm ở `apps/web/test/driver/harness.cjs`. `driver.browser.cjs` cũ đã được tách thành các file theo màn.

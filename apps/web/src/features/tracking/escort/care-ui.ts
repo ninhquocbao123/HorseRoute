@@ -1,7 +1,9 @@
 import { CARE_ACTIVITY_LABEL, CareActivityType, type ICareActivity, type ICareActivityCreateInput, type IHorseLog, type ITripHorse } from '@my-project/shared';
 import { fromLocalInput } from '../tracking.format';
 
-/** Cả đoàn (chỉ nghỉ chân): giá trị của ô chọn ngựa, gửi lên API là `horseId: null`. */
+/**
+ * "Tất cả ngựa": giá trị của ô chọn ngựa. FEED/WATER ghi từng con; nghỉ chân là MỘT bản ghi cả đoàn (`horseId: null`).
+ */
 export const WHOLE_HERD = 'ALL';
 
 export const CARE_TYPES: CareActivityType[] = [CareActivityType.FEED, CareActivityType.WATER, CareActivityType.REST];
@@ -69,11 +71,12 @@ export type CareForm = {
   amountLiters: string;
   durationMinutes: string;
   note: string;
-  /** Nút "Áp dụng cho tất cả ngựa" (chỉ FEED / WATER) */
-  applyAll: boolean;
 };
 
-export const EMPTY_CARE_FORM: CareForm = { horseId: '', activityType: CareActivityType.FEED, feedDescription: '', amountLiters: '', durationMinutes: '', note: '', applyAll: false };
+/** Trên ngưỡng này (lít, mỗi con) hiện cảnh báo vàng nhưng vẫn cho lưu; API chỉ chặn ngoài 0,1–200. */
+export const WATER_WARN_LITERS = 60;
+
+export const EMPTY_CARE_FORM: CareForm = { horseId: '', activityType: CareActivityType.FEED, feedDescription: '', amountLiters: '', durationMinutes: '', note: '' };
 
 export function formFromActivity(activity: ICareActivity): CareForm {
   return {
@@ -83,7 +86,6 @@ export function formFromActivity(activity: ICareActivity): CareForm {
     amountLiters: activity.amountLiters === null ? '' : String(activity.amountLiters).replace('.', ','),
     durationMinutes: activity.durationMinutes === null ? '' : String(activity.durationMinutes),
     note: activity.note ?? '',
-    applyAll: false,
   };
 }
 
@@ -94,7 +96,7 @@ export type CareErrors = Partial<Record<'horseId' | 'feedDescription' | 'amountL
 /** Kiểm tra khớp ràng buộc của API (FEED cần mô tả, WATER 0,1–200 L một chữ số thập phân, REST 1–720 phút, giờ không ở tương lai). */
 export function validateCare(form: CareForm, performedAt: string, now = Date.now()): CareErrors {
   const errors: CareErrors = {};
-  if (form.activityType !== CareActivityType.REST && !form.horseId) errors.horseId = 'Chọn ngựa cần ghi.';
+  if (!form.horseId) errors.horseId = 'Chọn ngựa hoặc "Tất cả ngựa".';
   if (form.activityType === CareActivityType.FEED) {
     const text = form.feedDescription.trim();
     if (!text) errors.feedDescription = 'Nhập khẩu phần đã cho ăn.';
@@ -124,4 +126,32 @@ export function toInput(form: CareForm, horseId: string | null, performedAt: Dat
   if (form.activityType === CareActivityType.FEED) return { ...base, feedDescription: form.feedDescription.trim() };
   if (form.activityType === CareActivityType.WATER) return { ...base, amountLiters: parseLiters(form.amountLiters) };
   return { ...base, durationMinutes: Number(form.durationMinutes.trim()) };
+}
+
+/** Lượng nước nhập (lít) hợp lệ và lớn hơn ngưỡng cảnh báo. */
+export function isUnusualWater(form: CareForm) {
+  if (form.activityType !== CareActivityType.WATER) return false;
+  const value = parseLiters(form.amountLiters);
+  return Number.isFinite(value) && value > WATER_WARN_LITERS && value <= 200;
+}
+
+/** Ngày địa phương yyyy-MM-dd của một thời điểm ISO. */
+export const localDay = (iso: string | number | Date) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+/**
+ * Khoảng ngày chọn được của lịch sử hoạt động: từ ngày sớm nhất (giờ xuất phát hoặc hoạt động đầu tiên) tới ngày muộn nhất
+ * (hôm nay nếu chuyến còn chạy, ngược lại giờ đến hoặc hoạt động cuối cùng). Mặc định hôm nay nếu nằm trong khoảng, không thì ngày cuối.
+ */
+export function historyDays(activities: ICareActivity[], tripStart: string | null, tripEnd: string | null, running: boolean, now = Date.now()) {
+  const days = activities.map(activity => localDay(activity.performedAt));
+  const first = [...days, ...(tripStart ? [localDay(tripStart)] : [])].sort()[0] ?? localDay(now);
+  const lastCandidates = [...days, ...(running ? [localDay(now)] : tripEnd ? [localDay(tripEnd)] : [])].sort();
+  const last = lastCandidates[lastCandidates.length - 1] ?? first;
+  const today = localDay(now);
+  const min = first <= last ? first : last;
+  return { min, max: last, initial: today >= min && today <= last ? today : last };
 }

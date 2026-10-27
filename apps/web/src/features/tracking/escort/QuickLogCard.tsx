@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Checkbox, Input, Select } from 'antd';
+import { Alert, Button, Input, Select } from 'antd';
 import { isAxiosError } from 'axios';
 import { CareActivityType, type ICareActivity, type ITripHorse } from '@my-project/shared';
 import { errorMessage, trackingApi } from '../tracking.api';
 import { toLocalInput, fromLocalInput } from '../tracking.format';
 import { useDraft } from '../driver/useDraft';
 import { useDriverNotice } from '../driver/DriverNotices';
-import { CARE_TYPES, EMPTY_CARE_FORM, WHOLE_HERD, careLabel, formFromActivity, toInput, validateCare, type CareForm } from './care-ui';
+import { CARE_TYPES, EMPTY_CARE_FORM, WATER_WARN_LITERS, WHOLE_HERD, careLabel, formFromActivity, isUnusualWater, toInput, validateCare, type CareForm } from './care-ui';
 
 type Retry = { form: CareForm; remaining: string[]; total: number; at: Date; error: string };
 
 /**
  * "Ghi nhận nhanh" (Figma E1): cho ăn / uống nước / nghỉ chân. Ô nhập đổi theo loại và khớp ràng buộc của API.
- * "Áp dụng cho tất cả ngựa" ghi từng ngựa một (mỗi ngựa một bản ghi, cùng nội dung và cùng giờ); lỗi giữa chừng thì chỉ thử lại phần còn thiếu.
+ * Ô "Ngựa" có mục "Tất cả ngựa (N con)": FEED/WATER ghi từng con (mỗi con một bản ghi, cùng nội dung và giờ; lỗi giữa chừng thì chỉ thử lại phần còn thiếu),
+ * nghỉ chân ghi MỘT bản cả đoàn.
  * `editing` = đính chính một hoạt động đã ghi (khóa ngựa và loại; bản mới thay bản cũ, không có xóa).
  */
 export default function QuickLogCard({ tripId, writable, horses, editing, onCancelEdit, onSaved, onTripChanged }: {
@@ -53,9 +54,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
   const errors = validateCare(form, performedAt);
   const canWrite = writable && !locked;
   const type = form.activityType;
-  const herd = type === CareActivityType.REST;
-  const showApplyAll = !editing && !herd && horses.length > 1;
-  const horseName = (id: string) => horses.find(horse => horse.id === id)?.name ?? id;
+  const horseName = (id: string) => (id === WHOLE_HERD ? 'Tất cả ngựa' : horses.find(horse => horse.id === id)?.name ?? id);
 
   const finish = async (message: string) => {
     notice.success(message);
@@ -102,7 +101,8 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
     setTried(true);
     if (!canWrite || busy || Object.keys(errors).length) return;
     const at = fromLocalInput(performedAt)!;
-    const targets = editing ? [form.horseId] : herd ? [form.horseId || WHOLE_HERD] : form.applyAll && showApplyAll ? horses.map(horse => horse.id) : [form.horseId];
+    // Tất cả ngựa: nghỉ chân = một bản ghi cả đoàn; cho ăn / uống nước = từng con.
+    const targets = editing || form.horseId !== WHOLE_HERD || type === CareActivityType.REST ? [form.horseId] : horses.map(horse => horse.id);
     await writeAll(form, targets, at, targets.length);
   };
 
@@ -113,7 +113,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
     await writeAll(snapshot, remaining, at, total);
   };
 
-  const horseOptions = [...(herd ? [{ value: WHOLE_HERD, label: 'Cả đoàn' }] : []), ...horses.map(horse => ({ value: horse.id, label: horse.name }))];
+  const horseOptions = [{ value: WHOLE_HERD, label: `Tất cả ngựa (${horses.length} con)` }, ...horses.map(horse => ({ value: horse.id, label: horse.name }))];
   const showError = (key: keyof typeof errors) => tried && errors[key];
 
   return (
@@ -126,22 +126,17 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
           <Select
             aria-label="Hoạt động" value={type} disabled={!canWrite || busy || !!editing}
             options={CARE_TYPES.map(value => ({ value, label: careLabel(value) }))}
-            onChange={value => update({ activityType: value, horseId: value === CareActivityType.REST ? WHOLE_HERD : form.horseId === WHOLE_HERD ? '' : form.horseId, applyAll: false })}
+            onChange={value => update({ activityType: value })}
           />
         </label>
         <label className="drv-input">
           <span>Ngựa</span>
           <Select
-            aria-label="Ngựa" placeholder="Chọn ngựa" value={form.horseId || undefined} disabled={!canWrite || busy || !!editing || (!!form.applyAll && showApplyAll)}
+            aria-label="Ngựa" placeholder="Chọn ngựa" value={form.horseId || undefined} disabled={!canWrite || busy || !!editing}
             options={horseOptions} status={showError('horseId') ? 'error' : undefined} onChange={value => update({ horseId: value })}
           />
           {showError('horseId') && <small className="esc-error" role="alert">{errors.horseId}</small>}
         </label>
-        {showApplyAll && (
-          <Checkbox className="esc-applyall" checked={form.applyAll} disabled={!canWrite || busy} onChange={event => update({ applyAll: event.target.checked })}>
-            Áp dụng cho tất cả ngựa
-          </Checkbox>
-        )}
         {type === CareActivityType.FEED && (
           <label className="drv-input">
             <span>Khẩu phần</span>
@@ -157,6 +152,9 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
               status={showError('amountLiters') ? 'error' : undefined} onChange={event => update({ amountLiters: event.target.value })} />
             {showError('amountLiters') && <small className="esc-error" role="alert">{errors.amountLiters}</small>}
           </label>
+        )}
+        {isUnusualWater(form) && (
+          <Alert type="warning" showIcon message="Lượng nước bất thường, kiểm tra lại." description={`Trên ${WATER_WARN_LITERS} lít cho mỗi con. Bạn vẫn lưu được nếu số liệu đúng.`} />
         )}
         {type === CareActivityType.REST && (
           <label className="drv-input">
