@@ -14,10 +14,10 @@ export default function OrderIntakeDetail(p:Props){
  useEffect(()=>setDocumentsOpen(false),[d?.id,p.open]);
  const kind=d?.origin_country===d?.destination_country?'Trong nước':'Quốc tế';
  const sent=d?.created_at?new Date(d.created_at).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'Chưa cung cấp';
- return <><Modal rootClassName="order-intake-sheet" width={1120} centered open={p.open} onCancel={p.onClose} closable={!p.busy} maskClosable={!p.busy} keyboard={!p.busy}
+ return <><Modal rootClassName="order-intake-sheet" width={1120} centered open={p.open} onCancel={p.onClose} closable={!p.busy} mask={{closable:!p.busy}} keyboard={!p.busy}
   title={<div className="ois-title"><div><strong>{d?.order_code||'Chi tiết đơn'}</strong>{d&&<span>{p.stageName}</span>}</div>{d&&<p>{d.customer.full_name} · {kind} · Gửi lúc {sent}</p>}</div>}
   footer={<div className="ois-footer"><span>{pending?'Chọn điều phối viên để tiếp nhận đơn và chuyển sang thẩm định.':p.stageName}</span><Button disabled={p.busy} onClick={p.onClose}>Đóng</Button>{pending&&<Button type="primary" loading={p.busy} disabled={p.loading||!!p.error||!p.coordinator} onClick={()=>p.onReview('APPROVED')}>Tiếp nhận đơn</Button>}</div>}>
-  <Spin spinning={p.loading}>{p.error&&<Alert type="error" showIcon message={p.error} action={<Button onClick={p.onRetry}>Thử lại</Button>}/>} {p.actionError&&<Alert type="error" showIcon message={p.actionError}/>}
+  <Spin spinning={p.loading}>{p.error&&<Alert type="error" showIcon title={p.error} action={<Button onClick={p.onRetry}>Thử lại</Button>}/>} {p.actionError&&<Alert type="error" showIcon title={p.actionError}/>}
   {d&&<><div className="ois-summary">{[
    ['Khởi hành',date(d.desired_departure_date),booking?.pickupTime||'Chưa chọn giờ đón'],
    ['Số ngựa',`${d.horses.length} ngựa`,[...new Set(d.horses.map(h=>h.breed).filter(Boolean))].join(' · ')||'Chưa cung cấp giống'],

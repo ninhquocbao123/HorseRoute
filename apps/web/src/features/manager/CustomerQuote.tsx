@@ -114,7 +114,7 @@ export default function CustomerQuote({
         </div>
 
         {error ? (
-          <Alert type="error" message="Không tải được báo giá. Vui lòng mở lại đơn." />
+          <Alert type="error" title="Không tải được báo giá. Vui lòng mở lại đơn." />
         ) : data ? (
           <>
             <p className="cq-expiry">Hiệu lực đến {new Date(data.expires_at).toLocaleString('vi-VN')}</p>
@@ -211,7 +211,7 @@ export default function CustomerQuote({
               <Alert
                 type="error"
                 showIcon
-                message="Đơn hàng đã bị từ chối"
+                title="Đơn hàng đã bị từ chối"
                 description="Hồ sơ vận chuyển bị chuyên viên từ chối. Đơn hàng không thể tiếp tục đặt cọc hay thanh toán."
                 style={{ marginTop: 14 }}
               />

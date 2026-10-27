@@ -201,7 +201,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
       </div>
       {missingTotal > 0 && coordinates !== 'missing' && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-          message={`${missingTotal} địa điểm chưa có tọa độ: bản đồ sẽ không vẽ được các chặng đi qua chúng.`}
+          title={`${missingTotal} địa điểm chưa có tọa độ: bản đồ sẽ không vẽ được các chặng đi qua chúng.`}
           action={<Button size="small" onClick={() => { setCoordinates('missing'); setPage(1); }}>Xem</Button>} />
       )}
       <div className="locations-filters">
@@ -216,7 +216,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
         <Select value={coordinates} options={COORDINATE_OPTIONS} onChange={value => { setCoordinates(value); setPage(1); }} aria-label="Lọc theo tọa độ" />
         <Button onClick={() => void load()} disabled={loading}>Làm mới</Button>
       </div>
-      {loadError && <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
+      {loadError && <Alert type="error" showIcon title={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
       <Table<CatalogLocation>
         rowKey="id" size="middle" columns={columns} dataSource={items} loading={loading} scroll={{ x: 'max-content' }}
         locale={{ emptyText: filtered ? 'Không có địa điểm phù hợp bộ lọc.' : 'Chưa có địa điểm nào.' }}
@@ -229,7 +229,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
         okText={editing === 'new' ? 'Thêm' : 'Lưu'} cancelText="Hủy" confirmLoading={saving}
         onOk={() => form.submit()} onCancel={() => { if (!saving) setEditing(null); }}
       >
-        {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+        {formError && <Alert type="error" showIcon title={formError} style={{ marginBottom: 16 }} />}
         <Form form={form} layout="vertical" onFinish={values => void submit(values)} requiredMark="optional" className="locations-form">
           <div className="locations-form-grid">
             <Form.Item name="name" label="Tên địa điểm" rules={[{ required: true, whitespace: true, message: 'Nhập tên địa điểm.' }, { max: 150, message: 'Tối đa 150 ký tự.' }]}>

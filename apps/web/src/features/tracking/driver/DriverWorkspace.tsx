@@ -38,7 +38,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
   const retry = error && (
-    <Alert type="error" showIcon message={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
+    <Alert type="error" showIcon title={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
   );
 
   if (view === 'history') {
@@ -47,7 +47,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
       <div className="drv">
         {retry}
         {historyTripId && !opened && !error ? (
-          <Alert type="info" showIcon message="Không tìm thấy chuyến này trong lịch sử giao hàng." action={<Button size="small" onClick={() => onNavigate('history')}>Về danh sách</Button>} />
+          <Alert type="info" showIcon title="Không tìm thấy chuyến này trong lịch sử giao hàng." action={<Button size="small" onClick={() => onNavigate('history')}>Về danh sách</Button>} />
         ) : opened ? (
           <HistoryDetail key={opened.id} trip={opened} detail={details[opened.id]} onBack={() => onNavigate('history')} />
         ) : !error && <HistoryList history={history} details={details} search={search} onOpen={id => onNavigate('history', id)} />}
@@ -112,7 +112,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
     label: next => (isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : running ? 'Check-in chặng' : next.label),
     title: next => (running && leg ? checkInTitle(next, leg) : isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : next.label),
     warning: next => isTripStart(next, seqNo) && remaining > 0 && (
-      <Alert type="warning" showIcon message={`Còn ${remaining} mục chưa kiểm tra`} description="Bạn vẫn có thể bắt đầu; hãy rà lại danh sách kiểm tra trước khi xe lăn bánh." />
+      <Alert type="warning" showIcon title={`Còn ${remaining} mục chưa kiểm tra`} description="Bạn vẫn có thể bắt đầu; hãy rà lại danh sách kiểm tra trước khi xe lăn bánh." />
     ),
   });
   const { action, finished } = legAction;
@@ -171,7 +171,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
 
       {legAction.pendingAlert}
       {!action && !finished && trip.legs.length > 0 && !ready && trip.orderStatus !== 'IN_TRANSIT' && (
-        <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
+        <Alert type="info" showIcon title="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
       )}
 
       {upcoming.length > 0 && (

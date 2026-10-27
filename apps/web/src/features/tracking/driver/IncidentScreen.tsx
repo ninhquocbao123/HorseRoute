@@ -17,7 +17,7 @@ export default function IncidentScreen({ trip, detail, home, homeLabel, onNaviga
   if (trip.orderStatus !== 'READY' && trip.orderStatus !== 'IN_TRANSIT') {
     return (
       <Alert
-        type="info" showIcon message="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển."
+        type="info" showIcon title="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển."
         action={<Button size="small" onClick={() => onNavigate(home)}>{homeLabel}</Button>}
       />
     );

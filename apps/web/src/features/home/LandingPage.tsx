@@ -37,5 +37,5 @@ export default function LandingPage() {
       return { message: `${order.order_code}: ${labels[order.status] || order.status}`, step: steps[order.status] || 0 };
     },priceBook,input=>calculateEstimate(priceBook!.config,input,priceBook!.id));
   }, [account, navigate,priceBook]);
-  return <div ref={root} className="v7-public"><PublicSymbols />{pricingError&&<Alert type="warning" message={pricingError} action={<Button onClick={()=>setReload(n=>n+1)}>Thử lại</Button>}/>}<LandingMarkup /><button type="button" className="totop on" aria-label="Lên đầu trang" onClick={() => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' })}><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button></div>;
+  return <div ref={root} className="v7-public"><PublicSymbols />{pricingError&&<Alert type="warning" title={pricingError} action={<Button onClick={()=>setReload(n=>n+1)}>Thử lại</Button>}/>}<LandingMarkup /><button type="button" className="totop on" aria-label="Lên đầu trang" onClick={() => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' })}><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button></div>;
 }
