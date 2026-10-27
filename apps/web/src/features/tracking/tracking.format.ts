@@ -1,4 +1,4 @@
-import type { ILegTracking } from '@my-project/shared';
+import { HORSE_CONDITION_META, type ILegTracking } from '@my-project/shared';
 
 export const LEG_STATUS_LABEL: Record<string, string> = {
   NOT_STARTED: 'Chưa bắt đầu',
@@ -20,12 +20,9 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   DELIVERED: 'Đã giao',
 };
 
-export const CONDITION_LABEL: Record<string, string> = {
-  STABLE: 'Ổn định',
-  OFF_FEED: 'Bỏ ăn',
-  STRESSED: 'Căng thẳng',
-  CLIMATE_CHANGE: 'Thời tiết',
-};
+export const CONDITION_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(HORSE_CONDITION_META).map(([status, meta]) => [status, meta.label]),
+);
 
 export const INCIDENT_STATUS_LABEL: Record<string, string> = { NEW: 'Mới', ACKNOWLEDGED: 'Đã tiếp nhận', CLOSED: 'Đã đóng' };
 

@@ -10,6 +10,9 @@ import {
   LegStatus,
   MilestoneType,
   HorseConditionStatus,
+  HorseAppetite,
+  HorseReportStatus,
+  CareActivityType,
   IncidentType,
   IncidentUrgency,
   IncidentStatus,
@@ -65,8 +68,87 @@ export interface IHorseLog {
   loggedAt: string; // ISO UTC
   createdBy: string; // userId
   createdByName: string;
+  /** Vai trò trong chuyến của người ghi (DRIVER/ESCORT); null nếu không còn được phân công. */
+  createdByCrewRole: CrewRole | null;
   correctsLogId: string | null; // if this entry corrects an earlier one
+  // Báo cáo sức khỏe (gap-analysis-escort.md). Nhật ký cũ: null / false.
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: HorseAppetite | null;
+  /** Ghi chú gửi khách (tách khỏi `note` nội bộ) */
+  customerNote: string | null;
+  /** null = nhật ký cũ, không phải báo cáo */
+  reportStatus: HorseReportStatus | null;
+  sendToCustomer: boolean;
+  sentAt: string | null;
+  customerViewedAt: string | null;
   attachments: ILogAttachment[];
+}
+
+/** Ảnh của báo cáo sức khỏe khách xem được (tải qua GET /tracking/attachments/:id) */
+export interface IHorseReportPhoto {
+  id: string;
+  caption: string | null;
+  fileType: 'PDF' | 'JPG' | 'PNG';
+}
+
+/** Báo cáo sức khỏe ngựa đã gửi cho khách: GET /tracking/orders/:orderId/horse-reports (chỉ bản mới nhất của chuỗi đính chính) */
+export interface IHorseReport {
+  id: string;
+  horseId: string;
+  horseName: string;
+  conditionStatus: HorseConditionStatus;
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: HorseAppetite | null;
+  customerNote: string | null;
+  photos: IHorseReportPhoto[];
+  loggedAt: string;
+  sentAt: string;
+  /** null = khách chưa mở chi tiết */
+  viewedAt: string | null;
+  escortName: string;
+}
+
+/** Trường gửi lên khi hộ tống tạo / sửa báo cáo sức khỏe (multipart: ảnh ở field `photos`) */
+export interface IHorseReportInput {
+  horseId: string;
+  conditionStatus: HorseConditionStatus;
+  loggedAt: string;
+  note?: string | null;
+  customerNote?: string | null;
+  bodyTempC?: number | null;
+  heartRateBpm?: number | null;
+  appetite?: HorseAppetite | null;
+  /** Nhãn theo thứ tự ảnh */
+  captions?: string[];
+  reportStatus: HorseReportStatus;
+  sendToCustomer?: boolean;
+  correctsLogId?: string | null;
+}
+
+// ─── Care activity (horse_care_activities) ───────────────────────────────────
+
+export interface ICareActivity {
+  id: string;
+  tripId: string;
+  legId: string | null;
+  /** null = cả đoàn (chỉ nghỉ chân) */
+  horseId: string | null;
+  horseName: string | null;
+  activityType: CareActivityType;
+  /** Khẩu phần (cho ăn) */
+  feedDescription: string | null;
+  /** Lượng nước, lít (uống nước) */
+  amountLiters: number | null;
+  /** Số phút (nghỉ chân) */
+  durationMinutes: number | null;
+  note: string | null;
+  performedAt: string; // ISO UTC
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  correctsActivityId: string | null;
 }
 
 export interface ILogAttachment {
@@ -118,6 +200,12 @@ export interface IAlert {
   sentBy: string;
   sentByName: string;
   sentAt: string;
+  /**
+   * Thông báo IN_APP (`TRIP_ALERT`) tương ứng của CHÍNH người gọi, ghép MỘT-MỘT theo thứ tự (cùng chuyến + người nhận + nội dung: cảnh báo thứ k ↔ thông báo thứ k); null khi không có
+   * (người gọi không nhận thông báo, hoặc cảnh báo cũ trước khi có thông báo). Toast chỉ hiện cho cảnh báo có thông báo chưa đọc.
+   */
+  notificationId: string | null;
+  notificationRead: boolean | null;
 }
 
 // ─── Trip tracking summary (trips + legs for Driver view) ─────────────────────
@@ -136,11 +224,45 @@ export interface IDriverTripSummary {
 
 // ─── Trip detail (GET /tracking/trips/:id) ───────────────────────────────────
 
+/** Tổng hợp hoạt động chăm sóc trong khoảng from/to (hoặc toàn bộ danh sách khi không có khoảng). */
+export interface ICareSummary {
+  waterLiters: number;
+  /** Số lần cho ăn */
+  meals: number;
+  /** Số lần nghỉ chân */
+  rests: number;
+  restMinutes: number;
+  /** Lần cho ăn gần nhất của từng ngựa (ISO UTC) trên toàn chuyến (không phụ thuộc from/to) */
+  lastFeedAtByHorse: Record<string, string>;
+}
+
+export interface ICareActivityList {
+  /** Mới nhất trước; bản gốc đã bị đính chính được ẩn (chỉ trả bản mới nhất) */
+  activities: ICareActivity[];
+  summary: ICareSummary;
+}
+
+export interface ICareActivityCreateInput {
+  activityType: CareActivityType;
+  /** Bắt buộc với FEED/WATER; null = cả đoàn (chỉ REST) */
+  horseId?: string | null;
+  feedDescription?: string | null; // FEED, 1–200 ký tự
+  amountLiters?: number | null; // WATER, 0.1–200 (1 chữ số thập phân)
+  durationMinutes?: number | null; // REST, 1–720
+  note?: string | null; // tối đa 255
+  performedAt: string; // ISO UTC
+  /** Đính chính một bản ghi: cùng chuyến, cùng ngựa, cùng loại */
+  correctsActivityId?: string | null;
+}
+
 export interface ITripHorse {
   id: string;
   name: string;
   passportNo: string;
   orderStatus: string;
+  breed: string | null;
+  /** yyyy-MM-dd */
+  birthDate: string | null;
 }
 
 /** `phone` là null khi người dùng chưa khai báo, hoặc khi người gọi là Specialist (ẩn SĐT nội bộ). */

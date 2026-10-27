@@ -1,3 +1,4 @@
+import {useFeedback} from '../../../../components/useFeedback';
 import PricingWorkspace from '../../../pricing/PricingWorkspace';
 import DashboardShell, { dashboardPath } from '../../../../components/layout/DashboardShell';
 import DocumentsWorkspace from '../../../documents/DocumentsWorkspace';
@@ -14,7 +15,7 @@ import { workspaces, roleGuides } from '../../../home/role-workspaces';
 import NotificationsPanel, { type Notice } from '../../../notifications/NotificationsPanel';
 export type DashboardProps={account:IUser;logout:()=>void};
 export default function DashboardLayout({account,logout}:DashboardProps){
- const {message:messageApi}=App.useApp();
+ const {message:messageApi}=useFeedback();
  const navigate=useNavigate();
  const leaveGuard=useRef<(()=>Promise<boolean>)|null>(null);
  const navigating=useRef(false);

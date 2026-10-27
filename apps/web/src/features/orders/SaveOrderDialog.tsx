@@ -1,10 +1,10 @@
 import { Modal } from 'antd';
 
 export default function SaveOrderDialog({onAnswer}:{onAnswer:(save:boolean)=>void}) {
-  return <Modal
+  return <Modal rootClassName="app-confirm-dialog"
     open
     centered
-    width={480}
+    width={440}
     title="Bạn có thay đổi chưa lưu"
     okText="Bỏ thay đổi và tiếp tục"
     cancelText="Tiếp tục chỉnh sửa"

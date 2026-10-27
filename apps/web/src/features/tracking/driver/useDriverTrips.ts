@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
+import type { CrewRole, IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { errorMessage, trackingApi } from '../tracking.api';
 
 const ACTIVE = new Set(['READY', 'IN_TRANSIT']);
@@ -49,7 +49,9 @@ export function useDriverTrips() {
   }, [load]);
 
   const { active, upcoming, history } = splitTrips(trips);
-  return { trips, details, selected: active, active, upcoming, history, load, loading, refreshing, error };
+  /** Lịch sử theo vai trò: khung tài xế chỉ các chuyến làm DRIVER, khung hộ tống chỉ ESCORT (`history` là tất cả, dùng để xác định khung). */
+  const historyFor = (role: CrewRole) => history.filter(trip => trip.crewRole === role);
+  return { trips, details, selected: active, active, upcoming, history, historyFor, load, loading, refreshing, error };
 }
 
 export type DriverTrips = ReturnType<typeof useDriverTrips>;

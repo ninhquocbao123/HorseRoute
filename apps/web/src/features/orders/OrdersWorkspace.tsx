@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import CustomerOrderDetail from '../customer/CustomerOrderDetail';
 import CustomerOrderDocuments from '../customer/CustomerOrderDocuments';
 import CountrySelect from './CountrySelect';
@@ -20,7 +21,7 @@ const statusColors:Record<string,string>={DRAFT:'default',PENDING:'gold',NEED_IN
 function StatusTag({status,label}:{status:string;label?:string}){return <Tag className={`order-status-tag order-status-tag--${status.toLowerCase()}`} color={statusColors[status]}>{label||statuses[status]||status}</Tag>;}
 export default function OrdersWorkspace({role, refreshNotifications,onLeaveGuardChange,initialCreate=false,initialOrderId,initialHorseId,initialDocumentId,onBack}:{onBack?:()=>void;initialHorseId?:string;initialDocumentId?:string;initialCreate?:boolean;initialOrderId?:string;role:string;refreshNotifications:()=>void;onLeaveGuardChange?:(guard:(()=>Promise<boolean>)|null)=>void}) {
   const customer=role==='CUSTOMER'; const manager=role==='MANAGER';
-  const {message:messageApi}=App.useApp();
+  const {message:messageApi}=useFeedback();
   const [documentPending,setDocumentPending]=useState(false);
   function canLeaveDocuments(){if(documentPending){void messageApi.warning('Vui lòng gửi hoặc bỏ tệp giấy tờ đã chọn trước khi rời đơn.');return false;}return true;}
   const [showSaveDialog,setShowSaveDialog]=useState(false);

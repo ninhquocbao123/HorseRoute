@@ -1,5 +1,6 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useState, useEffect } from 'react';
-import { Modal, Tabs, Button, Alert, Spin, message, Result } from 'antd';
+import { Modal, Tabs, Button, Alert, Spin, Result } from 'antd';
 import { CopyOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { api } from '../../lib/axios';
 import './payment-simulation.css';
@@ -25,6 +26,9 @@ export default function PaymentSimulationModal({
   onClose,
   onSuccess,
 }: PaymentSimulationModalProps) {
+  const {message}=useFeedback();
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [method, setMethod] = useState<'BANK_TRANSFER' | 'E_WALLET' | 'CARD'>('BANK_TRANSFER');
   const [sessionData, setSessionData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -35,6 +39,7 @@ export default function PaymentSimulationModal({
   // Initialize or fetch payment session when modal opens or method changes
   useEffect(() => {
     if (!open) {
+      setWalletOpen(false);
       setSessionData(null);
       setError('');
       setResult(null);
@@ -44,6 +49,7 @@ export default function PaymentSimulationModal({
     let active = true;
     const initSession = async () => {
       setLoading(true);
+      setSessionData(null);
       setError('');
       try {
         const res = await api.post('/payments/sessions', {
@@ -68,7 +74,7 @@ export default function PaymentSimulationModal({
     return () => {
       active = false;
     };
-  }, [open, orderId, paymentType, method]);
+  }, [open, orderId, paymentType, method, attempt]);
 
   const handleSimulate = async (actionResult: 'SUCCESS' | 'FAILED' | 'CANCELLED') => {
     if (!sessionData?.sessionCode || actionBusy) return;
@@ -80,6 +86,7 @@ export default function PaymentSimulationModal({
         failureReason: actionResult === 'FAILED' ? 'Thử nghiệm thất bại (mô phỏng)' : undefined,
       });
 
+      setWalletOpen(false);
       setResult(actionResult);
 
       if (actionResult === 'SUCCESS') {
@@ -154,7 +161,7 @@ export default function PaymentSimulationModal({
                 title="Thanh toán thất bại (Mô phỏng)"
                 subTitle="Mô phỏng giao dịch thanh toán không thành công. Bạn có thể chọn thử lại."
                 extra={[
-                  <Button key="retry" onClick={() => setResult(null)}>
+                  <Button key="retry" onClick={() => { setSessionData(null); setResult(null); setAttempt(n => n + 1); }}>
                     Thử lại
                   </Button>,
                   <Button key="close" onClick={onClose}>
@@ -169,7 +176,7 @@ export default function PaymentSimulationModal({
                 title="Giao dịch đã hủy"
                 subTitle="Bạn đã hủy phiên thanh toán mô phỏng."
                 extra={[
-                  <Button key="retry" onClick={() => setResult(null)}>
+                  <Button key="retry" onClick={() => { setSessionData(null); setResult(null); setAttempt(n => n + 1); }}>
                     Thực hiện lại
                   </Button>,
                   <Button key="close" onClick={onClose}>
@@ -179,6 +186,22 @@ export default function PaymentSimulationModal({
               />
             )}
           </div>
+        ) : walletOpen ? (
+          <section className="psm-wallet-confirm" aria-label="Ví giả lập">
+            <h2>Xác nhận thanh toán ví</h2>
+            <p>Ví thử nghiệm · Không trừ tiền thật</p>
+            <dl>
+              <div><dt>Đơn hàng</dt><dd>{orderCode || '#'+orderId}</dd></div>
+              <div><dt>Nội dung</dt><dd>{typeLabel}</dd></div>
+              <div><dt>Mã phiên</dt><dd>{sessionData?.sessionCode}</dd></div>
+              <div><dt>Số tiền</dt><dd className="psm-amount">{money(sessionData?.amount)}</dd></div>
+            </dl>
+            <Button className="psm-wallet-btn" block loading={actionBusy} onClick={()=>void handleSimulate('SUCCESS')}>Xác nhận thanh toán giả lập</Button>
+            <div className="psm-wallet-secondary">
+              <Button disabled={actionBusy} onClick={()=>setWalletOpen(false)}>Quay lại mã QR</Button>
+              <Button danger disabled={actionBusy} onClick={()=>void handleSimulate('CANCELLED')}>Hủy giao dịch</Button>
+            </div>
+          </section>
         ) : (
           <Spin spinning={loading}>
             {error ? (
@@ -186,7 +209,7 @@ export default function PaymentSimulationModal({
             ) : (
               <Tabs
                 activeKey={method}
-                onChange={(key) => setMethod(key as any)}
+                onChange={(key) => { if (!actionBusy) { setSessionData(null); setMethod(key as any); } }}
                 className="psm-tabs"
                 items={[
                   {
@@ -266,7 +289,8 @@ export default function PaymentSimulationModal({
                         <Button
                           className="psm-wallet-btn"
                           block
-                          onClick={() => void message.info('Mô phỏng: Đang chuyển hướng mở ứng dụng Ví...')}
+                          disabled={loading || actionBusy || !sessionData || sessionData.paymentMethod !== 'E_WALLET'}
+                          onClick={() => setWalletOpen(true)}
                         >
                           Mở màn hình ví giả lập
                         </Button>
@@ -315,7 +339,7 @@ export default function PaymentSimulationModal({
         )}
       </div>
 
-      {!result && !error && (
+      {!result && !error && !walletOpen && (
         <div className="psm-actions-panel">
           <div className="psm-action-title">Chọn kết quả giả lập để hệ thống ghi nhận và kiểm tra:</div>
           <div className="psm-buttons-row">

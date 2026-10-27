@@ -11,7 +11,7 @@ const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
  await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES(1,'m@test.local','!','Manager','MANAGER','ACTIVE'),(2,'c@test.local','!','Customer','CUSTOMER','ACTIVE'),(3,'c2@test.local','!','Other Customer','CUSTOMER','ACTIVE')");
  await db.query("INSERT INTO orders(id,order_code,customer_id,status,origin_country,destination_country,origin_address,destination_address,reviewed_at) VALUES(1,'TEST-1',2,'APPROVED','VN','VN','TP.HCM','Hà Nội',UTC_TIMESTAMP()),(2,'TEST-2',2,'PENDING','VN','VN','A','B',NULL)");
  await db.query("INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES(1,1,2,'Thunder','T-1')");
- const q=db.createQueryRunner();await q.connect();try{await new PricingVersions1800000007000().up(q);await new ManagerQuotes1800000008000().up(q);await new ManagerQuotes1800000008000().up(q);}finally{await q.release();}
+ const q=db.createQueryRunner();await q.connect();try{await new PricingVersions1800000007000().up(q);await new ManagerQuotes1800000008000().up(q);await new ManagerQuotes1800000008000().up(q);await new (require('../src/database/migrations/1800000012000-PaymentSimulation').PaymentSimulation1800000012000)().up(q);}finally{await q.release();}
  const s=new ManagerService(db),m={id:'1',role:'MANAGER'},customer={id:'2',role:'CUSTOMER'},orders=new OrdersService(db);
  const input={distanceKm:50,vehicleClass:'LIGHT',horseCount:1,durationDays:1,insurance:'NONE',feed:'STANDARD',extraStall:false,international:false,water:'EVERY_2_HOURS',waterRounds:0};
  const body={input,adjustment:-100000,reason:'Khách hàng thân thiết',vatPercent:8};
@@ -29,10 +29,13 @@ const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
  const now=new Date().toISOString();await s.receipt(m,quote.id,{amount:Number(quote.deposit),reference:'DEPOSIT-1',receivedAt:now});
  await assert.rejects(()=>s.receipt(m,quote.id,{amount:1,reference:'DEPOSIT-1',receivedAt:now}),e=>e.getStatus()===409);
  let report=await s.revenue(m,{year:new Date().getUTCFullYear()});assert.equal(report.count,0);
+ assert.equal(report.collected,Number(quote.deposit));assert.equal(report.outstanding,Number(quote.total)-Number(quote.deposit));
+ const priorYear=await s.revenue(m,{year:new Date().getUTCFullYear()-1});assert.equal(priorYear.collected,0);assert.equal(priorYear.outstanding,report.outstanding);
+ await db.query("UPDATE orders SET status='CANCELLED' WHERE id=1");assert.equal((await s.revenue(m,{year:new Date().getUTCFullYear()})).outstanding,0);await db.query("UPDATE orders SET status='APPROVED' WHERE id=1");
  await db.query("UPDATE orders SET status='DELIVERED' WHERE id=1");await db.query("INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,new_value) VALUES(1,'ORDER',1,'STATUS_CHANGE',?)",[JSON.stringify({status:'DELIVERED'})]);
  report=await s.revenue(m,{year:new Date().getUTCFullYear()});assert.equal(report.count,0);
  const balance=Number(quote.total)-Number(quote.deposit);const payments=await Promise.allSettled([s.receipt(m,quote.id,{amount:balance,reference:'BALANCE-A',receivedAt:now}),s.receipt(m,quote.id,{amount:balance,reference:'BALANCE-B',receivedAt:now})]);assert.equal(payments.filter(x=>x.status==='fulfilled').length,1);
- report=await s.revenue(m,{year:new Date().getUTCFullYear()});assert.equal(report.count,1);assert.equal(report.total,Number(quote.total));assert.equal(report.domestic,Number(quote.total));assert.equal(report.international,0);assert.equal(report.months.reduce((sum,x)=>sum+x.total,0),report.total);
+ report=await s.revenue(m,{year:new Date().getUTCFullYear()});assert.equal(report.count,1);assert.equal(report.collected,Number(quote.total));assert.equal(report.outstanding,0);assert.equal(report.total,Number(quote.total));assert.equal(report.domestic,Number(quote.total));assert.equal(report.international,0);assert.equal(report.months.reduce((sum,x)=>sum+x.total,0),report.total);
  const own=await orders.quote(customer,'1');assert.equal(Number(own.paid),Number(own.total));assert.equal('adjustment_reason' in own,true);await assert.rejects(()=>orders.quote({id:'3',role:'CUSTOMER'},'1'),e=>e.getStatus()===404);
  const [notification]=await db.query("SELECT COUNT(*) n FROM notifications WHERE event_type='QUOTE_APPROVED'");assert.equal(Number(notification.n),1);
  const intake=await s.intake(m);assert.equal(intake.length,2);assert.equal(intake.find(o=>String(o.id)==='2').status,'PENDING');assert.equal(Number(intake.find(o=>String(o.id)==='1').paid),Number(quote.total));await assert.rejects(()=>s.intake(customer),e=>e.getStatus()===403);

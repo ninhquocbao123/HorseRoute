@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Form, Input, InputNumber, Modal, Select, Switch, Table, Tag, Tooltip } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -18,7 +19,7 @@ const STATUS_OPTIONS: { value: VehicleStatusFilter; label: string }[] = [
 
 /** Danh mục phương tiện (FR-TRP-01): Coordinator thêm, sửa, ngừng hoạt động, xóa xe chưa từng dùng. */
 export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
-  const { message, modal } = App.useApp();
+  const { message, modal } = useFeedback();
   const [form] = Form.useForm<FormValues>();
   const [items, setItems] = useState<Vehicle[]>([]);
   const [total, setTotal] = useState(0);

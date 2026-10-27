@@ -21,12 +21,22 @@ export function trackingRoutes(service: TrackingService) {
   // Giai đoạn 2: nhật ký ngựa, sự cố, cảnh báo, tệp đính kèm (quyền theo chuyến kiểm tra trong service)
   router.post('/legs/:legId/horse-logs', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createHorseLog);
   router.get('/trips/:tripId/horse-logs', authorize(...internal), controller.horseLogs);
+  // Báo cáo sức khỏe ngựa: nháp → gửi (chỉ hộ tống người tạo; quyền theo chuyến kiểm tra trong service)
+  router.patch('/horse-logs/:id', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.updateHorseReport);
+  router.delete('/horse-logs/:id', authorize(Role.DRIVER_ESCORT), controller.deleteHorseReport);
+  router.post('/horse-logs/:id/send', authorize(Role.DRIVER_ESCORT), controller.sendHorseReport);
+  // Khách xem báo cáo đã gửi cho đơn của mình
+  router.get('/orders/:orderId/horse-reports', authorize(Role.CUSTOMER), controller.customerHorseReports);
+  router.post('/orders/:orderId/horse-reports/:id/view', authorize(Role.CUSTOMER), controller.viewHorseReport);
+  // Hoạt động chăm sóc (gap-analysis-escort.md): chỉ hộ tống ghi; đọc cho mọi vai trò nội bộ trong phạm vi chuyến
+  router.post('/trips/:tripId/care-activities', authorize(Role.DRIVER_ESCORT), controller.createCareActivity);
+  router.get('/trips/:tripId/care-activities', authorize(...internal), controller.careActivities);
   router.post('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createIncident);
   router.get('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER), controller.incidents);
   router.patch('/incidents/:id', authorize(Role.COORDINATOR), controller.updateIncident);
   router.post('/trips/:tripId/alerts', authorize(Role.COORDINATOR), controller.createAlert);
   router.get('/trips/:tripId/alerts', authorize(...internal), controller.alerts);
-  router.get('/attachments/:id', authorize(...internal), controller.attachment);
+  router.get('/attachments/:id', authorize(...internal, Role.CUSTOMER), controller.attachment);
 
   // Giai đoạn 3: timeline và dashboard vận hành
   router.get('/orders/:orderId/timeline', authorize(Role.CUSTOMER), controller.orderTimeline);

@@ -3,6 +3,7 @@ import { Link, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import TripsRoute from './TripsRoute';
 
+const VnpayCheckout = lazy(() => import('../../features/payments/VnpayCheckout'));
 const LoginPage = lazy(() => import('../../features/auth/pages/LoginPage'));
 const HomePage = lazy(() => import('../../features/home/HomePage'));
 const LandingPage = lazy(() => import('../../features/home/LandingPage'));
@@ -20,6 +21,8 @@ export default function AppRouter() {
         <Route path="/register" element={<LoginPage />} />
         <Route path="/staff/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/payments/vnpay" element={<VnpayCheckout />} />
+          <Route path="/payments/vnpay/return" element={<VnpayCheckout />} />
           <Route path="/dashboard" element={<HomePage />} />
           <Route path="/dashboard/trips" element={<TripsRoute />}>
             <Route index element={<TripListPage />} />

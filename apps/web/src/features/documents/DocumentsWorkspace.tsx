@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import './document-horse-groups.css';
 import { useConfirmDialog } from '../../components/ConfirmDialog';
 import DocumentPreview, { FilePreview } from './DocumentPreview';
@@ -35,7 +36,7 @@ export function DossierCard({item,role,url,busy,action,download}:{item:Dossier;r
 }
 export default function DocumentsWorkspace({role,initialOrderId}:{role:string;initialOrderId?:string}){
  const manager=role==='MANAGER';
- const {message:messageApi}=App.useApp();
+ const {message:messageApi}=useFeedback();
  const {ask,dialog}=useConfirmDialog();
  const confirmSwitch=(message:string)=>manager?Promise.resolve(true):ask(message);
  const [horse,setHorse]=useState('');

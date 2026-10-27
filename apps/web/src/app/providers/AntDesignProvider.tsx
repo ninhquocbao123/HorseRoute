@@ -35,12 +35,12 @@ export default function AntDesignProvider({ children }: AntDesignProviderProps) 
             primaryShadow: 'none',
           },
           Modal: {
-            titleFontSize: 22,
+            titleFontSize: 16,
           },
         },
       }}
     >
-      <AntApp message={{top:24,maxCount:3,duration:4}} notification={{placement:'topRight',duration:5,maxCount:3}}>{children}</AntApp>
+      <AntApp message={{top:24,maxCount:3,duration:4}} notification={{placement:'topRight',duration:4,maxCount:3}}>{children}</AntApp>
     </ConfigProvider>
   );
 }

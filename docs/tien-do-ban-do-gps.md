@@ -197,7 +197,7 @@ $env:DEMO_DB_PORT='33061'; $env:DEMO_DB_PASSWORD='demo'; pnpm --filter api seed:
 $env:DB_HOST='127.0.0.1'; $env:DB_PORT='33061'; $env:DB_NAME='wdp_flow4_demo'; $env:DB_USER='root'; $env:DB_PASSWORD='demo'; $env:DB_SSL='false'; $env:REDIS_HOST='127.0.0.1'; $env:REDIS_PORT='6380'; pnpm dev:api
 
 # Browser test (cần Microsoft Edge)
-$env:PLAYWRIGHT_PACKAGE='<đường dẫn playwright-core>'; node apps/web/test/driver.browser.cjs
+$env:PLAYWRIGHT_PACKAGE='<đường dẫn playwright-core>'; node apps/web/test/driver/driver-gps.browser.cjs   # (driver.browser.cjs đã tách thành apps/web/test/driver/*, xem docs/demo-local.md)
 ```
 
 Lưu ý: container chạy với `--rm` nên mất khi Docker khởi động lại; dựng lại bằng lệnh trên. Ổ C: của máy phát triển đang gần đầy (còn ~3 GB).
