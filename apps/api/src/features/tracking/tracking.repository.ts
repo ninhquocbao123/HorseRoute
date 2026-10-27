@@ -967,7 +967,13 @@ export class TrackingRepository {
     return String(result.insertId);
   }
 
-  async getTripAlerts(tripId: string): Promise<import('./tracking.dto').AlertRow[]> {
+  /**
+   * Cảnh báo của chuyến. Có `recipientId` thì ghép thêm thông báo `TRIP_ALERT` của người đó để toast biết đã đọc hay chưa.
+   * Ghép MỘT-MỘT theo thứ tự: với cùng chuyến + người nhận + nội dung (thông báo kết thúc bằng `: <nội dung cảnh báo>`), cảnh báo
+   * thứ k theo (sent_at, id) nhận thông báo thứ k theo (created_at, id); mỗi thông báo chỉ gán cho một cảnh báo, thừa cảnh báo thì null.
+   * Không dùng khoảng cách thời gian (DATETIME chỉ chính xác tới giây, và alerts.sent_at / notifications.created_at làm tròn khác nhau).
+   */
+  async getTripAlerts(tripId: string, recipientId: string | null = null): Promise<import('./tracking.dto').AlertRow[]> {
     return this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id,
         CAST(a.trip_id AS CHAR) AS tripId,
@@ -975,12 +981,25 @@ export class TrackingRepository {
         a.content,
         CAST(a.sent_by AS CHAR) AS sentBy,
         u.full_name AS sentByName,
-        a.sent_at AS sentAt
+        a.sent_at AS sentAt,
+        CAST(n.id AS CHAR) AS notificationId,
+        n.is_read AS notificationRead
       FROM alerts a
       JOIN users u ON u.id = a.sent_by
+      LEFT JOIN notifications n ON n.recipient_id = ? AND n.event_type = 'TRIP_ALERT' AND n.related_type = 'TRIP' AND n.related_id = a.trip_id
+        AND RIGHT(n.content, CHAR_LENGTH(a.content) + 2) = CONCAT(': ', a.content)
+        AND (
+          SELECT COUNT(*) FROM notifications y
+          WHERE y.recipient_id = n.recipient_id AND y.event_type = 'TRIP_ALERT' AND y.related_type = 'TRIP' AND y.related_id = a.trip_id
+            AND RIGHT(y.content, CHAR_LENGTH(a.content) + 2) = CONCAT(': ', a.content)
+            AND (y.created_at < n.created_at OR (y.created_at = n.created_at AND y.id < n.id))
+        ) = (
+          SELECT COUNT(*) FROM alerts b
+          WHERE b.trip_id = a.trip_id AND b.content = a.content AND (b.sent_at < a.sent_at OR (b.sent_at = a.sent_at AND b.id < a.id))
+        )
       WHERE a.trip_id = ?
       ORDER BY a.sent_at ASC, a.id ASC`,
-      [tripId]
+      [recipientId, tripId]
     );
   }
 

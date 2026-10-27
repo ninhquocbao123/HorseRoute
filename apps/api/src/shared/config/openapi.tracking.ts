@@ -170,7 +170,9 @@ export const trackingSchemas = {
     handlingNote: { type: 'string', maxLength: 2000, description: 'Bắt buộc khi CLOSED.' },
   }, ['status']),
   AlertInput: object({ alertType, content: { type: 'string', minLength: 5, maxLength: 500 } }),
-  Alert: object({ id, tripId: id, alertType, content: { type: 'string' }, sentBy: id, sentByName: { type: 'string' }, sentAt: time }),
+  Alert: object({ id, tripId: id, alertType, content: { type: 'string' }, sentBy: id, sentByName: { type: 'string' }, sentAt: time,
+    notificationId: nullable({ ...id, description: 'Thông báo IN_APP TRIP_ALERT tương ứng của CHÍNH người gọi (ghép một-một theo thứ tự: cùng chuyến + nội dung, cảnh báo thứ k ↔ thông báo thứ k; mỗi thông báo chỉ gán cho một cảnh báo, thừa thì null); null khi không có.' }),
+    notificationRead: nullable({ type: 'boolean', description: 'Thông báo đó đã đọc chưa; null khi không có thông báo.' }) }),
 
   TimelineMilestone: object({ milestoneType, occurredAt: time, recordedByName: { type: 'string' } }),
   TimelineLeg: object({
@@ -332,7 +334,7 @@ const incident = {
   urgency: 'HIGH', severity: 'RED', subType: 'COLIC', damageTarget: 'HORSE', latitude: 18.3421, longitude: 105.9057, locationText: 'Km 742 QL1A, Hà Tĩnh',
   status: 'NEW', reportedBy: '7', reportedByName: 'Tài xế mẫu', reportedAt: t1, receivedBy: null, handlingNote: null, closedAt: null, attachments: [attachment],
 };
-const alert = { id: '801', tripId: '200', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ', sentBy: '4', sentByName: 'Điều phối mẫu', sentAt: t1 };
+const alert = { id: '801', tripId: '200', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ', sentBy: '4', sentByName: 'Điều phối mẫu', sentAt: t1, notificationId: '51', notificationRead: false };
 
 const orderTimeline = {
   orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', plannedDepartureAt: t0, plannedArrivalAt: t1, lastUpdatedAt: t0, lastUpdatedByName: 'Tài xế mẫu',

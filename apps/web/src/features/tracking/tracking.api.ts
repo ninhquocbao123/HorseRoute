@@ -3,6 +3,9 @@ import type {
   IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
+  ICareActivity,
+  ICareActivityList,
+  ICareActivityCreateInput,
   IIncident,
   IAlert,
   IActiveTrips,
@@ -38,6 +41,11 @@ export const trackingApi = {
     api.post(`/tracking/legs/${legId}/complete`, { occurredAt }).then(r => r.data),
   horseLogs: (tripId: string) => api.get<IHorseLog[]>(`/tracking/trips/${tripId}/horse-logs`).then(r => r.data),
   createHorseLog: (legId: string, form: FormData) => api.post<IHorseLog>(`/tracking/legs/${legId}/horse-logs`, form).then(r => r.data),
+  /** Hoạt động chăm sóc; có `range` thì tổng hợp theo khoảng (nhưng `lastFeedAtByHorse` luôn theo toàn chuyến). */
+  careActivities: (tripId: string, range?: { from: string; to: string }) =>
+    api.get<ICareActivityList>(`/tracking/trips/${tripId}/care-activities`, { params: range }).then(r => r.data),
+  createCareActivity: (tripId: string, body: ICareActivityCreateInput) =>
+    api.post<ICareActivity>(`/tracking/trips/${tripId}/care-activities`, body).then(r => r.data),
   incidents: (tripId: string) => api.get<IIncident[]>(`/tracking/trips/${tripId}/incidents`).then(r => r.data),
   createIncident: (tripId: string, form: FormData) => api.post<IIncident>(`/tracking/trips/${tripId}/incidents`, form).then(r => r.data),
   alerts: (tripId: string) => api.get<IAlert[]>(`/tracking/trips/${tripId}/alerts`).then(r => r.data),

@@ -158,6 +158,8 @@ export interface AlertRow {
   sentBy: string;
   sentByName: string;
   sentAt: Date;
+  notificationId?: string | null;
+  notificationRead?: number | boolean | null;
 }
 
 /** Chặng cho bản đồ: tọa độ hai đầu (DECIMAL → chuỗi hoặc null) và loại xe. */

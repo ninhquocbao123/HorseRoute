@@ -636,7 +636,34 @@ async function main() {
     assert.equal(alert.sentByName, 'Điều Phối A');
     const recipients = await q("SELECT recipient_id AS r FROM notifications WHERE event_type='TRIP_ALERT' ORDER BY recipient_id");
     assert.deepEqual(recipients.map(r => r.r), ['1', '2', '6', '10']);
-    assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver })).length, 1);
+    const mine = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver });
+    assert.equal(mine.length, 1);
+    // Mỗi cảnh báo ghép đúng thông báo TRIP_ALERT của CHÍNH người xem (toast ↔ thông báo); điều phối gửi thì không có thông báo của mình
+    const noticeOf = async user => String((await q("SELECT id FROM notifications WHERE event_type='TRIP_ALERT' AND recipient_id = ?", [user]))[0].id);
+    assert.deepEqual([mine[0].notificationId, mine[0].notificationRead], [await noticeOf(ids.driver), false]);
+    const escortView = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.equal(escortView[0].notificationId, await noticeOf(ids.escort), 'mỗi người một thông báo riêng');
+    assert.notEqual(escortView[0].notificationId, mine[0].notificationId);
+    assert.deepEqual([(await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.coordA }))[0].notificationId], [null], 'người gửi không có thông báo của chính mình');
+    await q('UPDATE notifications SET is_read = 1 WHERE id = ?', [mine[0].notificationId]);
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.driver }))[0].notificationRead, true, 'đã đọc phản ánh ngay');
+    assert.equal((await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort }))[0].notificationRead, false, 'đọc của người này không ảnh hưởng người kia');
+    // Hai cảnh báo cùng nội dung gửi liên tiếp (cùng giây): ghép MỘT-MỘT theo thứ tự, không dùng chung một thông báo
+    await expectStatus(201, 'POST', '/trips/100/alerts', { as: ids.coordA, body });
+    const twice = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.equal(new Set(twice.map(item => item.notificationId)).size, 2, 'mỗi cảnh báo một thông báo riêng');
+    const ownNotices = (await q("SELECT CAST(id AS CHAR) AS id FROM notifications WHERE event_type='TRIP_ALERT' AND recipient_id = ? ORDER BY created_at, id", [ids.escort])).map(row => row.id);
+    assert.deepEqual(twice.map(item => item.notificationId), ownNotices, 'cảnh báo thứ k ↔ thông báo thứ k');
+    // Đọc thông báo của cảnh báo thứ nhất: cảnh báo thứ hai vẫn chưa đọc
+    await q('UPDATE notifications SET is_read = 1 WHERE id = ?', [twice[0].notificationId]);
+    const afterRead = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.deepEqual(afterRead.map(item => item.notificationRead), [true, false], 'đọc cái thứ nhất không làm cái thứ hai thành đã đọc');
+    // Thừa cảnh báo (thiếu thông báo) thì null, không ghép chung: bỏ thông báo thứ nhất → cảnh báo thứ nhất nhận thông báo còn lại, cảnh báo thứ hai null
+    await q('DELETE FROM notifications WHERE id = ?', [twice[0].notificationId]);
+    const surplus = await expectStatus(200, 'GET', '/trips/100/alerts', { as: ids.escort });
+    assert.deepEqual(surplus.map(item => item.notificationId), [twice[1].notificationId, null], 'mỗi thông báo chỉ gán cho một cảnh báo, thừa thì null');
+    await q("DELETE FROM alerts WHERE id = ?", [twice[1].id]);
+    await q("UPDATE notifications SET is_read = 0 WHERE event_type='TRIP_ALERT'");
   });
 
   await check('Map + GPS: scope, STRAIGHT without Mapbox token, VMAX, batched positions are idempotent, GPS replaces the estimate, retention purge', async () => {
@@ -769,6 +796,12 @@ async function main() {
     await expectStatus(204, 'DELETE', `/horse-logs/${draft}`, { as: ids.escort });
     assert.equal(stored(), files - 1);
     assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs WHERE report_status IS NOT NULL'), 0);
+    // Lịch sử hộ tống (chỉ xem): hộ tống đọc được chuyến ĐÃ GIAO; người không được phân công vẫn 404
+    for (const route of ['/trips/100', '/trips/100/horse-logs', '/trips/100/incidents', '/trips/100/care-activities', '/trips/100/alerts']) {
+      await expectStatus(200, 'GET', route, { as: ids.escort });
+      await expectStatus(404, 'GET', route, { as: ids.driver2 });
+    }
+    assert.ok((await expectStatus(200, 'GET', '/driver/trips', { as: ids.escort })).some(trip => trip.id === '100' && trip.orderStatus === 'DELIVERED' && trip.crewRole === 'ESCORT'), 'danh sách chuyến của hộ tống có chuyến đã giao với crewRole ESCORT');
   });
 
   await check('Correction: reason required, ownership, sequence rules; milestones and order stay consistent with audit trail', async () => {

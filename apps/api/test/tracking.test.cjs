@@ -547,6 +547,15 @@ test('Incident reads: specialist cannot see incidents, specialist can read horse
   assert.equal((await service.getTripIncidents({ id: '2', role: Role.MANAGER }, '100')).length, 1);
   assert.equal((await service.getTripHorseLogs(specialist, '100')).length, 1);
   assert.equal((await service.getTripAlerts(driver, '100')).length, 1);
+  // Cảnh báo kèm thông báo của chính người xem: repo nhận mã người xem; không ghép được thì null
+  const seen = {};
+  const withNotice = new TrackingService(stage2Repo({ getTripAlerts: async (tripId, recipient) => { seen.recipient = recipient; return [
+    { id: '801', tripId, alertType: 'WEATHER', content: 'Mưa lớn', sentBy: '3', sentByName: 'Điều phối', sentAt: new Date(), notificationId: '51', notificationRead: 1 },
+    { id: '802', tripId, alertType: 'TRAFFIC', content: 'Kẹt xe', sentBy: '3', sentByName: 'Điều phối', sentAt: new Date(), notificationId: null, notificationRead: null },
+  ]; } }));
+  const linked = await withNotice.getTripAlerts(driver, '100');
+  assert.equal(seen.recipient, '5');
+  assert.deepEqual(linked.map(a => [a.notificationId, a.notificationRead]), [['51', true], [null, null]]);
 });
 
 test('Incident handling: coordinator only, close needs a note, one-way status flow', async () => {

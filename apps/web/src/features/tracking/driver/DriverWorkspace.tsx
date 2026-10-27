@@ -4,7 +4,7 @@ import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { currentLeg } from '../tracking.format';
 import { HistoryDetail, HistoryList } from './DriverHistory';
-import IncidentReportPage from './IncidentReportPage';
+import IncidentScreen from './IncidentScreen';
 import TripHeaderCard from './TripHeaderCard';
 import StopTimeline from './StopTimeline';
 import PreDepartureChecklist from './PreDepartureChecklist';
@@ -20,7 +20,7 @@ import { PRE_DEPARTURE_CHECKS, checkInTitle } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
 
-/** Màn tài xế: chuyến đang hoạt động (D1 khi READY, D1b khi IN_TRANSIT), ?view=incident (D2), ?view=history (lịch sử, chỉ xem). */
+/** Màn tài xế (hộ tống có khung riêng: escort/EscortArea): chuyến đang hoạt động (D1 khi READY, D1b khi IN_TRANSIT), ?view=incident (D2), ?view=history (lịch sử, chỉ xem). */
 export default function DriverWorkspace({ data, userId, view, historyTripId, search, onNavigate }: {
   data: DriverTrips;
   /** Tài khoản đang đăng nhập: ghi chú từ hộ tống là của người khác. */
@@ -71,7 +71,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
         </section>
       ) : active && (view === 'incident' ? (
         <IncidentScreen
-          key={active.id} trip={active} detail={details[active.id]} onNavigate={onNavigate}
+          key={active.id} trip={active} detail={details[active.id]} onNavigate={onNavigate} home="trip" homeLabel="Về chuyến vận chuyển"
           onDone={message => { setFlash(message); onNavigate('trip'); }}
         />
       ) : (
@@ -82,24 +82,6 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
       ))}
     </div>
   );
-}
-
-/** ?view=incident: màn D2 cho chuyến đang chọn; chuyến không còn báo được sự cố thì chỉ báo lý do. */
-function IncidentScreen({ trip, detail, onNavigate, onDone }: {
-  trip: IDriverTripSummary;
-  detail: IDriverTripDetail | undefined;
-  onNavigate: (view: string, tripId?: string) => void;
-  onDone: (message: string) => void;
-}) {
-  if (trip.orderStatus !== 'READY' && trip.orderStatus !== 'IN_TRANSIT') {
-    return (
-      <Alert
-        type="info" showIcon message="Chỉ báo sự cố khi chuyến sẵn sàng khởi hành hoặc đang vận chuyển."
-        action={<Button size="small" onClick={() => onNavigate('trip')}>Về chuyến vận chuyển</Button>}
-      />
-    );
-  }
-  return <IncidentReportPage trip={trip} detail={detail} onDone={onDone} onCancel={() => onNavigate('trip')} />;
 }
 
 function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFlashClose, userId }: {
@@ -123,9 +105,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
   const { map, track, failed: mapFailed, reload: reloadMap } = useTripMap(trip.id, running, trip.legs);
   // GPS chỉ khi chặng đang chạy không phải chặng bay (API cũng trả 409 cho chặng bay).
   const runningLeg = map?.legs.find(item => item.status === 'MOVING' || item.status === 'AT_STOP');
-  // Hộ tống chỉ xem (E1/E2 sẽ thay thế): không chia sẻ GPS, không ghi mốc.
-  const isDriver = trip.crewRole === 'DRIVER';
-  const gps = useGpsSharing({ tripId: trip.id, userId, eligible: isDriver && running && !!runningLeg && runningLeg.mode !== 'AIR' });
+  const gps = useGpsSharing({ tripId: trip.id, userId, eligible: running && !!runningLeg && runningLeg.mode !== 'AIR' });
 
   // D1b: nút chung "Check-in chặng", hộp thoại ghi rõ hành động cụ thể của chặng hiện tại.
   const legAction = useLegAction(trip, onChanged, {
@@ -168,7 +148,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       <TripHeaderCard
         trip={trip} detail={detail} totalKm={map?.totalKm ?? null}
         actions={<>
-          {running && isDriver && (
+          {running && (
             <Tooltip title={action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
               <Button size="large" className="drv-action drv-btn-checkin" disabled={!action} onClick={() => action && legAction.open(action)}>
                 Check-in chặng
@@ -181,7 +161,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
           >
             Báo cáo sự cố
           </Button>
-          {action && !running && isDriver && (
+          {action && !running && (
             <Button size="large" className={'drv-action' + (start ? ' drv-btn-start' : ' drv-btn-checkin')} onClick={() => legAction.open(action)}>
               {legAction.labelOf(action)}
             </Button>
@@ -194,23 +174,18 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
         <Alert type="info" showIcon message="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
       )}
 
-      {!isDriver && (
-        <p className="drv-view-only" role="note">
-          Bạn là hộ tống của chuyến này — tài xế {detail?.crew.find(member => member.role === 'DRIVER')?.name ?? '—'} ghi mốc chặng.
-        </p>
-      )}
       {upcoming.length > 0 && (
         <p className="drv-upcoming" role="note">Chuyến kế tiếp: {upcoming[0].orderCode}{upcoming.length > 1 ? ` (+${upcoming.length - 1})` : ''}</p>
       )}
 
       <div className="drv-columns">
-        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running && isDriver ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()} />
+        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()} />
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
           {running && <LiveStatsCards legs={trip.legs} map={map} />}
-          {ready && isDriver && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
-          {running && isDriver && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
+          {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
+          {running && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
         </div>
       </div>
 
