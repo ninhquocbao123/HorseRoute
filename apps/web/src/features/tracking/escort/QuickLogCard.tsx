@@ -119,7 +119,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
   return (
     <section className="drv-card esc-quick" aria-labelledby="esc-quick-title">
       <h3 id="esc-quick-title" className="drv-card-title">{editing ? 'Đính chính hoạt động' : 'Ghi nhận nhanh'}</h3>
-      {!writable && <Alert type="info" showIcon message="Chuyến không còn nhận nhật ký (đã giao hoặc đã đổi trạng thái)." />}
+      {!writable && <Alert type="info" showIcon title="Chuyến không còn nhận nhật ký (đã giao hoặc đã đổi trạng thái)." />}
       <form className="esc-form" noValidate onSubmit={event => { event.preventDefault(); void submit(); }}>
         <label className="drv-input">
           <span>Hoạt động</span>
@@ -154,7 +154,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
           </label>
         )}
         {isUnusualWater(form) && (
-          <Alert type="warning" showIcon message="Lượng nước bất thường, kiểm tra lại." description={`Trên ${WATER_WARN_LITERS} lít cho mỗi con. Bạn vẫn lưu được nếu số liệu đúng.`} />
+          <Alert type="warning" showIcon title="Lượng nước bất thường, kiểm tra lại." description={`Trên ${WATER_WARN_LITERS} lít cho mỗi con. Bạn vẫn lưu được nếu số liệu đúng.`} />
         )}
         {type === CareActivityType.REST && (
           <label className="drv-input">
@@ -176,13 +176,13 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
         </label>
         {error && (
           <Alert
-            type="error" showIcon message={error}
+            type="error" showIcon title={error}
             action={locked ? <Button size="small" onClick={() => void onTripChanged()}>Tải lại chuyến</Button> : undefined}
           />
         )}
         {retry && (
           <Alert
-            type="warning" showIcon message={`Đã ghi ${retry.total - retry.remaining.length}/${retry.total} ngựa. ${retry.error}`}
+            type="warning" showIcon title={`Đã ghi ${retry.total - retry.remaining.length}/${retry.total} ngựa. ${retry.error}`}
             description={`Chưa ghi: ${retry.remaining.map(horseName).join(', ')}.`}
             action={<Button size="small" onClick={() => void retryRest()} loading={busy}>Thử lại ngựa còn lại</Button>}
           />

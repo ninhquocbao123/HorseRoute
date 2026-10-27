@@ -105,7 +105,7 @@ function AuthForm({ mode }: { mode: Mode }) {
           <form id={isRegister ? 'fr' : 'fl'} onSubmit={submit} noValidate aria-busy={busy}>
             <h1>{isRegister ? t('Tạo tài khoản mới','Create a new account') : staff ? t('Đăng nhập nhân viên','Staff login') : t('Chào mừng trở lại','Welcome back')}</h1>
             <p className="sub2">{isRegister ? t('Chỉ mất một phút để bắt đầu đặt chuyến.','It takes a minute to start booking trips.') : t('Đăng nhập bằng email và mật khẩu của tài khoản.','Log in with your account email and password.')}</p>
-            {(error || syncError) && <Alert type="error" showIcon message={error || syncError} style={{ marginBottom: 18 }}/>}
+            {(error || syncError) && <Alert type="error" showIcon title={error || syncError} style={{ marginBottom: 18 }}/>}
             {isRegister && field('fullName',t('Họ và tên','Full name'),'text','name')}
             {isRegister ? <div className="two"><div>{field('email','Email','email','email')}</div><div>{field('phone',t('Số điện thoại','Phone number'),'tel','tel',16)}</div></div> : field('email','Email','email','email')}
             {isRegister && <><div className="fld"><select id="customerType" {...register('customerType')} disabled={busy}><option value="INDIVIDUAL">{t('Cá nhân','Individual')}</option><option value="CLUB">{t('Câu lạc bộ, trại ngựa','Club or stud farm')}</option></select><label className="up" htmlFor="customerType">{t('Loại tài khoản','Account type')}</label></div>{customerType === 'CLUB' && field('organizationName',t('Tên câu lạc bộ / tổ chức','Club / organization name'),'text','organization',150)}{field('address',t('Địa chỉ','Address'),'text','street-address',255)}</>}

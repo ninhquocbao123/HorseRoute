@@ -43,8 +43,8 @@ export default function CareLogPage({ trip, detail, viewedEvent, onTripChanged }
 
   return (
     <div className="esc">
-      {data.error && <Alert type="error" showIcon message={data.error} action={<Button size="small" onClick={() => void reload()}>Thử lại</Button>} />}
-      {!writable && <Alert type="info" showIcon message="Chuyến không còn nhận nhật ký chăm sóc (đã giao hoặc đã đổi trạng thái). Bạn vẫn xem được lịch sử." />}
+      {data.error && <Alert type="error" showIcon title={data.error} action={<Button size="small" onClick={() => void reload()}>Thử lại</Button>} />}
+      {!writable && <Alert type="info" showIcon title="Chuyến không còn nhận nhật ký chăm sóc (đã giao hoặc đã đổi trạng thái). Bạn vẫn xem được lịch sử." />}
       <div className="esc-columns">
         <div className="esc-main">
           {detail && horses.length === 0 ? (

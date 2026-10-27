@@ -151,7 +151,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
         <Select value={status} options={STATUS_OPTIONS} onChange={value => { setStatus(value); setPage(1); }} aria-label="Lọc theo trạng thái" />
         <Button onClick={() => void load()} disabled={loading}>Làm mới</Button>
       </div>
-      {loadError && <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
+      {loadError && <Alert type="error" showIcon title={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
       <Table<Vehicle>
         rowKey="id" size="middle" columns={columns} dataSource={items} loading={loading} scroll={{ x: 'max-content' }}
         locale={{ emptyText: query || status !== 'all' ? 'Không có phương tiện phù hợp bộ lọc.' : 'Chưa có phương tiện nào.' }}
@@ -164,9 +164,9 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
         okText={editing === 'new' ? 'Thêm' : 'Lưu'} cancelText="Hủy" confirmLoading={saving}
         onOk={() => form.submit()} onCancel={() => { if (!saving) setEditing(null); }}
       >
-        {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+        {formError && <Alert type="error" showIcon title={formError} style={{ marginBottom: 16 }} />}
         {editing !== 'new' && editing?.inActiveUse && (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Xe đang nằm trong kế hoạch đã duyệt: không thể ngừng hoạt động hoặc giảm sức chứa dưới số ngựa cần chở." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Xe đang nằm trong kế hoạch đã duyệt: không thể ngừng hoạt động hoặc giảm sức chứa dưới số ngựa cần chở." />
         )}
         <Form form={form} layout="vertical" onFinish={values => void submit(values)} requiredMark="optional">
           <Form.Item name="plateOrCode" label="Biển số / mã xe" rules={[{ required: true, whitespace: true, message: 'Nhập biển số hoặc mã xe.' }, { max: 30, message: 'Tối đa 30 ký tự.' }]}>

@@ -9,7 +9,7 @@ export default function SaveOrderDialog({onAnswer}:{onAnswer:(save:boolean)=>voi
     okText="Bỏ thay đổi và tiếp tục"
     cancelText="Tiếp tục chỉnh sửa"
     okButtonProps={{danger:true}}
-    maskClosable={false}
+    mask={{closable:false}}
     onOk={()=>onAnswer(true)}
     onCancel={()=>onAnswer(false)}
   >

@@ -79,7 +79,7 @@ export function HistoryList({ history, details, search, onOpen, title = 'Lịch 
   }
   return (
     <section className="drv-card drv-history" aria-label={title}>
-      {search.trim() && rows.length === 0 && <Alert type="info" showIcon message={`Không có chuyến nào khớp “${search.trim()}”.`} />}
+      {search.trim() && rows.length === 0 && <Alert type="info" showIcon title={`Không có chuyến nào khớp “${search.trim()}”.`} />}
       <Table<IDriverTripSummary>
         rowKey="id" size="middle" dataSource={rows} locale={{ emptyText: 'Không có chuyến nào.' }}
         pagination={{ current: page, pageSize: PAGE_SIZE, showSizeChanger: false, hideOnSinglePage: true, onChange: setPage }}

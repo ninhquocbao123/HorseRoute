@@ -36,7 +36,7 @@ export default function EscortWorkspace({ data, view, historyTripId, search, vie
   if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
 
   const retry = error && (
-    <Alert type="error" showIcon message={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
+    <Alert type="error" showIcon title={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />
   );
 
   if (view === 'history') {
@@ -45,7 +45,7 @@ export default function EscortWorkspace({ data, view, historyTripId, search, vie
       <div className="drv esc-root">
         {retry}
         {historyTripId && !opened && !error ? (
-          <Alert type="info" showIcon message="Không tìm thấy chuyến này trong lịch sử hộ tống." action={<Button size="small" onClick={() => onNavigate('history')}>Về danh sách</Button>} />
+          <Alert type="info" showIcon title="Không tìm thấy chuyến này trong lịch sử hộ tống." action={<Button size="small" onClick={() => onNavigate('history')}>Về danh sách</Button>} />
         ) : opened ? (
           <EscortHistoryDetail key={opened.id} trip={opened} detail={details[opened.id]} onBack={() => onNavigate('history')} />
         ) : !error && (

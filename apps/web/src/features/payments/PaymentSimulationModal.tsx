@@ -205,7 +205,7 @@ export default function PaymentSimulationModal({
         ) : (
           <Spin spinning={loading}>
             {error ? (
-              <Alert type="error" message={error} style={{ margin: '16px 0' }} />
+              <Alert type="error" title={error} style={{ margin: '16px 0' }} />
             ) : (
               <Tabs
                 activeKey={method}

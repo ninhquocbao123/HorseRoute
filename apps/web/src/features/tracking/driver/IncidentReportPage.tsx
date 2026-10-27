@@ -178,7 +178,7 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
           onChange={(nextPhotos, nextCaptions) => { setPhotos(nextPhotos); setCaptions(nextCaptions); }}
         />
 
-        {error && <Alert type="error" showIcon message={error} />}
+        {error && <Alert type="error" showIcon title={error} />}
         <div className="drv-form-actions">
           <Button size="large" className="drv-btn-ghost" disabled={busy} onClick={onCancel}>Hủy</Button>
           <Button size="large" htmlType="submit" className="drv-btn-danger" loading={busy}>Gửi báo cáo cho điều phối</Button>
