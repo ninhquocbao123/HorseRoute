@@ -3,6 +3,9 @@ import type {
   IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
+  ICareActivity,
+  ICareActivityList,
+  ICareActivityCreateInput,
   IIncident,
   IAlert,
   IActiveTrips,
@@ -18,6 +21,7 @@ import type {
   ITripPositionInput,
   ITripTrackPoint,
 } from '@my-project/shared';
+import { HORSE_CONDITION_META } from '@my-project/shared';
 import { api } from '../../lib/axios';
 
 export type MilestoneResult = { milestoneId: string; legId: string; milestoneType: MilestoneType; legStatus: string; orderStatus: string };
@@ -37,6 +41,11 @@ export const trackingApi = {
     api.post(`/tracking/legs/${legId}/complete`, { occurredAt }).then(r => r.data),
   horseLogs: (tripId: string) => api.get<IHorseLog[]>(`/tracking/trips/${tripId}/horse-logs`).then(r => r.data),
   createHorseLog: (legId: string, form: FormData) => api.post<IHorseLog>(`/tracking/legs/${legId}/horse-logs`, form).then(r => r.data),
+  /** Hoạt động chăm sóc; có `range` thì tổng hợp theo khoảng (nhưng `lastFeedAtByHorse` luôn theo toàn chuyến). */
+  careActivities: (tripId: string, range?: { from: string; to: string }) =>
+    api.get<ICareActivityList>(`/tracking/trips/${tripId}/care-activities`, { params: range }).then(r => r.data),
+  createCareActivity: (tripId: string, body: ICareActivityCreateInput) =>
+    api.post<ICareActivity>(`/tracking/trips/${tripId}/care-activities`, body).then(r => r.data),
   incidents: (tripId: string) => api.get<IIncident[]>(`/tracking/trips/${tripId}/incidents`).then(r => r.data),
   createIncident: (tripId: string, form: FormData) => api.post<IIncident>(`/tracking/trips/${tripId}/incidents`, form).then(r => r.data),
   alerts: (tripId: string) => api.get<IAlert[]>(`/tracking/trips/${tripId}/alerts`).then(r => r.data),
@@ -73,12 +82,8 @@ export function errorMessage(error: unknown, fallback = 'Không thực hiện đ
   return fallback;
 }
 
-export const CONDITIONS: { value: HorseConditionStatus; label: string; hint: string }[] = [
-  { value: 'STABLE' as HorseConditionStatus, label: 'Ổn định', hint: 'Bình thường' },
-  { value: 'OFF_FEED' as HorseConditionStatus, label: 'Bỏ ăn', hint: 'Không ăn/uống' },
-  { value: 'STRESSED' as HorseConditionStatus, label: 'Căng thẳng', hint: 'Bồn chồn, vã mồ hôi' },
-  { value: 'CLIMATE_CHANGE' as HorseConditionStatus, label: 'Thời tiết', hint: 'Ảnh hưởng nhiệt độ/khí hậu' },
-];
+export const CONDITIONS: { value: HorseConditionStatus; label: string; hint: string }[] = (Object.keys(HORSE_CONDITION_META) as HorseConditionStatus[])
+  .map(value => ({ value, label: HORSE_CONDITION_META[value].label, hint: HORSE_CONDITION_META[value].hint }));
 
 export const INCIDENT_TYPES: { value: IncidentType; label: string }[] = [
   { value: 'VEHICLE_BREAKDOWN' as IncidentType, label: 'Hỏng xe' },

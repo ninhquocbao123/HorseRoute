@@ -262,13 +262,24 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
   - Lưu ý: thẻ tổng `inTransit` chỉ đếm chuyến `IN_TRANSIT`, còn `openIncidents` đếm cả sự cố của chuyến `READY`. Hai con số này đúng nghĩa, giữ nguyên.
 - **Thời điểm**: làm được ngay, độc lập với các bước khác.
 
-### 5.5 Nhật ký ngựa → chuyển sang actor Escort (lên kế hoạch sau)
-- **Quyết định**: Nhóm sẽ thêm actor **Escort (hộ tống)** đi cùng tài xế. Escort chuyên quản lý ngựa và cập nhật trạng thái ngựa (nhật ký).
-- **Ảnh hưởng tới màn tài xế**:
-  - Không làm form nhật ký.
-  - [HorseLogForm.tsx](../apps/web/src/features/tracking/driver/HorseLogForm.tsx) giữ nguyên cho tới khi có kế hoạch Escort.
-  - Khi có actor này, thẻ "Ghi chú từ hộ tống" ở D1b sẽ lọc được chính xác. Hiện tại thì chưa (xem mục 3.1).
-- **Thời điểm**: kế hoạch riêng, sau.
+### 5.5 Nhật ký ngựa → thuộc về Hộ tống; chia quyền Tài xế / Hộ tống (26/10/2026)
+- **Quyết định**: chuyến có hai vai trò crew trong `trip_assignments.role` (KHÔNG dùng `users.role`, cả hai đều là `DRIVER_ESCORT`): **DRIVER** lái xe và ghi mốc; **ESCORT** chăm ngựa và ghi nhật ký ngựa. Không migration.
+- **Bảng chia quyền (API, kiểm tra theo `trip_assignments.role` của chuyến)**:
+
+| Thao tác | Tài xế (DRIVER) | Hộ tống (ESCORT) | Không phân công |
+|---|---|---|---|
+| `POST /legs/:id/milestones` (xuất phát, đến trạm, thông quan, giao) | ✅ | ❌ 403 "Chỉ tài xế của chuyến mới được ghi mốc/gửi vị trí." | ❌ 403 |
+| `POST /legs/:id/complete` (hoàn thành chặng trung gian) | ✅ | ❌ 403 (cùng thông điệp) | ❌ 403 |
+| `POST /trips/:id/positions` (GPS) | ✅ | ❌ 403 (cùng thông điệp) | ❌ 404 |
+| `POST /legs/:id/horse-logs` (nhật ký ngựa) | ❌ 403 "Nhật ký ngựa do hộ tống ghi." | ✅ | ❌ 403 |
+| `GET /trips/:id/horse-logs` (đọc) | ✅ | ✅ | 404 |
+| `POST /trips/:id/incidents` (báo sự cố) | ✅ | ✅ | 404 |
+
+- `GET /trips/:id/horse-logs` trả thêm `createdByCrewRole` (DRIVER / ESCORT / null nếu người ghi không còn được phân công) bằng JOIN `trip_assignments` (`IHorseLog` trong shared + OpenAPI).
+- **Màn tài xế**: thẻ "Ghi chú từ hộ tống" lọc nhật ký mới nhất có ghi chú với `createdByCrewRole = ESCORT`. [HorseLogForm.tsx](../apps/web/src/features/tracking/driver/HorseLogForm.tsx) vẫn giữ file nhưng không hiện.
+- **Màn hộ tống (tạm thời, chế độ chỉ xem)**: khi `crewRole = ESCORT` ẩn "Bắt đầu chuyến đi", "Check-in chặng", badge/công tắc GPS (hook GPS không chạy), checklist trước khi chạy và thẻ "Ghi chú từ hộ tống"; có dòng "Bạn là hộ tống của chuyến này — tài xế {tên} ghi mốc chặng."; giữ Báo cáo sự cố, bản đồ, các chặng, thẻ số liệu, cảnh báo/thông báo, lịch sử. **Màn E1/E2 (hộ tống: nhật ký ngựa) sẽ thay chế độ chỉ xem này.**
+- **Form báo sự cố**: loại mặc định theo vai trò — tài xế "Hỏng xe · Khác", hộ tống "Y tế ngựa · Khác" (vẫn đổi được).
+- **Thời điểm**: màn E1/E2 làm sau.
 
 ### 5.6 Giới hạn tốc độ và số cứu hộ → `system_parameters`
 - **Quyết định**:
@@ -340,9 +351,11 @@ Mỗi mục ghi: quyết định, việc phải làm, và thời điểm làm (t
 | **D** | **DriverShell** + nav `?view=trip` / `?view=incident`, bỏ thẻ thống kê, danh sách, tabs, thêm dropdown chọn chuyến | B | Vừa | ✅ Xong 23/10 (PR #7, CI #26 pass) |
 | **E** | **D1**: `TripHeaderCard`, `StopTimeline`, `PreDepartureChecklist` (cảnh báo trong modal), bản đồ tạm `MapFallback` | C, D | Vừa | ✅ Xong 23/10 (PR #7, CI #26 pass) |
 | **F** | **D2**: BE nhận các trường mới + suy `urgency` theo 5.1. FE `IncidentReportPage` + vị trí tọa độ thô + liên hệ nhanh + sửa banner | B, C | Lớn | ✅ Xong 23/10 (PR #7, CI #26 pass) |
-| **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
+| **G** | **D1b không GPS**: nút Check-in trên header, timeline 3 trạng thái, "Đã chạy", "Chặng tiếp", `EscortNoteCard` | E | Vừa | 🟡 Xong code 23–26/10 (gồm các sửa thêm bên dưới), chờ review UI + CI |
 | **H1** | **Backend bản đồ + GPS** (= Bước 4 trong [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md)): `GET /trips/:tripId/map`, `POST/GET /trips/:tripId/positions`, dọn vị trí cũ, `VMAX` | G | Vừa | 🟡 Xong code 23/10, chờ CI + chạy migration 1800000009000 trên Aiven |
 | **H2** | **FE bản đồ + chia sẻ GPS**: `useGpsSharing`, `DriverRouteMap` (bản đồ thật thay `MapFallback`), km còn lại, tốc độ/VMAX trên D1b. **Không** reverse geocode (điều khoản Mapbox) | H1 | Lớn | 🟡 Xong code 23/10, chờ review UI + thử GPS thật |
+| **UI-1** | **Chỉnh giao diện tài xế theo phản hồi (trước H3)**: màn chuyến chỉ hiện chuyến đang hoạt động (bỏ dropdown), trang **Lịch sử giao hàng** + chi tiết chỉ xem, ô Xe 1 xe, thu gọn phần trên để thấy bản đồ ngay, sửa số km/nhãn tràn khung bản đồ | E | Vừa | 🟡 Xong code 23/10, chờ review UI + CI |
+| **UI-2** | **Thông báo nổi + panel thông báo gọn** cho khung tài xế: socket `tracking:alert` / `tracking:incident_updated` / `notification:new` tới phòng `user:{id}` của crew, toast cảnh báo điều phối (không tự tắt, đóng rồi không hiện lại), toast thành công 5 giây thay các banner trong trang, panel chuông 2 dòng + thời gian tương đối + đánh dấu đã đọc | E | Vừa | 🟡 Xong code 26/10, chờ review UI |
 | – | **Backlog**: checklist lên BE, actor Escort + nhật ký, cuộc gọi tự động | – | – | — |
 
 Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
@@ -434,7 +447,7 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
   - Thẻ "Lộ trình chuyến đi": góc phải "ETA dd/MM HH:mm" (giờ đến dự kiến chặng cuối). Bản đồ vẫn `MapFallback`.
   - [LiveStatsCards.tsx](../apps/web/src/features/tracking/driver/LiveStatsCards.tsx): "Chặng tiếp" (điểm đến chặng hiện tại + giờ dự kiến), "Tốc độ" ("—", "Có ở bước bật GPS"), "Đã chạy" (từ giờ xuất phát thực tế chặng 1; dòng phụ "nghỉ tiếp sau …" hoặc "trễ …" màu cảnh báo). Tự cập nhật mỗi 60 giây.
   - `StopTimeline` 3 trạng thái: ✓ đã qua, 🚚 đang tới (điểm đến của chặng hiện tại), ○ chưa tới.
-  - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú của **người khác** tài khoản đang đăng nhập (5.5: chưa lọc được theo vai trò escort). Không có thì ẩn.
+  - [EscortNoteCard.tsx](../apps/web/src/features/tracking/driver/EscortNoteCard.tsx): nhật ký ngựa mới nhất có ghi chú do **hộ tống** ghi (`createdByCrewRole = ESCORT`, mục 5.5). Không có thì ẩn.
 - Mốc DELIVERED cuối cùng giữ luồng cũ; xong thì trang quay về "Chuyến vận chuyển", badge "Đã giao xong", thông báo "Tất cả các chặng đã hoàn thành".
 - Còn lệch Figma: không có "Còn … km", badge GPS, tốc độ thật (bước H); ghi chú "Nghỉ đêm" (không có dữ liệu); font và icon như D1; khung "Cảnh báo từ điều phối viên" không có trên Figma.
 
@@ -449,6 +462,32 @@ Ký hiệu trạng thái: ⬜ Chưa làm · 🟡 Đang làm · ✅ Xong.
 - Chia sẻ GPS: công tắc "Chia sẻ vị trí" + hộp thoại đồng ý lần đầu (thiết kế mục 10), gửi lô 30 giây, hàng đợi offline, Wake Lock. **Chỉ chia sẻ khi trang đang mở** (giới hạn của web), tự dừng khi chuyến giao xong hoặc ở chặng bay.
 - Còn thiếu so với thiết kế: audit bật/tắt chia sẻ (cần API mới, đã chọn không làm ở bước này).
 - **Cải tiến bản đồ tài xế (23/10)**: tuyến bám đường (`overview=full` + giản lược 8 m), màu bản đồ theo Figma, viền trắng cho tuyến. **Cần chạy migration `1800000010000-RouteCacheFull` trên Aiven** (xóa cache tuyến ROAD cũ). Chi tiết ở [tien-do-ban-do-gps.md](tien-do-ban-do-gps.md) Bước 4 và Bước 5–6.
+
+**Ghi chú bước UI-1 (23/10/2026)**
+- Chuyến hiển thị: IN_TRANSIT, không có thì READY khởi hành sớm nhất. Chuyến READY/IN_TRANSIT khác (nếu có) chỉ hiện một dòng "Chuyến kế tiếp: {mã} (+N)" dưới header. **Quy tắc "một tài xế một chuyến hoạt động" cần chặn ở Flow 3 (phân công/duyệt kế hoạch)**; UI-1 không sửa Flow 3, cần hỏi người phụ trách Flow 3.
+- Không có chuyến hoạt động: trạng thái trống "Bạn chưa có chuyến được phân công" + nút sang Lịch sử giao hàng.
+- `?view=history`: bảng chuyến DELIVERED (API `driver/trips` hiện chỉ trả READY/IN_TRANSIT/DELIVERED nên chưa có CANCELLED; code đã chịu được nếu sau này API trả), phân trang 10 dòng, lọc bằng ô tìm kiếm trên topbar (mã đơn, khách hàng, tên điểm). Km lấy từ `/map`, số sự cố từ `/incidents`, chỉ gọi cho các dòng đang hiện (tối đa 20 request mỗi trang, trong giới hạn 60/phút của `/map`). "Giao thực tế" = giờ đến thực tế của chặng cuối (— nếu chưa có).
+- `?view=history&trip=ID`: chi tiết chỉ xem, dùng lại thẻ bản đồ nhưng không GPS và không nút hành động.
+- Ô "Xe": xe của chặng đang chạy / chặng đầu / chặng cuối, dạng "{biển số} · {n} chuồng".
+- Bỏ banner "Tất cả các chặng đã hoàn thành" và khung "Cảnh báo từ điều phối viên" khỏi trang; hook `useTripAlerts` và component `DispatcherAlerts` được giữ lại để chuyển thành thông báo nổi.
+- D1b: ba thẻ Chặng tiếp / Tốc độ / Đã chạy nằm ở cột phải ngay dưới "Các chặng" (màn < 1200px về lại dưới bản đồ). Bản đồ fit với lề 80px, nhãn điểm gửi/nhận tự đổi sang bên trái khi chấm sát mép phải; chuyến đã giao (xem lại lịch sử) không hiện marker xe.
+- Bản đồ (mọi nơi dùng `BaseMap`): `projection="mercator"` (Mapbox GL v3 mặc định là globe, kiểm chứng bằng test), `minZoom` 3, góc nhìn mặc định Việt Nam (106,7; 10,8; zoom 6). Góc nhìn do `trackmap/map-view-plan.ts` quyết định: không điểm → Việt Nam; một điểm → zoom 10; nhiều điểm → fit lề 80 px (lề tự co khi khung nhỏ để fitBounds không thất bại); tọa độ hỏng hoặc (0, 0) bị bỏ. Điểm thiếu tọa độ hiện dòng "Điểm X chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm"; `/map` lỗi: giữ góc nhìn Việt Nam + thông báo nhỏ có nút "Thử lại" trong khung.
+- Quyền hộ tống: API ghi mốc/hoàn thành chặng/gửi vị trí/báo sự cố cho mọi người được phân công chuyến (cả DRIVER và ESCORT), không phân biệt `assignment.role`; FE hiện nút Bắt đầu/Check-in/chia sẻ GPS cho cả hai vai trò. Chưa đổi; cần chốt với chủ nghiệp vụ.
+- Xe đang DỪNG (D1b): `driver/trip-phase.ts` là nguồn duy nhất cho giai đoạn của chuyến (chưa đi / đang chạy / dừng tại điểm (AT_STOP) / dừng giữa hai chặng (chặng trước COMPLETED, chặng sau NOT_STARTED) / xong). Timeline: điểm đang dừng có vòng vàng + "Đang dừng", điểm kế tiếp "Kế tiếp · …"; thẻ "Chặng tiếp" luôn là điểm kế tiếp (km của chặng kế, không bao giờ "còn 0 km"); thẻ "Đã chạy" ghi "đang dừng · dự kiến xuất phát HH:mm" hoặc "trễ xuất phát N phút". Test: `apps/web/test/trip-phase.cjs`.
+- Chia sẻ vị trí: công tắc nhỏ nằm trong badge góc trên-trái bản đồ (không còn hàng dưới bản đồ); lời giải thích dài ở tooltip (i) và hộp thoại đồng ý; lý do bị chặn/dừng hiện thành dòng ngắn dưới badge.
+- Marker xe luôn trên mọi nhãn (z-index riêng), viền trắng + bóng; marker ước tính nhạt nhưng đặc (không dùng opacity nên chữ bản đồ không lọt qua).
+- Mọi số km của màn tài xế dùng `formatKm` (tự ghép dấu chấm nghìn, không phụ thuộc locale của trình duyệt).
+- **Vị trí xe theo mốc (26/10):** `/map` (`trackmap.build.ts`) lấy mốc mới nhất của chuyến (giờ xuất phát/đến thực tế của các chặng). Mốc MỚI HƠN điểm GPS cuối (hoặc chưa có GPS) thì `position` = điểm theo mốc (đã đến → điểm dừng, `source: ESTIMATED`, nhãn "…: đã đến {tên} lúc HH:mm"), `remainingKm` tính từ đó và `latestPosition.speedKmh` = null (không trả tốc độ của điểm GPS cũ hơn mốc). GPS mới hơn mốc thì dùng GPS như trước. Chặng đang chạy mà mốc xuất phát mới hơn GPS vẫn dùng ước tính theo thời gian. Thẻ Tốc độ khi xe đang dừng hiện "0 km/h · đang dừng"; số km góc bản đồ và thẻ Chặng tiếp trùng nhau.
+- **Mức độ sự cố (26/10):** chỉ dùng tên "Nghiêm trọng / Trung bình / Nhẹ", không ghi tên màu. Nguồn duy nhất `INCIDENT_SEVERITY_META` (tên, mô tả một dòng, màu chính/nền nhạt/chữ) trong `packages/shared`; web gắn màu qua biến CSS `--sev*`. SeverityPicker: chưa chọn thì trung tính + viền trái màu mức độ, đã chọn thì viền + nền nhạt + dấu tích. Danh sách sự cố (Sự cố đã báo, chi tiết lịch sử) dùng chung `IncidentListItem`: viền trái + tag mức độ theo màu, tag trạng thái trung tính cùng hàng tiêu đề, mô tả cắt 3 dòng (bấm để mở). Cảnh báo "Mức nghiêm trọng sẽ gửi thông báo khẩn…" chỉ hiện khi đang chọn Nghiêm trọng.
+- **Icon (26/10):** `driver/icons.tsx` — xe = `TruckOutlined` (cùng sidebar), ngựa = `Horse` và người nhận = `Package` của `@phosphor-icons/react` (MIT, import đường dẫn con, bundle +~8 KB thô / +~3 KB gzip), "Cả hai" = xe tải + ngựa (không dấu "+"), Hộ tống/Tài xế = `UserOutlined`. Bỏ chấm trang trí ở role sidebar và badge trạng thái chuyến (giữ chấm GPS); tag trạng thái chặng trung tính, chỉ giữ màu cho tag cần chú ý (cửa khẩu cần thông quan, tình trạng ngựa).
+- Demo: `DEMO_DB_NAME` (phải bắt đầu bằng `wdp_flow4_demo`) cho phép seed DB demo thứ hai để không ghi đè DB đang dùng (docs/demo-local.md).
+- **UI-2 (26/10) — thông báo nổi + panel chuông:**
+  - Server: `TrackingService` nhận thêm cổng `TrackingRealtime` (mặc định `socketService`, no-op khi socket chưa gắn). SAU khi transaction commit: `createAlert` → `tracking:alert` {alertId, tripId, alertType, content, sentByName, sentAt} tới crew được phân công chuyến; `updateIncident` → `tracking:incident_updated` {incidentId, tripId, status, handlingNote} tới người báo; kèm `notification:new` {id, content, createdAt} cho từng người vừa nhận thông báo IN_APP. Lỗi socket/DB khi phát chỉ ghi log, không làm hỏng request; không phát khi transaction lỗi. Không migration. Không dùng phòng order nên khách hàng không nhận.
+  - Client: `useDriverRealtime` (nghe 3 sự kiện; mất kết nối → tải lại cảnh báo mỗi 60 giây khi tab hiển thị; kết nối lại → tải lại cảnh báo + thông báo một lần), `DriverNotices` (antd notification góc trên phải, tối đa 3, không stack), `useAlertToasts` (cảnh báo điều phối không tự tắt; id đã đóng lưu localStorage theo tài khoản; mở trang chỉ hiện cảnh báo chưa đóng của chuyến đang hoạt động). Toast thành công tự tắt sau 5 giây (check-in, trạng thái chặng đổi, hoàn thành mọi chặng, gửi báo cáo sự cố, bật chia sẻ GPS) thay cho các banner trong trang; sự cố được tiếp nhận/đóng: 8 giây. Toast đặt `top: 196px` để không che nút Check-in / Báo cáo sự cố trên thẻ chuyến.
+  - Chỉnh thêm (26/10): cảnh báo điều phối chỉ hiện MỘT thẻ (mới nhất chưa đóng, rộng 360px, tối đa 3 dòng) + dòng "+N cảnh báo khác" (bấm → panel chuông lọc cảnh báo); đóng thẻ thì hiện cảnh báo kế tiếp; chống trùng theo alertId giữa socket / polling / kết nối lại. Khung tài xế truyền `compact` cho panel (ẩn đầu trang, mô tả, 3 ô thống kê; nút Làm mới nằm ở thanh tiêu đề drawer); viền trái chỉ cho thông báo chưa đọc, màu theo loại (cảnh báo vàng, còn lại trung tính; thông báo sự cố chưa có mức độ trong dữ liệu nên chưa tô theo mức). `notification:new` có thêm `eventType`.
+  - Panel chuông (`NotificationsPanel`, dùng chung): mỗi thông báo một hàng gọn, tối đa 2 dòng, thời gian tương đối, chấm + nền nhạt khi chưa đọc, bấm vào = đã đọc, nút ✓ nhỏ có tooltip, "Đánh dấu tất cả đã đọc" (prop `onMarkAllRead`, chỉ khung tài xế truyền), bỏ tiêu đề "Thông báo mới". `notification:new` làm badge chuông tăng ngay.
+
+**Quy ước migration (từ 26/10/2026):** timestamp migration mới của cả nhóm bắt đầu từ **1800000013000** trở lên và không dùng lại số đã có. Sau khi gộp dev vào long, `migration:show` có 4 cặp trùng timestamp giữa các luồng: 1800000007000 (PricingVersions / DriverIncidentDetails), 1800000008000 (ManagerQuotes / HotlineParam), 1800000009000 (VmaxParam / CustomerProfiles) và 1800000010000 (SpecialistAssessments / RouteCacheFull). TypeORM vẫn chạy được vì tên lớp khác nhau và migration độc lập; không đổi tên các migration đã chạy trên Aiven (đổi tên sẽ khiến TypeORM coi là migration mới).
 
 ### 6.2 Bổ sung để không vướng D2
 

@@ -27,6 +27,26 @@ export enum HorseConditionStatus {
   CLIMATE_CHANGE = 'CLIMATE_CHANGE',
 }
 
+/** horse_logs.appetite */
+export enum HorseAppetite {
+  NORMAL  = 'NORMAL',
+  REDUCED = 'REDUCED',
+  REFUSED = 'REFUSED',
+}
+
+/** horse_logs.report_status; NULL = nhật ký cũ, không phải báo cáo */
+export enum HorseReportStatus {
+  DRAFT = 'DRAFT',
+  SENT  = 'SENT',
+}
+
+/** horse_care_activities.activity_type */
+export enum CareActivityType {
+  FEED  = 'FEED',
+  WATER = 'WATER',
+  REST  = 'REST',
+}
+
 /** incidents.incident_type */
 export enum IncidentType {
   VEHICLE_BREAKDOWN = 'VEHICLE_BREAKDOWN',

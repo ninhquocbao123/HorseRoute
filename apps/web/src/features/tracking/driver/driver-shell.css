@@ -5,6 +5,7 @@
   --drs-mint: #b2d2d2; --drs-nav-text: #dbf0f0; --drs-bg: #f6faf9; --drs-card: #fff; --drs-line: #d8e6e6;
   --drs-muted: #546d71; --drs-ink: #0d2a2e; --drs-soft: #e7f1f1; --drs-red: #dc2626; --drs-red-bg: #fef2f2;
   --drs-red-soft: #fee2e2; --drs-red-text: #b91c1c; --drs-orange: #ea580c; --drs-yellow: #ca8a04;
+  --drv-map-h: clamp(380px, calc(100svh - 300px), 1000px);
   --drs-green: #166534; --drs-green-bg: #dcfce7; --drs-radius: 12px; --drs-radius-card: 20px;
   /* Màu bản đồ lộ trình (Figma D1/D1b: nền đất, nước, đường, tuyến); đọc bởi trackmap/driver-map-theme.ts */
   --drs-map-land: #e2efe8; --drs-map-water: #c9e3ec; --drs-map-park: #d3e9d9; --drs-map-road: #ffffff; --drs-map-road-major: #fbf8ec;
@@ -39,7 +40,6 @@
   align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px;
   background: rgb(244 185 66 / 14%); color: var(--drs-gold); font-size: 12px; font-weight: 700;
 }
-.drs-role > span { width: 8px; height: 8px; border-radius: 50%; background: var(--drs-gold); }
 .drs-nav-label { padding: 18px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .88px; color: var(--drs-mint); }
 .drs-sidebar nav { display: grid; gap: 8px; }
 .drs-sidebar nav button {
@@ -60,18 +60,20 @@
 .drs .drs-logout:hover { color: var(--drs-gold) !important; background: rgb(255 255 255 / 8%) !important; }
 
 /* Topbar */
-.drs-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 28px 36px 40px; outline: none; }
-.drs-topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
-.drs-heading { display: grid; gap: 4px; min-width: 0; }
-.drs-breadcrumb { font-size: 13px; color: var(--drs-muted); }
+.drs-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 28px 20px; outline: none; }
+.drs-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px 20px; flex-wrap: wrap; min-height: 44px; }
+.drs-heading { display: grid; gap: 0; min-width: 0; }
+.drs-breadcrumb { font-size: 12px; color: var(--drs-muted); }
 .drs-breadcrumb span { padding: 0 8px; }
-.drs-heading h1 { font-size: 28px; font-weight: 800; line-height: 1.15; letter-spacing: -.56px; }
-.drs-heading > p:last-child { font-size: 15px; color: var(--drs-muted); }
+.drs-heading h1 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.4px; }
+/* Mô tả dưới tiêu đề bỏ để nhường chỗ cho bản đồ (UI-1); vẫn có trong DOM cho trình đọc màn hình. */
+.drs-heading:not(.is-described) > p:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.drs-heading.is-described > p:last-child { margin-top: 2px; font-size: 14px; color: var(--drs-muted); }
 .drs-tools { display: flex; align-items: center; gap: 12px; }
-.drs .drs-search { width: 260px; height: 44px; padding: 0 14px; border-color: var(--drs-line); border-radius: var(--drs-radius); }
+.drs .drs-search { width: 280px; height: 40px; padding: 0 14px; border-color: var(--drs-line); border-radius: var(--drs-radius); }
 .drs .drs-search .ant-input-prefix { margin-right: 10px; color: var(--drs-muted); font-size: 16px; }
 .drs .drs-tool {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-width: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; min-width: 40px;
   border: 1px solid var(--drs-line); border-radius: var(--drs-radius); background: var(--drs-card); color: var(--drs-ink);
 }
 .drs .drs-tool .anticon { font-size: 18px; }
@@ -80,7 +82,7 @@
 
 @media (max-width: 1100px) {
   .drs-sidebar { width: 220px; }
-  .drs-main { padding: 24px; }
+  .drs-main { padding: 14px 20px 20px; }
   .drs .drs-search { width: 200px; }
 }
 @media (max-width: 860px) {
@@ -92,3 +94,26 @@
   .drs-tools { flex-wrap: wrap; }
   .drs-main { padding: 20px 16px 32px; }
 }
+
+/* UI-2: thông báo nổi (antd notification, render ở body nên không dùng biến của .drs) */
+.drv-toast.ant-notification-notice { width: 360px; max-width: calc(100vw - 32px); padding: 14px 16px; border-radius: 14px; box-shadow: 0 8px 28px rgb(11 59 66 / 18%); }
+.drv-toast .ant-notification-notice-message { margin-bottom: 0; font-size: 14px; font-weight: 700; color: #0d2a2e; }
+.drv-toast .ant-notification-notice-description { margin-top: 4px; font-size: 13px; color: #0d2a2e; }
+.drv-toast.is-alert { background: #fffbeb; border-left: 4px solid #ca8a04; }
+.drv-toast-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.drv-toast-more { display: block; margin-top: 6px; padding: 0; border: 0; background: none; color: #14606a; font-size: 13px; font-weight: 600; cursor: pointer; }
+.drv-toast-more:hover { text-decoration: underline; }
+.drv-toast-meta { display: block; margin-top: 4px; color: #546d71; }
+.drv-toast-ok { color: #16a34a; }
+.drv-toast-info { color: #14606a; }
+.drv-toast-warn { color: #ca8a04; }
+
+/* Danh sách cảnh báo điều phối chưa đóng (drawer chuông) */
+.drv-alert-list { margin-bottom: 16px; padding: 14px 16px; border: 1px solid #f0dca8; border-left: 4px solid #ca8a04; border-radius: 14px; background: #fffbeb; }
+.drv-alert-list h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+.drv-alert-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.drv-alert-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid #f0dca8; }
+.drv-alert-list li:first-child { padding-top: 0; border-top: 0; }
+.drv-alert-list li > div { display: grid; gap: 2px; min-width: 0; }
+.drv-alert-text { font-size: 14px; overflow-wrap: anywhere; }
+.drv-alert-list small { font-size: 12px; color: #546d71; }

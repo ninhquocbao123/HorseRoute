@@ -104,6 +104,12 @@ export class SocketService {
     this.io.to([`order:${payload.orderId}`, `user:${payload.customerId}`, 'role:MANAGER']).emit('payment:updated', payload);
   }
 
+  /** Phát một sự kiện tới phòng riêng `user:{id}` của từng người (chỉ THÊM, không đổi các sự kiện khác). */
+  emitToUsers(userIds: string[], event: string, payload: unknown) {
+    if (!this.io || !userIds.length) return;
+    this.io.to(userIds.map(id => `user:${id}`)).emit(event, payload);
+  }
+
   notifyOrderStatus(orderId: string, customerId: string, status: string, details?: any) {
     if (!this.io) return;
     this.io.to([`order:${orderId}`, `user:${customerId}`, 'role:MANAGER']).emit('order:status_updated', {

@@ -28,7 +28,7 @@ export const trackingSchemas = {
     updatedAt: nullable(time), updatedByName: nullable({ type: 'string' }),
     milestones: { type: 'array', items: ref('TrackingMilestone') },
   }),
-  TrackingHorse: object({ id, name: { type: 'string' }, passportNo: { type: 'string' }, orderStatus: { type: 'string', enum: ['NORMAL', 'FLAGGED', 'REMOVED'] } }),
+  TrackingHorse: object({ id, name: { type: 'string' }, passportNo: { type: 'string' }, orderStatus: { type: 'string', enum: ['NORMAL', 'FLAGGED', 'REMOVED'] }, breed: nullable({ type: 'string' }), birthDate: nullable({ type: 'string', format: 'date', example: '2021-04-15' }) }),
   TrackingCrewMember: object({
     userId: id, name: { type: 'string' },
     phone: nullable({ type: 'string', description: 'null khi chưa khai báo, hoặc khi người gọi là Specialist.' }),
@@ -73,15 +73,73 @@ export const trackingSchemas = {
   }),
   HorseLogFields: object({
     horseId: id, conditionStatus,
+    note: { type: 'string', maxLength: 1000, description: 'Ghi chú nội bộ (khách không thấy).' },
+    loggedAt: { ...time, description: 'Không ở tương lai.' },
+    correctsLogId: { ...id, description: 'Đính chính một bản ghi/báo cáo đã gửi: cùng chuyến, cùng ngựa; bản gốc đang là nháp: 400; bản gốc đã có bản đính chính đã gửi: 409. Bản gốc đã gửi khách thì khi gửi bản đính chính phải `sendToCustomer = true` (400).' },
+    reportStatus: { type: 'string', enum: ['DRAFT', 'SENT'], description: 'Không gửi = nhật ký cũ (bất biến). DRAFT = nháp (sửa / xóa / gửi sau). SENT = tạo và gửi ngay.' },
+    customerNote: { type: 'string', maxLength: 1000, description: 'Ghi chú gửi khách; bắt buộc khi gửi với `sendToCustomer = true`. Cần `reportStatus`.' },
+    bodyTempC: { type: 'number', minimum: 30, maximum: 45, multipleOf: 0.1, description: 'Nhiệt độ cơ thể (°C), 1 chữ số thập phân. Cần `reportStatus`.' },
+    heartRateBpm: { type: 'integer', minimum: 10, maximum: 200, description: 'Nhịp tim (lần/phút). Cần `reportStatus`.' },
+    appetite: { type: 'string', enum: ['NORMAL', 'REDUCED', 'REFUSED'], description: 'Ăn uống. Cần `reportStatus`.' },
+    sendToCustomer: { type: 'boolean', description: 'Gửi báo cáo đến khách hàng (kèm thông báo). Cần `reportStatus`.' },
+    captions: { type: 'array', maxItems: 3, items: { type: 'string', maxLength: 100 }, description: 'Nhãn ảnh theo thứ tự `photos` (ví dụ Toàn thân / Chân & móng / Trong khoang); số nhãn ≤ số ảnh.' },
+  }, ['horseId', 'conditionStatus', 'loggedAt']),
+  HorseReportUpdateFields: object({
+    conditionStatus,
     note: { type: 'string', maxLength: 1000 },
     loggedAt: { ...time, description: 'Không ở tương lai.' },
-    correctsLogId: { ...id, description: 'Đính chính một bản ghi cũ: cùng chuyến, cùng ngựa. Nhật ký không có API sửa/xóa.' },
-  }, ['horseId', 'conditionStatus', 'loggedAt']),
+    customerNote: { type: 'string', maxLength: 1000 },
+    bodyTempC: { type: 'number', minimum: 30, maximum: 45, multipleOf: 0.1 },
+    heartRateBpm: { type: 'integer', minimum: 10, maximum: 200 },
+    appetite: { type: 'string', enum: ['NORMAL', 'REDUCED', 'REFUSED'] },
+    sendToCustomer: { type: 'boolean' },
+    captions: { type: 'array', maxItems: 3, items: { type: 'string', maxLength: 100 }, description: 'Nhãn cho các ảnh MỚI thêm, theo thứ tự `photos`.' },
+    removeAttachmentIds: { type: 'array', maxItems: 3, items: id, description: 'Ảnh hiện có cần bỏ (phải thuộc báo cáo này).' },
+  }, ['conditionStatus', 'loggedAt']),
+  HorseReportSendInput: object({ sendToCustomer: { type: 'boolean', description: 'Tuỳ chọn: ghi đè lựa chọn của nháp lúc gửi.' } }),
+  HorseReportPhoto: object({ id: { ...id, description: 'Dùng với GET /api/v1/tracking/attachments/{id} (có token).' }, caption: nullable({ type: 'string' }), fileType: { type: 'string', enum: ['PDF', 'JPG', 'PNG'] } }),
+  HorseReport: object({
+    id, horseId: id, horseName: { type: 'string' }, conditionStatus,
+    bodyTempC: nullable({ type: 'number', minimum: 30, maximum: 45 }), heartRateBpm: nullable({ type: 'integer', minimum: 10, maximum: 200 }),
+    appetite: nullable({ type: 'string', enum: ['NORMAL', 'REDUCED', 'REFUSED'] }), customerNote: nullable({ type: 'string' }),
+    photos: { type: 'array', items: ref('HorseReportPhoto') },
+    loggedAt: time, sentAt: time, viewedAt: nullable({ ...time, description: 'null = khách chưa mở chi tiết.' }), escortName: { type: 'string' },
+  }),
+  HorseReportViewed: object({ viewedAt: time }),
   HorseLog: object({
     id, horseId: id, horseName: { type: 'string' }, legId: id, conditionStatus,
-    note: nullable({ type: 'string' }), loggedAt: time, createdBy: id, createdByName: { type: 'string' },
-    correctsLogId: nullable(id), attachments: { type: 'array', items: ref('LogAttachment') },
+    note: nullable({ type: 'string' }), loggedAt: time, createdBy: id, createdByName: { type: 'string' }, createdByCrewRole: nullable({ type: 'string', enum: ['DRIVER', 'ESCORT'] }),
+    correctsLogId: nullable(id),
+    bodyTempC: nullable({ type: 'number', minimum: 30, maximum: 45, description: 'Nhiệt độ (°C); chỉ có ở báo cáo sức khỏe.' }),
+    heartRateBpm: nullable({ type: 'integer', minimum: 10, maximum: 200, description: 'Nhịp tim (lần/phút).' }),
+    appetite: nullable({ type: 'string', enum: ['NORMAL', 'REDUCED', 'REFUSED'] }),
+    customerNote: nullable({ type: 'string', maxLength: 1000, description: 'Ghi chú gửi khách (tách khỏi note nội bộ).' }),
+    reportStatus: nullable({ type: 'string', enum: ['DRAFT', 'SENT'], description: 'null = nhật ký cũ, không phải báo cáo.' }),
+    sendToCustomer: { type: 'boolean' }, sentAt: nullable(time), customerViewedAt: nullable(time),
+    attachments: { type: 'array', items: ref('LogAttachment') },
   }),
+  CareActivity: object({
+    id, tripId: id, legId: nullable(id), horseId: nullable({ ...id, description: 'null = cả đoàn (chỉ nghỉ chân).' }), horseName: nullable({ type: 'string' }),
+    activityType: { type: 'string', enum: ['FEED', 'WATER', 'REST'] },
+    feedDescription: nullable({ type: 'string', maxLength: 200 }), amountLiters: nullable({ type: 'number', minimum: 0.1, maximum: 200 }),
+    durationMinutes: nullable({ type: 'integer', minimum: 1, maximum: 720 }), note: nullable({ type: 'string', maxLength: 255 }),
+    performedAt: time, createdBy: id, createdByName: { type: 'string' }, createdAt: time, correctsActivityId: nullable(id),
+  }),
+  CareActivityInput: object({
+    activityType: { type: 'string', enum: ['FEED', 'WATER', 'REST'] },
+    horseId: { ...id, nullable: true, description: 'Bắt buộc với FEED/WATER và phải thuộc đơn của chuyến; null được với REST (cả đoàn).' },
+    feedDescription: { type: 'string', minLength: 1, maxLength: 200, nullable: true, description: 'Chỉ FEED, bắt buộc.' },
+    amountLiters: { type: 'number', minimum: 0.1, maximum: 200, multipleOf: 0.1, nullable: true, description: 'Chỉ WATER, bắt buộc (lít).' },
+    durationMinutes: { type: 'integer', minimum: 1, maximum: 720, nullable: true, description: 'Chỉ REST, bắt buộc (phút).' },
+    note: { type: 'string', maxLength: 255, nullable: true },
+    performedAt: { ...time, description: 'Giờ thực hiện: không ở tương lai, nhập bù tối đa T phút như quy tắc mốc (400).' },
+    correctsActivityId: { ...id, nullable: true, description: 'Đính chính một bản ghi: cùng chuyến, cùng ngựa, cùng loại; chưa bị đính chính (409).' },
+  }, ['activityType', 'performedAt']),
+  CareSummary: object({
+    waterLiters: { type: 'number', minimum: 0 }, meals: { type: 'integer', minimum: 0 }, rests: { type: 'integer', minimum: 0 }, restMinutes: { type: 'integer', minimum: 0 },
+    lastFeedAtByHorse: { type: 'object', additionalProperties: time, description: 'horseId → giờ cho ăn gần nhất (bản FEED mới nhất, chưa bị đính chính) trên TOÀN chuyến, không phụ thuộc from/to.' },
+  }),
+  CareActivityList: object({ activities: { type: 'array', items: ref('CareActivity') }, summary: ref('CareSummary') }),
   IncidentFields: object({
     incidentType, description: { type: 'string', minLength: 5, maxLength: 2000 },
     legId: { ...id, description: 'Tuỳ chọn; phải thuộc chuyến.' },
@@ -112,7 +170,9 @@ export const trackingSchemas = {
     handlingNote: { type: 'string', maxLength: 2000, description: 'Bắt buộc khi CLOSED.' },
   }, ['status']),
   AlertInput: object({ alertType, content: { type: 'string', minLength: 5, maxLength: 500 } }),
-  Alert: object({ id, tripId: id, alertType, content: { type: 'string' }, sentBy: id, sentByName: { type: 'string' }, sentAt: time }),
+  Alert: object({ id, tripId: id, alertType, content: { type: 'string' }, sentBy: id, sentByName: { type: 'string' }, sentAt: time,
+    notificationId: nullable({ ...id, description: 'Thông báo IN_APP TRIP_ALERT tương ứng của CHÍNH người gọi (ghép một-một theo thứ tự: cùng chuyến + nội dung, cảnh báo thứ k ↔ thông báo thứ k; mỗi thông báo chỉ gán cho một cảnh báo, thừa thì null); null khi không có.' }),
+    notificationRead: nullable({ type: 'boolean', description: 'Thông báo đó đã đọc chưa; null khi không có thông báo.' }) }),
 
   TimelineMilestone: object({ milestoneType, occurredAt: time, recordedByName: { type: 'string' } }),
   TimelineLeg: object({
@@ -239,6 +299,11 @@ const multipart = (fields: string, example: unknown) => ({
 });
 
 const t0 = '2026-10-20T01:00:00.000Z';
+const careActivity = {
+  id: '701', tripId: '200', legId: '301', horseId: '21', horseName: 'Ngựa mẫu', activityType: 'FEED', feedDescription: 'Cỏ khô 3 kg + cà rốt',
+  amountLiters: null, durationMinutes: null, note: null, performedAt: '2026-10-20T01:30:00.000Z', createdBy: '8', createdByName: 'Hộ tống mẫu',
+  createdAt: '2026-10-20T01:31:00.000Z', correctsActivityId: null,
+};
 const t1 = '2026-10-20T03:00:00.000Z';
 const leg1 = {
   id: '301', seqNo: 1, fromLocationId: '10', fromLocationName: 'Điểm A (mẫu)', toLocationId: '11', toLocationName: 'Điểm B (mẫu)', toLocationType: 'REST_STOP',
@@ -247,7 +312,7 @@ const leg1 = {
   milestones: [{ id: '901', legId: '301', milestoneType: 'DEPARTED', occurredAt: t0, recordedBy: '7', recordedByName: 'Tài xế mẫu' }],
 };
 const attachment = { id: '501', originalName: 'ngua-1.jpg', fileType: 'JPG', sizeBytes: 182044, uploadedAt: t1, caption: 'Khoang ngựa' };
-const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Tài xế mẫu', correctsLogId: null, attachments: [attachment] };
+const horseLog = { id: '601', horseId: '21', horseName: 'Ngựa mẫu', legId: '301', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, createdBy: '7', createdByName: 'Hộ tống mẫu', createdByCrewRole: 'ESCORT', correctsLogId: null, bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED', customerNote: null, reportStatus: null, sendToCustomer: false, sentAt: null, customerViewedAt: null, attachments: [attachment] };
 const tripMap = {
   tripId: '200', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT',
   stops: [
@@ -269,7 +334,7 @@ const incident = {
   urgency: 'HIGH', severity: 'RED', subType: 'COLIC', damageTarget: 'HORSE', latitude: 18.3421, longitude: 105.9057, locationText: 'Km 742 QL1A, Hà Tĩnh',
   status: 'NEW', reportedBy: '7', reportedByName: 'Tài xế mẫu', reportedAt: t1, receivedBy: null, handlingNote: null, closedAt: null, attachments: [attachment],
 };
-const alert = { id: '801', tripId: '200', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ', sentBy: '4', sentByName: 'Điều phối mẫu', sentAt: t1 };
+const alert = { id: '801', tripId: '200', alertType: 'WEATHER', content: 'Mưa lớn trên tuyến, giảm tốc độ', sentBy: '4', sentByName: 'Điều phối mẫu', sentAt: t1, notificationId: '51', notificationRead: false };
 
 const orderTimeline = {
   orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', plannedDepartureAt: t0, plannedArrivalAt: t1, lastUpdatedAt: t0, lastUpdatedByName: 'Tài xế mẫu',
@@ -289,6 +354,14 @@ const activeItem = {
   openIncidents: 1, highUrgencyOpenIncidents: 1, isOverdue: false, lastUpdatedAt: t0, lastUpdatedByName: 'Tài xế mẫu',
 };
 
+const horseReport = {
+  id: '601', horseId: '21', horseName: 'Ngựa mẫu', conditionStatus: 'OFF_FEED', bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED',
+  customerNote: 'Ngựa mẫu ăn ít khẩu phần trưa, đã theo dõi thêm.', photos: [{ id: '801', caption: 'Toàn thân', fileType: 'JPG' }],
+  loggedAt: t1, sentAt: t1, viewedAt: null, escortName: 'Hộ tống mẫu',
+};
+const sentLog = { ...horseLog, note: 'Bỏ ăn buổi sáng', customerNote: 'Ngựa mẫu ăn ít khẩu phần trưa, đã theo dõi thêm.', reportStatus: 'SENT', sendToCustomer: true, sentAt: t1 };
+const orderIdParam = param('orderId', 'ID đơn hàng (orders.id).');
+const logIdParam = param('id', 'ID nhật ký / báo cáo (horse_logs.id).');
 const tripId = param('tripId', 'ID chuyến (trips.id), không phải orderId.');
 const legId = param('legId', 'ID chặng (legs.id).');
 
@@ -302,8 +375,8 @@ export const trackingPaths = {
       crew: [{ userId: '6', name: 'Tài xế mẫu', phone: '0901000001', role: 'DRIVER' }, { userId: '10', name: 'Hộ tống mẫu', phone: '0901000002', role: 'ESCORT' }],
       customer: { name: 'Khách hàng mẫu' }, recipient: { name: 'Người nhận mẫu', phone: '+6560000000' }, coordinator: { name: 'Điều phối mẫu', phone: '0901000003' }, emergencyHotline: '1900 1080',
       vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'TRUCK', capacityStalls: 4 }],
-      horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
-  '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Driver/Escort: ghi mốc của chặng', parameters: [legId],
+      horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL', breed: 'Thoroughbred', birthDate: '2021-04-15' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Tài xế (crew DRIVER của chuyến): ghi mốc của chặng; hộ tống nhận 403', parameters: [legId],
     description: `Quy tắc: tuần tự theo luồng chặng (409 nếu nhảy cóc hoặc trùng mốc); \`occurredAt\` không ở tương lai, nhập bù tối đa T phút, không sớm hơn mốc trước (400).
 - DEPARTED chặng 1: Trip phải APPROVED và Order READY; Order → IN_TRANSIT. Chặng k+1 cần chặng k COMPLETED.
 - CUSTOMS_CLEARED chỉ khi điểm đến là BORDER (400 nếu không).
@@ -311,7 +384,7 @@ export const trackingPaths = {
 Ghi audit và thông báo IN_APP (Coordinator; Customer khi xuất phát, đến trạm, thông quan, giao xong) trong cùng transaction; lỗi rollback toàn bộ.`,
     requestBody: json('MilestoneInput', { milestoneType: 'DEPARTED', occurredAt: t0 }),
     responses: { ...ok(201, ref('MilestoneResult'), { milestoneId: '901', legId: '301', milestoneType: 'DEPARTED', legStatus: 'MOVING', orderStatus: 'IN_TRANSIT' }, 'Đã ghi mốc.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
-  '/api/v1/tracking/legs/{legId}/complete': { post: { ...common, operationId: 'completeIntermediateLeg', summary: 'Driver/Escort: hoàn thành chặng trung gian', parameters: [legId],
+  '/api/v1/tracking/legs/{legId}/complete': { post: { ...common, operationId: 'completeIntermediateLeg', summary: 'Tài xế (crew DRIVER của chuyến): hoàn thành chặng trung gian; hộ tống nhận 403', parameters: [legId],
     description: 'Chặng phải AT_STOP (cửa khẩu cần CUSTOMS_CLEARED). **Không dùng cho chặng cuối** (400): chặng cuối hoàn tất bằng mốc DELIVERED. `occurredAt` theo cùng quy tắc thời gian, không sớm hơn giờ đến trạm.',
     requestBody: json('CompleteLegInput', { occurredAt: t1 }),
     responses: { ...ok(200, ref('LegCompleteResult'), { legId: '301', status: 'COMPLETED' }), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
@@ -321,14 +394,49 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
     requestBody: json('CorrectLegInput', { status: 'AT_STOP', reason: 'Xe đã tới trạm nhưng tài xế quên báo' }),
     responses: { ...ok(200, ref('LegCorrectResult'), { legId: '301', status: 'AT_STOP', reason: 'Xe đã tới trạm nhưng tài xế quên báo', orderStatus: 'IN_TRANSIT' }), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
 
-  '/api/v1/tracking/legs/{legId}/horse-logs': { post: { ...common, operationId: 'createHorseLog', summary: 'Driver/Escort: thêm nhật ký sức khỏe ngựa (kèm ảnh)', parameters: [legId],
-    description: `Chỉ thêm mới, **không có API sửa/xóa** (BR-LOG-01); ghi nhầm thì tạo bản ghi mới với \`correctsLogId\` trỏ bản cũ (cùng chuyến, cùng ngựa).
-Điều kiện: người gọi được phân công; Order IN_TRANSIT và chặng đã xuất phát (409); ngựa thuộc đơn (400). Ảnh tối đa 3, JPG/PNG ≤ 5 MB; lỗi thì không để lại tệp mồ côi.`,
-    requestBody: multipart('HorseLogFields', { horseId: '21', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1 }),
-    responses: { ...ok(201, ref('HorseLog'), horseLog, 'Đã tạo nhật ký.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
+  '/api/v1/tracking/legs/{legId}/horse-logs': { post: { ...common, operationId: 'createHorseLog', summary: 'Hộ tống (crew ESCORT của chuyến): thêm nhật ký hoặc báo cáo sức khỏe ngựa (kèm ảnh); tài xế nhận 403', parameters: [legId],
+    description: `**Không có \`reportStatus\`** = nhật ký cũ: chỉ thêm mới, bất biến (BR-LOG-01); ghi nhầm thì tạo bản mới với \`correctsLogId\`.
+**Có \`reportStatus\`** = báo cáo sức khỏe: \`DRAFT\` (nháp, sửa / xóa / gửi bằng PATCH, DELETE, POST send) hoặc \`SENT\` (tạo và gửi ngay). Trường báo cáo (\`customerNote\`, \`bodyTempC\`, \`heartRateBpm\`, \`appetite\`, \`sendToCustomer\`) mà thiếu \`reportStatus\`: 400.
+Khi **gửi** (SENT) một bản đính chính của báo cáo đã gửi khách: bắt buộc \`sendToCustomer = true\` (400), để khách luôn chỉ thấy một phiên bản; nháp đính chính thì lưu được.
+Khi **gửi** (SENT): \`OFF_FEED\` / \`STRESSED\` / \`CLIMATE_CHANGE\` bắt buộc ≥ 1 ảnh, \`sendToCustomer = true\` bắt buộc \`customerNote\` (400). Nháp được thiếu cả hai.
+Điều kiện: người gọi là ESCORT được phân công (tài xế 403); đơn **READY** (ghi vào **chặng đầu** của chuyến) hoặc **IN_TRANSIT** (chặng đã xuất phát), còn lại 409; ngựa thuộc đơn (400). Ảnh tối đa 3, JPG/PNG ≤ 5 MB; lỗi thì không để lại tệp mồ côi.
+Gửi: \`sent_at\`, thông báo IN_APP cho khách (\`HORSE_REPORT\`, liên kết đơn) nếu \`sendToCustomer\`, thông báo \`HORSE_REPORT_ALERT\` cho điều phối viên lập chuyến nếu trạng thái bất thường; socket \`tracking:horse_report\` và \`notification:new\` chỉ phát sau khi commit.`,
+    requestBody: multipart('HorseLogFields', { horseId: '21', conditionStatus: 'OFF_FEED', note: 'Bỏ ăn buổi sáng', loggedAt: t1, reportStatus: 'DRAFT', customerNote: 'Ngựa mẫu ăn ít khẩu phần trưa, đã theo dõi thêm.', bodyTempC: 37.8, heartRateBpm: 38, appetite: 'REDUCED', sendToCustomer: true, captions: ['Toàn thân'] }),
+    responses: { ...ok(201, ref('HorseLog'), sentLog, 'Đã tạo nhật ký / báo cáo.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } } },
+  '/api/v1/tracking/horse-logs/{id}': {
+    patch: { ...common, operationId: 'updateHorseReport', summary: 'Hộ tống người tạo: sửa nháp báo cáo sức khỏe (thay toàn bộ nội dung, thêm / bỏ ảnh)', parameters: [logIdParam],
+      description: 'Chỉ nháp (`DRAFT`) của chính người tạo. Nội dung được **thay toàn bộ**: trường vắng = xóa (multipart không gửi được `null`). Không đổi ngựa / `correctsLogId`. Tổng ảnh sau sửa ≤ 3. Báo cáo đã gửi và nhật ký cũ: 409. Người không phải người tạo: 403. Đơn không còn READY / IN_TRANSIT: 409.',
+      requestBody: multipart('HorseReportUpdateFields', { conditionStatus: 'CLIMATE_CHANGE', loggedAt: t1, customerNote: 'Trời nóng, đã bổ sung nước.', bodyTempC: 38.2, sendToCustomer: true, removeAttachmentIds: ['801'] }),
+      responses: { ...ok(200, ref('HorseLog'), { ...horseLog, reportStatus: 'DRAFT', conditionStatus: 'CLIMATE_CHANGE', customerNote: 'Trời nóng, đã bổ sung nước.', sendToCustomer: true }, 'Đã sửa nháp.'), ...errors([400, 401, 403, 404, 409, 413, 429, 500]) } },
+    delete: { ...common, operationId: 'deleteHorseReport', summary: 'Hộ tống người tạo: xóa nháp báo cáo sức khỏe', parameters: [logIdParam],
+      description: 'Chỉ nháp của chính người tạo; xóa luôn ảnh đính kèm. Báo cáo đã gửi và nhật ký cũ: 409.',
+      responses: { 204: { description: 'Đã xóa nháp.', headers: { 'X-Request-ID': requestIdHeader } }, ...errors([400, 401, 403, 404, 409, 429, 500]) } },
+  },
+  '/api/v1/tracking/horse-logs/{id}/send': { post: { ...common, operationId: 'sendHorseReport', summary: 'Hộ tống người tạo: gửi nháp báo cáo sức khỏe (DRAFT → SENT)', parameters: [logIdParam],
+    description: 'Cùng luật gửi như `POST /legs/{legId}/horse-logs` với `SENT`: ảnh bắt buộc cho trạng thái bất thường, `customerNote` khi gửi khách (400). Gửi lần hai hoặc bản đã gửi: 409 (không thông báo đôi). Nháp đính chính: khóa bản gốc và kiểm lại; bản gốc đã có bản đính chính khác đã gửi (hai nháp cùng sửa một bản): 409; bản gốc đã gửi khách mà nháp không gửi khách: 400. Body tùy chọn `{ sendToCustomer }` ghi đè lựa chọn của nháp.',
+    requestBody: { required: false, content: { 'application/json': { schema: ref('HorseReportSendInput'), example: { sendToCustomer: true } } } },
+    responses: { ...ok(200, ref('HorseLog'), sentLog, 'Đã gửi báo cáo.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
+  '/api/v1/tracking/orders/{orderId}/horse-reports': { get: { ...common, operationId: 'getCustomerHorseReports', summary: 'Customer: báo cáo sức khỏe ngựa đã gửi cho đơn của mình', parameters: [orderIdParam],
+    description: 'Chỉ khách chủ đơn (vai trò khác 403; đơn người khác hoặc không tồn tại 404). Chỉ báo cáo `SENT` có `send_to_customer = 1`; bản gốc đã được đính chính bởi bản gửi-khách khác bị ẩn (chỉ thấy bản mới nhất). Mới nhất trước (`sentAt`), tối đa 200. Ảnh tải bằng `GET /api/v1/tracking/attachments/{id}`.',
+    responses: { ...ok(200, list('HorseReport'), [horseReport]), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/orders/{orderId}/horse-reports/{id}/view': { post: { ...common, operationId: 'viewHorseReport', summary: 'Customer: đánh dấu đã mở chi tiết một báo cáo', parameters: [orderIdParam, logIdParam],
+    description: 'Idempotent: lần đầu đặt `viewedAt` và phát `tracking:horse_report_viewed` tới hộ tống tạo báo cáo; các lần sau trả lại thời điểm đầu, không phát. Báo cáo không thuộc danh sách khách xem được: 404.',
+    responses: { ...ok(200, ref('HorseReportViewed'), { viewedAt: t1 }), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/horse-logs': { get: { ...common, operationId: 'getTripHorseLogs', summary: 'Xem nhật ký ngựa của chuyến', parameters: [tripId],
-    description: 'Driver (được phân công), Coordinator (chuyến mình), Manager, Specialist. Sắp theo thời điểm ghi tăng dần, kèm danh sách ảnh.',
+    description: 'Driver / Escort (được phân công), Coordinator (chuyến mình), Manager, Specialist. Sắp theo thời điểm ghi tăng dần, kèm danh sách ảnh. **Nháp báo cáo chỉ người tạo thấy**; mọi người khác chỉ thấy nhật ký cũ và báo cáo đã gửi (kể cả báo cáo không gửi khách).',
     responses: { ...ok(200, list('HorseLog'), [horseLog]), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/trips/{tripId}/care-activities': {
+    post: { ...common, operationId: 'createCareActivity', summary: 'Hộ tống (crew ESCORT của chuyến): ghi hoạt động chăm sóc (cho ăn / uống nước / nghỉ chân)', parameters: [tripId],
+      description: `Chỉ ESCORT được phân công chuyến (tài xế 403, người không phân công 404). Ghi khi đơn **READY** hoặc **IN_TRANSIT** (DELIVERED/khác: 409). \`legId\` tự lấy từ chặng đang chạy, null nếu chưa xuất phát.
+Đúng trường theo loại, trường không thuộc loại phải rỗng (400): FEED cần \`horseId\` + \`feedDescription\`; WATER cần \`horseId\` + \`amountLiters\` (0,1–200); REST cần \`durationMinutes\` (1–720), \`horseId\` null = cả đoàn. Bảng chỉ thêm mới: sửa sai bằng \`correctsActivityId\` (không xóa). Ghi audit trong cùng transaction.`,
+      requestBody: json('CareActivityInput', { activityType: 'FEED', horseId: '21', feedDescription: 'Cỏ khô 3 kg + cà rốt', performedAt: '2026-10-20T01:30:00.000Z' }),
+      responses: { ...ok(201, ref('CareActivity'), careActivity, 'Đã ghi hoạt động.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } },
+    get: { ...common, operationId: 'getCareActivities', summary: 'Xem hoạt động chăm sóc của chuyến kèm tổng hợp', parameters: [tripId,
+      { name: 'from', in: 'query', required: false, description: 'Đầu khoảng (UTC ISO, gồm). Phải gửi cùng `to`.', schema: time },
+      { name: 'to', in: 'query', required: false, description: 'Cuối khoảng (UTC ISO, không gồm). Khoảng tối đa 7 ngày.', schema: time }],
+      description: 'Driver/Escort (được phân công), Coordinator (chuyến mình lập), Manager, Specialist; Customer 403. Mới nhất trước, **ẩn bản đã bị đính chính** (chỉ trả bản mới nhất, kèm `correctsActivityId`). `summary.waterLiters/meals/rests/restMinutes` tính trên đúng các bản ghi trả về (trong khoảng from/to nếu có; không có khoảng thì toàn bộ, tối đa 1000 dòng). Riêng `summary.lastFeedAtByHorse` luôn tính trên toàn chuyến (chuyến chạy qua đêm vẫn có "lần cho ăn gần nhất").',
+      responses: { ...ok(200, ref('CareActivityList'), { activities: [careActivity], summary: { waterLiters: 0, meals: 1, rests: 0, restMinutes: 0, lastFeedAtByHorse: { 21: '2026-10-20T01:30:00.000Z' } } }), ...errors([400, 401, 403, 404, 429, 500]) } },
+  },
   '/api/v1/tracking/trips/{tripId}/incidents': {
     post: { ...common, operationId: 'createIncident', summary: 'Driver/Escort: báo sự cố khẩn cấp (kèm ảnh)', parameters: [tripId],
       description: `Order phải READY hoặc IN_TRANSIT (409). Bắt buộc \`severity\` và \`damageTarget\`. \`urgency=HIGH\` khi \`severity=RED\` hoặc \`HORSE_MEDICAL\` (bắt buộc \`horseId\`), còn lại NORMAL. \`subType\` phải thuộc loại sự cố; tọa độ gửi đủ cặp; \`captions\` gắn theo thứ tự ảnh. Thông báo IN_APP ngay cho Coordinator phụ trách và mọi Manager ACTIVE. **Sự cố không tự đổi lộ trình/chặng** (BR-INC-03). \`legId\`/\`horseId\` phải thuộc chuyến.`,
@@ -350,7 +458,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
       description: 'Driver (được phân công), Coordinator (chuyến mình), Manager, Specialist.',
       responses: { ...ok(200, list('Alert'), [alert]), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/attachments/{id}': { get: { ...common, operationId: 'downloadTrackingAttachment', summary: 'Tải ảnh đính kèm sau khi kiểm tra quyền theo chuyến', parameters: [param('id', 'ID tệp (attachments.id).')],
-    description: 'Ảnh nhật ký ngựa: Driver/Coordinator/Manager/Specialist có quyền với chuyến. Ảnh sự cố: không gồm Specialist. Không có quyền → 404. Header `Cache-Control: private, no-store`.',
+    description: 'Ảnh nhật ký ngựa: Driver/Coordinator/Manager/Specialist có quyền với chuyến (ảnh của nháp chỉ người tạo). Ảnh sự cố: không gồm Specialist. **Customer**: chỉ ảnh của báo cáo đã gửi cho đơn của mình. Không có quyền → 404. Header `Cache-Control: private, no-store`.',
     responses: { 200: { description: 'Nội dung ảnh.', headers: { 'X-Request-ID': requestIdHeader }, content: { 'image/jpeg': { schema: { type: 'string', format: 'binary' } }, 'image/png': { schema: { type: 'string', format: 'binary' } } } }, ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/orders/{orderId}/timeline': { get: { ...common, operationId: 'getOrderTimeline', summary: 'Customer: timeline tiến độ đơn của mình', parameters: [param('orderId', 'ID đơn hàng (orders.id).')],
     description: 'Chỉ Customer là chủ đơn; đơn của người khác hoặc không tồn tại đều trả 404. `legs` rỗng khi kế hoạch chưa được duyệt. Mỗi chặng có mốc thực tế, `lastUpdatedAt` và `lastUpdatedByName` (cập nhật lần cuối lúc... bởi...) và cờ `isOverdue`.',
@@ -368,7 +476,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
 - Không reverse geocode, không lưu địa chỉ từ Mapbox. Giới hạn 60 request/phút/người dùng.`,
     responses: { ...ok(200, ref('TripMap'), tripMap), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/positions': {
-    post: { ...common, operationId: 'recordPositions', summary: 'Driver/Escort: gửi lô vị trí GPS', parameters: [tripId],
+    post: { ...common, operationId: 'recordPositions', summary: 'Tài xế (crew DRIVER của chuyến): gửi lô vị trí GPS; hộ tống nhận 403', parameters: [tripId],
       description: 'Chỉ người được phân công; Order IN_TRANSIT, có chặng MOVING/AT_STOP và không phải chặng bay (409). Lô 1–20 điểm; gửi lại cùng `recordedAt` không tạo bản ghi trùng (`duplicates`). Tự xóa sau TRACK_POSITION_RETENTION_DAYS. Giới hạn 30 request/phút/người dùng.',
       requestBody: json('PositionsInput', { points: [{ latitude: 10.9733, longitude: 106.4933, recordedAt: t1, accuracyM: 12, speedMps: 17.8, headingDeg: 310 }] }),
       responses: { ...ok(201, ref('PositionsResult'), { legId: '301', accepted: 1, duplicates: 0 }, 'Đã nhận vị trí.'), ...errors([400, 401, 403, 404, 409, 429, 500]) } },
