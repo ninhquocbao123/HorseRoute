@@ -14,7 +14,7 @@ export interface PricingVersion {
   createdByName: string | null; publishedByName: string | null; config: PricingConfig;
 }
 export interface EstimateInput {
-  distanceKm: number; vehicleClass: VehicleClass; horseCount: number; durationDays: number;
+  distanceKm: number; vehicleClass: VehicleClass; vehicleCapacity?: number; horseCount: number; durationDays: number;
   insurance: InsuranceCode; feed: 'STANDARD' | 'PREMIUM' | 'SPORT'; extraStall: boolean;
   international: boolean; water: 'EVERY_2_HOURS' | 'EVERY_HOUR'; waterRounds: number;
 }
@@ -25,7 +25,9 @@ export interface PriceEstimate {
 }
 export const vehicleCapacities: Record<VehicleClass, number> = { LIGHT: 2, MEDIUM: 6, HEAVY: 9 };
 export function calculateEstimate(config: PricingConfig, input: EstimateInput, versionId: string): PriceEstimate {
-  if (!Number.isInteger(input.horseCount) || input.horseCount < 1 || input.horseCount > vehicleCapacities[input.vehicleClass]) throw new Error('Số ngựa vượt sức chứa hạng xe.');
+  const capacity = input.vehicleCapacity ?? vehicleCapacities[input.vehicleClass];
+  if (!(input.vehicleClass === 'MEDIUM' ? [4,6] : [vehicleCapacities[input.vehicleClass]]).includes(capacity)) throw new Error('Sức chứa không phù hợp hạng xe.');
+  if (!Number.isInteger(input.horseCount) || input.horseCount < 1 || input.horseCount > capacity) throw new Error('Số ngựa vượt sức chứa hạng xe.');
   const band = config.distanceRates.find(row => row.km >= input.distanceKm);
   if (!band) throw new Error('Quãng đường vượt phạm vi bảng giá. Cần báo giá riêng.');
   const items: PriceEstimate['items'] = [];

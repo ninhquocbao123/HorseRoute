@@ -1,4 +1,4 @@
-import {vehicleNames} from '../../lib/vehicle-labels';
+import {vehicleLabel} from '../../lib/vehicle-labels';
 import {useEffect,useState} from 'react';
 import {Alert,Button,Input,Modal,Select,Spin} from 'antd';
 import type {OrderDetail,ReviewOptions} from '../orders/types';
@@ -22,7 +22,7 @@ export default function OrderIntakeDetail(p:Props){
    ['Khởi hành',date(d.desired_departure_date),booking?.pickupTime||'Chưa chọn giờ đón'],
    ['Số ngựa',`${d.horses.length} ngựa`,[...new Set(d.horses.map(h=>h.breed).filter(Boolean))].join(' · ')||'Chưa cung cấp giống'],
    ['Quãng đường',booking?.distanceKm?Number(booking.distanceKm).toLocaleString('vi-VN')+' km':'Chưa cung cấp',kind],
-   ['Hạng xe',(vehicleNames as Record<string,string>)[booking?.vehicleClass]||'Chưa chọn',d.special_requirements?'Có yêu cầu đặc biệt':'Không có yêu cầu đặc biệt'],
+   ['Hạng xe',vehicleLabel(booking),d.special_requirements?'Có yêu cầu đặc biệt':'Không có yêu cầu đặc biệt'],
   ].map(([label,value,hint])=><div key={label}><small>{label}</small><strong>{value}</strong><span title={hint}>{hint}</span></div>)}</div>
   <div className="ois-columns"><div className="ois-main">
    <section className="ois-panel"><h3>Tuyến vận chuyển</h3><div className="ois-route">{[['Điểm đón',d.origin_address],['Điểm giao',d.destination_address]].map(([label,address])=><div key={label}><i/><div><small>{label}</small><p>{text(address)}</p></div></div>)}</div></section>

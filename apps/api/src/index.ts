@@ -83,7 +83,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
       server = dependencies.createServer(dependencies.createApp({
         services, tokens, corsOrigin: env.CORS_ORIGIN, production: env.NODE_ENV === 'production',
       }));
-      socketService.attach(server, tokens, env.CORS_ORIGIN);
+      socketService.attach(server, tokens, env.CORS_ORIGIN, db!);
     });
     await step('mysql', () => db!.initialize());
     await step('redis', () => redis!.connect());

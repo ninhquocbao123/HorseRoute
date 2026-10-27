@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useState } from 'react';
 import { App } from 'antd';
 import { api } from '../../lib/axios';
@@ -5,7 +6,7 @@ import type { Notice } from './NotificationsPanel';
 
 /** Dữ liệu và thao tác cho NotificationsPanel (tải danh sách, đánh dấu đã đọc). */
 export function useNotifications(accountId: string) {
-  const { message } = App.useApp();
+  const { message } = useFeedback();
   const [notifications, setNotifications] = useState<Notice[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);

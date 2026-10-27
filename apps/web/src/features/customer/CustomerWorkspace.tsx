@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import CustomerOrders, { isSettledOrder } from './CustomerOrders';
 import BrandLogo from '../../components/BrandLogo';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +41,7 @@ const money=(n:number|string)=>Number(n).toLocaleString('vi-VN')+'\u00A0đ';
 const date=(v:string|null|undefined)=>v?new Date(v).toLocaleDateString('vi-VN'):'Chưa chọn';
 function Status({value}:{value:string}){return <span className={'customer-status status-'+value.toLowerCase()}>● {statuses[value]||value}</span>;}
 export default function CustomerWorkspace({account,logout}:DashboardProps){
- const navigate=useNavigate(),[params]=useSearchParams(),{message,modal}=App.useApp();
+ const navigate=useNavigate(),[params]=useSearchParams(),{message,modal}=useFeedback();
  const requested=params.get('view')==='documents'?'horses':params.get('view')||'overview',view=[...navigation.map(n=>n[0]),'tracking','notifications','account','confirm'].includes(requested)?requested:'overview';
  const title=navigation.find(n=>n[0]===view)?.[1]||({confirm:'Xác nhận đơn hàng',tracking:'Theo dõi hành trình',notifications:'Thông báo',account:'Tài khoản'} as Record<string,string>)[view];
  const [data,setData]=useState<Workspace>({orders:[],horses:[]}),[loading,setLoading]=useState(true),[error,setError]=useState('');
@@ -225,7 +226,7 @@ function History({orders,receipts,onOpen}:{orders:CustomerOrder[];receipts:Custo
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>{new Date(r.received_at).toLocaleString('vi-VN')}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <Tag color="success" style={{ margin: 0 }}>Thành công</Tag>
+                      <Tag color="success" className="customer-payment-success" style={{ margin: 0 }}>Thành công</Tag>
                     </td>
                   </tr>
                 ))}

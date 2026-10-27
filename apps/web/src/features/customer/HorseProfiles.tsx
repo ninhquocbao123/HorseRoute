@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useRef, useState, type ReactNode } from 'react';
 import { App, Alert, Button, Empty, Modal } from 'antd';
 import { CheckCircleOutlined, FileTextOutlined, PlusOutlined, ArrowRightOutlined, ArrowLeftOutlined, UploadOutlined, EyeOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
@@ -19,7 +20,7 @@ function age(date:string) {
 }
 
 export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,showFile,preview}:Props) {
-  const {message,modal} = App.useApp();
+  const {message,modal} = useFeedback();
   const [editing,setEditing] = useState<Profile|null>(null);
   const [step,setStep] = useState(0), [filter,setFilter] = useState('all');
   const [pending,setPending] = useState<Record<string,PendingFile>>({});

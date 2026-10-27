@@ -1,3 +1,4 @@
+import {useFeedback} from '../../../components/useFeedback';
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -25,7 +26,7 @@ export default function TripPlanPage() {
   const { tripId } = useParams();
   const [search] = useSearchParams();
   const { account } = useAuth();
-  const { message: messageApi } = App.useApp();
+  const { message: messageApi } = useFeedback();
   const navigate = useNavigate();
   const back = tripListSearch(readTripListParams(search));
   const detail = useTripDetailQuery(tripId);

@@ -50,3 +50,5 @@
     overflow-x: auto;
   }
 }
+
+.customer .ant-tag.customer-payment-success { background: #e8f7ef; color: #167448; border: 1px solid #bce5cf; border-radius: 6px; padding: 3px 10px; font-weight: 600; line-height: 20px; }

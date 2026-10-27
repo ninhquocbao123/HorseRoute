@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { Alert, App, AutoComplete, Button, Form, Input, InputNumber, Modal, Select, Table, Tag, Tooltip } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -25,7 +26,7 @@ const PAIR = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 /** Danh mục địa điểm & cửa khẩu (FR-TRP-02): Specialist thêm, sửa, ghim tọa độ trên bản đồ, xóa địa điểm chưa dùng. */
 export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
-  const { message, modal } = App.useApp();
+  const { message, modal } = useFeedback();
   const [form] = Form.useForm<FormValues>();
   const [items, setItems] = useState<CatalogLocation[]>([]);
   const [total, setTotal] = useState(0);
