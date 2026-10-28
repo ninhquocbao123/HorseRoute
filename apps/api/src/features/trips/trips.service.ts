@@ -274,7 +274,10 @@ export class TripsService {
   }
   async list(account: User, query: PaginationDto): Promise<TripList> {
     const { rows, total } = await this.repository.list(scope(account), query.limit, (query.page - 1) * query.limit);
-    return { items: rows.map(summary), total, page: query.page, limit: query.limit };
+    return { items: rows.map(row => ({ ...summary(row), tripId: row.id, orderStatus: row.orderStatus,
+      desiredDepartureDate: row.desiredDepartureDate ?? null,
+      requestedPickupTime: row.requestedPickupTime?.trim() || null,
+      horseCount: Number(row.horseCount ?? 0) })), total, page: query.page, limit: query.limit };
   }
   private async accessible(account: User, id: string) {
     const row = await this.repository.find(scope(account), id);

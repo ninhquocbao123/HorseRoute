@@ -93,6 +93,10 @@ export class OrdersService {
   }
 
   async detail(user: User,id: string) {
+    if (user.role === Role.COORDINATOR) {
+      const assigned = await this.db.query('SELECT id FROM trips WHERE order_id=? AND planned_by=? LIMIT 1', [id, user.id]);
+      if (!assigned.length) throw new NotFoundException('Không tìm thấy đơn.');
+    }
     const order=await this.owned(this.db.manager,user,id);
     const horses=await this.repository.findHorses(this.db, [id]);
     const documents=await this.repository.findDocuments(this.db, [id]);

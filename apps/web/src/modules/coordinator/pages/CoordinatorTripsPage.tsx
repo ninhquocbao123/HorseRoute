@@ -3,8 +3,8 @@ import { Alert, Button, Card, Input, Table, Tag } from "antd";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTripsQuery } from "../../trips/hooks/use-trips-query";
-import { formatTripDate } from "../../trips/utils/trip-list.utils";
-import type { TripSummary } from "../../trips/types/trip.types";
+import { statuses as orderLabels } from "../../../features/orders/types";
+import type { TripListItem } from "../../trips/types/trip.types";
 
 export const planLabels: Record<string, string> = {
   DRAFT: "Chưa lập kế hoạch",
@@ -26,7 +26,7 @@ export default function CoordinatorTripsPage() {
   const items = query.data?.items || [];
   const rows = items.filter(
     (t) =>
-      (status === "all" || t.planStatus === status) &&
+      (status === "all" || t.orderStatus === status) &&
       t.orderCode
         .toLocaleLowerCase("vi")
         .includes(search.trim().toLocaleLowerCase("vi")),
@@ -45,9 +45,9 @@ export default function CoordinatorTripsPage() {
         <div
           className="trip-status-navigation"
           role="group"
-          aria-label="Trạng thái trong trang hiện tại"
+          aria-label="Trạng thái đơn trong trang hiện tại"
         >
-          {[["all", "Tổng hợp"], ...Object.entries(planLabels)].map(
+          {[["all", "Tổng hợp"], ...Object.entries(orderLabels).filter(([value]) => items.some(t => t.orderStatus === value))].map(
             ([value, label]) => (
               <button
                 key={value}
@@ -59,7 +59,7 @@ export default function CoordinatorTripsPage() {
                 <strong>
                   {value === "all"
                     ? items.length
-                    : items.filter((t) => t.planStatus === value).length}
+                    : items.filter((t) => t.orderStatus === value).length}
                 </strong>
               </button>
             ),
@@ -77,50 +77,53 @@ export default function CoordinatorTripsPage() {
             />
           </div>
         </div>
-        <Table<TripSummary>
+        <Table<TripListItem>
           rowKey="id"
           loading={query.isPending}
           dataSource={rows}
-          scroll={{ x: 720 }}
+          scroll={{ x: 1050 }}
           columns={[
-            { title: "ID", dataIndex: "id", width: 80 },
+            { title: "ID đơn", dataIndex: "orderId", width: 80 },
             {
               title: "Mã vận chuyển",
               dataIndex: "orderCode",
               render: (v) => <strong>{v}</strong>,
             },
             {
-              title: "Ngày khởi hành",
-              dataIndex: "plannedDepartureAt",
-              render: formatTripDate,
+              title: "Ngày khởi hành yêu cầu",
+              dataIndex: "desiredDepartureDate",
+              render: (value: string | null) => value ? value.split('-').reverse().join('/') : 'Chưa cung cấp',
             },
             {
-              title: "Ngày đến",
-              dataIndex: "plannedArrivalAt",
-              render: formatTripDate,
+              title: "Giờ đón yêu cầu",
+              dataIndex: "requestedPickupTime",
+              render: (value: string | null) => value || 'Chưa cung cấp',
             },
             {
-              title: "Trạng thái",
-              dataIndex: "planStatus",
+              title: "Số ngựa", dataIndex: "horseCount", width: 100,
+            },
+            {
+              title: "Trạng thái đơn",
+              dataIndex: "orderStatus",
               render: (v) => (
                 <Tag
                   color={
-                    v === "APPROVED" ? "green" : v === "DRAFT" ? "gold" : "blue"
+                    ["APPROVED", "READY", "DELIVERED"].includes(v) ? "green" : ["REJECTED", "CANCELLED"].includes(v) ? "red" : v === "DRAFT" ? "gold" : "blue"
                   }
                 >
-                  {planLabels[v] || v}
+                  {orderLabels[v] || v}
                 </Tag>
               ),
             },
             {
-              title: "Xem",
+              title: "Thao tác",
               width: 88,
               render: (_, r) => (
                 <Button
                   type="text"
                   icon={<EyeOutlined />}
                   aria-label={`Xem ${r.orderCode}`}
-                  onClick={() => navigate(`/coordinator/trips/${r.id}`)}
+                  onClick={() => navigate(`/coordinator/trips/${r.tripId}`)}
                 />
               ),
             },
@@ -132,7 +135,7 @@ export default function CoordinatorTripsPage() {
             showSizeChanger: false,
             onChange: (p) => setParams({ page: String(p) }),
             showTotal: (total) =>
-              `${total} chuyến · bộ lọc áp dụng trong trang hiện tại`,
+              `${total} đơn · bộ lọc áp dụng trong trang hiện tại`,
           }}
         />
       </Card>

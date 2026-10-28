@@ -112,8 +112,92 @@
 .coordinator-scope .osm-planner .waypoint-list { margin: 16px 0; }
 .coordinator-scope .departure-panel .coordinator-leg-grid { grid-template-columns: 1fr .8fr 1.6fr; }
 .coordinator-scope .departure-panel .coordinator-arrival-field { grid-column: 1 / -1; }
-.coordinator-scope .trip-decision-bar .decision-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; }
-.coordinator-scope .trip-decision-bar .decision-cancel { margin-right: auto; }
+/* ── Trip Action Bar ─────────────────────────────────────────────────────── */
+.coordinator-scope .trip-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: #ffffff;
+  border: 1px solid #d4e4e4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Status strip */
+.coordinator-scope .trip-action-bar__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Chip */
+.coordinator-scope .trip-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.coordinator-scope .trip-action-chip.is-warning {
+  background: #fff7e0;
+  color: #8a5a00;
+}
+.coordinator-scope .trip-action-chip.is-ok {
+  background: #e7f6ec;
+  color: #1d6b3a;
+}
+
+/* Button row */
+.coordinator-scope .trip-action-bar__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.coordinator-scope .trip-action-bar__spacer { flex: 1; }
+
+/* Standardize all buttons in the bar */
+.coordinator-scope .trip-action-bar__row .ant-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+/* Primary button: teal brand */
+.coordinator-scope .trip-action-bar__row .ant-btn-primary {
+  background: #0f4d55;
+  border-color: #0f4d55;
+  color: #ffffff;
+}
+.coordinator-scope .trip-action-bar__row .ant-btn-primary:not(:disabled):hover {
+  background: #0a3b42;
+  border-color: #0a3b42;
+}
+.coordinator-scope .trip-action-bar__row .ant-btn-primary:disabled,
+.coordinator-scope .trip-action-bar__row .ant-btn-primary.ant-btn-loading {
+  background: #0f4d55 !important;
+  border-color: #0f4d55 !important;
+  color: #ffffff !important;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Submit button alias */
+.coordinator-scope .trip-action-submit {
+  background: #0f4d55;
+  border-color: #0f4d55;
+}
+
+@media (max-width: 640px) {
+  .coordinator-scope .trip-action-bar__row { flex-wrap: wrap; }
+}
 @media(max-width:767px) { .coordinator-scope .departure-panel .coordinator-leg-grid { grid-template-columns: 1fr; } }
 .coordinator-scope .assignment-resource-body > small,
 .coordinator-scope .assignment-resource-body > strong { display: block; margin-bottom: 10px; }

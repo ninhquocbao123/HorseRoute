@@ -5,7 +5,12 @@ import {
   SendOutlined,
   EnvironmentOutlined,
   PlusOutlined,
-  SearchOutlined,
+  CheckOutlined,
+  UserOutlined,
+  SaveOutlined,
+  StopOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
@@ -20,6 +25,7 @@ import {
   TimePicker,
   Empty,
   Input,
+  InputNumber,
   Modal,
   Pagination,
   Select,
@@ -47,7 +53,7 @@ import { errorMessage } from "../../../features/tracking/tracking.api";
 import TripRoutePlanner from "../maps/TripRoutePlanner";
 import { tripLoadError } from "./trip-error";
 import { isValidTripId } from "../../trips/utils/trip-detail.utils";
-import { planLabels } from "./CoordinatorTripsPage";
+import TripOrderSidebar from "./TripOrderSidebar";
 export default function CoordinatorTripPage() {
   const { tripId = "" } = useParams();
   return isValidTripId(tripId) ? (
@@ -81,7 +87,16 @@ function TripWorkspace({ id }: { id: string }) {
     TripAssignmentsInput["assignments"]
   >([]);
   const [vehiclePage, setVehiclePage] = useState(1);
+  const [vehiclePageSize, setVehiclePageSize] = useState(12);
+  const [vehicleStatus, setVehicleStatus] = useState("AVAILABLE");
+  const [vehicleType, setVehicleType] = useState("ALL");
+  const [vehicleCapacity, setVehicleCapacity] = useState<number | null>(null);
   const [crewPages, setCrewPages] = useState({ DRIVER: 1, ESCORT: 1 });
+  const [activeCrewRole, setActiveCrewRole] = useState<"DRIVER" | "ESCORT">(
+    "DRIVER",
+  );
+  const [crewStatus, setCrewStatus] = useState("AVAILABLE");
+  const [crewPageSize, setCrewPageSize] = useState(12);
   const dirty = changed || crewChanged;
   useEffect(() => {
     setDirty(dirty);
@@ -267,41 +282,85 @@ function TripWorkspace({ id }: { id: string }) {
     key;
   const locations = options.data?.locations || [];
   const vehicles = options.data?.vehicles || [];
-  const locationName = (key: string) =>
-    locations.find((l) => l.id === key)?.name ||
-    trip.legs.find((l) => l.fromLocationId === key)?.fromLocationName ||
-    trip.legs.find((l) => l.toLocationId === key)?.toLocationName ||
-    "Chưa chọn";
   const normalizedSearch = search.trim().toLocaleLowerCase("vi");
-  const filteredVehicles = vehicles.filter((vehicle) =>
-    vehicle.plateOrCode.toLocaleLowerCase("vi").includes(normalizedSearch),
+  const filteredVehicles = vehicles.filter(
+    (vehicle) =>
+      vehicle.plateOrCode.toLocaleLowerCase("vi").includes(normalizedSearch) &&
+      (vehicleStatus === "ALL" || vehicle.status === vehicleStatus) &&
+      (vehicleType === "ALL" || vehicle.vehicleType === vehicleType) &&
+      (vehicleCapacity === null || vehicle.capacityStalls >= vehicleCapacity),
+  );
+  const selectedVehicle = vehicles.find(
+    (vehicle) => vehicle.id === pendingVehicle,
   );
   const knownCrew = [...(crew.options.data?.items ?? [])];
   for (const assigned of crew.assignments.data?.items ?? []) {
-    if (!knownCrew.some((person) => person.id === assigned.userId)) knownCrew.push({
-      id: assigned.userId, fullName: assigned.fullName, crewType: assigned.crewType,
-      workStatus: assigned.workStatus, selectable: false, scheduleEvaluation: 'NOT_EVALUATED',
-      blockingReasons: [{ code: 'PERSISTED_INVALID_ASSIGNMENT', message: 'Phân công cũ không còn hợp lệ; cần thay thế.' }],
-    });
+    if (!knownCrew.some((person) => person.id === assigned.userId))
+      knownCrew.push({
+        id: assigned.userId,
+        fullName: assigned.fullName,
+        crewType: assigned.crewType,
+        workStatus: assigned.workStatus,
+        selectable: false,
+        scheduleEvaluation: "NOT_EVALUATED",
+        blockingReasons: [
+          {
+            code: "PERSISTED_INVALID_ASSIGNMENT",
+            message: "Phân công cũ không còn hợp lệ; cần thay thế.",
+          },
+        ],
+      });
   }
   const filteredCrew = knownCrew.filter((person) =>
     person.fullName.toLocaleLowerCase("vi").includes(normalizedSearch),
   );
+  const visibleCrew = filteredCrew.filter(
+    (person) =>
+      person.crewType === activeCrewRole &&
+      (crewStatus === "ALL" || person.workStatus === crewStatus),
+  );
   const crewSelectionComplete =
     pendingRoster.some((item) => item.role === "DRIVER") &&
     pendingRoster.some((item) => item.role === "ESCORT") &&
-    new Set(pendingRoster.map((item) => item.userId)).size === pendingRoster.length;
-  const formatVietnamDateTime = (value: string | null) => value
-    ? new Intl.DateTimeFormat("vi-VN", {
-        timeZone: "Asia/Ho_Chi_Minh",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23",
-      }).format(new Date(value))
-    : "Chưa lập lịch";
+    new Set(pendingRoster.map((item) => item.userId)).size ===
+      pendingRoster.length;
+  const assignedVehicleCount = legs.filter((leg) => leg.vehicleId).length;
+  const vehiclesComplete =
+    legs.length > 0 && assignedVehicleCount === legs.length;
+  const assignedVehicleNames = [
+    ...new Set(
+      legs
+        .filter((leg) => leg.vehicleId)
+        .map((leg) => vehicleName(leg.vehicleId)),
+    ),
+  ];
+  const rosterNames = (role: "DRIVER" | "ESCORT") =>
+    roster
+      .filter((item) => item.role === role)
+      .map((item) => personName(item.userId));
+  const driverNames = rosterNames("DRIVER");
+  const escortNames = rosterNames("ESCORT");
+  const crewComplete = driverNames.length > 0 && escortNames.length > 0;
+
+  const serverBlockers = crewChanged
+    ? []
+    : (crew.assignments.data?.crewReadiness.blockers ?? []);
+  const readinessIssues = [
+    ...serverBlockers.map((b) => ({
+      key: b.code + (b.userId || ""),
+      text: b.message,
+    })),
+    ...(crewChanged && !crewComplete
+      ? [
+          {
+            key: "LOCAL_CREW_INCOMPLETE",
+            text: "Cần chọn đủ tài xế và hộ tống.",
+          },
+        ]
+      : []),
+  ];
+  const submitBlocked = readinessIssues.length > 0;
+
   return (
     <div className="trip-detail-page trip-detail-professional">
       <div>
@@ -439,7 +498,11 @@ function TripWorkspace({ id }: { id: string }) {
                 Thêm chặng
               </Button>
             )}
-            <TripRoutePlanner legs={legs} locations={locations} readOnly={!editable} />
+            <TripRoutePlanner
+              legs={legs}
+              locations={locations}
+              readOnly={!editable}
+            />
             <Alert
               style={{ marginTop: 18 }}
               type="info"
@@ -465,36 +528,64 @@ function TripWorkspace({ id }: { id: string }) {
                     <CarOutlined />
                   </span>
                   <h4>Phương tiện</h4>
+                  <Tag
+                    className={
+                      vehiclesComplete
+                        ? "assignment-status is-ready"
+                        : "assignment-status is-pending"
+                    }
+                  >
+                    {vehiclesComplete
+                      ? "Đã chọn"
+                      : assignedVehicleCount
+                        ? "Chưa chọn đủ"
+                        : "Chưa chọn"}
+                  </Tag>
                 </div>
-                {legs.map((l, i) => (
-                  <div className="assignment-resource-body" key={i}>
-                    <small>Chặng {i + 1}</small>
-                    <strong>
-                      {vehicles.find((v) => v.id === l.vehicleId)
-                        ?.plateOrCode ||
-                        trip.legs.find((v) => v.id === l.id)?.vehicleCode ||
-                        "Chưa chọn phương tiện"}
-                    </strong>
-                    <Button
-                      type="primary"
-                      block
-                      disabled={
-                        !editable ||
-                        busy ||
-                        options.isPending ||
-                        options.isError
-                      }
-                      onClick={() => {
-                        setSearch("");
-                        setVehiclePage(1);
-                        setPendingVehicle(l.vehicleId);
-                        setVehicleLeg(i);
-                      }}
-                    >
-                      Chọn phương tiện
-                    </Button>
-                  </div>
-                ))}
+                <div className="assignment-resource-body assignment-vehicle-summary">
+                  <strong
+                    className={vehiclesComplete ? "" : "assignment-placeholder"}
+                  >
+                    {assignedVehicleNames.length
+                      ? assignedVehicleNames.join(", ")
+                      : "Chưa chọn phương tiện"}
+                  </strong>
+                  <p>
+                    {vehiclesComplete
+                      ? `${assignedVehicleCount} chặng đã được bố trí phương tiện.`
+                      : "Chọn phương tiện đang rảnh để bố trí cho chuyến đi."}
+                  </p>
+                </div>
+                <Button
+                  type={vehiclesComplete ? "default" : "primary"}
+                  className={
+                    vehiclesComplete ? "assignment-update-button" : undefined
+                  }
+                  block
+                  disabled={
+                    !editable ||
+                    busy ||
+                    options.isPending ||
+                    options.isError ||
+                    !legs.length
+                  }
+                  onClick={() => {
+                    const index = legs.findIndex((leg) => !leg.vehicleId);
+                    const target = index >= 0 ? index : 0;
+                    setSearch("");
+                    setVehiclePage(1);
+                    setVehiclePageSize(12);
+                    setVehicleStatus("AVAILABLE");
+                    setVehicleType("ALL");
+                    setVehicleCapacity(null);
+                    setPendingVehicle(legs[target]?.vehicleId || "");
+                    setVehicleLeg(target);
+                  }}
+                >
+                  {vehiclesComplete
+                    ? "Cập nhật phương tiện"
+                    : "Chọn phương tiện"}
+                </Button>
               </section>
               <section className="assignment-resource">
                 <div className="assignment-resource-heading">
@@ -502,31 +593,43 @@ function TripWorkspace({ id }: { id: string }) {
                     <TeamOutlined />
                   </span>
                   <h4>Nhân sự</h4>
+                  <Tag
+                    className={
+                      crewComplete
+                        ? "assignment-status is-ready"
+                        : "assignment-status is-pending"
+                    }
+                  >
+                    {crewComplete ? "Đã chọn đủ" : "Chưa chọn đủ"}
+                  </Tag>
                 </div>
                 <div className="assignment-resource-body assignment-personnel-list">
-                  {(["DRIVER", "ESCORT"] as const).map((role) => (
-                    <div key={role}>
-                      <span>{role === "DRIVER" ? "Tài xế" : "Hộ tống"}</span>
-                      <strong>
-                        {roster
-                          .filter((r) => r.role === role)
-                          .map(
-                            (r) =>
-                              crew.options.data?.items.find(
-                                (p) => p.id === r.userId,
-                              )?.fullName ||
-                              crew.assignments.data?.items.find(
-                                (p) => p.userId === r.userId,
-                              )?.fullName ||
-                              r.userId,
-                          )
-                          .join(", ") || "Chưa chọn"}
-                      </strong>
-                    </div>
-                  ))}
+                  <div>
+                    <span>Tài xế</span>
+                    <strong
+                      className={
+                        driverNames.length ? "" : "assignment-placeholder"
+                      }
+                    >
+                      {driverNames.join(", ") || "Chưa chọn tài xế"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Hộ tống</span>
+                    <strong
+                      className={
+                        escortNames.length ? "" : "assignment-placeholder"
+                      }
+                    >
+                      {escortNames.join(", ") || "Chưa chọn hộ tống"}
+                    </strong>
+                  </div>
                 </div>
                 <Button
-                  type="primary"
+                  type={crewComplete ? "default" : "primary"}
+                  className={
+                    crewComplete ? "assignment-update-button" : undefined
+                  }
                   block
                   disabled={
                     !crewEditable ||
@@ -538,11 +641,14 @@ function TripWorkspace({ id }: { id: string }) {
                   onClick={() => {
                     setSearch("");
                     setCrewPages({ DRIVER: 1, ESCORT: 1 });
+                    setActiveCrewRole("DRIVER");
+                    setCrewStatus("AVAILABLE");
+                    setCrewPageSize(12);
                     setPendingRoster(roster.map((r) => ({ ...r })));
                     setCrewOpen(true);
                   }}
                 >
-                  Chọn nhân sự
+                  {crewComplete ? "Cập nhật nhân sự" : "Chọn nhân sự"}
                 </Button>
               </section>
             </div>
@@ -632,72 +738,71 @@ function TripWorkspace({ id }: { id: string }) {
           </Card>
         </main>
         <aside className="planning-sidebar planning-context-column">
-          <Card className="trip-command-header">
-            <div className="command-header-topline">
-              <Tag color="gold">{planLabels[trip.planStatus]}</Tag>
-            </div>
-            <div className="command-title-row">
-              <div>
-                <Typography.Text className="command-eyebrow">
-                  KẾ HOẠCH VẬN CHUYỂN
-                </Typography.Text>
-                <Typography.Title level={2}>{trip.orderCode}</Typography.Title>
-              </div>
-            </div>
-            <div className="journey-strip">
-              <div className="journey-point">
-                <span className="journey-marker origin">
-                  <EnvironmentOutlined />
-                </span>
-                <div>
-                  <small>ĐIỂM ĐI</small>
-                  <strong>{locationName(legs[0]?.fromLocationId || "")}</strong>
-                </div>
-              </div>
-              <span className="journey-line" />
-              <div className="journey-point">
-                <span className="journey-marker destination">
-                  <EnvironmentOutlined />
-                </span>
-                <div>
-                  <small>ĐIỂM ĐẾN</small>
-                  <strong>
-                    {locationName(legs.at(-1)?.toLocationId || "")}
-                  </strong>
-                </div>
-              </div>
-            </div>
-            <p>
-              Thông tin người gửi, người nhận và yêu cầu đơn chưa được cung cấp
-              cho màn hình này.
-            </p>
-            <dl className="trip-facts">
-              <div><dt>Trạng thái đơn</dt><dd>{trip.orderStatus}</dd></div>
-              <div><dt>Khởi hành dự kiến</dt><dd>{formatVietnamDateTime(trip.plannedDepartureAt)}</dd></div>
-              <div><dt>Đến dự kiến</dt><dd>{formatVietnamDateTime(trip.plannedArrivalAt)}</dd></div>
-              <div><dt>Số chặng</dt><dd>{legs.length}</dd></div>
-            </dl>
-          </Card>
+          <TripOrderSidebar orderId={trip.orderId} />
         </aside>
       </div>
-      {crew.assignments.data?.crewReadiness.blockers.map((b) => (
-        <Alert
-          key={b.code + (b.userId || "")}
-          type="warning"
-          message={b.message}
-        />
-      ))}
-      <div className="trip-decision-bar">
-        <div className="decision-actions">
+      <div className="trip-action-bar">
+        {/* Dải trạng thái */}
+        {editable &&
+          (() => {
+            const showOk = !submitBlocked && !resourcesLoading;
+            const hasIssues = readinessIssues.length > 0;
+            if (!showOk && !hasIssues) return null;
+            return (
+              <div className="trip-action-bar__status">
+                {readinessIssues.map((issue) => (
+                  <span key={issue.key} className="trip-action-chip is-warning">
+                    <WarningOutlined /> {issue.text}
+                  </span>
+                ))}
+                {showOk && (
+                  <span className="trip-action-chip is-ok">
+                    <CheckCircleOutlined /> Đủ điều kiện
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
+        {/* Hàng nút */}
+        <div className="trip-action-bar__row">
+          {editable && (
+            <span title="Chưa có API từ chối đơn dành cho Coordinator">
+              <Button type="text" danger disabled icon={<StopOutlined />}>
+                Từ chối đơn
+              </Button>
+            </span>
+          )}
+
+          <span className="trip-action-bar__spacer" />
+
           <Button
-            className="decision-cancel"
+            type="text"
             onClick={() => go("/coordinator/trips")}
             disabled={busy}
           >
             Hủy
           </Button>
-          {crewEditable && (
+
+          {editable && (
             <Button
+              icon={<SaveOutlined />}
+              loading={busy}
+              disabled={
+                resourcesLoading ||
+                crew.assignments.isError ||
+                options.isError ||
+                crew.options.isError
+              }
+              onClick={() => void save(false)}
+            >
+              Lưu nháp
+            </Button>
+          )}
+
+          {!editable && crewEditable && (
+            <Button
+              icon={<SaveOutlined />}
               loading={busy}
               disabled={
                 !crewChanged ||
@@ -709,27 +814,17 @@ function TripWorkspace({ id }: { id: string }) {
               Lưu phân công
             </Button>
           )}
+
           {editable && (
-            <>
+            <span
+              title={
+                submitBlocked
+                  ? "Hoàn tất các điều kiện phía trên để gửi duyệt"
+                  : undefined
+              }
+            >
               <Button
-                loading={busy}
-                disabled={
-                  resourcesLoading ||
-                  crew.assignments.isError ||
-                  options.isError ||
-                  crew.options.isError
-                }
-                onClick={() => void save(false)}
-              >
-                Lưu nháp
-              </Button>
-              <span title="Chưa có API từ chối đơn dành cho Coordinator">
-                <Button className="decision-reject" danger disabled>
-                  Từ chối đơn
-                </Button>
-              </span>
-              <Button
-                className="decision-submit"
+                className="trip-action-submit"
                 icon={<SendOutlined />}
                 type="primary"
                 loading={busy}
@@ -737,13 +832,14 @@ function TripWorkspace({ id }: { id: string }) {
                   resourcesLoading ||
                   crew.assignments.isError ||
                   options.isError ||
-                  crew.options.isError
+                  crew.options.isError ||
+                  submitBlocked
                 }
                 onClick={() => void save(true)}
               >
                 Gửi duyệt
               </Button>
-            </>
+            </span>
           )}
         </div>
       </div>
@@ -751,171 +847,409 @@ function TripWorkspace({ id }: { id: string }) {
         open={vehicleLeg !== null}
         rootClassName="coordinator-scope"
         className="assignment-picker vehicle-picker"
-        width={960}
-        title={`Chọn phương tiện · Chặng ${(vehicleLeg ?? 0) + 1}`}
-        okText="Xác nhận phương tiện"
-        cancelText="Hủy"
-        okButtonProps={{ disabled: !pendingVehicle }}
-        onOk={() => {
-          if (vehicleLeg !== null)
-            update(vehicleLeg, { vehicleId: pendingVehicle });
-          setVehicleLeg(null);
-        }}
+        width={1200}
+        title={`Chọn phương tiện · ${filteredVehicles.length} kết quả`}
         onCancel={() => setVehicleLeg(null)}
+        footer={
+          <div className="vehicle-picker-footer">
+            <div className="vehicle-picker-summary">
+              <span>Phương tiện đang chọn</span>
+              <strong>
+                {selectedVehicle?.plateOrCode || "Chưa chọn phương tiện"}
+              </strong>
+            </div>
+            <div className="vehicle-picker-actions">
+              <Button danger type="primary" onClick={() => setVehicleLeg(null)}>
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                disabled={!pendingVehicle}
+                onClick={() => {
+                  if (vehicleLeg !== null)
+                    update(vehicleLeg, { vehicleId: pendingVehicle });
+                  setVehicleLeg(null);
+                }}
+              >
+                Xác nhận chọn
+              </Button>
+            </div>
+          </div>
+        }
       >
         <p className="ap-hint">
-          Xe mới phải ở trạng thái Sẵn sàng; xe đã thuộc chính chặng vẫn được
-          hiển thị để xử lý. Lịch được kiểm tra lại khi lưu và duyệt.
+          Nhấn vào thẻ xe để chọn phương tiện. Mỗi chuyến chỉ chọn một xe.
         </p>
-        <Input
-          prefix={<SearchOutlined />}
-          placeholder="Tìm biển số"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setVehiclePage(1); }}
-        />
-        <div className="resource-grid" style={{ marginTop: 16 }}>
-          {!filteredVehicles.length && <Empty description="Không tìm thấy phương tiện" />}
-          {filteredVehicles
-            .slice((vehiclePage - 1) * 12, vehiclePage * 12)
-            .map((v) => {
-              const selected = pendingVehicle === v.id;
-              const currentForLeg = vehicleLeg !== null && legs[vehicleLeg]?.vehicleId === v.id;
-              const disabled = v.selectable === false && !currentForLeg;
-              return (
-              <button
-                type="button"
-                key={v.id}
-                disabled={disabled}
-                aria-pressed={selected}
-                className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
-                onClick={() => setPendingVehicle(v.id)}
-              >
-                <span className="resource-card-top">
-                  <CarOutlined />
-                  <Tag color={v.status === 'AVAILABLE' ? 'success' : v.status === 'RESERVED' ? 'warning' : 'processing'}>
-                    {v.status === 'AVAILABLE' ? 'Sẵn sàng' : v.status === 'RESERVED' ? 'Đã giữ chỗ' : 'Đang vận chuyển'}
-                  </Tag>
-                </span>
-                <span className="resource-card-heading">
-                  <strong>{v.plateOrCode}</strong>
-                  <span>{v.vehicleType}</span>
-                </span>
-                <span className="resource-card-info">
-                  Sức chứa {v.capacityStalls} ngựa
-                </span>
-                {v.blockingReasons.map(reason => <span className="resource-card-busy" role="alert" key={reason.code}>{reason.message}</span>)}
-                {v.scheduleEvaluation === 'NOT_EVALUATED' && v.selectable !== false && <span className="resource-card-busy">Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu.</span>}
-                <span className="resource-card-choice">{disabled ? 'Không thể chọn' : 'Chọn phương tiện'}</span>
-              </button>
-            );})}
+        <div className="vehicle-picker-filters">
+          <label className="vehicle-filter-search">
+            <span>Biển số</span>
+            <Input
+              placeholder="Tìm theo biển số..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setVehiclePage(1);
+              }}
+            />
+          </label>
+          <label>
+            <span>Trạng thái</span>
+            <Select
+              value={vehicleStatus}
+              options={[
+                { value: "AVAILABLE", label: "Đang rảnh" },
+                { value: "RESERVED", label: "Đã giữ chỗ" },
+                { value: "IN_TRANSIT", label: "Đang vận chuyển" },
+                { value: "ALL", label: "Tất cả trạng thái" },
+              ]}
+              onChange={(value) => {
+                setVehicleStatus(value);
+                setVehiclePage(1);
+              }}
+            />
+          </label>
+          <label>
+            <span>Loại xe</span>
+            <Select
+              value={vehicleType}
+              options={[
+                { value: "ALL", label: "Tất cả loại xe" },
+                { value: "LIGHT", label: "Xe Light" },
+                { value: "MEDIUM", label: "Xe Medium" },
+                { value: "HEAVY", label: "Xe Heavy" },
+              ]}
+              onChange={(value) => {
+                setVehicleType(value);
+                setVehiclePage(1);
+              }}
+            />
+          </label>
+          <label>
+            <span>Sức chứa tối thiểu</span>
+            <InputNumber
+              min={1}
+              placeholder="Số ngựa"
+              value={vehicleCapacity}
+              onChange={(value) => {
+                setVehicleCapacity(value);
+                setVehiclePage(1);
+              }}
+            />
+          </label>
         </div>
-        {filteredVehicles.length > 12 && (
-          <Pagination className="ap-pagination" current={vehiclePage} pageSize={12} total={filteredVehicles.length} showSizeChanger={false} onChange={setVehiclePage} />
-        )}
+        <div className="vehicle-picker-results">
+          <div className="resource-grid">
+            {!filteredVehicles.length && (
+              <Empty description="Không tìm thấy phương tiện" />
+            )}
+            {filteredVehicles
+              .slice(
+                (vehiclePage - 1) * vehiclePageSize,
+                vehiclePage * vehiclePageSize,
+              )
+              .map((v) => {
+                const selected = pendingVehicle === v.id;
+                const currentForLeg =
+                  vehicleLeg !== null && legs[vehicleLeg]?.vehicleId === v.id;
+                const disabled = v.selectable === false && !currentForLeg;
+                return (
+                  <button
+                    type="button"
+                    key={v.id}
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
+                    onClick={() => setPendingVehicle(v.id)}
+                  >
+                    <span className="resource-card-top">
+                      <span className="resource-card-icon">
+                        <CarOutlined />
+                      </span>
+                      <Tag
+                        color={
+                          v.status === "AVAILABLE"
+                            ? "success"
+                            : v.status === "RESERVED"
+                              ? "warning"
+                              : "processing"
+                        }
+                      >
+                        {v.status === "AVAILABLE"
+                          ? "Đang rảnh"
+                          : v.status === "RESERVED"
+                            ? "Đã giữ chỗ"
+                            : "Đang vận chuyển"}
+                      </Tag>
+                    </span>
+                    <span className="resource-card-heading">
+                      <strong>{v.plateOrCode}</strong>
+                      <span>
+                        Xe{" "}
+                        {v.vehicleType.charAt(0) +
+                          v.vehicleType.slice(1).toLowerCase()}
+                      </span>
+                    </span>
+                    <span className="resource-card-info">
+                      <span className="resource-card-field">
+                        <span>Sức chứa</span>
+                        <strong>{v.capacityStalls} ngựa</strong>
+                      </span>
+                    </span>
+                    {v.blockingReasons.map((reason) => (
+                      <span
+                        className="resource-card-busy"
+                        role="alert"
+                        key={reason.code}
+                      >
+                        {reason.message}
+                      </span>
+                    ))}
+                    {v.scheduleEvaluation === "NOT_EVALUATED" &&
+                      v.selectable !== false && (
+                        <span className="resource-card-busy">
+                          Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu.
+                        </span>
+                      )}
+                    <span className="resource-card-choice">
+                      <span className="resource-card-check">
+                        {selected && <CheckOutlined />}
+                      </span>
+                      {disabled ? "Không thể chọn" : "Chọn phương tiện"}
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+        <div className="vehicle-picker-pagination">
+          <span>{filteredVehicles.length} xe</span>
+          <Pagination
+            current={vehiclePage}
+            pageSize={vehiclePageSize}
+            total={filteredVehicles.length}
+            showSizeChanger
+            pageSizeOptions={[12, 24, 48]}
+            locale={{ items_per_page: "/ trang" }}
+            onChange={(page, pageSize) => {
+              setVehiclePage(pageSize === vehiclePageSize ? page : 1);
+              setVehiclePageSize(pageSize);
+            }}
+          />
+        </div>
       </Modal>
       <Modal
         open={crewOpen}
         rootClassName="coordinator-scope"
-        className="assignment-picker"
-        width={960}
-        title="Phân công tài xế & hộ tống"
+        className="assignment-picker crew-picker"
+        width={1200}
+        title="Chọn nhân sự"
         onCancel={() => setCrewOpen(false)}
-        onOk={() => {
-          setRoster(pendingRoster);
-          setCrewChanged(true);
-          setCrewOpen(false);
-        }}
-        okText="Xác nhận nhân sự"
-        cancelText="Hủy"
-        okButtonProps={{ disabled: !crewSelectionComplete }}
-      >
-        <Input
-          prefix={<SearchOutlined />}
-          placeholder="Tìm tên nhân sự"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setCrewPages({ DRIVER: 1, ESCORT: 1 }); }}
-          allowClear
-        />
-        {!knownCrew.some((p) =>
-          p.fullName
-            .toLocaleLowerCase("vi")
-            .includes(search.trim().toLocaleLowerCase("vi")),
-        ) && <Empty description="Không tìm thấy nhân sự" />}
-        <p className="ap-hint">
-          Chọn ít nhất một tài xế và một người hộ tống khác nhau. Thay đổi chỉ
-          được lưu khi bấm Lưu phân công hoặc lưu kế hoạch.
-        </p>
-        <div className="ap-summary" aria-live="polite">
-          <div className={pendingRoster.some((item) => item.role === "DRIVER") ? "ap-filled" : ""}>Tài xế: {pendingRoster.filter((item) => item.role === "DRIVER").length}</div>
-          <div className={pendingRoster.some((item) => item.role === "ESCORT") ? "ap-filled" : ""}>Hộ tống: {pendingRoster.filter((item) => item.role === "ESCORT").length}</div>
-        </div>
-        {(["DRIVER", "ESCORT"] as const).map((role) => (
-          <div key={role} style={{ marginBottom: 18 }}>
-            <h3>{role === "DRIVER" ? "Tài xế" : "Hộ tống"}</h3>
-            <div className="resource-grid">
-              {filteredCrew
-                .slice((crewPages[role] - 1) * 12, crewPages[role] * 12)
-                .map((p) => {
-                  const selected = pendingRoster.some(
-                    (r) => r.userId === p.id && r.role === role,
-                  );
-                  const used = pendingRoster.some(
-                    (r) => r.userId === p.id && r.role !== role,
-                  );
-                  const roleMismatch = p.crewType !== role;
-                  const unavailable = p.selectable === false;
-                  const disabled = !selected && (used || roleMismatch || unavailable);
-                  const reasons = [
-                    ...p.blockingReasons.map(reason => reason.message),
-                    ...(roleMismatch ? [p.crewType ? `Hồ sơ chỉ cho phép vai trò ${p.crewType === 'DRIVER' ? 'Tài xế' : 'Hộ tống'}.` : 'Chưa có hồ sơ nhân sự.'] : []),
-                    ...(p.scheduleEvaluation === 'NOT_EVALUATED' && p.selectable !== false ? ['Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu.'] : []),
-                  ];
-                  return (
-                    <button
-                      type="button"
-                      key={p.id}
-                      disabled={disabled}
-                      aria-pressed={selected}
-                      className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
-                      onClick={() => {
-                        setPendingRoster((v) =>
-                          selected
-                            ? v.filter((r) => r.userId !== p.id)
-                            : [...v, { userId: p.id, role }],
-                        );
-                      }}
-                    >
-                      <span className="resource-card-top">
-                        <TeamOutlined />
-                        <Tag>
-                          {selected
-                            ? "Đã chọn"
-                            : disabled
-                              ? "Không thể chọn"
-                              : "Nhân sự"}
-                        </Tag>
-                      </span>
-                      <span className="resource-card-heading">
-                        <strong>{p.fullName}</strong>
-                        <span>{p.crewType === 'DRIVER' ? 'Tài xế' : p.crewType === 'ESCORT' ? 'Hộ tống' : 'Chưa có hồ sơ'}</span>
-                      </span>
-                      {reasons.map(reason => <span className="resource-card-busy" role="alert" key={reason}>{reason}</span>)}
-                    </button>
-                  );
-                })}
+        footer={
+          <div className="crew-picker-footer">
+            <strong>Đã chọn {pendingRoster.length}/2 vị trí</strong>
+            <div className="crew-picker-actions">
+              <Button danger type="primary" onClick={() => setCrewOpen(false)}>
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                disabled={!crewSelectionComplete}
+                onClick={() => {
+                  setRoster(pendingRoster);
+                  setCrewChanged(true);
+                  setCrewOpen(false);
+                }}
+              >
+                Xác nhận phân công
+              </Button>
             </div>
-            {filteredCrew.length > 12 && (
-              <Pagination
-                className="ap-pagination"
-                current={crewPages[role]}
-                pageSize={12}
-                total={filteredCrew.length}
-                showSizeChanger={false}
-                onChange={(page) => setCrewPages((pages) => ({ ...pages, [role]: page }))}
-              />
-            )}
           </div>
-        ))}
+        }
+      >
+        <p className="ap-hint">
+          Chọn một tài xế và một hộ tống đang rảnh. Xác nhận để lưu cả hai vị
+          trí.
+        </p>
+        <div className="crew-picker-summary" aria-live="polite">
+          <div>
+            <span>Tài xế đã chọn</span>
+            <strong>
+              {pendingRoster
+                .filter((item) => item.role === "DRIVER")
+                .map((item) => personName(item.userId))
+                .join(", ") || "Chưa chọn tài xế"}
+            </strong>
+          </div>
+          <div>
+            <span>Hộ tống đã chọn</span>
+            <strong>
+              {pendingRoster
+                .filter((item) => item.role === "ESCORT")
+                .map((item) => personName(item.userId))
+                .join(", ") || "Chưa chọn hộ tống"}
+            </strong>
+          </div>
+        </div>
+        <div className="crew-picker-tabs" role="tablist">
+          {(["DRIVER", "ESCORT"] as const).map((role) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeCrewRole === role}
+              className={activeCrewRole === role ? "is-active" : ""}
+              key={role}
+              onClick={() => {
+                setActiveCrewRole(role);
+                setSearch("");
+              }}
+            >
+              {role === "DRIVER" ? "Tài xế" : "Hộ tống"}
+            </button>
+          ))}
+        </div>
+        <div className="crew-picker-filters">
+          <label>
+            <span>Họ tên</span>
+            <Input
+              placeholder="Tìm theo tên, có hoặc không dấu..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCrewPages({ DRIVER: 1, ESCORT: 1 });
+              }}
+              allowClear
+            />
+          </label>
+          <label>
+            <span>Trạng thái</span>
+            <Select
+              value={crewStatus}
+              options={[
+                { value: "AVAILABLE", label: "Đang rảnh" },
+                { value: "ALL", label: "Tất cả trạng thái" },
+              ]}
+              onChange={(value) => {
+                setCrewStatus(value);
+                setCrewPages({ DRIVER: 1, ESCORT: 1 });
+              }}
+            />
+          </label>
+        </div>
+        <div className="crew-picker-results">
+          <div className="resource-grid">
+            {!visibleCrew.length && (
+              <Empty description="Không tìm thấy nhân sự" />
+            )}
+            {visibleCrew
+              .slice(
+                (crewPages[activeCrewRole] - 1) * crewPageSize,
+                crewPages[activeCrewRole] * crewPageSize,
+              )
+              .map((p) => {
+                const selected = pendingRoster.some(
+                  (r) => r.userId === p.id && r.role === activeCrewRole,
+                );
+                const used = pendingRoster.some(
+                  (r) => r.userId === p.id && r.role !== activeCrewRole,
+                );
+                const roleMismatch = p.crewType !== activeCrewRole;
+                const unavailable = p.selectable === false;
+                const disabled =
+                  !selected && (used || roleMismatch || unavailable);
+                const reasons = [
+                  ...p.blockingReasons.map((reason) => reason.message),
+                  ...(roleMismatch
+                    ? [
+                        p.crewType
+                          ? `Hồ sơ chỉ cho phép vai trò ${p.crewType === "DRIVER" ? "Tài xế" : "Hộ tống"}.`
+                          : "Chưa có hồ sơ nhân sự.",
+                      ]
+                    : []),
+                  ...(p.scheduleEvaluation === "NOT_EVALUATED" &&
+                  p.selectable !== false
+                    ? ["Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu."]
+                    : []),
+                ];
+                return (
+                  <button
+                    type="button"
+                    key={p.id}
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
+                    onClick={() => {
+                      setPendingRoster((v) =>
+                        selected
+                          ? v.filter((r) => r.userId !== p.id)
+                          : [
+                              ...v.filter((r) => r.role !== activeCrewRole),
+                              { userId: p.id, role: activeCrewRole },
+                            ],
+                      );
+                    }}
+                  >
+                    <span className="resource-card-top">
+                      <span className="resource-card-icon">
+                        <UserOutlined />
+                      </span>
+                      <Tag
+                        color={
+                          p.workStatus === "AVAILABLE" ? "success" : "default"
+                        }
+                      >
+                        {p.workStatus === "AVAILABLE"
+                          ? "Đang rảnh"
+                          : "Không rảnh"}
+                      </Tag>
+                    </span>
+                    <span className="resource-card-heading">
+                      <strong>{p.fullName}</strong>
+                      <span>
+                        {p.crewType === "DRIVER"
+                          ? "Tài xế"
+                          : p.crewType === "ESCORT"
+                            ? "Hộ tống"
+                            : "Chưa có hồ sơ"}
+                      </span>
+                    </span>
+                    {reasons.map((reason) => (
+                      <span
+                        className="resource-card-busy"
+                        role="alert"
+                        key={reason}
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                    <span className="resource-card-choice">
+                      <span className="resource-card-check">
+                        {selected && <CheckOutlined />}
+                      </span>
+                      {disabled ? "Không thể chọn" : "Chọn nhân sự"}
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+        <div className="crew-picker-pagination">
+          <span>{visibleCrew.length} người</span>
+          <Pagination
+            current={crewPages[activeCrewRole]}
+            pageSize={crewPageSize}
+            total={visibleCrew.length}
+            showSizeChanger
+            pageSizeOptions={[12, 24, 48]}
+            locale={{ items_per_page: "/ trang" }}
+            onChange={(page, pageSize) => {
+              setCrewPages((pages) => ({
+                ...pages,
+                [activeCrewRole]: pageSize === crewPageSize ? page : 1,
+              }));
+              setCrewPageSize(pageSize);
+            }}
+          />
+        </div>
       </Modal>
     </div>
   );

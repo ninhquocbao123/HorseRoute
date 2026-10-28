@@ -7,6 +7,9 @@ export type TripRow = Omit<TripSummary, 'plannedDepartureAt' | 'plannedArrivalAt
   plannedDepartureAt: Date | null; plannedArrivalAt: Date | null;
   orderStatus: string; approvedBy: string | null; approvedAt: Date | null; returnReason: string | null;
 };
+export type TripListRow = TripRow & {
+  desiredDepartureDate: string | null; requestedPickupTime: string | null; horseCount: number | string;
+};
 export type LegRow = Omit<TripLeg, 'plannedDepartureAt' | 'plannedArrivalAt'> & {
   plannedDepartureAt: Date; plannedArrivalAt: Date;
 };
@@ -216,11 +219,16 @@ export class TripsRepository {
       VALUES (?,'TRIP_CREW_CHANGED',?,'TRIP',?,'IN_APP')`, [userId,
       role ? `Chuyến ${tripId}: bạn được phân công vai trò ${role}.` : `Chuyến ${tripId}: phân công của bạn đã được gỡ.`, tripId]);
   }
-  async list(scope: TripScope, limit: number, offset: number): Promise<{ rows: TripRow[]; total: number }> {
+  async list(scope: TripScope, limit: number, offset: number): Promise<{ rows: TripListRow[]; total: number }> {
     const where = scopeWhere(scope);
-    const rows: TripRow[] = await this.db.query(`SELECT ${columns} FROM trips t JOIN orders o ON o.id=t.order_id
+    const rows: TripListRow[] = await this.db.query(`SELECT ${columns},
+      DATE_FORMAT(o.desired_departure_date, '%Y-%m-%d') AS desiredDepartureDate,
+      CASE WHEN JSON_TYPE(JSON_EXTRACT(o.booking_details, '$.pickupTime')) = 'STRING'
+        THEN JSON_UNQUOTE(JSON_EXTRACT(o.booking_details, '$.pickupTime')) ELSE NULL END AS requestedPickupTime,
+      (SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status <> 'REMOVED') AS horseCount
+      FROM orders o JOIN trips t ON t.order_id=o.id
       WHERE ${where.sql} ORDER BY t.id DESC LIMIT ? OFFSET ?`, [...where.args, limit, offset]);
-    const [count] = await this.db.query(`SELECT COUNT(*) AS total FROM trips t JOIN orders o ON o.id=t.order_id
+    const [count] = await this.db.query(`SELECT COUNT(*) AS total FROM orders o JOIN trips t ON t.order_id=o.id
       WHERE ${where.sql}`, where.args);
     const total = Number(count.total);
     if (!Number.isSafeInteger(total)) throw new Error('Trip count exceeds safe integer range');

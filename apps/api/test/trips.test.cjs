@@ -79,3 +79,22 @@ test('Crew readiness reports missing and invalid crew, without claiming full REA
  assert.deepEqual(checkCrewReadiness([driver,{...escort,accountStatus:'LOCKED'}]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_ESCORT']);
  assert.deepEqual(checkCrewReadiness([{...driver,accountRole:'CUSTOMER'},escort]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_DRIVER']);
 });
+
+test('Order-backed trip list preserves trip navigation, ownership and requested order fields', async () => {
+  const service = new TripsService({ list: async (scope, limit, offset) => {
+    assert.deepEqual(scope, { coordinatorId: '7' });
+    assert.equal(limit, 20); assert.equal(offset, 20);
+    return { total: 21, rows: [{ id: '29', orderId: '100', orderCode: 'VCN-100',
+      planStatus: 'DRAFT', plannedBy: '7', plannedDepartureAt: null, plannedArrivalAt: null,
+      orderStatus: 'PREPARING', desiredDepartureDate: '2026-11-15', requestedPickupTime: ' 05:30 ', horseCount: '3' }] };
+  } });
+  const result = await service.list({ id: '7', role: 'COORDINATOR' }, { page: 2, limit: 20 });
+  assert.equal(result.items[0].id, '29');
+  assert.equal(result.items[0].tripId, '29');
+  assert.equal(result.items[0].orderId, '100');
+  assert.equal(result.items[0].desiredDepartureDate, '2026-11-15');
+  assert.equal(result.items[0].requestedPickupTime, '05:30');
+  assert.equal(result.items[0].horseCount, 3);
+  assert.equal(result.items[0].orderStatus, 'PREPARING');
+  assert.equal(result.total, 21);
+});

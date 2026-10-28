@@ -37,8 +37,15 @@ export interface TripDetail extends TripSummary {
 }
 
 export interface TripListParams { page: number; limit: number }
+export interface TripListItem extends TripSummary {
+  tripId: string;
+  orderStatus: string;
+  desiredDepartureDate: string | null;
+  requestedPickupTime: string | null;
+  horseCount: number;
+}
 export interface TripListResponse extends TripListParams {
-  items: TripSummary[];
+  items: TripListItem[];
   total: number;
 }
 export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:'LIGHT'|'MEDIUM'|'HEAVY'; capacityStalls:number; status:'AVAILABLE'|'RESERVED'|'IN_TRANSIT'; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }[] }

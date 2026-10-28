@@ -14,7 +14,11 @@ export interface TripDetail extends TripSummary {
   orderStatus: string; approvedBy: string | null; approvedAt: string | null;
   returnReason: string | null; legs: TripLeg[];
 }
-export interface TripList { items: TripSummary[]; total: number; page: number; limit: number }
+export interface TripListItem extends TripSummary {
+  tripId: string; orderStatus: string; desiredDepartureDate: string | null;
+  requestedPickupTime: string | null; horseCount: number;
+}
+export interface TripList { items: TripListItem[]; total: number; page: number; limit: number }
 export interface TripPlanOptions {
   locations: { id: string; name: string; locationType: 'BORDER' | 'QUARANTINE_STATION' | 'REST_STOP' | 'AIRPORT' | 'FUEL_STOP'; country: string; timezone: string; address: string | null; latitude: number | null; longitude: number | null }[];
   vehicles: { id: string; plateOrCode: string; vehicleType: 'LIGHT' | 'MEDIUM' | 'HEAVY'; capacityStalls: number;
