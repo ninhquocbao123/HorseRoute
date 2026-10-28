@@ -1,0 +1,94 @@
+.coordinator-scope .assignment-picker .ant-modal-body { display: flex; flex-direction: column; min-height: 0; }
+.coordinator-scope .assignment-picker .ap-hint { color: var(--muted); margin: 0 0 16px; }
+.coordinator-scope .assignment-picker .ap-filters { display: flex; flex-wrap: wrap; gap: 12px; padding-bottom: 16px; }
+.coordinator-scope .assignment-picker .ap-filters label { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; font-size: 12px; font-weight: 600; }
+.coordinator-scope .assignment-picker .ap-filters .ap-search { flex: 2; min-width: 220px; }
+.coordinator-scope .assignment-picker .ap-filters .ant-input-number { width: 100%; }
+.coordinator-scope .assignment-picker .ap-results { overflow: auto; max-height: 42vh; min-height: 160px; border: 1px solid var(--line); border-radius: 10px; }
+.coordinator-scope .assignment-picker .ap-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.coordinator-scope .assignment-picker .ap-table th { text-align: left; background: var(--bg); color: var(--muted); position: sticky; top: 0; z-index: 1; }
+.coordinator-scope .assignment-picker .ap-table th, .coordinator-scope .assignment-picker .ap-table td { padding: 13px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.coordinator-scope .assignment-picker .ap-table tr:last-child td { border-bottom: 0; }
+.coordinator-scope .assignment-picker .ap-selected { background: #eaf6f4; }
+.coordinator-scope .assignment-picker small { display: block; color: var(--muted); font-size: 12px; margin: 4px 0; }
+.coordinator-scope .assignment-picker details { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.coordinator-scope .assignment-picker summary { cursor: pointer; color: var(--navy); }
+.coordinator-scope .assignment-picker .ap-pagination { padding: 14px 0; }
+.coordinator-scope .assignment-picker .ap-footer { border-top: 1px solid var(--line); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.coordinator-scope .assignment-picker .ap-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.coordinator-scope .assignment-picker .ap-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.coordinator-scope .assignment-picker .ap-summary > div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.coordinator-scope .assignment-picker .ap-summary .ap-filled { background: #eaf6f4; border-color: #9bc7c0; }
+.coordinator-scope .assignment-picker .resource-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 6px; }
+.coordinator-scope .assignment-picker .ap-results { border: 0; border-radius: 0; max-height: 48vh; }
+.coordinator-scope .assignment-picker .resource-card { position: relative; display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 280px; aspect-ratio: 1; padding: 18px; border: 2px solid var(--line); border-radius: 16px; background: white; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; overflow-wrap: anywhere; }
+.coordinator-scope .assignment-picker .resource-card:not(.is-disabled):hover { border-color: var(--navy); box-shadow: 0 4px 14px #0f4d5512; }
+.coordinator-scope .assignment-picker .resource-card:has(input:focus-visible) { outline: 3px solid var(--navy); outline-offset: 2px; }
+.coordinator-scope .assignment-picker .resource-card.is-selected { border-color: var(--navy); background: #eaf6f4; }
+.coordinator-scope .assignment-picker .resource-card.is-disabled { background: #f5f7f7; cursor: not-allowed; }
+.coordinator-scope .assignment-picker .resource-card-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.coordinator-scope .assignment-picker .resource-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.coordinator-scope .assignment-picker .resource-card-top .ant-tag { margin: 0; }
+.coordinator-scope .assignment-picker .resource-card-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #eaf6f4; color: var(--navy); font-size: 25px; }
+.coordinator-scope .assignment-picker .is-selected .resource-card-icon { background: var(--navy); color: white; }
+.coordinator-scope .assignment-picker .resource-card-heading { display: flex; flex-direction: column; gap: 4px; }
+.coordinator-scope .assignment-picker .resource-card-heading > strong { font-size: 20px; line-height: 1.3; color: var(--ink); }
+.coordinator-scope .assignment-picker .resource-card-heading > span { font-size: 13px; color: var(--muted); }
+.coordinator-scope .assignment-picker .resource-card-info { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.coordinator-scope .assignment-picker .resource-card-field { display: flex; justify-content: space-between; gap: 12px; }
+.coordinator-scope .assignment-picker .resource-card-field > span { color: var(--muted); flex-shrink: 0; }
+.coordinator-scope .assignment-picker .resource-card-field > strong { text-align: right; font-weight: 600; }
+.coordinator-scope .assignment-picker .resource-card-specialty { display: flex; flex-direction: column; gap: 5px; }
+.coordinator-scope .assignment-picker .resource-card-specialty > span { color: var(--muted); }
+.coordinator-scope .assignment-picker .resource-card-specialty > strong { font-weight: 500; line-height: 1.5; }
+.coordinator-scope .assignment-picker .resource-card-busy { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.coordinator-scope .assignment-picker .resource-card-choice { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; margin-top: auto; color: var(--navy); font-weight: 600; font-size: 13px; min-height: 40px; }
+.coordinator-scope .assignment-picker .resource-card-check { display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid #a8c3c5; border-radius: 6px; font-size: 17px; }
+.coordinator-scope .assignment-picker .is-selected .resource-card-check { background: var(--navy); color: white; border-color: var(--navy); }
+.coordinator-scope .assignment-picker .is-disabled .resource-card-choice { color: var(--muted); }
+@media (max-width: 900px) {
+  .coordinator-scope .assignment-picker .resource-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.coordinator-scope .vehicle-picker .vp-selection { position: relative; display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; cursor: pointer; }
+.coordinator-scope .vehicle-picker .vp-selection input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.coordinator-scope .vehicle-picker .vp-square { display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #a8c3c5; border-radius: 6px; background: white; pointer-events: none; transition: background .15s, border-color .15s, box-shadow .15s; }
+.coordinator-scope .vehicle-picker .vp-square svg { width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.coordinator-scope .vehicle-picker .vp-selection input:checked + .vp-square { background: var(--navy); border-color: var(--navy); box-shadow: 0 2px 4px #0f4d5520; }
+.coordinator-scope .vehicle-picker .vp-selection input:checked + .vp-square svg { opacity: 1; }
+.coordinator-scope .vehicle-picker .vp-selection input:focus-visible + .vp-square { outline: 3px solid var(--navy); outline-offset: 4px; }
+.coordinator-scope .vehicle-picker .vp-selection input:disabled { cursor: not-allowed; }
+.coordinator-scope .vehicle-picker .vp-selection input:disabled + .vp-square { background: #edf2f2; border-color: var(--line); }
+.coordinator-scope .vehicle-picker .ap-table td { vertical-align: middle; }
+.coordinator-scope .vehicle-picker .ap-table .vp-selection-cell { padding-block: 5px; width: 76px; }
+.coordinator-scope .vehicle-picker .vp-available { cursor: pointer; transition: background .15s; }
+.coordinator-scope .vehicle-picker .vp-available:hover { background: #f0f8f7; }
+.coordinator-scope .vehicle-picker .vp-available.ap-selected { background: #e5f3f0; }
+.coordinator-scope .vehicle-picker .ap-selected .vp-selection-cell { box-shadow: inset 3px 0 var(--navy); }
+.coordinator-scope .vehicle-picker .vp-disabled { color: var(--muted); }
+.coordinator-scope .vehicle-picker .vp-selected-label { display: inline-block; margin-left: 10px; font-size: 11px; font-weight: 600; color: var(--navy); }
+@media (max-width: 640px) {
+  .coordinator-scope .assignment-picker.ant-modal { top: 0; margin: 0; padding: 0; width: 100% !important; max-width: 100%; height: 100dvh; }
+  .coordinator-scope .assignment-picker .ant-modal-container, .coordinator-scope .assignment-picker .ant-modal-content { height: 100%; border-radius: 0; display: flex; flex-direction: column; padding: 16px; }
+  .coordinator-scope .assignment-picker .ant-modal-body { flex: 1; overflow: hidden; }
+  .coordinator-scope .assignment-picker .ap-hint { font-size: 12px; margin-bottom: 8px; }
+  .coordinator-scope .assignment-picker .ap-filters { gap: 8px; padding-bottom: 10px; }
+  .coordinator-scope .assignment-picker .ap-filters label { min-width: 0; flex: 1 1 28%; }
+  .coordinator-scope .assignment-picker .ap-filters .ap-search { flex: 1 1 100%; min-width: 0; }
+  .coordinator-scope .assignment-picker .ap-results { flex: 1; max-height: none; min-height: 0; background: var(--bg); }
+  .coordinator-scope .assignment-picker .ap-table, .coordinator-scope .assignment-picker .ap-table tbody { display: block; }
+  .coordinator-scope .assignment-picker .ap-table thead { display: none; }
+  .coordinator-scope .assignment-picker .ap-table tr { display: block; margin: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: white; }
+  .coordinator-scope .assignment-picker .ap-table tr.ap-selected { background: #eaf6f4; border-color: #9bc7c0; }
+  .coordinator-scope .assignment-picker .ap-table td { display: flex; justify-content: space-between; gap: 12px; border: 0; padding: 5px; overflow-wrap: anywhere; }
+  .coordinator-scope .assignment-picker .ap-table td::before { content: attr(data-label); color: var(--muted); flex: 0 0 90px; }
+  .coordinator-scope .assignment-picker .ap-footer { align-items: stretch; flex-direction: column; padding-top: 10px; gap: 6px; }
+  .coordinator-scope .assignment-picker .ap-actions { justify-content: flex-end; }
+  .coordinator-scope .assignment-picker .ap-pagination { padding: 8px 0; }
+  .coordinator-scope .assignment-picker .ap-summary > div { padding: 6px 10px; font-size: 12px; }
+  .coordinator-scope .assignment-picker .ant-tabs-nav { margin-bottom: 8px; }
+  .coordinator-scope .assignment-picker .resource-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .coordinator-scope .assignment-picker .resource-card { aspect-ratio: auto; min-height: 260px; }
+  .coordinator-scope .vehicle-picker .ap-table .vp-selection-cell { width: auto; align-items: center; }
+  .coordinator-scope .vehicle-picker .ap-selected .vp-selection-cell { box-shadow: none; }
+}
+

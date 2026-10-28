@@ -44,7 +44,7 @@ test('Saving requires DRAFT Trip and APPROVED or PREPARING Order', async () => {
       let writes = 0;
       const row = { id:'9',orderId:'8',orderCode:'TEST',plannedBy:'4',planStatus,plannedDepartureAt:null,plannedArrivalAt:null };
       const repo = { transaction: work=>work(repo), orderId:async()=> '8',lockOrder:async()=>({status:orderStatus}),lockTrip:async()=>row,
-        lockLegs:async()=>[],hasHistory:async()=>false,lockLocation:async()=>true,lockActiveVehicle:async()=>true,
+        lockLegs:async()=>[],hasHistory:async()=>false,lockLocation:async()=>true,lockAvailableVehicle:async()=>true,vehicleOverlaps:async()=>false,assignments:async()=>[],
         find:async()=>row,legs:async()=>[],writeLeg:async()=>{writes++;},updatePlanTimes:async()=>{},audit:async()=>{} };
       const promise = new TripsService(repo).savePlan({id:'4',role:'COORDINATOR'},'9',{legs:[planLeg]});
       if(planStatus==='DRAFT' && ['APPROVED','PREPARING'].includes(orderStatus)) { assert.equal((await promise).planStatus,planStatus);assert.equal(writes,1); }
@@ -73,8 +73,8 @@ test('Crew input requires distinct DRIVER and ESCORT and rejects server-owned fi
 });
 test('Crew readiness reports missing and invalid crew, without claiming full READY',()=>{
  assert.deepEqual(checkCrewReadiness([]).blockers.map(b=>b.code),['MISSING_DRIVER','MISSING_ESCORT']);
- const driver={userId:'7',role:'DRIVER',accountRole:'DRIVER_ESCORT',accountStatus:'ACTIVE'};
- const escort={...driver,userId:'8',role:'ESCORT'};
+ const driver={userId:'7',role:'DRIVER',accountRole:'DRIVER_ESCORT',accountStatus:'ACTIVE',crewType:'DRIVER',workStatus:'AVAILABLE'};
+ const escort={...driver,userId:'8',role:'ESCORT',crewType:'ESCORT'};
  assert.equal(checkCrewReadiness([driver,escort]).complete,true);
  assert.deepEqual(checkCrewReadiness([driver,{...escort,accountStatus:'LOCKED'}]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_ESCORT']);
  assert.deepEqual(checkCrewReadiness([{...driver,accountRole:'CUSTOMER'},escort]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_DRIVER']);

@@ -1,18 +1,14 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import DashboardShell from '../../components/layout/DashboardShell';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/hooks/useAuth';
-import '../../modules/trips/styles/trips.css';
 
-// Nested under ProtectedRoute; all three trip pages share the same role guard.
+// Legacy entry point: Coordinator pages now live under the role-specific workspace.
 export default function TripsRoute() {
-  const { account, logout } = useAuth();
+  const { account } = useAuth();
+  const location = useLocation();
   if (!account) return <Navigate to="/login" replace />;
-  if (account.role !== 'COORDINATOR') {
-    return <Navigate to="/dashboard" replace />;
+  if (account.role === 'COORDINATOR') {
+    const pathname = location.pathname.replace(/^\/dashboard\/trips/, '/coordinator/trips');
+    return <Navigate to={`${pathname}${location.search}`} replace />;
   }
-  return (
-    <DashboardShell account={account} logout={logout} activeView="trips" showHeading={false}>
-      <div className="trip-workspace"><Outlet /></div>
-    </DashboardShell>
-  );
+  return <Navigate to="/dashboard" replace />;
 }

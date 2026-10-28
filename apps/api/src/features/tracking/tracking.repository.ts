@@ -68,7 +68,7 @@ export class TrackingRepository {
       `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, f.name AS fromLocationName,
         CAST(l.to_location_id AS CHAR) AS toLocationId, dest.name AS toLocationName, dest.location_type AS toLocationType,
-        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.plate_or_code AS vehicleCode,
+        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.license_plate AS vehicleCode,
         l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
         l.status, l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
         l.updated_at AS updatedAt, u.full_name AS updatedByName
@@ -89,7 +89,7 @@ export class TrackingRepository {
       `SELECT CAST(l.trip_id AS CHAR) AS tripId, CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, f.name AS fromLocationName,
         CAST(l.to_location_id AS CHAR) AS toLocationId, dest.name AS toLocationName, dest.location_type AS toLocationType,
-        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.plate_or_code AS vehicleCode,
+        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.license_plate AS vehicleCode,
         l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
         l.status, l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
         l.updated_at AS updatedAt, u.full_name AS updatedByName
@@ -163,11 +163,11 @@ export class TrackingRepository {
   /** Các xe khác nhau dùng trong chặng, theo chặng đầu tiên dùng xe. */
   async getTripVehicles(tripId: string): Promise<TripVehicleRow[]> {
     return this.db.query(
-      `SELECT CAST(v.id AS CHAR) AS id, v.plate_or_code AS code, v.vehicle_type AS type, v.capacity_stalls AS capacityStalls
+      `SELECT CAST(v.id AS CHAR) AS id, v.license_plate AS code, v.vehicle_type AS type, v.capacity_stalls AS capacityStalls
       FROM legs l
       JOIN vehicles v ON v.id = l.vehicle_id
       WHERE l.trip_id = ?
-      GROUP BY v.id, v.plate_or_code, v.vehicle_type, v.capacity_stalls
+      GROUP BY v.id, v.license_plate, v.vehicle_type, v.capacity_stalls
       ORDER BY MIN(l.seq_no) ASC, v.id ASC`,
       [tripId]
     );
@@ -469,8 +469,10 @@ export class TrackingRepository {
   async getDepartureBlockers(tripId: string, orderId: string): Promise<{ code: string; message: string; legId?: string; userId?: string; horseId?: string }[]> {
     const blockers: { code: string; message: string; legId?: string; userId?: string; horseId?: string }[] = [];
     const crew = await this.db.query(
-      `SELECT CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus
-      FROM trip_assignments a JOIN users u ON u.id = a.user_id WHERE a.trip_id = ?`,
+      `SELECT CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus,
+        cp.crew_type AS crewType, cp.work_status AS workStatus
+      FROM trip_assignments a JOIN users u ON u.id = a.user_id
+      LEFT JOIN crew_profiles cp ON cp.user_id = a.user_id WHERE a.trip_id = ?`,
       [tripId]
     );
     blockers.push(...checkCrewReadiness(crew).blockers);
@@ -485,8 +487,8 @@ export class TrackingRepository {
       blockers.push({ code: 'HORSE_FLAGGED', message: 'Có ngựa đang bị đánh dấu, cần xử lý trước khi xuất phát.', horseId: horse.id });
     }
 
-    const legs: { id: string; vehicleActive: number | null; capacity: number | null; busy: number }[] = await this.db.query(
-      `SELECT CAST(l.id AS CHAR) AS id, v.is_active AS vehicleActive, v.capacity_stalls AS capacity,
+    const legs: { id: string; vehicleStatus: string | null; capacity: number | null; busy: number }[] = await this.db.query(
+      `SELECT CAST(l.id AS CHAR) AS id, v.status AS vehicleStatus, v.capacity_stalls AS capacity,
         EXISTS(
           SELECT 1 FROM legs x JOIN trips xt ON xt.id = x.trip_id JOIN orders xo ON xo.id = xt.order_id
           WHERE x.vehicle_id = l.vehicle_id AND xt.id <> l.trip_id AND xo.status = 'IN_TRANSIT'
@@ -496,7 +498,7 @@ export class TrackingRepository {
       [tripId]
     );
     for (const leg of legs) {
-      if (!leg.vehicleActive) blockers.push({ code: 'VEHICLE_INACTIVE', message: 'Chặng thiếu xe hoặc xe không còn hoạt động.', legId: leg.id });
+      if (!leg.vehicleStatus) blockers.push({ code: 'VEHICLE_MISSING', message: 'Chặng chưa có xe hợp lệ.', legId: leg.id });
       else if (leg.capacity === null || leg.capacity < normal) blockers.push({ code: 'VEHICLE_CAPACITY', message: 'Xe không đủ chỗ cho ngựa NORMAL.', legId: leg.id });
       if (Number(leg.busy) === 1) blockers.push({ code: 'VEHICLE_BUSY', message: 'Xe còn đang vận hành chuyến khác.', legId: leg.id });
     }

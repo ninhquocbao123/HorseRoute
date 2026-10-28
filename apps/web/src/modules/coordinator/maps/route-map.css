@@ -1,0 +1,31 @@
+.coordinator-scope .osm-planner .ant-alert { margin-bottom: 12px; }
+.coordinator-scope .osm-planner .osm-toolbar, .coordinator-scope .osm-planner .waypoint-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.coordinator-scope .osm-planner .osm-toolbar { flex-wrap: wrap; }
+.coordinator-scope .osm-planner .waypoint-list { display: grid; gap: 12px; max-height: 420px; overflow-y: auto; padding: 3px; }
+.coordinator-scope .osm-planner .waypoint-editor { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); }
+.coordinator-scope .osm-planner .waypoint-search { display: flex; gap: 8px; margin-bottom: 8px; }
+.coordinator-scope .osm-planner .waypoint-editor small { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.coordinator-scope .osm-planner .address-results { display: grid; gap: 4px; margin-top: 10px; }
+.coordinator-scope .osm-planner .address-results button { text-align: left; background: white; color: var(--ink); padding: 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.coordinator-scope .osm-planner .address-results button:hover { border-color: var(--navy); }
+.coordinator-scope .osm-planner .osm-source, .coordinator-scope .osm-planner .osm-map-help { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.coordinator-scope .osm-map-frame { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; isolation: isolate; }
+.coordinator-scope .osm-map-frame .osm-map { width: 100%; height: 440px; }
+.coordinator-scope .osm-map-frame.is-picking .leaflet-container { cursor: crosshair; }
+.coordinator-scope .osm-number-marker span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: white; border: 2px solid white; box-shadow: 0 2px 6px #0005; font-weight: 700; background: #0f4d55; }
+.coordinator-scope .osm-number-marker .osm-point-destination { background: #b13e48; }
+.coordinator-scope .osm-number-marker .osm-point-stop { background: #926314; }
+.coordinator-scope .osm-planner .osm-loading { display: flex; gap: 12px; align-items: center; padding: 20px; }
+.coordinator-scope .osm-planner .osm-route-options { display: grid; gap: 10px; }
+.coordinator-scope .osm-planner .osm-route-options label { display: flex; align-items: center; gap: 12px; border: 2px solid var(--line); padding: 14px; border-radius: 12px; cursor: pointer; }
+.coordinator-scope .osm-planner .osm-route-options label.is-selected { background: #eaf6f4; border-color: var(--navy); }
+.coordinator-scope .osm-planner .osm-route-options input { width: 20px; height: 20px; accent-color: var(--navy); }
+.coordinator-scope .osm-planner .osm-route-options small { display: block; color: var(--muted); margin-top: 5px; }
+@media (max-width: 640px) {
+  .coordinator-scope .osm-map-frame .osm-map { height: 330px; }
+  .coordinator-scope .osm-planner .waypoint-search { flex-wrap: wrap; }
+  .coordinator-scope .osm-planner .waypoint-search .ant-input { flex-basis: 100%; }
+  .coordinator-scope .osm-planner .waypoint-search .ant-btn { flex: 1; }
+  .coordinator-scope .osm-planner .osm-toolbar .ant-space { width: 100%; }
+  .coordinator-scope .osm-planner .osm-toolbar .ant-btn { white-space: normal; height: auto; min-height: 32px; }
+}

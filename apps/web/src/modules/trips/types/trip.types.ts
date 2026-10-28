@@ -22,7 +22,7 @@ export interface TripLeg {
   toLocationName: string;
   vehicleId: string | null;
   vehicleCode: string | null;
-  vehicleActive: boolean | null;
+  vehicleStatus: 'AVAILABLE' | 'RESERVED' | 'IN_TRANSIT' | null;
   plannedDepartureAt: string;
   plannedArrivalAt: string;
   status: TripLegStatus;
@@ -41,10 +41,10 @@ export interface TripListResponse extends TripListParams {
   items: TripSummary[];
   total: number;
 }
-export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:string; capacityStalls:number; isActive:true }[] }
+export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:'LIGHT'|'MEDIUM'|'HEAVY'; capacityStalls:number; status:'AVAILABLE'|'RESERVED'|'IN_TRANSIT'; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }[] }
 export interface TripPlanLegInput { id?:string; fromLocationId:string; toLocationId:string; vehicleId:string; plannedDepartureAt:string; plannedArrivalAt:string }
 export interface TripPlanInput { legs:TripPlanLegInput[] }
-export interface CrewOption { id:string; fullName:string }
-export interface TripAssignment { id:string; userId:string; fullName:string; role:'DRIVER'|'ESCORT'; assignedBy:string; assignedAt:string }
+export interface CrewOption { id:string; fullName:string; crewType:'DRIVER'|'ESCORT'|null; workStatus:'AVAILABLE'|'IN_TRIP'|null; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }
+export interface TripAssignment { id:string; userId:string; fullName:string; role:'DRIVER'|'ESCORT'; assignedBy:string; assignedAt:string; crewType:'DRIVER'|'ESCORT'|null; workStatus:'AVAILABLE'|'IN_TRIP'|null }
 export interface TripAssignments { tripId:string; items:TripAssignment[]; crewReadiness:{complete:boolean;blockers:{code:string;message:string;userId?:string}[]} }
 export interface TripAssignmentsInput { assignments:{userId:string;role:'DRIVER'|'ESCORT'}[] }

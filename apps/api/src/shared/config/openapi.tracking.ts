@@ -35,8 +35,8 @@ export const trackingSchemas = {
     role: { type: 'string', enum: ['DRIVER', 'ESCORT'] },
   }),
   TrackingVehicle: object({
-    id, code: { type: 'string', description: 'vehicles.plate_or_code' },
-    type: { type: 'string', enum: ['TRUCK', 'AIRCRAFT_HOLD', 'CRATE'] }, capacityStalls: { type: 'integer', minimum: 1 },
+    id, code: { type: 'string', description: 'vehicles.license_plate' },
+    type: { type: 'string', enum: ['LIGHT', 'MEDIUM', 'HEAVY'] }, capacityStalls: { type: 'integer', minimum: 1 },
   }),
   DriverTripSummary: object({
     id, orderId: id, orderCode: { type: 'string' }, orderStatus, planStatus,
@@ -301,7 +301,7 @@ export const trackingPaths = {
     responses: { ...ok(200, ref('TrackingTripDetail'), { id: '200', orderId: '100', orderCode: 'WDP-DEMO-100', orderStatus: 'IN_TRANSIT', planStatus: 'APPROVED', plannedDepartureAt: t0, plannedArrivalAt: t1, crewRole: 'DRIVER',
       crew: [{ userId: '6', name: 'Tài xế mẫu', phone: '0901000001', role: 'DRIVER' }, { userId: '10', name: 'Hộ tống mẫu', phone: '0901000002', role: 'ESCORT' }],
       customer: { name: 'Khách hàng mẫu' }, recipient: { name: 'Người nhận mẫu', phone: '+6560000000' }, coordinator: { name: 'Điều phối mẫu', phone: '0901000003' }, emergencyHotline: '1900 1080',
-      vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'TRUCK', capacityStalls: 4 }],
+      vehicles: [{ id: '5', code: 'XE-DEMO-01', type: 'MEDIUM', capacityStalls: 4 }],
       horses: [{ id: '21', name: 'Ngựa mẫu', passportNo: 'PP-001', orderStatus: 'NORMAL' }], legs: [leg1] }), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/legs/{legId}/milestones': { post: { ...common, operationId: 'recordMilestone', summary: 'Driver/Escort: ghi mốc của chặng', parameters: [legId],
     description: `Quy tắc: tuần tự theo luồng chặng (409 nếu nhảy cóc hoặc trùng mốc); \`occurredAt\` không ở tương lai, nhập bù tối đa T phút, không sớm hơn mốc trước (400).
@@ -363,7 +363,7 @@ Hệ quả trong cùng transaction: xóa mốc không còn phù hợp, thêm m�
     responses: { ...ok(200, ref('ActiveTrips'), { summary: { inTransit: 1, openIncidents: 1, overdueTrips: 0 }, items: [activeItem] }), ...errors([401, 403, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/map': { get: { ...common, operationId: 'getTripMap', summary: 'Bản đồ chuyến: tuyến từng chặng, điểm dừng, km, vị trí xe', parameters: [tripId],
     description: `Driver (được phân công), Coordinator (chuyến mình lập), Manager, Specialist (thấy GPS như Manager, quyết định #4). Customer không gọi API này.
-- Tuyến: \`AIRCRAFT_HOLD\` → AIR (cung tròn lớn); xe khác → ROAD từ cache \`location_routes\` (30 ngày) hoặc Mapbox Directions (timeout 5 giây). Không có token / lỗi / không có đường → STRAIGHT; không bao giờ trả 500 vì Mapbox.
+- Tuyến: mọi xe LIGHT/MEDIUM/HEAVY dùng ROAD từ cache \`location_routes\` (30 ngày) hoặc Mapbox Directions (timeout 5 giây). Không có token / lỗi / không có đường → STRAIGHT; không bao giờ trả 500 vì Mapbox.
 - \`position\`: GPS khi điểm mới nhất < 10 phút và chặng hiện tại không phải chặng bay; ngược lại ước tính theo mốc (MOVING: theo thời gian, kẹp 0–0.95).
 - Không reverse geocode, không lưu địa chỉ từ Mapbox. Giới hạn 60 request/phút/người dùng.`,
     responses: { ...ok(200, ref('TripMap'), tripMap), ...errors([400, 401, 403, 404, 429, 500]) } } },

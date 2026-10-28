@@ -60,7 +60,12 @@ function AuthForm({ mode }: { mode: Mode }) {
   const busy = loading || isSubmitting;
   const customerType = watch('customerType');
   const password = watch('password');
-  if (account) return <Navigate to={params.get('order') ? '/dashboard?view=orders' : '/dashboard'} replace />;
+  if (account) {
+    const destination = account.role === 'COORDINATOR'
+      ? '/coordinator/dashboard'
+      : params.get('order') ? '/dashboard?view=orders' : '/dashboard';
+    return <Navigate to={destination} replace />;
+  }
   const submit = handleSubmit(async data => {
     setError('');
     try {

@@ -607,6 +607,22 @@ CREATE TABLE `users` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `crew_profiles`
+--
+
+DROP TABLE IF EXISTS `crew_profiles`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `crew_profiles` (
+  `user_id` bigint unsigned NOT NULL,
+  `crew_type` enum('DRIVER','ESCORT') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `work_status` enum('AVAILABLE','IN_TRIP') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'AVAILABLE',
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_crew_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Hồ sơ tài xế/người hộ tống';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `vehicles`
 --
 
@@ -615,12 +631,12 @@ DROP TABLE IF EXISTS `vehicles`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `vehicles` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `vehicle_type` enum('TRUCK','AIRCRAFT_HOLD','CRATE') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `vehicle_type` enum('LIGHT','MEDIUM','HEAVY') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `capacity_stalls` int NOT NULL,
-  `plate_or_code` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `license_plate` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('AVAILABLE','RESERVED','IN_TRANSIT') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'AVAILABLE',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_vehicles_plate_or_code` (`plate_or_code`),
+  UNIQUE KEY `uq_vehicles_license_plate` (`license_plate`),
   CONSTRAINT `ck_vehicles_capacity` CHECK ((`capacity_stalls` > 0))
 ) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Phương tiện';
 /*!40101 SET character_set_client = @saved_cs_client */;

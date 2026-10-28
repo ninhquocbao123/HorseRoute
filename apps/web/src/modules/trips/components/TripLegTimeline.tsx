@@ -43,8 +43,8 @@ export default function TripLegTimeline({ legs }: { legs: TripLeg[] }) {
                 <dt>Phương tiện</dt>
                 <dd>
                   {leg.vehicleCode || 'Chưa chọn'}
-                  {leg.vehicleActive === false && (
-                    <span className="trip-leg-warning"> (Ngừng hoạt động)</span>
+                  {leg.vehicleStatus && leg.vehicleStatus !== 'AVAILABLE' && (
+                    <span className="trip-leg-warning"> ({leg.vehicleStatus === 'RESERVED' ? 'Đang giữ chỗ' : 'Đang vận chuyển'})</span>
                   )}
                 </dd>
               </div>

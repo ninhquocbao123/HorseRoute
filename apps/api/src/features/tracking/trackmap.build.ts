@@ -88,7 +88,7 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
       status: leg.status,
       fromLocationId: leg.fromId,
       toLocationId: leg.toId,
-      mode: route?.mode ?? (leg.vehicleType === 'AIRCRAFT_HOLD' ? 'AIR' : 'STRAIGHT'),
+      mode: route?.mode ?? 'STRAIGHT',
       coordinates: route ? route.coordinates : null,
       distanceKm: route ? roundKm(route.distanceKm) : null,
       plannedDepartureAt: leg.plannedDepartureAt.toISOString(),
@@ -132,7 +132,7 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
   if (legs.length) {
     const currentLine = current >= 0 ? coordsOf(current) : null;
     const gpsUsable = current >= 0 && !milestoneNewer && latestPosition && latestPosition.freshness !== 'OLD'
-      && legs[current].vehicleType !== 'AIRCRAFT_HOLD';
+      && legs[current].vehicleType !== null;
     if (gpsUsable && latestPosition) {
       const point: LngLat = [latestPosition.lng, latestPosition.lat];
       position = {

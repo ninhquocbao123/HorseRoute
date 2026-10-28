@@ -40,7 +40,7 @@ test('Trip design contract exposes complete schemas, examples and explicit imple
  assert.equal(leg.additionalProperties, false);
  assert.ok(!leg.required.includes('id'));
  assert.ok(!leg.properties.planStatus);
- assert.equal(doc.components.schemas.TripLeg.properties.vehicleActive.nullable, true);
+ assert.equal(doc.components.schemas.TripLeg.properties.vehicleStatus.nullable, true);
  const save = doc.paths['/api/v1/trips/{id}/plan'].put;
  const examples = save.requestBody.content['application/json'].examples;
  assert.ok(examples.firstSave.value.legs.every(x => x.id === undefined));

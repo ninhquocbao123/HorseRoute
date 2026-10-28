@@ -7,7 +7,7 @@ import { createVehicleSchema, updateVehicleSchema, vehicleIdSchema, vehicleQuery
 
 const dbCode = (error: unknown) => (error as { code?: string }).code ?? (error as { driverError?: { code?: string } }).driverError?.code;
 const DUPLICATE = 'Biển số hoặc mã xe đã tồn tại.';
-const snapshot = (v: VehicleItem) => ({ plateOrCode: v.plateOrCode, vehicleType: v.vehicleType, capacityStalls: v.capacityStalls, isActive: v.isActive });
+const snapshot = (v: VehicleItem) => ({ plateOrCode: v.plateOrCode, vehicleType: v.vehicleType, capacityStalls: v.capacityStalls, status: v.status });
 
 export class VehiclesService {
   constructor(private readonly repository: VehiclesRepository) {}
@@ -52,8 +52,8 @@ export class VehiclesService {
         if (!await repo.lock(id)) throw new NotFoundException('Không tìm thấy phương tiện.');
         const before = (await repo.find(id))!;
         const uses = await repo.uses(id);
-        if (before.isActive && !input.isActive && uses.length) {
-          throw new ConflictException(`Xe đang nằm trong kế hoạch đã duyệt của đơn ${uses.map(u => u.orderCode).join(', ')}; chưa thể ngừng hoạt động.`);
+        if (before.status !== input.status && uses.length) {
+          throw new ConflictException(`Xe đang nằm trong kế hoạch đã duyệt của đơn ${uses.map(u => u.orderCode).join(', ')}; chưa thể đổi trạng thái vận hành.`);
         }
         const need = Math.max(0, ...uses.map(u => u.horseCount));
         if (input.capacityStalls < need) {
@@ -77,13 +77,13 @@ export class VehiclesService {
         if (!await repo.lock(id)) throw new NotFoundException('Không tìm thấy phương tiện.');
         const before = (await repo.find(id))!;
         if (before.legCount > 0) {
-          throw new ConflictException('Xe đã được dùng trong kế hoạch chuyến nên không thể xóa; hãy chuyển sang ngừng hoạt động.');
+          throw new ConflictException('Xe đã được dùng trong kế hoạch chuyến nên không thể xóa; hãy quản lý bằng trạng thái vận hành.');
         }
         await repo.remove(id);
         await repo.audit(account.id, id, 'DELETE', snapshot(before), null);
       });
     } catch (error) {
-      if (dbCode(error) === 'ER_ROW_IS_REFERENCED_2') throw new ConflictException('Xe đang được tham chiếu nên không thể xóa; hãy chuyển sang ngừng hoạt động.');
+      if (dbCode(error) === 'ER_ROW_IS_REFERENCED_2') throw new ConflictException('Xe đang được tham chiếu nên không thể xóa; hãy quản lý bằng trạng thái vận hành.');
       throw error;
     }
   }

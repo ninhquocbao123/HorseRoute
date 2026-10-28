@@ -35,7 +35,13 @@ export class TripsService {
           invalid(`legs.${index}.id`, 'Giữ đủ ID chặng cũ đúng thứ tự; chặng mới không có ID và chỉ thêm cuối.');
         }
       });
-      await this.validateCatalog(repo, input);
+      await this.validateCatalog(repo, id, input);
+      for (const [index, leg] of input.legs.entries()) {
+        if (await repo.vehicleOverlaps(id, leg.vehicleId, leg.plannedDepartureAt, leg.plannedArrivalAt)) {
+          invalid(`legs.${index}.vehicleId`, 'Xe trùng lịch với kế hoạch đã được duyệt.');
+        }
+      }
+      await this.validateAssignedCrewSchedule(repo, id, input.legs[0].plannedDepartureAt, input.legs[input.legs.length - 1].plannedArrivalAt);
       const service = new TripsService(repo);
       const before = await service.detail(account, id);
       let nextSeq = existing.length ? existing[existing.length - 1].seqNo + 1 : 1;
@@ -72,7 +78,7 @@ export class TripsService {
     }
     return { orderId, order, existing };
   }
-  private async validateCatalog(repo: TripsRepository, input: TripPlanInput, exclusiveVehicles = false) {
+  private async validateCatalog(repo: TripsRepository, tripId: string, input: TripPlanInput, exclusiveVehicles = false) {
     const invalid = (field: string, message: string): never => {
       throw new BadRequestException({ message: 'Vui lòng kiểm tra kế hoạch.', fields: { [field]: message } });
     };
@@ -80,10 +86,10 @@ export class TripsService {
     const sortIds = (ids: string[]) => [...new Set(ids)].sort((a, b) => a.length - b.length || a.localeCompare(b));
     const locations = new Map<string, boolean>(), vehicles = new Map<string, boolean>();
     for (const location of sortIds(input.legs.flatMap(l => [l.fromLocationId, l.toLocationId]))) locations.set(location, await repo.lockLocation(location));
-    for (const vehicle of sortIds(input.legs.map(l => l.vehicleId))) vehicles.set(vehicle, await repo.lockActiveVehicle(vehicle, exclusiveVehicles));
+    for (const vehicle of sortIds(input.legs.map(l => l.vehicleId))) vehicles.set(vehicle, await repo.lockAvailableVehicle(vehicle, tripId, exclusiveVehicles));
     input.legs.forEach((leg, index) => {
       for (const field of ['fromLocationId', 'toLocationId'] as const) if (!locations.get(leg[field])) invalid(`legs.${index}.${field}`, 'Địa điểm không tồn tại.');
-      if (!vehicles.get(leg.vehicleId)) invalid(`legs.${index}.vehicleId`, 'Xe không tồn tại hoặc không còn active.');
+      if (!vehicles.get(leg.vehicleId)) invalid(`legs.${index}.vehicleId`, 'Xe không tồn tại hoặc trạng thái hiện tại không cho phép phân công.');
     });
   }
   async submitPlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
@@ -95,6 +101,7 @@ export class TripsService {
       const service = new TripsService(repo);
       const detail = await service.detail(account, id);
       await this.validateStoredPlan(repo, detail, existing.length, orderId, false);
+      await this.validateAssignedCrewSchedule(repo, id, detail.plannedDepartureAt, detail.plannedArrivalAt);
       await repo.submitPlan(id, orderId);
       await repo.auditSubmission(account.id, id, orderId, order.status);
       await repo.notifyPlanManagers(id);
@@ -115,7 +122,7 @@ export class TripsService {
     if (detail.plannedDepartureAt !== detail.legs[0].plannedDepartureAt || detail.plannedArrivalAt !== detail.legs[detail.legs.length - 1].plannedArrivalAt) {
       throw new ConflictException('Thời gian Trip không khớp chặng đầu/cuối. Vui lòng lưu lại kế hoạch.');
     }
-    try { await this.validateCatalog(repo, input, approval); }
+    try { await this.validateCatalog(repo, detail.id, input, approval); }
     catch (error) {
       if (error instanceof BadRequestException) throw new ConflictException(error.getResponse());
       throw error;
@@ -155,7 +162,10 @@ export class TripsService {
       }
       const service = new TripsService(repo), before = await service.detail(account, id);
       // Return must remain possible for empty/invalid plans; approval must validate every stored leg again.
-      if (input.decision === 'APPROVED') await this.validateStoredPlan(repo, before, existing.length, orderId, true);
+      if (input.decision === 'APPROVED') {
+        await this.validateStoredPlan(repo, before, existing.length, orderId, true);
+        await this.validateAssignedCrewSchedule(repo, id, before.plannedDepartureAt, before.plannedArrivalAt);
+      }
       await repo.reviewPlan(id, account.id, input);
       if (input.decision === 'APPROVED' && checkCrewReadiness(await repo.assignments(id)).complete) {
         const markedReady = await repo.markOrderReady(orderId);
@@ -173,15 +183,29 @@ export class TripsService {
       return after;
     });
   }
+  private async validateAssignedCrewSchedule(repo: TripsRepository, tripId: string, departure: string | null, arrival: string | null) {
+    let assignments = await repo.assignments(tripId);
+    if (!assignments.length) return;
+    const ids = [...new Set(assignments.map(row => row.userId))].sort((a, b) => a.length - b.length || a.localeCompare(b));
+    for (const userId of ids) await repo.lockCrewUser(userId);
+    assignments = await repo.assignments(tripId);
+    if (!departure || !arrival) throw new ConflictException('Chuyến chưa có khung giờ hợp lệ để kiểm tra nhân sự.');
+    for (const assignment of assignments) {
+      if (assignment.accountRole !== 'DRIVER_ESCORT' || assignment.accountStatus !== 'ACTIVE' || !assignment.crewType || assignment.crewType !== assignment.role) {
+        throw new ConflictException(`Phân công của ${assignment.fullName} không còn đủ điều kiện; hãy cập nhật nhân sự trước.`);
+      }
+      if (await repo.crewOverlaps(tripId, assignment.userId, departure, arrival)) throw new ConflictException('Nhân sự trùng lịch với chuyến đã được duyệt.');
+    }
+  }
   async assignmentOptions(account: User, id: string) {
     await this.accessible(account, id);
-    return { items: await this.repository.assignmentOptions() };
+    return { items: await this.repository.assignmentOptions(id) };
   }
   async assignments(account: User, id: string): Promise<TripAssignments> {
     await this.accessible(account, id);
     const rows = await this.repository.assignments(id);
     return { tripId: id, items: rows.map(row => ({ id: row.id, userId: row.userId, fullName: row.fullName,
-      role: row.role, assignedBy: row.assignedBy, assignedAt: row.assignedAt.toISOString() })), crewReadiness: checkCrewReadiness(rows) };
+      role: row.role, assignedBy: row.assignedBy, assignedAt: row.assignedAt.toISOString(), crewType: row.crewType, workStatus: row.workStatus })), crewReadiness: checkCrewReadiness(rows) };
   }
   async saveAssignments(account: User, rawId: string, body: unknown): Promise<TripAssignments> {
     if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được phân công.');
@@ -199,18 +223,26 @@ export class TripsService {
       }
       // Trip lock serializes replacements. Lock the union of old/new users before assignment rows.
       const before = await repo.assignments(id);
+      const oldByUser = new Map(before.map(a => [a.userId, a]));
       const ids = [...new Set([...before.map(a => a.userId), ...input.assignments.map(a => a.userId)])]
         .sort((a, b) => a.length - b.length || a.localeCompare(b));
-      const users = new Map<string, { role: string; accountStatus: string } | undefined>();
+      const users = new Map<string, { role: string; accountStatus: string; crewType: string | null; workStatus: string | null } | undefined>();
       for (const userId of ids) users.set(userId, await repo.lockCrewUser(userId));
       await repo.lockAssignments(id);
       input.assignments.forEach((a, index) => {
         const user = users.get(a.userId);
-        if (!user || user.role !== 'DRIVER_ESCORT' || user.accountStatus !== 'ACTIVE') {
-          throw new BadRequestException({ message: 'Nhân sự phân công không hợp lệ.', fields: { [`assignments.${index}.userId`]: 'Chọn tài khoản DRIVER_ESCORT đang ACTIVE.' } });
+        const selfInTrip = user?.workStatus === 'IN_TRIP' && oldByUser.has(a.userId);
+        if (!user || user.role !== 'DRIVER_ESCORT' || user.accountStatus !== 'ACTIVE' || !user.crewType || user.crewType !== a.role || (user.workStatus !== 'AVAILABLE' && !selfInTrip)) {
+          throw new BadRequestException({ message: 'Nhân sự phân công không hợp lệ.', fields: { [`assignments.${index}.userId`]: 'Chọn tài khoản ACTIVE có hồ sơ AVAILABLE đúng vai trò DRIVER/ESCORT.' } });
         }
       });
-      const oldByUser = new Map(before.map(a => [a.userId, a]));
+      const window = await repo.tripWindow(id);
+      if (!window) throw new ConflictException('Hãy lưu khung giờ kế hoạch trước khi phân công nhân sự.');
+      for (const [index, assignment] of input.assignments.entries()) {
+        if (await repo.crewOverlaps(id, assignment.userId, window.departure.toISOString(), window.arrival.toISOString())) {
+          throw new BadRequestException({ message: 'Nhân sự trùng lịch.', fields: { [`assignments.${index}.userId`]: 'Nhân sự đã được phân công cho chuyến được duyệt trong khung giờ này.' } });
+        }
+      }
       const wanted = new Map(input.assignments.map(a => [a.userId, a.role]));
       const changes: { userId: string; role: string | null }[] = [];
       for (const old of before) if (!wanted.has(old.userId)) {
@@ -256,17 +288,20 @@ export class TripsService {
       approvedAt: row.approvedAt?.toISOString() ?? null, returnReason: row.returnReason ?? null, legs: legs.map(leg => ({
       id: leg.id, seqNo: leg.seqNo, fromLocationId: leg.fromLocationId, fromLocationName: leg.fromLocationName,
       toLocationId: leg.toLocationId, toLocationName: leg.toLocationName, vehicleId: leg.vehicleId,
-      vehicleCode: leg.vehicleCode, vehicleActive: leg.vehicleActive === null ? null : Boolean(leg.vehicleActive),
+      vehicleCode: leg.vehicleCode, vehicleStatus: leg.vehicleStatus,
       plannedDepartureAt: leg.plannedDepartureAt.toISOString(), plannedArrivalAt: leg.plannedArrivalAt.toISOString(), status: leg.status,
     })) };
   }
   async planOptions(account: User, id: string): Promise<TripPlanOptions> {
     await this.accessible(account, id);
-    const [locations, vehicles] = await Promise.all([this.repository.locations(), this.repository.vehicles()]);
+    const [locations, vehicles, currentVehicles] = await Promise.all([this.repository.locations(), this.repository.vehicles(), this.repository.tripVehicleIds(id)]);
     return {
       locations: locations.map(l => ({ id: l.id, name: l.name, locationType: l.locationType, country: l.country, timezone: l.timezone, address: l.address,
         latitude: l.latitude === null ? null : Number(l.latitude), longitude: l.longitude === null ? null : Number(l.longitude) })),
-      vehicles: vehicles.map(v => ({ id: v.id, plateOrCode: v.plateOrCode, vehicleType: v.vehicleType, capacityStalls: v.capacityStalls, isActive: true })),
+      vehicles: vehicles.map(v => {
+        const blockingReasons = v.status === 'AVAILABLE' || currentVehicles.has(v.id) ? [] : [{ code: `VEHICLE_${v.status}`, message: v.status === 'RESERVED' ? 'Xe đang được giữ cho kế hoạch khác.' : 'Xe đang vận chuyển.' }];
+        return { ...v, selectable: blockingReasons.length ? false : null, scheduleEvaluation: 'NOT_EVALUATED' as const, blockingReasons };
+      }),
     };
   }
 }

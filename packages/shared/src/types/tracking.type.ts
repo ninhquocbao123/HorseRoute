@@ -158,9 +158,9 @@ export interface ITripContact {
 
 export interface ITripVehicle {
   id: string;
-  /** vehicles.plate_or_code */
+  /** vehicles.license_plate */
   code: string;
-  /** vehicles.vehicle_type: TRUCK | AIRCRAFT_HOLD | CRATE */
+  /** vehicles.vehicle_type: LIGHT | MEDIUM | HEAVY */
   type: string;
   capacityStalls: number;
 }

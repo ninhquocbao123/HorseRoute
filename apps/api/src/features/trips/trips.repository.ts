@@ -7,8 +7,8 @@ export type TripRow = Omit<TripSummary, 'plannedDepartureAt' | 'plannedArrivalAt
   plannedDepartureAt: Date | null; plannedArrivalAt: Date | null;
   orderStatus: string; approvedBy: string | null; approvedAt: Date | null; returnReason: string | null;
 };
-export type LegRow = Omit<TripLeg, 'plannedDepartureAt' | 'plannedArrivalAt' | 'vehicleActive'> & {
-  plannedDepartureAt: Date; plannedArrivalAt: Date; vehicleActive: number | null;
+export type LegRow = Omit<TripLeg, 'plannedDepartureAt' | 'plannedArrivalAt'> & {
+  plannedDepartureAt: Date; plannedArrivalAt: Date;
 };
 const columns = `CAST(t.id AS CHAR) AS id, CAST(t.order_id AS CHAR) AS orderId,
   o.order_code AS orderCode, t.plan_status AS planStatus, CAST(t.planned_by AS CHAR) AS plannedBy,
@@ -58,8 +58,10 @@ export class TripsRepository {
     const rows = await this.db.query('SELECT id FROM locations WHERE id=? FOR SHARE', [id]);
     return rows.length > 0;
   }
-  async lockActiveVehicle(id: string, exclusive = false): Promise<boolean> {
-    const rows = await this.db.query(`SELECT id FROM vehicles WHERE id=? AND is_active=1 ${exclusive ? 'FOR UPDATE' : 'FOR SHARE'}`, [id]);
+  async lockAvailableVehicle(id: string, tripId: string, exclusive = false): Promise<boolean> {
+    const rows = await this.db.query(`SELECT id FROM vehicles WHERE id=? AND
+      (status='AVAILABLE' OR EXISTS(SELECT 1 FROM legs WHERE trip_id=? AND vehicle_id=vehicles.id))
+      ${exclusive ? 'FOR UPDATE' : 'FOR SHARE'}`, [id, tripId]);
     return rows.length > 0;
   }
   async writeLeg(tripId: string, actorId: string, leg: import('./trips.validation').TripPlanInput['legs'][number], seqNo: number) {
@@ -93,6 +95,20 @@ export class TripsRepository {
       AND l.planned_departure_at < ? AND l.planned_arrival_at > ? LIMIT 1`,
       [vehicleId, tripId, new Date(arrival), new Date(departure)]);
     return rows.length > 0;
+  }
+  async crewOverlaps(tripId: string, userId: string, departure: string, arrival: string): Promise<boolean> {
+    const rows = await this.db.query(`SELECT a.id FROM trip_assignments a
+      JOIN trips t ON t.id=a.trip_id JOIN orders o ON o.id=t.order_id
+      WHERE a.user_id=? AND t.id<>? AND t.plan_status='APPROVED'
+      AND o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT')
+      AND t.planned_departure_at < ? AND t.planned_arrival_at > ? LIMIT 1`,
+      [userId, tripId, new Date(arrival), new Date(departure)]);
+    return rows.length > 0;
+  }
+  async tripWindow(id: string): Promise<{ departure: Date; arrival: Date } | undefined> {
+    const [row] = await this.db.query(`SELECT planned_departure_at AS departure,planned_arrival_at AS arrival
+      FROM trips WHERE id=? AND planned_departure_at IS NOT NULL AND planned_arrival_at IS NOT NULL`, [id]);
+    return row;
   }
   async lockTransportHorses(orderId: string): Promise<void> {
     await this.db.query('SELECT id FROM horses WHERE order_id=? ORDER BY id FOR SHARE', [orderId]);
@@ -139,17 +155,29 @@ export class TripsRepository {
       SELECT id,'TRIP_PLAN_SUBMITTED',?,'TRIP',?,'IN_APP' FROM users WHERE role='MANAGER' AND account_status='ACTIVE'`,
       [`Chuyến ${id}: kế hoạch đã được gửi, chờ Manager duyệt.`, id]);
   }
-  assignmentOptions(): Promise<CrewOption[]> {
-    return this.db.query("SELECT CAST(id AS CHAR) AS id,full_name AS fullName FROM users WHERE role='DRIVER_ESCORT' AND account_status='ACTIVE' ORDER BY full_name,id");
+  async assignmentOptions(tripId: string): Promise<CrewOption[]> {
+    const rows = await this.db.query(`SELECT CAST(u.id AS CHAR) AS id,u.full_name AS fullName,cp.crew_type AS crewType,cp.work_status AS workStatus,
+      EXISTS(SELECT 1 FROM trip_assignments a WHERE a.trip_id=? AND a.user_id=u.id) AS assignedHere
+      FROM users u LEFT JOIN crew_profiles cp ON cp.user_id=u.id
+      WHERE u.role='DRIVER_ESCORT' AND u.account_status='ACTIVE' ORDER BY u.full_name,u.id`, [tripId]);
+    return rows.map((row: { id: string; fullName: string; crewType: CrewOption['crewType']; workStatus: CrewOption['workStatus']; assignedHere: number }) => {
+      const blockingReasons: CrewOption['blockingReasons'] = [];
+      if (!row.crewType) blockingReasons.push({ code: 'MISSING_CREW_PROFILE', message: 'Tài khoản chưa có hồ sơ nhân sự.' });
+      else if (row.workStatus !== 'AVAILABLE' && !Number(row.assignedHere)) blockingReasons.push({ code: 'CREW_UNAVAILABLE', message: 'Nhân sự đang trong chuyến khác.' });
+      return { id: row.id, fullName: row.fullName, crewType: row.crewType, workStatus: row.workStatus,
+        selectable: blockingReasons.length ? false : null, scheduleEvaluation: 'NOT_EVALUATED', blockingReasons };
+    });
   }
   assignments(id: string): Promise<AssignmentRow[]> {
     return this.db.query(`SELECT CAST(a.id AS CHAR) AS id,CAST(a.user_id AS CHAR) AS userId,u.full_name AS fullName,
       a.role,CAST(a.assigned_by AS CHAR) AS assignedBy,a.assigned_at AS assignedAt,
-      u.role AS accountRole,u.account_status AS accountStatus
-      FROM trip_assignments a JOIN users u ON u.id=a.user_id WHERE a.trip_id=? ORDER BY a.user_id,a.id`, [id]);
+      u.role AS accountRole,u.account_status AS accountStatus,cp.crew_type AS crewType,cp.work_status AS workStatus
+      FROM trip_assignments a JOIN users u ON u.id=a.user_id LEFT JOIN crew_profiles cp ON cp.user_id=u.id
+      WHERE a.trip_id=? ORDER BY a.user_id,a.id`, [id]);
   }
-  async lockCrewUser(id: string): Promise<{ role: string; accountStatus: string } | undefined> {
-    const [row] = await this.db.query('SELECT role,account_status AS accountStatus FROM users WHERE id=? FOR UPDATE', [id]);
+  async lockCrewUser(id: string): Promise<{ role: string; accountStatus: string; crewType: string | null; workStatus: string | null } | undefined> {
+    const [row] = await this.db.query(`SELECT u.role,u.account_status AS accountStatus,cp.crew_type AS crewType,cp.work_status AS workStatus
+      FROM users u LEFT JOIN crew_profiles cp ON cp.user_id=u.id WHERE u.id=? FOR UPDATE`, [id]);
     return row;
   }
   async lockAssignments(id: string) {
@@ -208,7 +236,7 @@ export class TripsRepository {
     return this.db.query(`SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo,
       CAST(l.from_location_id AS CHAR) AS fromLocationId, f.name AS fromLocationName,
       CAST(l.to_location_id AS CHAR) AS toLocationId, dest.name AS toLocationName,
-      CAST(l.vehicle_id AS CHAR) AS vehicleId, v.plate_or_code AS vehicleCode, v.is_active AS vehicleActive,
+      CAST(l.vehicle_id AS CHAR) AS vehicleId, v.license_plate AS vehicleCode, v.status AS vehicleStatus,
       l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt, l.status
       FROM legs l JOIN locations f ON f.id=l.from_location_id JOIN locations dest ON dest.id=l.to_location_id
       LEFT JOIN vehicles v ON v.id=l.vehicle_id WHERE l.trip_id=? ORDER BY l.seq_no ASC, l.id ASC`, [id]);
@@ -217,8 +245,12 @@ export class TripsRepository {
     return this.db.query(`SELECT CAST(id AS CHAR) AS id, name, location_type AS locationType, country, timezone, address, latitude, longitude
       FROM locations ORDER BY name ASC, id ASC`);
   }
-  vehicles(): Promise<(Omit<TripPlanOptions['vehicles'][number], 'isActive'> & { isActive: number })[]> {
-    return this.db.query(`SELECT CAST(id AS CHAR) AS id, plate_or_code AS plateOrCode, vehicle_type AS vehicleType,
-      capacity_stalls AS capacityStalls, is_active AS isActive FROM vehicles WHERE is_active=1 ORDER BY plate_or_code ASC, id ASC`);
+  vehicles(): Promise<{ id: string; plateOrCode: string; vehicleType: 'LIGHT' | 'MEDIUM' | 'HEAVY'; capacityStalls: number; status: 'AVAILABLE' | 'RESERVED' | 'IN_TRANSIT' }[]> {
+    return this.db.query(`SELECT CAST(id AS CHAR) AS id, license_plate AS plateOrCode, vehicle_type AS vehicleType,
+      capacity_stalls AS capacityStalls, status FROM vehicles ORDER BY license_plate ASC, id ASC`);
+  }
+  async tripVehicleIds(id: string): Promise<Set<string>> {
+    const rows: { id: string }[] = await this.db.query('SELECT DISTINCT CAST(vehicle_id AS CHAR) AS id FROM legs WHERE trip_id=? AND vehicle_id IS NOT NULL', [id]);
+    return new Set(rows.map(row => row.id));
   }
 }

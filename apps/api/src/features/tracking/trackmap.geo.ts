@@ -89,9 +89,9 @@ export function greatCircle(from: LngLat, to: LngLat, segments = 64): LngLat[] {
   return points;
 }
 
-/** Chọn cách vẽ theo loại xe của chặng: khoang máy bay → AIR, còn lại → ROAD (rơi về STRAIGHT nếu không có đường). */
-export function modeForVehicle(vehicleType: string | null | undefined): Exclude<RouteMode, 'STRAIGHT'> {
-  return vehicleType === 'AIRCRAFT_HOLD' ? 'AIR' : 'ROAD';
+/** Mọi loại xe LIGHT/MEDIUM/HEAVY đều di chuyển theo đường bộ. */
+export function modeForVehicle(_vehicleType: string | null | undefined): Exclude<RouteMode, 'STRAIGHT'> {
+  return 'ROAD';
 }
 
 export const roundKm = (km: number) => Math.round(km * 10) / 10;
