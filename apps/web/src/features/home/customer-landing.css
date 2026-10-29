@@ -1,0 +1,22 @@
+/* Landing content inside the authenticated customer home. Keep public styling scoped. */
+.customer .customer-landing{margin-top:28px;border-radius:16px;background:#fff;color:#173e46;font-size:14px}
+.customer-landing #home>header,.customer-landing .hero,.customer-landing #tra-cuu .side,.customer-landing [data-m="0"],.customer-landing footer .fg{display:none!important}
+.customer-landing #home>main{display:flex;flex-direction:column}
+.customer-landing #quy-trinh{order:-2}
+.customer-landing #tra-cuu{order:-1;padding:28px 0!important;background:#f7faf9}
+.customer-landing .public-customer-portal{display:block;margin:0;box-shadow:none;border:1px solid #dce7e7;border-radius:14px}
+.customer-landing [data-m="1"][hidden]{display:block!important}
+.customer-landing [data-m="1"]{padding:24px}
+.customer-landing [data-m="1"]>.lbl3,.customer-landing [data-m="1"]>.dist,.customer-landing [data-m="1"]>.cls,.customer-landing [data-m="1"]>.opts,.customer-landing [data-m="1"]>.bill,.customer-landing [data-m="1"]>h3:first-child,.customer-landing [data-m="1"]>p:first-of-type{display:none!important}
+.customer-landing section{padding:40px 0;scroll-margin-top:90px}
+.customer-landing .wrap{max-width:100%;padding:0 24px}
+.customer-landing .h2{font-size:27px;letter-spacing:normal}
+.customer-landing .lead{font-size:14px;line-height:1.8}
+.customer-landing .head{margin-bottom:24px}
+.customer-landing .sub{margin-top:0}
+.customer-landing .hm{min-width:570px}
+.customer-landing .tw{overflow-x:auto}
+.customer-landing footer{padding:18px 0;background:#fff;color:#6b8088;border-top:1px solid #e0e8e8}
+.customer-landing footer .cp{margin:0;padding:0;border:0;text-align:center}
+.customer-landing #dat-chuyen{padding:24px 0}
+@media(max-width:760px){.customer .customer-landing{margin-top:18px}.customer-landing .wrap{padding:0 16px}.customer-landing [data-m="1"]{padding:16px}.customer-landing .h2{font-size:23px}.customer-landing section{padding:28px 0}}
