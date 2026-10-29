@@ -2,7 +2,6 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../auth/pages/components/DashboardLayout';
 import { useAuth } from '../auth/hooks/useAuth';
 import CustomerDashboard from '../auth/pages/Customer/CustomerDashboard';
-import CoordinatorDashboard from '../auth/pages/Coordinator/CoordinatorDashboard';
 import DriverDashboard from '../auth/pages/Driver/DriverDashboard';
 import ManagerDashboard from '../auth/pages/Manager/ManagerDashboard';
 import SpecialistDashboard from '../auth/pages/Specialist/SpecialistDashboard';
@@ -19,6 +18,10 @@ export default function HomePage() {
     );
   }
 
+  if (account.role === 'COORDINATOR') {
+    return <Navigate to="/coordinator/dashboard" replace />;
+  }
+
   if (params.get('view') === 'trips' && ['MANAGER', 'COORDINATOR'].includes(account.role)) {
     return <Navigate to="/dashboard/trips" replace />;
   }
@@ -28,8 +31,6 @@ export default function HomePage() {
       return <DashboardLayout account={account} logout={logout} />;
     case 'CUSTOMER':
       return <CustomerDashboard account={account} logout={logout} />;
-    case 'COORDINATOR':
-      return <CoordinatorDashboard account={account} logout={logout} />;
     case 'DRIVER_ESCORT':
       return <DriverDashboard account={account} logout={logout} />;
     case 'MANAGER':

@@ -152,6 +152,23 @@
 .trip-workspace .trip-leg-status[data-leg-status="AT_STOP"] { background: #fff0d5; color: #7a5214; }
 .trip-workspace .trip-leg-status[data-leg-status="COMPLETED"] { background: #e3f1e6; color: #28543b; }
 
+/* Saved route-plan waypoints shown to Manager before the representative leg. */
+.trip-workspace .trip-route-plan { margin: 18px 0 8px; padding: 18px; border: 1px solid #dce5d8; border-radius: 12px; background: #f8faf6; }
+.trip-workspace .trip-route-plan-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; }
+.trip-workspace .trip-route-plan-heading h3 { margin: 0; font-size: 16px; }
+.trip-workspace .trip-route-plan-heading > span { color: #62766b; font-size: 13px; }
+.trip-workspace .trip-route-waypoints { list-style: none; margin: 16px 0 0; padding: 0; }
+.trip-workspace .trip-route-waypoints li { position: relative; display: flex; gap: 12px; padding: 0 0 18px; min-width: 0; }
+.trip-workspace .trip-route-waypoints li:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 31px; bottom: 1px; width: 2px; background: #cfddd1; }
+.trip-workspace .trip-route-waypoints li:last-child { padding-bottom: 0; }
+.trip-workspace .trip-route-waypoint-index { flex: 0 0 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #dcebe4; color: #28543f; font-size: 13px; font-weight: 700; z-index: 1; }
+.trip-workspace .trip-route-waypoints li[data-kind="REST_STOP"] .trip-route-waypoint-index { background: #fff0d5; color: #7a5214; }
+.trip-workspace .trip-route-waypoints li > div { display: grid; min-width: 0; gap: 2px; }
+.trip-workspace .trip-route-waypoint-kind { color: #62766b; font-size: 11px; text-transform: uppercase; letter-spacing: .7px; }
+.trip-workspace .trip-route-waypoints strong { font-size: 14px; overflow-wrap: anywhere; }
+.trip-workspace .trip-route-waypoints small { color: #62766b; overflow-wrap: anywhere; }
+.trip-workspace .trip-route-plan-warning { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff0d5; color: #7a5214; }
+
 /* Empty state for legs */
 .trip-workspace .trip-legs-empty { padding: 24px 0; }
 .trip-workspace .trip-legs-empty p:first-child { font-size: 16px; color: #304d3c; }

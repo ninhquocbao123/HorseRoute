@@ -6,8 +6,30 @@ import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip, TripCrewRow, Tr
 import type { RouteMode } from '@my-project/shared';
 import type { CachedRoute } from './trackmap.routes-provider';
 import type { LngLat } from './trackmap.geo';
+import { routePlanSchema, type RoutePlan } from '../trips/trip-route-plan';
 
 const coordinate = (value: unknown) => value === null || value === undefined ? null : Number(value);
+const decodeRoutePlan = (value: unknown): RoutePlan | null => {
+  if (value == null) return null;
+  let decoded = value;
+  if (typeof value === 'string') { try { decoded = JSON.parse(value); } catch { return null; } }
+  const result = routePlanSchema.safeParse(decoded);
+  return result.success ? result.data : null;
+};
+const routeFallback = <T extends Record<string, any>>(row: T): T => {
+  const plan = decodeRoutePlan(row.routePlan);
+  const from = plan?.waypoints[0], to = plan?.waypoints.at(-1);
+  const normalized = {
+    ...row,
+    fromLocationId: row.fromLocationId ?? from?.id ?? '',
+    fromLocationName: row.fromLocationName ?? from?.label ?? 'Điểm gửi',
+    toLocationId: row.toLocationId ?? to?.id ?? '',
+    toLocationName: row.toLocationName ?? to?.label ?? 'Điểm nhận',
+    toLocationType: row.toLocationType ?? (to ? 'DESTINATION' : ''),
+  };
+  delete normalized.routePlan;
+  return normalized;
+};
 
 /** Cột báo cáo sức khỏe khi tạo mới. */
 export interface HorseReportColumns {
@@ -81,44 +103,48 @@ export class TrackingRepository {
   }
 
   async getTripLegs(tripId: string): Promise<LegDetailRow[]> {
-    return this.db.query(
+    const rows = await this.db.query(
       `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, f.name AS fromLocationName,
         CAST(l.to_location_id AS CHAR) AS toLocationId, dest.name AS toLocationName, dest.location_type AS toLocationType,
-        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.plate_or_code AS vehicleCode,
+        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.license_plate AS vehicleCode,
         l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
         l.status, l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
-        l.updated_at AS updatedAt, u.full_name AS updatedByName
+        l.updated_at AS updatedAt, u.full_name AS updatedByName,t.route_plan AS routePlan
       FROM legs l
-      JOIN locations f ON f.id = l.from_location_id
-      JOIN locations dest ON dest.id = l.to_location_id
+      JOIN trips t ON t.id=l.trip_id
+      LEFT JOIN locations f ON f.id = l.from_location_id
+      LEFT JOIN locations dest ON dest.id = l.to_location_id
       LEFT JOIN vehicles v ON v.id = l.vehicle_id
       LEFT JOIN users u ON u.id = l.updated_by
       WHERE l.trip_id = ?
       ORDER BY l.seq_no ASC, l.id ASC`,
       [tripId]
     );
+    return rows.map(routeFallback) as LegDetailRow[];
   }
 
   async getLegsForTrips(tripIds: string[]): Promise<(LegDetailRow & { tripId: string })[]> {
     if (!tripIds.length) return [];
-    return this.db.query(
+    const rows = await this.db.query(
       `SELECT CAST(l.trip_id AS CHAR) AS tripId, CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, f.name AS fromLocationName,
         CAST(l.to_location_id AS CHAR) AS toLocationId, dest.name AS toLocationName, dest.location_type AS toLocationType,
-        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.plate_or_code AS vehicleCode,
+        CAST(l.vehicle_id AS CHAR) AS vehicleId, v.license_plate AS vehicleCode,
         l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
         l.status, l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
-        l.updated_at AS updatedAt, u.full_name AS updatedByName
+        l.updated_at AS updatedAt, u.full_name AS updatedByName,t.route_plan AS routePlan
       FROM legs l
-      JOIN locations f ON f.id = l.from_location_id
-      JOIN locations dest ON dest.id = l.to_location_id
+      JOIN trips t ON t.id=l.trip_id
+      LEFT JOIN locations f ON f.id = l.from_location_id
+      LEFT JOIN locations dest ON dest.id = l.to_location_id
       LEFT JOIN vehicles v ON v.id = l.vehicle_id
       LEFT JOIN users u ON u.id = l.updated_by
       WHERE l.trip_id IN (${tripIds.map(() => '?').join(',')})
       ORDER BY l.trip_id ASC, l.seq_no ASC, l.id ASC`,
       tripIds
     );
+    return rows.map(routeFallback) as (LegDetailRow & {tripId:string})[];
   }
 
   /** Cửa sổ T (phút) nhập bù mốc; đọc từ system_parameters.LEG_BACK, mặc định khi thiếu/không hợp lệ. */
@@ -181,12 +207,10 @@ export class TrackingRepository {
   /** Các xe khác nhau dùng trong chặng, theo chặng đầu tiên dùng xe. */
   async getTripVehicles(tripId: string): Promise<TripVehicleRow[]> {
     return this.db.query(
-      `SELECT CAST(v.id AS CHAR) AS id, v.plate_or_code AS code, v.vehicle_type AS type, v.capacity_stalls AS capacityStalls
-      FROM legs l
-      JOIN vehicles v ON v.id = l.vehicle_id
-      WHERE l.trip_id = ?
-      GROUP BY v.id, v.plate_or_code, v.vehicle_type, v.capacity_stalls
-      ORDER BY MIN(l.seq_no) ASC, v.id ASC`,
+      `SELECT CAST(v.id AS CHAR) AS id, v.license_plate AS code, v.vehicle_type AS type, v.capacity_stalls AS capacityStalls
+      FROM trip_vehicles tv
+      JOIN vehicles v ON v.id = tv.vehicle_id
+      WHERE tv.trip_id = ? ORDER BY tv.id`,
       [tripId]
     );
   }
@@ -212,18 +236,20 @@ export class TrackingRepository {
     const [row] = await this.db.query(
       `SELECT CAST(l.id AS CHAR) AS id, CAST(l.trip_id AS CHAR) AS tripId, l.seq_no AS seqNo, l.status,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, CAST(l.to_location_id AS CHAR) AS toLocationId,
-        dest.location_type AS toLocationType, CAST(l.vehicle_id AS CHAR) AS vehicleId,
+        f.name AS fromLocationName,dest.name AS toLocationName,dest.location_type AS toLocationType, CAST(l.vehicle_id AS CHAR) AS vehicleId,
         l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
         CAST(t.order_id AS CHAR) AS orderId, o.order_code AS orderCode, o.status AS orderStatus,
-        t.plan_status AS planStatus, CAST(t.planned_by AS CHAR) AS plannedBy, CAST(o.customer_id AS CHAR) AS customerId
+        t.plan_status AS planStatus, CAST(t.planned_by AS CHAR) AS plannedBy, CAST(o.customer_id AS CHAR) AS customerId,
+        t.route_plan AS routePlan
       FROM legs l
       JOIN trips t ON t.id = l.trip_id
       JOIN orders o ON o.id = t.order_id
-      JOIN locations dest ON dest.id = l.to_location_id
+      LEFT JOIN locations f ON f.id = l.from_location_id
+      LEFT JOIN locations dest ON dest.id = l.to_location_id
       WHERE l.id = ? FOR UPDATE`,
       [legId]
     );
-    return row;
+    return row ? routeFallback(row) : undefined;
   }
 
   async lockAllTripLegs(tripId: string): Promise<{
@@ -234,15 +260,16 @@ export class TrackingRepository {
     actualDepartureAt: Date | null;
     actualArrivalAt: Date | null;
   }[]> {
-    return this.db.query(
-      `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo, l.status, dest.location_type AS toLocationType,
+    const rows = await this.db.query(
+      `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo, l.status, dest.location_type AS toLocationType,t.route_plan AS routePlan,
         l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt
-      FROM legs l
-      JOIN locations dest ON dest.id = l.to_location_id
+      FROM legs l JOIN trips t ON t.id=l.trip_id
+      LEFT JOIN locations dest ON dest.id = l.to_location_id
       WHERE l.trip_id = ?
       ORDER BY l.seq_no ASC FOR UPDATE`,
       [tripId]
     );
+    return rows.map(routeFallback);
   }
 
   /** Đơn kèm chuyến duy nhất của đơn (nếu có) để dựng timeline cho Customer. */
@@ -543,8 +570,10 @@ export class TrackingRepository {
   async getDepartureBlockers(tripId: string, orderId: string): Promise<{ code: string; message: string; legId?: string; userId?: string; horseId?: string }[]> {
     const blockers: { code: string; message: string; legId?: string; userId?: string; horseId?: string }[] = [];
     const crew = await this.db.query(
-      `SELECT CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus
-      FROM trip_assignments a JOIN users u ON u.id = a.user_id WHERE a.trip_id = ?`,
+      `SELECT CAST(a.trip_vehicle_id AS CHAR) AS tripVehicleId, CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus,
+        cp.crew_type AS crewType, cp.work_status AS workStatus
+      FROM trip_assignments a JOIN users u ON u.id = a.user_id
+      LEFT JOIN crew_profiles cp ON cp.user_id = a.user_id WHERE a.trip_id = ?`,
       [tripId]
     );
     blockers.push(...checkCrewReadiness(crew).blockers);
@@ -559,21 +588,22 @@ export class TrackingRepository {
       blockers.push({ code: 'HORSE_FLAGGED', message: 'Có ngựa đang bị đánh dấu, cần xử lý trước khi xuất phát.', horseId: horse.id });
     }
 
-    const legs: { id: string; vehicleActive: number | null; capacity: number | null; busy: number }[] = await this.db.query(
-      `SELECT CAST(l.id AS CHAR) AS id, v.is_active AS vehicleActive, v.capacity_stalls AS capacity,
-        EXISTS(
-          SELECT 1 FROM legs x JOIN trips xt ON xt.id = x.trip_id JOIN orders xo ON xo.id = xt.order_id
-          WHERE x.vehicle_id = l.vehicle_id AND xt.id <> l.trip_id AND xo.status = 'IN_TRANSIT'
-            AND (x.status IN ('MOVING', 'AT_STOP') OR (x.actual_departure_at IS NOT NULL AND x.actual_arrival_at IS NULL))
-        ) AS busy
-      FROM legs l LEFT JOIN vehicles v ON v.id = l.vehicle_id WHERE l.trip_id = ? ORDER BY l.seq_no`,
-      [tripId]
-    );
-    for (const leg of legs) {
-      if (!leg.vehicleActive) blockers.push({ code: 'VEHICLE_INACTIVE', message: 'Chặng thiếu xe hoặc xe không còn hoạt động.', legId: leg.id });
-      else if (leg.capacity === null || leg.capacity < normal) blockers.push({ code: 'VEHICLE_CAPACITY', message: 'Xe không đủ chỗ cho ngựa NORMAL.', legId: leg.id });
-      if (Number(leg.busy) === 1) blockers.push({ code: 'VEHICLE_BUSY', message: 'Xe còn đang vận hành chuyến khác.', legId: leg.id });
+    const fleet: {id:string;vehicleStatus:string;capacity:number;horseCount:number|null;busy:number}[] = await this.db.query(
+      `SELECT CAST(tv.id AS CHAR) id,v.status vehicleStatus,v.capacity_stalls capacity,tv.horse_count horseCount,
+        EXISTS(SELECT 1 FROM trip_vehicles other JOIN trips t ON t.id=other.trip_id JOIN orders o ON o.id=t.order_id
+          WHERE other.vehicle_id=tv.vehicle_id AND other.trip_id<>tv.trip_id AND o.status='IN_TRANSIT') busy
+        FROM trip_vehicles tv JOIN vehicles v ON v.id=tv.vehicle_id WHERE tv.trip_id=?`, [tripId]);
+    if (!fleet.length) blockers.push({code:'VEHICLE_MISSING',message:'Chưa phân công xe.'});
+    if (fleet.reduce((n,v)=>n+Number(v.horseCount || 0),0)!==normal) blockers.push({code:'VEHICLE_CAPACITY',message:'Số ngựa bố trí không khớp số ngựa NORMAL.'});
+    for (const vehicle of fleet) {
+      if (!vehicle.horseCount || vehicle.horseCount>vehicle.capacity) blockers.push({code:'VEHICLE_CAPACITY',message:'Số ngựa của xe vượt sức chứa hoặc chưa được phân bổ.'});
+      if (Number(vehicle.busy)) blockers.push({code:'VEHICLE_BUSY',message:'Xe đang vận hành chuyến khác.'});
+      for (const role of ['DRIVER','ESCORT']) {
+        const count=crew.filter((p: {tripVehicleId:string;role:string})=>p.tripVehicleId===vehicle.id && p.role===role).length;
+        if(count<1 || count>2) blockers.push({code:'INELIGIBLE_CREW',message:`Mỗi xe cần 1–2 ${role==='DRIVER'?'tài xế':'lơ xe'}.`});
+      }
     }
+    if(crew.some((p:{tripVehicleId:string|null})=>!p.tripVehicleId)) blockers.push({code:'INELIGIBLE_CREW',message:'Nhân sự chưa được gắn xe.'});
     return blockers;
   }
 
@@ -1041,21 +1071,39 @@ export class TrackingRepository {
 
   /** Chặng kèm tọa độ hai đầu và loại xe (để chọn ROAD/AIR). */
   async getTripMapLegs(tripId: string): Promise<TripMapLegRow[]> {
-    return this.db.query(
+    const rows = await this.db.query(
       `SELECT CAST(l.id AS CHAR) AS id, l.seq_no AS seqNo, l.status,
         l.planned_departure_at AS plannedDepartureAt, l.planned_arrival_at AS plannedArrivalAt,
         l.actual_departure_at AS actualDepartureAt, l.actual_arrival_at AS actualArrivalAt,
         CAST(f.id AS CHAR) AS fromId, f.name AS fromName, f.location_type AS fromType, f.latitude AS fromLat, f.longitude AS fromLng,
         CAST(t.id AS CHAR) AS toId, t.name AS toName, t.location_type AS toType, t.latitude AS toLat, t.longitude AS toLng,
-        v.vehicle_type AS vehicleType
-      FROM legs l
-      JOIN locations f ON f.id = l.from_location_id
-      JOIN locations t ON t.id = l.to_location_id
+        COALESCE(v.vehicle_type,(SELECT v2.vehicle_type FROM trip_vehicles tv JOIN vehicles v2 ON v2.id=tv.vehicle_id WHERE tv.trip_id=l.trip_id ORDER BY tv.id LIMIT 1)) AS vehicleType,
+        tr.route_plan AS routePlan
+      FROM legs l JOIN trips tr ON tr.id=l.trip_id
+      LEFT JOIN locations f ON f.id = l.from_location_id
+      LEFT JOIN locations t ON t.id = l.to_location_id
       LEFT JOIN vehicles v ON v.id = l.vehicle_id
       WHERE l.trip_id = ?
       ORDER BY l.seq_no ASC, l.id ASC`,
       [tripId]
     );
+    return rows.map((row: Record<string, unknown>) => {
+      const plan = decodeRoutePlan(row.routePlan);
+      const first = plan?.waypoints[0], last = plan?.waypoints.at(-1);
+      return {
+        ...row,
+        fromId: row.fromId ?? first?.id ?? '', fromName: row.fromName ?? first?.label ?? 'Điểm gửi',
+        fromType: row.fromType ?? (first ? 'ORIGIN' : ''), fromLat: row.fromLat ?? first?.latitude ?? null,
+        fromLng: row.fromLng ?? first?.longitude ?? null,
+        toId: row.toId ?? last?.id ?? '', toName: row.toName ?? last?.label ?? 'Điểm nhận',
+        toType: row.toType ?? (last ? 'DESTINATION' : ''), toLat: row.toLat ?? last?.latitude ?? null,
+        toLng: row.toLng ?? last?.longitude ?? null,
+        routeCoordinates: plan?.selectedRoute?.geometry.coordinates,
+        routeDistanceM: plan?.selectedRoute?.distanceM,
+        routeWaypoints: plan?.waypoints.map(point => ({ id:point.id,name:point.label,type:point.kind,lat:point.latitude,lng:point.longitude })),
+        routePlan: undefined,
+      } as unknown as TripMapLegRow;
+    });
   }
 
   async findRoutes(fromId: string, toId: string): Promise<CachedRoute[]> {

@@ -21,7 +21,10 @@ export function quoteAmounts(subtotal:number,adjustment:number,vatPercent:number
 export class ManagerService {
  constructor(private db:DataSource){}
  async intake(u:User){this.allow(u);return this.db.query(`SELECT o.id,o.order_code,o.status,o.created_at,o.desired_departure_date,o.origin_country,o.destination_country,o.origin_address,o.destination_address,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.sender.city')) origin_city,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.recipient.city')) destination_city,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.durationDays')) duration_days,u.full_name customer_name,a.status assessment_status,s.full_name specialist_name,
- (SELECT COUNT(DISTINCT l.vehicle_id) FROM legs l JOIN trips t ON t.id=l.trip_id WHERE t.order_id=o.id) vehicle_count,
+ (SELECT CASE WHEN EXISTS(SELECT 1 FROM trip_vehicles tv WHERE tv.trip_id=t.id)
+   THEN (SELECT COUNT(*) FROM trip_vehicles tv WHERE tv.trip_id=t.id)
+   ELSE (SELECT COUNT(DISTINCT l.vehicle_id) FROM legs l WHERE l.trip_id=t.id AND l.vehicle_id IS NOT NULL) END
+   FROM trips t WHERE t.order_id=o.id ORDER BY t.id LIMIT 1) vehicle_count,
  (SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status<>'REMOVED') horse_count,
  (SELECT COUNT(*) FROM documents d JOIN horses h ON h.id=d.horse_id WHERE h.order_id=o.id AND h.order_status<>'REMOVED') document_count,
  (SELECT COUNT(*) FROM documents d JOIN horses h ON h.id=d.horse_id WHERE h.order_id=o.id AND h.order_status<>'REMOVED' AND d.status='VALID') valid_count,
@@ -39,7 +42,8 @@ export class ManagerService {
   const input=bookingEstimateInput(booking,Number(count.n),order.origin_country!==order.destination_country);let estimate=null,estimateError=null;
   if(input){try{const current=await new PricingService(this.db).current();estimate=calculateEstimate(current.config,input,current.id);}catch{estimateError='Chưa tính được giá từ bảng giá hiện hành.';}}
   else estimateError='Đơn chưa có đủ thông tin để tính giá.';
-  return {booking,input,estimate,estimateError,assessment:assessment||null,stagedDocumentCount:Number(staged.n)};
+  const [trip]=await this.db.query('SELECT CAST(id AS CHAR) id FROM trips WHERE order_id=? ORDER BY id DESC LIMIT 1',[orderId]);
+  return {booking,input,estimate,estimateError,assessment:assessment||null,stagedDocumentCount:Number(staged.n),tripId:trip?.id||null};
  }
  async overview(u:User){this.allow(u);const [counts]=await this.db.query(`SELECT COUNT(*) total,SUM(DATE(CONVERT_TZ(created_at,'+00:00','+07:00'))=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+07:00'))) newToday,SUM(status='PENDING') pending,SUM(status='REJECTED') rejected,SUM(status IN ('APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED') AND YEAR(reviewed_at)=YEAR(UTC_TIMESTAMP()) AND MONTH(reviewed_at)=MONTH(UTC_TIMESTAMP())) approvedMonth FROM orders WHERE status<>'DRAFT'`);
  const [quotes]=await this.db.query("SELECT COUNT(*) pending FROM orders o WHERE o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT') AND NOT EXISTS(SELECT 1 FROM order_quotes q WHERE q.order_id=o.id AND q.status='APPROVED')");return {...counts,quotesPending:Number(quotes.pending)};}

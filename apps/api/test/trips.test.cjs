@@ -33,6 +33,13 @@ test('Plan validates actual UTC dates, DATETIME precision and server-owned field
   assert.equal(tripPlanSchema.safeParse({ legs: [] }).success, false);
   assert.equal(tripPlanSchema.safeParse({ legs: Array(51).fill(planLeg) }).success, false);
 });
+test('New route plan schedule accepts only total window bound to a route revision',()=>{
+ const valid={plannedDepartureAt:'2026-10-30T00:00:00Z',plannedArrivalAt:'2026-11-08T06:00:00Z',routePlanRevision:3};
+ assert.ok(tripPlanSchema.safeParse(valid).success);
+ for(const body of [{...valid,plannedArrivalAt:valid.plannedDepartureAt},{...valid,plannedArrivalAt:'2026-10-30T12:00:00Z'},{...valid,routePlanRevision:-1},{...valid,extra:true}]) {
+  assert.equal(tripPlanSchema.safeParse(body).success,false);
+ }
+});
 test('Plan rejects disconnected, backward-time and duplicate-ID legs', () => {
   const second = { ...planLeg, fromLocationId: '2', toLocationId: '1', plannedDepartureAt: '2026-10-20T03:00:00Z', plannedArrivalAt: '2026-10-20T04:00:00Z' };
   assert.ok(tripPlanSchema.safeParse({ legs: [planLeg, second] }).success);
@@ -44,9 +51,9 @@ test('Saving requires DRAFT Trip and APPROVED or PREPARING Order', async () => {
       let writes = 0;
       const row = { id:'9',orderId:'8',orderCode:'TEST',plannedBy:'4',planStatus,plannedDepartureAt:null,plannedArrivalAt:null };
       const repo = { transaction: work=>work(repo), orderId:async()=> '8',lockOrder:async()=>({status:orderStatus}),lockTrip:async()=>row,
-        lockLegs:async()=>[],hasHistory:async()=>false,lockLocation:async()=>true,lockActiveVehicle:async()=>true,
-        find:async()=>row,legs:async()=>[],writeLeg:async()=>{writes++;},updatePlanTimes:async()=>{},audit:async()=>{} };
-      const promise = new TripsService(repo).savePlan({id:'4',role:'COORDINATOR'},'9',{legs:[planLeg]});
+        lockLegs:async()=>[],hasHistory:async()=>false,lockLocation:async()=>true,lockAvailableVehicle:async()=>true,vehicleOverlaps:async()=>false,assignments:async()=>[],
+        fleet:async()=>[],find:async()=>row,legs:async()=>[],writeLeg:async()=>{writes++;},updatePlanTimes:async()=>{},audit:async()=>{} };
+      const promise = new TripsService(repo).savePlan({id:'4',role:'COORDINATOR'},'9',{legs:[{...planLeg,vehicleId:undefined}]});
       if(planStatus==='DRAFT' && ['APPROVED','PREPARING'].includes(orderStatus)) { assert.equal((await promise).planStatus,planStatus);assert.equal(writes,1); }
       else { await assert.rejects(promise,e=>e.getStatus()===409);assert.equal(writes,0); }
     }
@@ -65,17 +72,34 @@ test('Review accepts only APPROVED or RETURNED with strict trimmed reason', () =
 
 const { tripAssignmentsSchema } = require('../src/features/trips/trips.validation');
 const { checkCrewReadiness } = require('../src/features/trips/trips.crew');
-test('Crew input requires distinct DRIVER and ESCORT and rejects server-owned fields',()=>{
- const crew=[{userId:'7',role:'DRIVER'},{userId:'8',role:'ESCORT'}];
- assert.ok(tripAssignmentsSchema.safeParse({assignments:crew}).success);
- for(const assignments of [[],[crew[0]],[crew[0],{...crew[1],userId:'7'}],[crew[0],{...crew[1],role:'DRIVER'}],[{...crew[0],assignedBy:'4'},crew[1]],[{...crew[0],role:'MANAGER'},crew[1]]]) assert.equal(tripAssignmentsSchema.safeParse({assignments}).success,false);
- assert.equal(tripAssignmentsSchema.safeParse({assignments:crew,tripId:'9'}).success,false);
+test('Crew input uses per-vehicle groups and rejects the legacy flat payload',()=>{
+ assert.equal(tripAssignmentsSchema.safeParse({assignments:[{userId:'7',role:'DRIVER'},{userId:'8',role:'ESCORT'}]}).success,false);
+ assert.ok(tripAssignmentsSchema.safeParse({vehicles:[{vehicleId:'3',horseCount:2,crew:[{userId:'7',role:'DRIVER'},{userId:'8',role:'ESCORT'}]}]}).success);
 });
 test('Crew readiness reports missing and invalid crew, without claiming full READY',()=>{
  assert.deepEqual(checkCrewReadiness([]).blockers.map(b=>b.code),['MISSING_DRIVER','MISSING_ESCORT']);
- const driver={userId:'7',role:'DRIVER',accountRole:'DRIVER_ESCORT',accountStatus:'ACTIVE'};
- const escort={...driver,userId:'8',role:'ESCORT'};
+ const driver={userId:'7',role:'DRIVER',accountRole:'DRIVER_ESCORT',accountStatus:'ACTIVE',crewType:'DRIVER',workStatus:'AVAILABLE'};
+ const escort={...driver,userId:'8',role:'ESCORT',crewType:'ESCORT'};
  assert.equal(checkCrewReadiness([driver,escort]).complete,true);
  assert.deepEqual(checkCrewReadiness([driver,{...escort,accountStatus:'LOCKED'}]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_ESCORT']);
  assert.deepEqual(checkCrewReadiness([{...driver,accountRole:'CUSTOMER'},escort]).blockers.map(b=>b.code),['INELIGIBLE_CREW','MISSING_DRIVER']);
+});
+
+test('Order-backed trip list preserves trip navigation, ownership and requested order fields', async () => {
+  const service = new TripsService({ list: async (scope, limit, offset) => {
+    assert.deepEqual(scope, { coordinatorId: '7' });
+    assert.equal(limit, 20); assert.equal(offset, 20);
+    return { total: 21, rows: [{ id: '29', orderId: '100', orderCode: 'VCN-100',
+      planStatus: 'DRAFT', plannedBy: '7', plannedDepartureAt: null, plannedArrivalAt: null,
+      orderStatus: 'PREPARING', desiredDepartureDate: '2026-11-15', requestedPickupTime: ' 05:30 ', horseCount: '3' }] };
+  } });
+  const result = await service.list({ id: '7', role: 'COORDINATOR' }, { page: 2, limit: 20 });
+  assert.equal(result.items[0].id, '29');
+  assert.equal(result.items[0].tripId, '29');
+  assert.equal(result.items[0].orderId, '100');
+  assert.equal(result.items[0].desiredDepartureDate, '2026-11-15');
+  assert.equal(result.items[0].requestedPickupTime, '05:30');
+  assert.equal(result.items[0].horseCount, 3);
+  assert.equal(result.items[0].orderStatus, 'PREPARING');
+  assert.equal(result.total, 21);
 });

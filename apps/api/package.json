@@ -20,6 +20,9 @@
     "test:mysql:flow4": "node test/flow4-tracking.mysql.cjs",
     "test:mysql:vehicles": "node test/vehicles.mysql.cjs",
     "test:mysql:locations": "node test/locations.mysql.cjs",
+    "test:mysql:coordinator-resources": "node test/coordinator-resources.mysql.cjs",
+    "verify:mapbox": "node scripts/verify-mapbox.cjs",
+    "verify:mapbox:api": "node scripts/verify-mapbox-api.cjs",
     "seed:flow4-demo": "node scripts/seed-flow4-demo.cjs"
   },
   "dependencies": {

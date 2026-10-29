@@ -78,8 +78,12 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
 
   const mapLegs: ITripMapLeg[] = legs.map((leg, index) => {
     const ends = legEnds(leg);
-    if (index === 0) addStop(leg.fromId, leg.fromName, leg.fromType, ends.from);
-    addStop(leg.toId, leg.toName, leg.toType, ends.to);
+    if (leg.routeWaypoints?.length) {
+      leg.routeWaypoints.forEach(point => addStop(point.id,point.name,point.type,[point.lng,point.lat]));
+    } else {
+      if (index === 0) addStop(leg.fromId, leg.fromName, leg.fromType, ends.from);
+      addStop(leg.toId, leg.toName, leg.toType, ends.to);
+    }
     const route = routes.get(leg.id) ?? null;
     if (route?.mode === 'STRAIGHT') warnings.push(`Chặng ${leg.seqNo}: chưa có tuyến đường bộ, đang vẽ đường thẳng ước lượng`);
     return {
@@ -88,7 +92,7 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
       status: leg.status,
       fromLocationId: leg.fromId,
       toLocationId: leg.toId,
-      mode: route?.mode ?? (leg.vehicleType === 'AIRCRAFT_HOLD' ? 'AIR' : 'STRAIGHT'),
+      mode: route?.mode ?? 'STRAIGHT',
       coordinates: route ? route.coordinates : null,
       distanceKm: route ? roundKm(route.distanceKm) : null,
       plannedDepartureAt: leg.plannedDepartureAt.toISOString(),
@@ -132,7 +136,7 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
   if (legs.length) {
     const currentLine = current >= 0 ? coordsOf(current) : null;
     const gpsUsable = current >= 0 && !milestoneNewer && latestPosition && latestPosition.freshness !== 'OLD'
-      && legs[current].vehicleType !== 'AIRCRAFT_HOLD';
+      && legs[current].vehicleType !== null;
     if (gpsUsable && latestPosition) {
       const point: LngLat = [latestPosition.lng, latestPosition.lat];
       position = {

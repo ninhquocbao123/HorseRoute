@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { isAxiosError } from "axios";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
@@ -163,6 +163,10 @@ export default function TripPlanPage() {
         </Link>
       </div>
     );
+  // Trips using the route-plan model are edited in the Coordinator workspace.
+  // Keep this legacy form only for old trips that still store physical location legs.
+  if (detail.data.routePlan)
+    return <Navigate to={`/coordinator/trips/${tripId}`} replace />;
   if (!editable)
     return (
       <ReadOnly

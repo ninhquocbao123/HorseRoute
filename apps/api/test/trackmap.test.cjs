@@ -39,8 +39,8 @@ test('geo: haversine, polyline length, point along, projection and great circle'
   // Qua kinh tuyến 180: kinh độ liên tục, không nhảy 360 độ.
   const pacific = geo.greatCircle([151.17, -33.94], [-118.41, 33.94], 32);
   for (let i = 1; i < pacific.length; i++) assert.ok(Math.abs(pacific[i][0] - pacific[i - 1][0]) < 180);
-  assert.equal(geo.modeForVehicle('AIRCRAFT_HOLD'), 'AIR');
-  assert.equal(geo.modeForVehicle('TRUCK'), 'ROAD');
+  assert.equal(geo.modeForVehicle('HEAVY'), 'ROAD');
+  assert.equal(geo.modeForVehicle('LIGHT'), 'ROAD');
   assert.equal(geo.modeForVehicle(null), 'ROAD');
 });
 
@@ -136,7 +136,7 @@ const legRow = (overrides = {}) => ({
   id: '10', seqNo: 1, status: LegStatus.NOT_STARTED,
   plannedDepartureAt: at(-60), plannedArrivalAt: at(60), actualDepartureAt: null, actualArrivalAt: null,
   fromId: '1', fromName: 'Củ Chi', fromType: 'QUARANTINE_STATION', fromLat: '10.973300', fromLng: '106.493300',
-  toId: '2', toName: 'Mộc Bài', toType: 'BORDER', toLat: '11.076000', toLng: '106.158000', vehicleType: 'TRUCK',
+  toId: '2', toName: 'Mộc Bài', toType: 'BORDER', toLat: '11.076000', toLng: '106.158000', vehicleType: 'MEDIUM',
   ...overrides,
 });
 const straightRoute = leg => {
@@ -179,7 +179,7 @@ test('map: estimated position by leg status, km totals and labels', () => {
   assert.match(delivered.position.label, /đã giao tại Mộc Bài/);
 });
 
-test('map: GPS beats the estimate while fresh; STALE is labelled; OLD and air legs fall back to the estimate', () => {
+test('map: GPS beats the estimate while fresh; STALE is labelled; OLD points fall back to the estimate', () => {
   const legs = [legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-60) })];
   const point = { legId: '10', latitude: '11.020000', longitude: '106.350000', accuracyM: 12, speedMps: '17.80', headingDeg: 310, recordedAt: at(-1) };
   const live = build(legs, { latest: point });
@@ -193,8 +193,8 @@ test('map: GPS beats the estimate while fresh; STALE is labelled; OLD and air le
   const old = build(legs, { latest: { ...point, recordedAt: at(-30) } });
   assert.equal(old.position.source, 'ESTIMATED');
   assert.equal(old.latestPosition.freshness, 'OLD', 'the raw point is still reported');
-  const air = build([legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-60), vehicleType: 'AIRCRAFT_HOLD' })], { latest: point });
-  assert.equal(air.position.source, 'ESTIMATED', 'air legs never use GPS');
+  const heavy = build([legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-60), vehicleType: 'HEAVY' })], { latest: point });
+  assert.equal(heavy.position.source, 'GPS', 'all catalog vehicle types are road vehicles');
 });
 
 test('map: milestone newer than the last GPS point wins; newer GPS wins; no GPS uses the milestone', () => {
@@ -304,7 +304,7 @@ test('POST positions: validation, assignment, IN_TRANSIT, running non-air leg; d
   await conflict({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.READY, plannedBy: '3' }) });
   await conflict({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.DELIVERED, plannedBy: '3' }) });
   await conflict({ getTripMapLegs: async () => [legRow({ status: LegStatus.COMPLETED }), legRow({ id: '11', seqNo: 2 })] });
-  await conflict({ getTripMapLegs: async () => [legRow({ status: LegStatus.MOVING, vehicleType: 'AIRCRAFT_HOLD' })] });
+  await new TrackingService(mapRepo({ getTripMapLegs: async () => [legRow({ status: LegStatus.MOVING, vehicleType: 'HEAVY' })] })).recordPositions(driver, '100', { points: [point()] });
 });
 
 test('GET positions: same scope as the map, since filter, at most 500 points', async () => {
@@ -409,10 +409,10 @@ test('migration 1800000010000 drops only the ROAD (simplified) cache rows', asyn
   await new RouteCacheFull1800000010000().down(); // không có gì để khôi phục, không được lỗi
 });
 
-test('map mode: with trucks only, /map is always ROAD or STRAIGHT (never AIR); only AIRCRAFT_HOLD legs use the great circle', async () => {
+test('map mode: LIGHT/MEDIUM/HEAVY routes are always ROAD or STRAIGHT (never AIR)', async () => {
   const trucks = [legRow({ id: '10', status: LegStatus.MOVING, actualDepartureAt: at(-30) }), legRow({ id: '11', seqNo: 2, fromId: '2', fromName: 'Mộc Bài', toId: '3', toName: 'Sân bay', toLat: '1.364400', toLng: '103.991500' })];
   const modes = async legs => (await new TrackingService(mapRepo({ getTripMapLegs: async () => legs })).getTripMap(driver, '100')).legs.map(leg => leg.mode);
-  assert.deepEqual(await modes(trucks), ['STRAIGHT', 'STRAIGHT'], 'no Mapbox token in tests → STRAIGHT, and TRUCK never AIR');
-  assert.deepEqual(await modes([...trucks, legRow({ id: '12', seqNo: 3, vehicleType: 'CRATE' })]), ['STRAIGHT', 'STRAIGHT', 'STRAIGHT']);
-  assert.deepEqual(await modes([trucks[0], legRow({ id: '11', seqNo: 2, vehicleType: 'AIRCRAFT_HOLD' })]), ['STRAIGHT', 'AIR'], 'air-leg code path is kept');
+  assert.deepEqual(await modes(trucks), ['STRAIGHT', 'STRAIGHT']);
+  assert.deepEqual(await modes([...trucks, legRow({ id: '12', seqNo: 3, vehicleType: 'LIGHT' })]), ['STRAIGHT', 'STRAIGHT', 'STRAIGHT']);
+  assert.deepEqual(await modes([trucks[0], legRow({ id: '11', seqNo: 2, vehicleType: 'HEAVY' })]), ['STRAIGHT', 'STRAIGHT']);
 });

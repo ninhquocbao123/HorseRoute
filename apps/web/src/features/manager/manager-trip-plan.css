@@ -1,0 +1,17 @@
+.mgr .mgr-plan-valid-alert.ant-alert-success {
+  background: #ecfdf3;
+  border: 1px solid #9ed9b4;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.mgr .mgr-plan-valid-alert .ant-alert-icon {
+  color: #16834f;
+  font-size: 17px;
+}
+
+.mgr .mgr-plan-valid-alert .ant-alert-message {
+  color: #145a38;
+  font-weight: 650;
+  line-height: 1.6;
+}

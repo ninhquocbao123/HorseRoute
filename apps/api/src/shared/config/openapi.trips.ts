@@ -21,7 +21,7 @@ const legOutputProperties = {
   fromLocationId: id, fromLocationName: { type: 'string' },
   toLocationId: id, toLocationName: { type: 'string' },
   vehicleId: { ...id, nullable: true }, vehicleCode: { type: 'string', nullable: true },
-  vehicleActive: { type: 'boolean', nullable: true, description: 'Trạng thái active hiện tại của xe; null khi chặng không có xe. Dùng hiển thị xe cũ đã ngừng hoạt động.' },
+  vehicleStatus: { type: 'string', enum: ['AVAILABLE','RESERVED','IN_TRANSIT'], nullable: true },
   plannedDepartureAt: time, plannedArrivalAt: time,
   status: { type: 'string', enum: ['NOT_STARTED', 'MOVING', 'AT_STOP', 'COMPLETED'] },
 };
@@ -32,42 +32,59 @@ const reviewProperties = {
   returnReason: { type: 'string', nullable: true, maxLength: 255 },
 };
 export const tripSchemas = {
-  CrewOption: object({ id, fullName: { type: 'string' } }),
+  RouteWaypoint: object({ id: { type: 'string', maxLength: 64 }, kind: { type: 'string', enum: ['ORIGIN','REST_STOP','DESTINATION'] }, label: { type: 'string', maxLength: 255 }, latitude: { type: 'number', minimum: -90, maximum: 90 }, longitude: { type: 'number', minimum: -180, maximum: 180 }, note: { type: 'string', maxLength: 500 } }),
+  SelectedRoute: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' } }),
+  RoutePlan: object({ version: { type: 'integer', enum: [1] }, waypoints: { type: 'array', minItems: 2, maxItems: 12, items: ref('RouteWaypoint') }, selectedRoute: { ...ref('SelectedRoute'), nullable: true } }),
+  RoutePlanWrite: object({ revision: { type: 'integer', minimum: 0 }, routePlan: ref('RoutePlan'), verificationToken: { type: 'string', nullable: true, maxLength: 400 } }),
+  RoutePreviewInput: object({ waypoints: { type: 'array', minItems: 2, maxItems: 12, items: ref('RouteWaypoint') } }),
+  RouteCandidate: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, verificationToken: { type: 'string' } }),
+  RoutePreviewResult: object({ inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, routes: { type: 'array', maxItems: 3, items: ref('RouteCandidate') }, attribution: { type: 'string', enum: ['Mapbox'] } }),
+  MapSearchResult: object({ id: { type: 'string' }, label: { type: 'string' }, latitude: { type: 'number' }, longitude: { type: 'number' } }),
+  MapSearchResults: object({ items: { type: 'array', maxItems: 5, items: ref('MapSearchResult') }, attribution: { type: 'string', enum: ['Mapbox'] } }),
+  CrewOption: object({ id, fullName: { type: 'string' }, crewType: { type: 'string', enum: ['DRIVER','ESCORT'], nullable: true }, workStatus: { type: 'string', enum: ['AVAILABLE','IN_TRIP'], nullable: true }, selectable: { type: 'boolean', nullable: true }, scheduleEvaluation: { type: 'string', enum: ['NOT_EVALUATED'] }, blockingReasons: { type: 'array', items: object({ code: { type: 'string' }, message: { type: 'string' } }) } }),
   AssignmentOptions: object({ items: { type: 'array', items: ref('CrewOption') } }),
-  TripAssignment: object({ id, userId: id, fullName: { type: 'string' }, role: { type: 'string', enum: ['DRIVER','ESCORT'] }, assignedBy: id, assignedAt: time }),
+  TripAssignment: object({ id, userId: id, fullName: { type: 'string' }, role: { type: 'string', enum: ['DRIVER','ESCORT'] }, assignedBy: id, assignedAt: time, crewType: { type: 'string', enum: ['DRIVER','ESCORT'], nullable: true }, workStatus: { type: 'string', enum: ['AVAILABLE','IN_TRIP'], nullable: true } }),
   CrewBlocker: object({ code: { type: 'string', enum: ['MISSING_DRIVER','MISSING_ESCORT','INELIGIBLE_CREW'] }, message: { type: 'string' }, userId: id }, ['code','message']),
   CrewReadiness: object({ complete: { type: 'boolean' }, blockers: { type: 'array', items: ref('CrewBlocker') } }),
-  TripAssignments: object({ tripId: id, items: { type: 'array', items: ref('TripAssignment') }, crewReadiness: ref('CrewReadiness') }),
-  TripAssignmentsInput: object({ assignments: { type: 'array', minItems: 2, maxItems: 100, items: object({ userId: id, role: { type: 'string', enum: ['DRIVER','ESCORT'] } }), description: 'Danh sách đầy đủ, ít nhất một DRIVER và một ESCORT khác người. Không trùng userId. Giới hạn kỹ thuật 100 người/request.' } }),
+  TripFleetVehicle: object({id,vehicleId:id,plateNumber:{type:'string'},capacityStalls:{type:'integer'},horseCount:{type:'integer',nullable:true},crew:{type:'array',items:ref('TripAssignment')}}),
+  TripAssignments: object({ vehicles:{type:'array',items:ref('TripFleetVehicle')}, tripId: id, items: { type: 'array', items: ref('TripAssignment') }, crewReadiness: ref('CrewReadiness') }),
+  TripAssignmentsInput: object({ vehicles: { type: 'array', minItems: 1, maxItems: 50, items: object({ vehicleId: id, horseCount: {type:'integer',minimum:1}, crew: {type:'array',minItems:2,maxItems:4,items:object({userId:id,role:{type:'string',enum:['DRIVER','ESCORT']}})} }), description: 'Danh sách đầy đủ xe xuyên suốt chuyến. Mỗi xe 1–2 DRIVER và 1–2 ESCORT; một người chỉ thuộc một xe, một vai trò.' } }),
   ReviewTripPlanInput: { ...object({ decision: { type: 'string', enum: ['APPROVED','RETURNED'] }, reason: { type: 'string', minLength: 1, maxLength: 255, description: 'Bắt buộc khi RETURNED, trim; APPROVED không nhận reason.' } }, ['decision']),
     oneOf: [object({ decision: { type: 'string', enum: ['APPROVED'] } }), object({ decision: { type: 'string', enum: ['RETURNED'] }, reason: { type: 'string', minLength: 1, maxLength: 255 } })] },
   SubmitTripPlanInput: object({}),
   TripSummary: object(summaryProperties),
+  TripListItem: object({ ...summaryProperties, tripId: { ...id, description: 'ID chuyến dùng để mở kế hoạch; id cũ vẫn là ID chuyến.' },
+    orderStatus: reviewProperties.orderStatus,
+    desiredDepartureDate: { type: 'string', format: 'date', nullable: true },
+    requestedPickupTime: { type: 'string', nullable: true, description: 'Giờ đón khách yêu cầu trong booking_details; không tự chuyển múi giờ.' },
+    horseCount: { type: 'integer', minimum: 0, description: 'Số ngựa của đơn, không tính REMOVED.' } }),
   TripLeg: object(legOutputProperties),
-  TripDetail: object({ ...summaryProperties, ...reviewProperties, legs: { type: 'array', items: ref('TripLeg'), description: 'Sắp theo seqNo tăng dần; chuyến chưa có kế hoạch trả [].' } }),
-  TripList: object({ items: { type: 'array', items: ref('TripSummary') }, total: { type: 'integer', minimum: 0 }, page: { type: 'integer', minimum: 1 }, limit: { type: 'integer', minimum: 1, maximum: 100 } }),
+  TripDetail: object({ ...summaryProperties, ...reviewProperties, originAddress: { type: 'string' }, destinationAddress: { type: 'string' }, routePlan: { ...ref('RoutePlan'), nullable: true }, routePlanRevision: { type: 'integer', minimum: 0 }, legs: { type: 'array', items: ref('TripLeg'), description: 'Sắp theo seqNo tăng dần; chuyến chưa có kế hoạch trả [].' } }),
+  TripList: object({ items: { type: 'array', items: ref('TripListItem') }, total: { type: 'integer', minimum: 0 }, page: { type: 'integer', minimum: 1 }, limit: { type: 'integer', minimum: 1, maximum: 100 } }),
   TripPlanLegInput: object(legInputProperties, Object.keys(legInputProperties).filter(key => key !== 'id')),
-  TripPlanInput: object({ legs: { type: 'array', minItems: 1, maxItems: 50, items: ref('TripPlanLegInput'), description: 'Đề xuất giới hạn kỹ thuật 50 chặng/request, chờ xác nhận. Gửi đủ các chặng cũ đúng thứ tự, sau đó mới đến chặng mới. Không hỗ trợ xóa/đảo thứ tự.' } }),
+  LegacyTripPlanInput: object({ legs: { type: 'array', minItems: 1, maxItems: 50, items: ref('TripPlanLegInput'), description: 'Chỉ dùng cho chuyến legacy chưa có route_plan.' } }),
+  TripPlanInput: object({ plannedDepartureAt: time, plannedArrivalAt: time, routePlanRevision: {type:'integer',minimum:0,description:'Revision route_plan đang hiển thị; chống lưu lịch vào lộ trình đã đổi.'} }),
   TripLocationOption: object({ id, name: { type: 'string' }, locationType: { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'] }, country: { type: 'string', pattern: '^[A-Z]{2}$' }, timezone: { type: 'string', example: 'Asia/Ho_Chi_Minh' }, address: { type: 'string', nullable: true },
     latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true, description: 'WGS84; null khi chưa ghim trên bản đồ. Không ảnh hưởng việc lưu kế hoạch.' },
     longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true, description: 'WGS84; null cùng lúc với latitude.' } }),
-  TripVehicleOption: object({ id, plateOrCode: { type: 'string' }, vehicleType: { type: 'string', enum: ['TRUCK', 'AIRCRAFT_HOLD', 'CRATE'] }, capacityStalls: { type: 'integer', minimum: 1 }, isActive: { type: 'boolean', enum: [true] } }),
-  TripPlanOptions: object({ locations: { type: 'array', items: ref('TripLocationOption') }, vehicles: { type: 'array', items: ref('TripVehicleOption') } }),
+  TripVehicleOption: object({ id, plateOrCode: { type: 'string' }, vehicleType: { type: 'string', enum: ['LIGHT', 'MEDIUM', 'HEAVY'] }, capacityStalls: { type: 'integer', minimum: 1 }, status: { type: 'string', enum: ['AVAILABLE','RESERVED','IN_TRANSIT'] }, selectable: { type: 'boolean', nullable: true }, scheduleEvaluation: { type: 'string', enum: ['NOT_EVALUATED'] }, blockingReasons: { type: 'array', items: object({ code: { type: 'string' }, message: { type: 'string' } }) } }),
+  TripPlanOptions: object({ requiredHorseCount: { type: 'integer', minimum: 0, description: 'Số ngựa NORMAL phải bố trí đủ trên các xe.' }, locations: { type: 'array', items: ref('TripLocationOption') }, vehicles: { type: 'array', items: ref('TripVehicleOption') } }),
 };
 
 const firstLeg = { fromLocationId: '10', toLocationId: '11', vehicleId: '5', plannedDepartureAt: '2026-10-20T01:00:00Z', plannedArrivalAt: '2026-10-20T03:00:00Z' };
 const secondLeg = { fromLocationId: '11', toLocationId: '12', vehicleId: '5', plannedDepartureAt: '2026-10-20T04:00:00Z', plannedArrivalAt: '2026-10-20T06:00:00Z' };
 const summary = { id: '200', orderId: '100', orderCode: 'WDP-DEMO-100', planStatus: 'DRAFT', plannedBy: '4', plannedDepartureAt: firstLeg.plannedDepartureAt, plannedArrivalAt: secondLeg.plannedArrivalAt };
 const reviewFields = { orderStatus: 'PREPARING', approvedBy: null, approvedAt: null, returnReason: null };
-const detail = { ...summary, ...reviewFields, legs: [
-  { ...firstLeg, id: '301', seqNo: 1, fromLocationName: 'Điểm A (mẫu)', toLocationName: 'Điểm B (mẫu)', vehicleCode: 'XE-DEMO-01', vehicleActive: true, status: 'NOT_STARTED' },
-  { ...secondLeg, id: '302', seqNo: 2, fromLocationName: 'Điểm B (mẫu)', toLocationName: 'Điểm C (mẫu)', vehicleCode: 'XE-DEMO-01', vehicleActive: true, status: 'NOT_STARTED' },
+const detail = { ...summary, ...reviewFields, originAddress: 'Hà Nội', destinationAddress: 'TP. Hồ Chí Minh', routePlan: null, routePlanRevision: 0, legs: [
+  { ...firstLeg, id: '301', seqNo: 1, fromLocationName: 'Điểm A (mẫu)', toLocationName: 'Điểm B (mẫu)', vehicleCode: 'XE-DEMO-01', vehicleStatus: 'AVAILABLE', status: 'NOT_STARTED' },
+  { ...secondLeg, id: '302', seqNo: 2, fromLocationName: 'Điểm B (mẫu)', toLocationName: 'Điểm C (mẫu)', vehicleCode: 'XE-DEMO-01', vehicleStatus: 'AVAILABLE', status: 'NOT_STARTED' },
 ] };
-const emptyDetail = { ...summary, ...reviewFields, plannedDepartureAt: null, plannedArrivalAt: null, legs: [] };
+const emptyDetail = { ...summary, ...reviewFields, originAddress: 'Hà Nội', destinationAddress: 'TP. Hồ Chí Minh', routePlan: null, routePlanRevision: 0, plannedDepartureAt: null, plannedArrivalAt: null, legs: [] };
 const optionsExample = {
+  requiredHorseCount: 4,
   locations: ['10', '11', '12'].map((value, index) => ({ id: value, name: `Điểm ${['A', 'B', 'C'][index]} (mẫu)`, locationType: 'REST_STOP', country: 'VN', timezone: 'Asia/Ho_Chi_Minh', address: null,
     latitude: [10.6380, 11.0760, null][index], longitude: [106.4700, 106.1580, null][index] })),
-  vehicles: [{ id: '5', plateOrCode: 'XE-DEMO-01', vehicleType: 'TRUCK', capacityStalls: 4, isActive: true }],
+  vehicles: [{ id: '5', plateOrCode: 'XE-DEMO-01', vehicleType: 'MEDIUM', capacityStalls: 4, status: 'AVAILABLE', selectable: null, scheduleEvaluation: 'NOT_EVALUATED', blockingReasons: [] }],
 };
 
 export const tripsTag = {
@@ -89,7 +106,7 @@ Flow 1 đã tạo Trip DRAFT khi Manager duyệt đơn; **không tạo Trip th�
 
 ### Các đề xuất cụ thể cần bạn/Bảo/Long duyệt
 1. Tối đa 50 chặng mỗi request (giới hạn kỹ thuật, không phải quy định vận tải).
-2. Chọn xe active cho mỗi chặng khi lưu; TripLeg.vehicleActive cho biết xe cũ đã inactive, null khi không có xe.
+2. Chọn xe AVAILABLE cho mỗi chặng; TripLeg.vehicleStatus giữ nguyên trạng thái danh mục hiện tại.
 3. plan-options trả toàn bộ danh mục nhỏ của môi trường phát triển, không phân trang/cắt ngầm trong v0.1.
 4. Giữ giới hạn chỉ thêm/sửa tại chỗ; chưa xóa/đảo chặng, chưa chống stale edit.
 
@@ -115,6 +132,7 @@ function errors(path: string, codes: number[]) {
     413: 'Request vượt giới hạn body JSON của ứng dụng (hiện 1 MB).',
     429: 'Vượt giới hạn tần suất request.',
     500: 'Lỗi nội bộ; thông báo an toàn, tra log bằng requestId.',
+    503: 'Nhà cung cấp bản đồ chưa cấu hình, quá thời gian hoặc tạm thời không khả dụng.',
   };
   return Object.fromEntries(codes.map(code => [code, { description: descriptions[code], headers: { 'X-Request-ID': requestIdHeader }, content: { 'application/json': { schema: ref('Error'), example: { statusCode: code, message: descriptions[code], ...(code === 400 && path.endsWith('/plan') ? { fields: { 'legs.1.plannedDepartureAt': 'Giờ đi phải từ giờ đến chặng trước trở đi.' } } : {}), path: path.replace('{id}', '200'), requestId: '3eab0ee0-73a0-4c7b-9971-a468c52b096b', timestamp: '2026-10-17T02:00:00Z' } } } } ]));
 }
@@ -126,18 +144,49 @@ const detailPath = '/api/v1/trips/{id}';
 const optionsPath = detailPath + '/plan-options';
 const planPath = detailPath + '/plan';
 
-const crewExample = { tripId: '200', items: [
-  { id: '401', userId: '7', fullName: 'Tài xế mẫu', role: 'DRIVER', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z' },
-  { id: '402', userId: '8', fullName: 'Người hộ tống mẫu', role: 'ESCORT', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z' },
+const crewExample = { vehicles: [], tripId: '200', items: [
+  { id: '401', userId: '7', fullName: 'Tài xế mẫu', role: 'DRIVER', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z', crewType: 'DRIVER', workStatus: 'AVAILABLE' },
+  { id: '402', userId: '8', fullName: 'Người hộ tống mẫu', role: 'ESCORT', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z', crewType: 'ESCORT', workStatus: 'AVAILABLE' },
 ], crewReadiness: { complete: true, blockers: [] } };
-const crewEmpty = { tripId: '200', items: [], crewReadiness: { complete: false, blockers: [
+const crewEmpty = { vehicles: [], tripId: '200', items: [], crewReadiness: { complete: false, blockers: [
   { code: 'MISSING_DRIVER', message: 'Chưa có tài xế hợp lệ.' }, { code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' },
 ] } };
 export const tripPaths = {
+  '/api/v1/trips/{id}/readiness': { get: {
+    ...readCommon, operationId: 'getTripReadiness', summary: 'Kiểm tra kế hoạch và điều kiện chuyển chuyến', parameters: [pathId],
+    description: 'Manager hoặc Coordinator phụ trách. Chỉ đọc; không chuyển trạng thái. Kiểm tra tuyến, lịch, sức chứa, tổ nhân sự và xung đột. canStart chỉ true khi Trip APPROVED và Order PREPARING. blockers trả điều kiện không đạt đầu tiên.',
+    responses: { 200: { description: 'Kết quả tại thời điểm kiểm tra', content: { 'application/json': { schema: {
+      type: 'object', properties: { tripId: { type: 'string' }, planStatus: { type: 'string' }, orderStatus: { type: 'string' }, valid: { type: 'boolean' }, canStart: { type: 'boolean' }, blockers: { type: 'array', items: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } } } },
+    } } } }, ...errors('/api/v1/trips/{id}/readiness', [400,401,403,404,500]) },
+  } },
+  '/api/v1/trips/{id}/start-transport': { post: {
+    ...readCommon, operationId: 'releaseTripToDriver', summary: 'Manager chuyển chuyến đã duyệt cho tài xế', parameters: [pathId],
+    description: 'Yêu cầu Trip APPROVED và Order PREPARING. Kiểm tra lại dữ liệu và lịch trong transaction, chuyển Order READY, audit và thông báo. Không ghi nhận khởi hành thực tế; tài xế xác nhận qua API tracking. Gọi lặp sau khi đã chuyển trả 409.',
+    requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false }, example: {} } } },
+    responses: { 200: response('TripDetail', { ready: { value: { ...detail, planStatus: 'APPROVED', orderStatus: 'READY' } } }), ...errors('/api/v1/trips/{id}/start-transport', [400,401,403,404,409,500]) },
+  } },
+  '/api/v1/maps/search': { get: {
+    ...readCommon, operationId: 'searchMapAddresses', summary: '[Đã triển khai] Coordinator tìm địa chỉ qua backend',
+    description: 'Chỉ gọi khi nhấn Tìm/Enter. Query q dài 3–200 ký tự; tối đa 30 request/phút/tài khoản. Mapbox permanent=true vì tọa độ được lưu trong route_plan; không tự chọn kết quả.',
+    parameters: [{ name: 'q', in: 'query', required: true, schema: { type: 'string', minLength: 3, maxLength: 200 } }],
+    responses: { 200: response('MapSearchResults', { found: { value: { items: [{ id: 'address.example', label: 'Hà Nội, Việt Nam', latitude: 21.0285, longitude: 105.8542 }], attribution: 'Mapbox' } } }), ...errors('/api/v1/maps/search', [400,401,403,429,503,500]) },
+  } },
+  '/api/v1/trips/{id}/route-preview': { post: {
+    ...readCommon, operationId: 'previewTripRoute', summary: '[Đã triển khai] Tính phương án tuyến chưa lưu', parameters: [pathId],
+    description: 'Coordinator phụ trách, kế hoạch DRAFT. Mapbox Directions chạy sau backend. Response tối đa 3 phương án kèm token ký 15 phút gắn với tripId, inputKey và toàn bộ tuyến; không ghi database.',
+    requestBody: { required: true, content: { 'application/json': { schema: ref('RoutePreviewInput'), examples: { direct: { value: { waypoints: [{ id: 'origin', kind: 'ORIGIN', label: 'Hà Nội', latitude: 21.0285, longitude: 105.8542, note: '' }, { id: 'destination', kind: 'DESTINATION', label: 'TP. Hồ Chí Minh', latitude: 10.7769, longitude: 106.7009, note: '' }] } } } } } },
+    responses: { 200: response('RoutePreviewResult', { routes: { value: { inputKey: 'a'.repeat(64), routes: [], attribution: 'Mapbox' } } }), ...errors('/api/v1/trips/{id}/route-preview', [400,401,403,404,409,413,429,503,500]) },
+  } },
+  '/api/v1/trips/{id}/route-plan': { put: {
+    ...readCommon, operationId: 'saveTripRoutePlan', summary: '[Đã triển khai] Thay thế toàn bộ route_plan', parameters: [pathId],
+    description: 'Coordinator phụ trách, Trip DRAFT và Order APPROVED/PREPARING, chưa vận hành. revision chống mất cập nhật. Tuyến mới cần token preview hợp lệ; sửa ghi chú có thể giữ nguyên tuyến đã lưu. Không sửa Orders, locations, legs, xe hay nhân sự.',
+    requestBody: { required: true, content: { 'application/json': { schema: ref('RoutePlanWrite'), examples: { draft: { value: { revision: 0, routePlan: { version: 1, waypoints: [{ id: 'origin', kind: 'ORIGIN', label: 'Hà Nội', latitude: 21.0285, longitude: 105.8542, note: '' }, { id: 'destination', kind: 'DESTINATION', label: 'TP. Hồ Chí Minh', latitude: 10.7769, longitude: 106.7009, note: '' }], selectedRoute: null }, verificationToken: null } } } } } },
+    responses: { 200: response('TripDetail', { saved: { value: detail } }), ...errors('/api/v1/trips/{id}/route-plan', [400,401,403,404,409,413,429,503,500]) },
+  } },
   '/api/v1/trips/{id}/assignment-options': { get: {
     ...readCommon, 'x-contract-status': 'accepted', operationId: 'getTripAssignmentOptions', summary: '[Đã triển khai] Nhân sự để phân công', parameters: [pathId],
     description: 'Manager hoặc Coordinator phụ trách. Kiểm tra quyền Trip trước khi trả các tài khoản DRIVER_ESCORT đang ACTIVE. items gồm id chuỗi, fullName; sắp fullName rồi id. Không khẳng định người đang rảnh lịch. Không phân trang trong bản đầu.',
-    responses: { 200: response('AssignmentOptions', { available: { value: { items: [{ id: '7', fullName: 'Tài xế mẫu' }, { id: '8', fullName: 'Người hộ tống mẫu' }] } }, empty: { value: { items: [] } } }), ...errors('/api/v1/trips/{id}/assignment-options', [400,401,403,404,429,500]) },
+    responses: { 200: response('AssignmentOptions', { available: { value: { items: [{ id: '7', fullName: 'Tài xế mẫu', crewType: 'DRIVER', workStatus: 'AVAILABLE', selectable: null, scheduleEvaluation: 'NOT_EVALUATED', blockingReasons: [] }, { id: '8', fullName: 'Người hộ tống mẫu', crewType: 'ESCORT', workStatus: 'AVAILABLE', selectable: null, scheduleEvaluation: 'NOT_EVALUATED', blockingReasons: [] }] } }, empty: { value: { items: [] } } }), ...errors('/api/v1/trips/{id}/assignment-options', [400,401,403,404,429,500]) },
   } },
   '/api/v1/trips/{id}/assignments': {
     get: { ...readCommon, 'x-contract-status': 'accepted', operationId: 'getTripAssignments', summary: '[Đã triển khai] Xem phân công Driver/Escort', parameters: [pathId],
@@ -145,13 +194,8 @@ export const tripPaths = {
       responses: { 200: response('TripAssignments', { assigned: { value: crewExample }, empty: { value: crewEmpty } }), ...errors('/api/v1/trips/{id}/assignments', [400,401,403,404,429,500]) },
     },
     put: { ...readCommon, 'x-contract-status': 'accepted', operationId: 'saveTripAssignments', summary: '[Đã triển khai] Coordinator lưu phân công', parameters: [pathId],
-      description: `Chỉ Coordinator phụ trách. Order APPROVED/PREPARING, chưa có vận hành/lịch sử; không hạn chế planStatus của Trip vì không sửa chặng.
-Gửi danh sách đầy đủ 2–100 người. Ít nhất một DRIVER, một ESCORT khác người; userId duy nhất, tài khoản DRIVER_ESCORT ACTIVE. Không nhận assignedBy/assignedAt/id phân công từ client.
-Khóa Order → Trip → chặng → users theo ID → phân công. Giữ ID và metadata của dòng không đổi; đổi role giữ ID và cập nhật actor/time; thêm người mới, xóa người bị bỏ khỏi danh sách.
-Audit ASSIGN_CREW và thông báo IN_APP cho người được thêm/đổi role/gỡ phân công cùng transaction. Gửi lại danh sách giống cũ không thêm audit/thông báo. Lỗi rollback toàn bộ.
-Nếu kế hoạch đã APPROVED và danh sách có đủ DRIVER/ESCORT hợp lệ, Order PREPARING tự động chuyển READY, ghi audit MARK_READY và thông báo ORDER_READY trong cùng transaction. Nếu nhân sự được phân công trước, bước Manager duyệt kế hoạch sẽ thực hiện chuyển trạng thái này.
-Không sửa legs. Chưa kiểm tra trùng lịch nhân sự, chưa có version chống ghi đè hai danh sách khác nhau; request sau có thể thay thế request trước.`,
-      requestBody: { required: true, content: { 'application/json': { schema: ref('TripAssignmentsInput'), examples: { assign: { value: { assignments: [{ userId: '7', role: 'DRIVER' }, { userId: '8', role: 'ESCORT' }] } } } } } },
+      description: 'Thay thế toàn bộ xe và tổ nhân sự trong transaction. Chỉ Coordinator phụ trách, Trip DRAFT, Order APPROVED/PREPARING và chưa vận hành. Tổng số ngựa bố trí phải bằng số ngựa NORMAL; mỗi xe đủ sức chứa. Kiểm tra trạng thái và lịch nếu đã có giờ; lưu nháp chưa giữ chỗ. Gửi duyệt và duyệt kiểm tra lại lịch. Chặng là hành trình chung, không ghi xe qua API plan.',
+      requestBody: { required: true, content: { 'application/json': { schema: ref('TripAssignmentsInput'), examples: { fleet: { value: { vehicles: [{ vehicleId: '5', horseCount: 4, crew: [{ userId: '7', role: 'DRIVER' }, { userId: '8', role: 'ESCORT' }] }] } } } } } },
       responses: { 200: response('TripAssignments', { saved: { value: crewExample } }), ...errors('/api/v1/trips/{id}/assignments', [400,401,403,404,409,429,500]) },
     },
   },
@@ -159,11 +203,11 @@ Không sửa legs. Chưa kiểm tra trùng lịch nhân sự, chưa có version 
     ...readCommon, 'x-contract-status': 'accepted', operationId: 'reviewTripPlan',
     summary: '[Đã triển khai] Manager duyệt hoặc trả lại kế hoạch', parameters: [pathId],
     description: `Chỉ Manager. Trip phải PENDING_APPROVAL, Order APPROVED/PREPARING và chưa có dữ liệu vận hành.
-APPROVED: kiểm tra lại chặng, tuyến, giờ, xe active và sức chứa ngựa NORMAL; khóa xe theo ID tăng dần rồi kiểm tra lịch đã duyệt dưới READ COMMITTED. Hai kế hoạch trùng xe/trùng giờ không được cùng duyệt.
+APPROVED: kiểm tra lại chặng, tuyến, giờ, trạng thái xe và sức chứa ngựa NORMAL; khóa xe theo ID tăng dần rồi kiểm tra lịch đã duyệt dưới READ COMMITTED. Hai kế hoạch trùng xe/trùng giờ không được cùng duyệt.
 Khoảng lịch [đi, đến), giờ đến > giờ đi. Chưa có số phút đệm/tối thiểu được chốt. Xe đang MOVING/AT_STOP hoặc đã xuất phát chưa ghi nhận đến ở Order IN_TRANSIT khác bị chặn cho tới khi xác nhận kết thúc vận hành; không suy ra xe đã rảnh từ giờ đến dự kiến.
 Ghi approvedBy từ tài khoản hiện tại, approvedAt UTC server; xóa returnReason.
 RETURNED: bắt buộc reason sau trim, 1–255 ký tự; Trip về DRAFT, xóa approvedBy/approvedAt, lưu lý do. Có thể trả lại kế hoạch rỗng/sai để Coordinator sửa.
-Cả hai quyết định giữ nguyên ID chặng, ghi audit REVIEW_PLAN + thông báo IN_APP cho Coordinator cùng transaction. Nếu duyệt APPROVED khi đã đủ DRIVER/ESCORT hợp lệ, Order PREPARING tự động chuyển READY cùng audit/thông báo. Lỗi rollback toàn bộ. Duyệt lần nữa hoặc sửa Trip đã duyệt trả 409.`,
+Cả hai quyết định giữ nguyên ID chặng, ghi audit REVIEW_PLAN + thông báo IN_APP cho Coordinator cùng transaction. Duyệt giữ Order PREPARING; Manager dùng POST start-transport để chuyển READY sau khi kiểm tra lại. Lỗi rollback toàn bộ. Duyệt lần nữa hoặc sửa Trip đã duyệt trả 409.`,
     requestBody: { required: true, content: { 'application/json': { schema: ref('ReviewTripPlanInput'), examples: {
       approve: { value: { decision: 'APPROVED' } }, returned: { value: { decision: 'RETURNED', reason: 'Điều chỉnh xe và thời gian chặng thứ hai.' } },
     } } } },
@@ -178,7 +222,7 @@ Cả hai quyết định giữ nguyên ID chặng, ghi audit REVIEW_PLAN + thôn
     ...readCommon, 'x-contract-status': 'accepted', operationId: 'submitTripPlan',
     summary: '[Đã triển khai] Coordinator gửi kế hoạch chờ duyệt', parameters: [pathId],
     description: `Chỉ Coordinator phụ trách. Gửi body {}. Backend đọc kế hoạch đã lưu; không nhận lại chặng trong request này.
-Trip phải DRAFT, Order APPROVED/PREPARING, chưa có vận hành. Kiểm tra chặng, điểm nối, xe active, giờ UTC và thời gian Trip khớp chặng đầu/cuối.
+Trip phải DRAFT, Order APPROVED/PREPARING, chưa có vận hành. Kiểm tra chặng, điểm nối, trạng thái xe, giờ UTC và thời gian Trip khớp chặng đầu/cuối.
 Kiểm tra sơ bộ: có ngựa NORMAL, mỗi ngựa một stall và đi mọi chặng; xe đủ sức chứa; lịch không giao nhau với Trip APPROVED của Order APPROVED/PREPARING/READY/IN_TRANSIT.
 Kiểm tra lịch dùng khoảng [giờ đi, giờ đến), chưa áp dụng thời gian đệm hoặc tối thiểu số phút do chưa chốt con số; chặng gửi/duyệt bắt buộc có giờ đến > giờ đi. Đây chưa phải giữ chỗ xe; Manager duyệt phải kiểm tra lại.
 Trong cùng transaction: Trip → PENDING_APPROVAL, Order APPROVED → PREPARING (PREPARING giữ nguyên), xóa approvedBy/approvedAt/returnReason cũ, ghi audit SUBMIT_PLAN và thông báo IN_APP cho Manager ACTIVE.
@@ -194,17 +238,17 @@ Không tự duyệt, phân công hoặc chuyển READY.`,
     ...readCommon, operationId: 'listTrips', summary: '[Đã triển khai] Danh sách chuyến theo quyền',
     description: `${readNotice}\n\nManager xem tất cả; Coordinator chỉ xem chuyến mình phụ trách. items và total phải cùng phạm vi quyền. Sắp theo trips.id giảm dần. Trang vượt dữ liệu trả items rỗng, total vẫn đúng.`,
     parameters: [{ name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } }, { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }],
-    responses: { 200: response('TripList', { withTrips: { summary: 'Có chuyến', value: { items: [summary], total: 1, page: 1, limit: 20 } }, empty: { summary: 'Chưa có chuyến', value: { items: [], total: 0, page: 1, limit: 20 } } }), ...errors('/api/v1/trips', [400, 401, 403, 429, 500]) },
+    responses: { 200: response('TripList', { withTrips: { summary: 'Có chuyến', value: { items: [{ ...summary, tripId: summary.id, orderStatus: 'PREPARING', desiredDepartureDate: '2026-10-20', requestedPickupTime: '08:00', horseCount: 2 }], total: 1, page: 1, limit: 20 } }, empty: { summary: 'Chưa có chuyến', value: { items: [], total: 0, page: 1, limit: 20 } } }), ...errors('/api/v1/trips', [400, 401, 403, 429, 500]) },
   } },
   [detailPath]: { get: {
     ...readCommon, operationId: 'getTrip', summary: '[Đã triển khai] Chi tiết chuyến và chặng', parameters: [pathId],
-    description: `${readNotice}\n\nManager hoặc Coordinator phụ trách được xem. Chặng theo seqNo tăng dần, gồm tên điểm và mã xe để UI không phải tự nối danh mục. Chuyến mới trả legs: [], các thời gian tổng thể null. vehicleId/vehicleCode/vehicleActive có thể null; không tự bỏ chặng khỏi response.`,
-    responses: { 200: response('TripDetail', { planned: { summary: 'Đã lưu 2 chặng nháp', value: detail }, noLegs: { summary: 'Trip vừa được tạo', value: emptyDetail }, inactiveVehicle: { summary: 'Xe của chặng cũ đã inactive; cần đổi trước khi lưu', value: { ...detail, legs: detail.legs.map(leg => ({ ...leg, vehicleActive: false })) } } }), ...errors(detailPath, [400, 401, 403, 404, 429, 500]) },
+    description: `${readNotice}\n\nManager hoặc Coordinator phụ trách được xem. Chặng theo seqNo tăng dần, gồm tên điểm, mã xe và trạng thái xe. Chuyến mới trả legs: [], các thời gian tổng thể null. vehicleId/vehicleCode/vehicleStatus có thể null; không tự bỏ chặng khỏi response.`,
+    responses: { 200: response('TripDetail', { planned: { summary: 'Đã lưu 2 chặng nháp', value: detail }, noLegs: { summary: 'Trip vừa được tạo', value: emptyDetail }, reservedVehicle: { summary: 'Xe cũ hiện RESERVED nhưng vẫn được hiển thị', value: { ...detail, legs: detail.legs.map(leg => ({ ...leg, vehicleStatus: 'RESERVED' })) } } }), ...errors(detailPath, [400, 401, 403, 404, 429, 500]) },
   } },
   [optionsPath]: { get: {
     ...readCommon, operationId: 'getTripPlanOptions', summary: '[Đã triển khai] Địa điểm và xe để lập kế hoạch', parameters: [pathId],
-    description: `${readNotice}\n\nKiểm tra quyền đọc Trip trước khi trả danh mục. v0.1 trả toàn bộ danh mục nhỏ, không phân trang/cắt ngầm; locations theo name rồi id, vehicles theo plateOrCode rồi id. vehicles chỉ chứa xe active. Mảng rỗng nghĩa là chưa có lựa chọn; không suy ra đây là danh sách xe chắc chắn rảnh lịch hoặc đủ sức chứa. Tên và trạng thái xe cũ lấy từ chi tiết Trip, kể cả khi xe không còn trong options.`,
-    responses: { 200: response('TripPlanOptions', { available: { summary: 'Danh mục thử', value: optionsExample }, empty: { summary: 'Chưa chuẩn bị danh mục', value: { locations: [], vehicles: [] } } }), ...errors(optionsPath, [400, 401, 403, 404, 429, 500]) },
+    description: `${readNotice}\n\nKiểm tra quyền đọc Trip trước khi trả danh mục. Trả toàn bộ xe theo plateOrCode rồi id, gồm trạng thái thật và blocker. selectable=null/NOT_EVALUATED nghĩa là chưa đánh giá lịch nháp; server kiểm tra khi ghi.`,
+    responses: { 200: response('TripPlanOptions', { available: { summary: 'Danh mục thử', value: optionsExample }, empty: { summary: 'Chưa chuẩn bị danh mục', value: { requiredHorseCount: 0, locations: [], vehicles: [] } } }), ...errors(optionsPath, [400, 401, 403, 404, 429, 500]) },
   } },
   [planPath]: { put: {
     ...readCommon, operationId: 'saveTripDraftPlan', summary: '[Đã triển khai] Coordinator lưu kế hoạch nháp', parameters: [pathId],
@@ -214,19 +258,16 @@ Không tự duyệt, phân công hoặc chuyển READY.`,
 Chỉ Coordinator phụ trách. Manager không được sửa. Trip phải DRAFT, Order APPROVED/PREPARING. Kiểm tra lại trong transaction; chặn chặng khác NOT_STARTED hoặc có lịch sử vận hành (milestones, nhật ký/sự cố liên quan).
 
 ### Dữ liệu và validation
-- Gửi đầy đủ 1–50 chặng theo giới hạn kỹ thuật hiện tại, không phải PATCH một chặng.
-- Chặng cũ phải có id thuộc Trip, không trùng, đúng thứ tự và không được bỏ sót; chặng mới không có id, chỉ thêm sau các chặng cũ. Thiếu/đảo thứ tự/trộn ID chuyến khác trả 400.
-- Điểm và xe phải tồn tại; xe active; điểm đi khác điểm đến. Điểm đến chặng trước = điểm đi chặng sau.
-- Giờ đến >= giờ đi; giờ đi chặng sau >= giờ đến chặng trước. Nhận ngày giờ ISO UTC có Z, năm 1000–9999, chính xác đến giây; chấp nhận .000Z nhưng từ chối phần lẻ giây khác 0 vì schema dùng DATETIME(0). Không chấp nhận ngày không tồn tại. Không tự thêm quy tắc phải cách ngày hiện tại N ngày trong contract này.
-- Không nhận seqNo, plannedBy, orderId, planStatus, status, carrierId hoặc actual* từ body. Dữ liệu carrier cũ không được xóa ngầm chỉ vì field không thuộc contract.
+- Chuyến mới gửi giờ đi, giờ đến và routePlanRevision. Server yêu cầu route_plan có tuyến Mapbox đã chọn và tạo đúng một leg đại diện với các FK địa điểm/xe bằng NULL.
+- Giờ đến phải sau giờ đi. routePlanRevision phải đúng revision hiện tại; thay đổi lộ trình sẽ làm mất hiệu lực lịch cũ.
+- Payload legs cũ chỉ còn dùng cho chuyến legacy chưa có route_plan.
 
 ### Kết quả và giới hạn
 Giữ ID chặng cũ, server sinh ID chặng mới và seqNo. Trip lấy thời gian chặng đầu/cuối; trạng thái vẫn DRAFT. Lưu chặng, Trip và audit cùng transaction; không thay đổi hồ sơ, phân công, lịch sử hoặc trạng thái Order. Response là chi tiết đã lưu để frontend cập nhật ID trước lần lưu tiếp theo.
 Không có kiểm tra phiên bản/idempotency trong v0.1: nếu mất response sau khi thêm chặng, GET lại chi tiết trước khi retry. Bản ghi sau có thể ghi đè bản trước khi cùng sửa. Chưa chứng nhận đủ điều kiện vận chuyển.
 `,
     requestBody: { required: true, content: { 'application/json': { schema: ref('TripPlanInput'), examples: {
-      firstSave: { summary: 'Lưu lần đầu: chặng mới không có id', value: { legs: [firstLeg, secondLeg] } },
-      editExisting: { summary: 'Sửa giờ chặng 302: giữ đủ ID và thứ tự', value: { legs: [{ ...firstLeg, id: '301' }, { ...secondLeg, id: '302', plannedArrivalAt: '2026-10-20T07:00:00Z' }] } },
+      routePlanSchedule: { summary: 'Lưu lịch cho route_plan hiện tại', value: { plannedDepartureAt:'2026-10-30T00:00:00Z',plannedArrivalAt:'2026-11-08T06:00:00Z',routePlanRevision:3 } },
     } } } },
     responses: { 200: response('TripDetail', { firstSave: { summary: 'Sau lưu lần đầu', value: detail }, editExisting: { summary: 'Sau sửa giờ chặng 302', value: { ...detail, plannedArrivalAt: '2026-10-20T07:00:00Z', legs: [detail.legs[0], { ...detail.legs[1], plannedArrivalAt: '2026-10-20T07:00:00Z' }] } } }), ...errors(planPath, [400, 401, 403, 404, 409, 413, 429, 500]) },
   } },

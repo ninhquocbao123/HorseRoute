@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),88);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),86);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -32,19 +32,19 @@ test('Trip design contract exposes complete schemas, examples and explicit imple
   assert.ok(op.responses[500]);
  }
  const input = doc.components.schemas.TripPlanInput;
- assert.equal(input.additionalProperties, false);
- assert.deepEqual(input.required, ['legs']);
- assert.equal(input.properties.legs.minItems, 1);
- assert.equal(input.properties.legs.maxItems, 50);
+ assert.equal(input.additionalProperties,false);
+ assert.deepEqual(input.required,['plannedDepartureAt','plannedArrivalAt','routePlanRevision']);
+ const legacy=doc.components.schemas.LegacyTripPlanInput;
+ assert.equal(legacy.properties.legs.minItems,1);
+ assert.equal(legacy.properties.legs.maxItems,50);
  const leg = doc.components.schemas.TripPlanLegInput;
  assert.equal(leg.additionalProperties, false);
  assert.ok(!leg.required.includes('id'));
  assert.ok(!leg.properties.planStatus);
- assert.equal(doc.components.schemas.TripLeg.properties.vehicleActive.nullable, true);
+ assert.equal(doc.components.schemas.TripLeg.properties.vehicleStatus.nullable, true);
  const save = doc.paths['/api/v1/trips/{id}/plan'].put;
  const examples = save.requestBody.content['application/json'].examples;
- assert.ok(examples.firstSave.value.legs.every(x => x.id === undefined));
- assert.deepEqual(examples.editExisting.value.legs.map(x => x.id), ['301', '302']);
+ assert.equal(examples.routePlanSchedule.value.routePlanRevision,3);
  assert.ok(save.responses[409]);
  assert.ok(!doc.paths['/api/v1/trips'].get.responses[409]);
  assert.equal(doc.paths['/api/v1/trips/{id}'].get.responses[200].content['application/json'].examples.noLegs.value.legs.length, 0);
@@ -64,7 +64,7 @@ test('All OpenAPI references resolve and Trip response examples match declared r
  }
  visit(doc);
  function validate(value, schema) {
-  if (schema.$ref) schema = doc.components.schemas[schema.$ref.split('/').at(-1)];
+  if (schema.$ref) schema = { ...doc.components.schemas[schema.$ref.split('/').at(-1)], ...schema };
   if (value === null) { assert.ok(schema.nullable); return; }
   if (schema.type === 'object') {
    for (const key of schema.required || []) assert.ok(key in value, key);
@@ -91,9 +91,9 @@ test('All OpenAPI references resolve and Trip response examples match declared r
   if (!path.startsWith('/api/v1/trips')) continue;
   for (const op of Object.values(item)) {
    const media = op.responses[200].content['application/json'];
-   for (const example of Object.values(media.examples)) validate(example.value, media.schema);
+   for (const example of Object.values(media.examples || {})) validate(example.value, media.schema);
    const body = op.requestBody?.content['application/json'];
-   if (body) for (const example of Object.values(body.examples)) validate(example.value, body.schema);
+   if (body) for (const example of Object.values(body.examples || {})) validate(example.value, body.schema);
   }
  }
 });
@@ -118,18 +118,19 @@ test('Crew API documents strict input, both roles and crew-only readiness',()=>{
   const op=doc.paths[path][method];assert.equal(op['x-implementation-status'],'implemented');assert.deepEqual(op.security,[{bearer:[]}]);
  }
  const input=doc.components.schemas.TripAssignmentsInput;
- assert.equal(input.additionalProperties,false);assert.equal(input.properties.assignments.items.additionalProperties,false);
- assert.equal(input.properties.assignments.minItems,2);assert.equal(input.properties.assignments.maxItems,100);
+ assert.equal(input.additionalProperties,false);assert.equal(input.properties.vehicles.items.additionalProperties,false);
+ assert.equal(input.properties.vehicles.minItems,1);assert.equal(input.properties.vehicles.items.properties.crew.maxItems,4);
  assert.ok(doc.components.schemas.TripAssignments.properties.crewReadiness);
 });
 
-test('Manual readiness endpoints are removed and assignment documents automatic READY', () => {
- assert.ok(!doc.paths['/api/v1/trips/{id}/readiness']);
+test('Readiness is read-only and Manager explicitly releases the trip', () => {
+ assert.ok(doc.paths['/api/v1/trips/{id}/readiness'].get);
+ assert.ok(doc.paths['/api/v1/trips/{id}/start-transport'].post);
  assert.ok(!doc.paths['/api/v1/orders/{id}/mark-ready']);
  assert.ok(!doc.components.schemas.TripReadiness);
  assert.ok(!doc.components.schemas.MarkReadyResult);
  assert.ok(!doc.components.schemas.Error.properties.blockers);
- assert.match(doc.paths['/api/v1/trips/{id}/assignments'].put.description, /tự động chuyển READY/);
+ assert.match(doc.paths['/api/v1/trips/{id}/assignments'].put.description, /Trip DRAFT/);
 });
 
 test('Flow 4 tracking contract documents every implemented endpoint with security, uploads and errors', () => {

@@ -1,23 +1,24 @@
 import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, App, Button, Form, Input, InputNumber, Modal, Select, Switch, Table, Tag, Tooltip } from 'antd';
+import { Alert, App, Button, Form, Input, InputNumber, Modal, Select, Table, Tag, Tooltip } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { errorMessage } from '../tracking/tracking.api';
 import {
   fleetApi, VEHICLE_TYPES, vehicleTypeLabel,
-  type Vehicle, type VehicleStatusFilter, type VehicleType, type VehicleUpdateInput,
+  type Vehicle, type VehicleStatus, type VehicleStatusFilter, type VehicleType, type VehicleUpdateInput,
 } from './fleet.api';
 import './fleet.css';
 
-type FormValues = { plateOrCode: string; vehicleType: VehicleType; capacityStalls: number; isActive: boolean };
+type FormValues = { plateOrCode: string; vehicleType: VehicleType; capacityStalls: number; status: VehicleStatus };
 const PAGE_SIZE = 10;
 const STATUS_OPTIONS: { value: VehicleStatusFilter; label: string }[] = [
   { value: 'all', label: 'Tất cả trạng thái' },
-  { value: 'active', label: 'Đang hoạt động' },
-  { value: 'inactive', label: 'Ngừng hoạt động' },
+  { value: 'AVAILABLE', label: 'Sẵn sàng' },
+  { value: 'RESERVED', label: 'Đã giữ chỗ' },
+  { value: 'IN_TRANSIT', label: 'Đang vận chuyển' },
 ];
 
-/** Danh mục phương tiện (FR-TRP-01): Coordinator thêm, sửa, ngừng hoạt động, xóa xe chưa từng dùng. */
+/** Danh mục phương tiện (FR-TRP-01): Coordinator thêm, sửa trạng thái và xóa xe chưa từng dùng. */
 export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
   const { message, modal } = useFeedback();
   const [form] = Form.useForm<FormValues>();
@@ -57,8 +58,8 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
     setFormError('');
     form.resetFields();
     form.setFieldsValue(vehicle === 'new'
-      ? { vehicleType: 'TRUCK', capacityStalls: 4, isActive: true }
-      : { plateOrCode: vehicle.plateOrCode, vehicleType: vehicle.vehicleType, capacityStalls: vehicle.capacityStalls, isActive: vehicle.isActive });
+      ? { vehicleType: 'LIGHT', capacityStalls: 2, status: 'AVAILABLE' }
+      : { plateOrCode: vehicle.plateOrCode, vehicleType: vehicle.vehicleType, capacityStalls: vehicle.capacityStalls, status: vehicle.status });
     setEditing(vehicle);
   }
 
@@ -73,7 +74,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
         message.success('Đã thêm phương tiện.');
         setStatus('all'); setSearch(''); setQuery(''); setPage(1);
       } else {
-        const input: VehicleUpdateInput = { ...base, isActive: values.isActive };
+        const input: VehicleUpdateInput = { ...base, status: values.status };
         await fleetApi.update(editing.id, input);
         message.success('Đã cập nhật phương tiện.');
       }
@@ -109,10 +110,10 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
     { title: 'Loại', dataIndex: 'vehicleType', render: (type: VehicleType) => vehicleTypeLabel(type) },
     { title: 'Sức chứa', dataIndex: 'capacityStalls', align: 'right', render: (value: number) => `${value} chỗ` },
     {
-      title: 'Trạng thái', dataIndex: 'isActive',
-      render: (active: boolean, vehicle) => (
+      title: 'Trạng thái', dataIndex: 'status',
+      render: (current: VehicleStatus, vehicle) => (
         <span className="fleet-tags">
-          <Tag color={active ? 'success' : 'default'}>{active ? 'Hoạt động' : 'Ngừng hoạt động'}</Tag>
+          <Tag color={current === 'AVAILABLE' ? 'success' : current === 'RESERVED' ? 'warning' : 'processing'}>{current === 'AVAILABLE' ? 'Sẵn sàng' : current === 'RESERVED' ? 'Đã giữ chỗ' : 'Đang vận chuyển'}</Tag>
           {vehicle.inActiveUse && <Tooltip title="Xe nằm trong kế hoạch đã duyệt của đơn chưa giao xong."><Tag color="warning">Đang dùng</Tag></Tooltip>}
         </span>
       ),
@@ -125,7 +126,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
       render: (_value, vehicle) => (
         <span className="fleet-actions">
           <Button size="small" onClick={() => openForm(vehicle)} aria-label={`Sửa ${vehicle.plateOrCode}`}>Sửa</Button>
-          <Tooltip title={vehicle.legCount > 0 ? 'Xe đã được dùng trong kế hoạch: chỉ có thể ngừng hoạt động.' : ''}>
+          <Tooltip title={vehicle.legCount > 0 ? 'Xe đã được dùng trong kế hoạch nên không thể xóa.' : ''}>
             <Button size="small" danger disabled={vehicle.legCount > 0} onClick={() => confirmDelete(vehicle)} aria-label={`Xóa ${vehicle.plateOrCode}`}>Xóa</Button>
           </Tooltip>
         </span>
@@ -166,7 +167,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
       >
         {formError && <Alert type="error" showIcon title={formError} style={{ marginBottom: 16 }} />}
         {editing !== 'new' && editing?.inActiveUse && (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Xe đang nằm trong kế hoạch đã duyệt: không thể ngừng hoạt động hoặc giảm sức chứa dưới số ngựa cần chở." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Xe đang nằm trong kế hoạch đã duyệt: không thể đổi trạng thái hoặc giảm sức chứa dưới số ngựa cần chở." />
         )}
         <Form form={form} layout="vertical" onFinish={values => void submit(values)} requiredMark="optional">
           <Form.Item name="plateOrCode" label="Biển số / mã xe" rules={[{ required: true, whitespace: true, message: 'Nhập biển số hoặc mã xe.' }, { max: 30, message: 'Tối đa 30 ký tự.' }]}>
@@ -175,12 +176,12 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
           <Form.Item name="vehicleType" label="Loại phương tiện" rules={[{ required: true, message: 'Chọn loại phương tiện.' }]}>
             <Select options={VEHICLE_TYPES} />
           </Form.Item>
-          <Form.Item name="capacityStalls" label="Sức chứa (số chỗ ngựa)" rules={[{ required: true, type: 'integer', min: 1, max: 100, message: 'Nhập số nguyên từ 1 đến 100.' }]}>
-            <InputNumber min={1} max={100} precision={0} style={{ width: '100%' }} />
+          <Form.Item name="capacityStalls" label="Sức chứa (số chỗ ngựa)" dependencies={['vehicleType']} rules={[{ required: true }, ({ getFieldValue }) => ({ validator: (_rule, value) => { const type = getFieldValue('vehicleType') as VehicleType; const valid = type === 'LIGHT' ? value === 2 : type === 'MEDIUM' ? value >= 4 && value <= 6 : value === 9; return valid ? Promise.resolve() : Promise.reject(new Error(type === 'LIGHT' ? 'Xe nhẹ có đúng 2 chỗ.' : type === 'MEDIUM' ? 'Xe trung có từ 4 đến 6 chỗ.' : 'Xe nặng có đúng 9 chỗ.')); } })]}>
+            <InputNumber min={2} max={9} precision={0} style={{ width: '100%' }} />
           </Form.Item>
           {editing !== 'new' && (
-            <Form.Item name="isActive" label="Đang hoạt động" valuePropName="checked" extra="Tắt để ngừng dùng xe này trong kế hoạch mới.">
-              <Switch />
+            <Form.Item name="status" label="Trạng thái" extra="Chỉ xe Sẵn sàng có thể được chọn cho kế hoạch mới.">
+              <Select options={STATUS_OPTIONS.filter(option => option.value !== 'all')} />
             </Form.Item>
           )}
         </Form>

@@ -1,0 +1,19 @@
+.coordinator-scope .trip-detail-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+.coordinator-scope .trip-status-bar { width: auto; min-width: 0; margin-left: auto; padding: 4px 0; }
+.coordinator-scope .trip-status-groups { display: flex; flex-wrap: wrap; gap: 16px; min-width: 0; }
+.coordinator-scope .trip-status-group { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #526a73; }
+.coordinator-scope .trip-status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid; border-radius: 20px; font-weight: 650; white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+.coordinator-scope .trip-status-badge.is-draft { background: #EEF3F5; color: #526A73; border-color: #D7E1E5; }
+.coordinator-scope .trip-status-badge.is-pending { background: #FFF4D6; color: #8A5A00; border-color: #F1D27A; }
+.coordinator-scope .trip-status-badge.is-info { background: #FFF0E1; color: #A34F00; border-color: #F2BE86; }
+.coordinator-scope .trip-status-badge.is-danger { background: #FFE9E7; color: #B42318; border-color: #F3AAA4; }
+.coordinator-scope .trip-status-badge.is-approved { background: #E7F7ED; color: #167044; border-color: #A8DCBA; }
+.coordinator-scope .trip-status-badge.is-preparing { background: #E9F2FF; color: #195FA8; border-color: #B5D2F5; }
+.coordinator-scope .trip-status-badge.is-ready { background: #E0F7F4; color: #08766D; border-color: #9DDDD6; }
+.coordinator-scope .trip-status-badge.is-transit { background: #E6ECFF; color: #2947A3; border-color: #B7C5F5; }
+.coordinator-scope .trip-status-badge.is-delivered { background: #DDF5E7; color: #11663A; border-color: #94D4AD; }
+@media (max-width: 991px) {
+  .coordinator-scope .trip-detail-toolbar { align-items: flex-start; }
+  .coordinator-scope .trip-status-bar { width: 100%; margin-left: 0; }
+  .coordinator-scope .trip-status-groups { gap: 8px 16px; }
+}

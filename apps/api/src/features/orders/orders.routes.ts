@@ -10,7 +10,7 @@ export function ordersRoutes(service: OrdersService) {
   router.get('/customer-workspace', authorize(Role.CUSTOMER), async(req,res)=>{res.json(await service.customerWorkspace(req.account));});
   router.get('/:id/quote',authorize(Role.CUSTOMER,Role.MANAGER),async(req,res)=>{res.json(await service.quote(req.account,parse(idSchema,req.params.id)));});
   router.get('/:id/review-options', authorize(Role.MANAGER), c.options);
-  router.get('/:id', authorize(Role.CUSTOMER, Role.MANAGER), c.detail);
+  router.get('/:id', authorize(Role.CUSTOMER, Role.MANAGER, Role.COORDINATOR), c.detail);
   router.post('/', authorize(Role.CUSTOMER), c.create);
   router.put('/:id', authorize(Role.CUSTOMER), c.edit);
   router.delete('/:id', authorize(Role.CUSTOMER), c.remove);
