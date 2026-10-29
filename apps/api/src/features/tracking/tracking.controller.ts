@@ -30,6 +30,35 @@ export class TrackingController {
     res.status(201).json(await this.service.createHorseLog(req.account, String(req.params.legId), req.body, uploads(req.files)));
   };
 
+  createCareActivity: RequestHandler = async (req, res) => {
+    res.status(201).json(await this.service.createCareActivity(req.account, String(req.params.tripId), req.body));
+  };
+
+  careActivities: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCareActivities(req.account, String(req.params.tripId), req.query));
+  };
+
+  updateHorseReport: RequestHandler = async (req, res) => {
+    res.json(await this.service.updateHorseReport(req.account, String(req.params.id), req.body, uploads(req.files)));
+  };
+
+  deleteHorseReport: RequestHandler = async (req, res) => {
+    await this.service.deleteHorseReport(req.account, String(req.params.id));
+    res.status(204).end();
+  };
+
+  sendHorseReport: RequestHandler = async (req, res) => {
+    res.json(await this.service.sendHorseReport(req.account, String(req.params.id), req.body));
+  };
+
+  customerHorseReports: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCustomerHorseReports(req.account, String(req.params.orderId)));
+  };
+
+  viewHorseReport: RequestHandler = async (req, res) => {
+    res.json(await this.service.viewHorseReport(req.account, String(req.params.orderId), String(req.params.id)));
+  };
+
   horseLogs: RequestHandler = async (req, res) => {
     res.json(await this.service.getTripHorseLogs(req.account, String(req.params.tripId)));
   };

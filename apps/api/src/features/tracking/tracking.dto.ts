@@ -86,7 +86,33 @@ export interface HorseLogRow {
   loggedAt: Date;
   createdBy: string;
   createdByName: string;
+  /** Vai trò trong chuyến của người ghi (trip_assignments.role); null nếu không còn được phân công. */
+  createdByCrewRole?: import('@my-project/shared').CrewRole | null;
   correctsLogId: string | null;
+  bodyTempC: number | string | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  reportStatus: import('@my-project/shared').HorseReportStatus | null;
+  sendToCustomer: number | boolean;
+  sentAt: Date | null;
+  customerViewedAt: Date | null;
+}
+
+export interface CustomerHorseReportRow {
+  id: string;
+  horseId: string;
+  horseName: string;
+  conditionStatus: import('@my-project/shared').HorseConditionStatus;
+  bodyTempC: number | string | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  loggedAt: Date;
+  sentAt: Date;
+  viewedAt: Date | null;
+  escortName: string;
+  createdBy: string;
 }
 
 export interface AttachmentRow {
@@ -132,6 +158,8 @@ export interface AlertRow {
   sentBy: string;
   sentByName: string;
   sentAt: Date;
+  notificationId?: string | null;
+  notificationRead?: number | boolean | null;
 }
 
 /** Chặng cho bản đồ: tọa độ hai đầu (DECIMAL → chuỗi hoặc null) và loại xe. */
@@ -167,4 +195,23 @@ export interface PositionRow {
   speedMps: string | number | null;
   headingDeg: number | null;
   recordedAt: Date;
+}
+
+/** Hàng hoạt động chăm sóc (horse_care_activities) kèm tên ngựa / người ghi. */
+export interface CareActivityRow {
+  id: string;
+  tripId: string;
+  legId: string | null;
+  horseId: string | null;
+  horseName: string | null;
+  activityType: import('@my-project/shared').CareActivityType;
+  feedDescription: string | null;
+  amountLiters: number | string | null;
+  durationMinutes: number | null;
+  note: string | null;
+  performedAt: Date;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+  correctsActivityId: string | null;
 }

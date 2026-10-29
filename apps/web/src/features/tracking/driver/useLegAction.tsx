@@ -80,7 +80,7 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
         pendingStore.clear(legId);
         setPending(null);
         setConfirming(null);
-        setNotice('Trạng thái chặng đã thay đổi. Đã tải lại dữ liệu mới nhất.');
+        setNotice('Trạng thái chặng đã thay đổi, đã tải lại.');
         await onChanged();
       } else {
         setError(errorMessage(e));
@@ -118,7 +118,7 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
   const pendingAlert = pendingHere && (
     <Alert
       type="warning" showIcon
-      message="Có thao tác chưa gửi được"
+      title="Có thao tác chưa gửi được"
       description={<>{describeAction(pendingHere.type)} lúc {formatDateTime(pendingHere.occurredAt)}.{error && <><br /><span className="drv-error-text">{error}</span></>}</>}
       action={(
         <span className="drv-alert-actions">
@@ -161,7 +161,7 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
               <span className="drv-muted">Chỉ nhập bù trong thời gian cho phép; quá hạn cần Điều phối viên hiệu chỉnh.</span>
             </div>
           )}
-          {error && <Alert type="error" showIcon message={error} />}
+          {error && <Alert type="error" showIcon title={error} />}
         </div>
       )}
     </Modal>

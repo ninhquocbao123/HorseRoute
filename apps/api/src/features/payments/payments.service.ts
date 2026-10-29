@@ -1,20 +1,37 @@
+import {randomBytes} from 'crypto';
+import {paymentUrl,verifyVnp,vnpConfig,vnpDate,VnpParams} from './vnpay';
 import { DataSource, EntityManager } from 'typeorm';
 import { User } from '../users/users.model';
 import { Role } from '@my-project/shared';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
-import { socketService } from '../../shared/socket/socket.service';
+import { socketService, PaymentEventPayload } from '../../shared/socket/socket.service';
 import { CreatePaymentSessionDto, CompletePaymentSessionDto } from './payments.validation';
 
 export class PaymentsService {
   constructor(private readonly db: DataSource) {}
 
-  async createSession(user: User, dto: CreatePaymentSessionDto) {
+  private access(user: User, owner: unknown, write = false) {
+    if ((!write && user.role === Role.MANAGER) || (user.role === Role.CUSTOMER && String(owner) === String(user.id))) return;
+    throw new ForbiddenException('Bạn không có quyền thực hiện thao tác thanh toán này.');
+  }
+  private payable(status: string) {
+    if (!['APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED'].includes(status)) throw new ConflictException('Đơn hàng không còn cho phép thanh toán.');
+  }
+  private validQuote(quote: any, paid: number) {
+    if (paid < Number(quote.deposit) && quote.expires_at && new Date(quote.expires_at).getTime() <= Date.now()) throw new ConflictException('Báo giá đã hết hạn đặt cọc.');
+  }
+  async createSession(user: User, dto: CreatePaymentSessionDto) {return this.buildSession(user,dto,false);}
+  async createVnpay(user:User,dto:CreatePaymentSessionDto,ip:string){
+    vnpConfig();
+    const session=await this.buildSession(user,dto,true);
+    return {sessionCode:session.sessionCode,paymentUrl:paymentUrl(session.sessionCode,session.amount,ip)};
+  }
+  private async buildSession(user: User, dto: CreatePaymentSessionDto, gateway:boolean) {
     const [order] = await this.db.query('SELECT * FROM orders WHERE id=?', [dto.orderId]);
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng.');
 
-    if (user.role === Role.CUSTOMER && String(order.customer_id) !== String(user.id)) {
-      throw new ForbiddenException('Bạn không sở hữu đơn hàng này.');
-    }
+    this.access(user, order.customer_id, true);
+    this.payable(order.status);
 
     const [quote] = await this.db.query(
       "SELECT * FROM order_quotes WHERE order_id=? AND status='APPROVED' ORDER BY id DESC LIMIT 1",
@@ -30,6 +47,7 @@ export class PaymentsService {
     const total = Number(quote.total);
     const paid = Number(paidRow.paid);
     const deposit = Number(quote.deposit);
+    this.validQuote(quote, paid);
     const balance = Math.max(0, total - paid);
 
     let amount = 0;
@@ -49,7 +67,7 @@ export class PaymentsService {
     }
 
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const sessionCode = `PAY-${order.order_code}-${Date.now().toString(36).toUpperCase()}-${rand}`;
+    const sessionCode = gateway ? "VNP"+randomBytes(16).toString("hex") : `PAY-${order.order_code}-${Date.now().toString(36).toUpperCase()}-${rand}`;
 
     const insertResult = await this.db.query(
       `INSERT INTO payment_sessions (session_code, order_id, quote_id, customer_id, payment_type, payment_method, amount, status)
@@ -76,7 +94,14 @@ export class PaymentsService {
   }
 
   async completeSession(user: User, sessionCode: string, dto: CompletePaymentSessionDto) {
-    return this.db.transaction(async (m: EntityManager) => {
+    return this.settle(user,sessionCode,dto);
+  }
+  private async settle(user: User, sessionCode: string, dto: CompletePaymentSessionDto, verified?:VnpParams) {
+    let event: PaymentEventPayload | undefined;
+    const result = await this.db.transaction(async (m: EntityManager) => {
+      const [identity] = await m.query('SELECT order_id FROM payment_sessions WHERE session_code=?',[sessionCode]);
+      if (!identity) throw new NotFoundException('Không tìm thấy phiên thanh toán.');
+      await m.query('SELECT id FROM orders WHERE id=? FOR UPDATE',[identity.order_id]);
       const [session] = await m.query(
         'SELECT s.*, o.order_code, o.customer_id AS order_customer_id, o.status AS order_status FROM payment_sessions s JOIN orders o ON o.id=s.order_id WHERE s.session_code=? FOR UPDATE',
         [sessionCode]
@@ -86,15 +111,16 @@ export class PaymentsService {
         throw new NotFoundException('Không tìm thấy phiên thanh toán.');
       }
 
-      if (user.role === Role.CUSTOMER && String(session.customer_id) !== String(user.id)) {
-        throw new ForbiddenException('Bạn không sở hữu phiên thanh toán này.');
-      }
+      this.access(user, session.customer_id, true);
+      if(sessionCode.startsWith('VNP')&&!verified)throw new ForbiddenException('Chỉ VNPAY được xác nhận giao dịch này.');
+      if(verified&&verified.vnp_Amount!==String(Number(session.amount)*100))throw new BadRequestException('Sai số tiền giao dịch.');
 
       // Idempotency check: duplicate submissions must never charge twice
       if (session.status !== 'PENDING') {
         throw new ConflictException(`Phiên thanh toán đã được xử lý với kết quả "${session.status}". Không ghi nhận lại.`);
       }
 
+      if(!verified && dto.result==='SUCCESS' && Date.now()-new Date(session.created_at).getTime() >= 15*60*1000) throw new ConflictException('Phiên thanh toán đã hết hạn. Vui lòng tạo phiên mới.');
       const amount = Number(session.amount);
 
       if (dto.result === 'FAILED' || dto.result === 'CANCELLED') {
@@ -111,7 +137,7 @@ export class PaymentsService {
         const total = Number(quote?.total || 0);
         const paid = Number(paidRow?.paid || 0);
 
-        socketService.notifyPayment({
+        event = {
           orderId: String(session.order_id),
           orderCode: session.order_code,
           customerId: String(session.customer_id),
@@ -123,7 +149,7 @@ export class PaymentsService {
           total,
           balance: Math.max(0, total - paid),
           message: dto.result === 'CANCELLED' ? 'Giao dịch đã được hủy.' : 'Thanh toán mô phỏng không thành công.',
-        });
+        };
 
         return {
           sessionCode,
@@ -136,6 +162,7 @@ export class PaymentsService {
         };
       }
 
+      this.payable(session.order_status);
       // Result is SUCCESS
       const [quote] = await m.query('SELECT * FROM order_quotes WHERE id=? FOR UPDATE', [session.quote_id]);
       if (!quote || quote.status !== 'APPROVED') {
@@ -150,11 +177,14 @@ export class PaymentsService {
       const total = Number(quote.total);
       const deposit = Number(quote.deposit);
 
+      if(!verified)this.validQuote(quote, paidBefore);
+      const due = session.payment_type === 'DEPOSIT' ? deposit-paidBefore : total-paidBefore;
+      if (amount <= 0 || due !== amount || (session.payment_type === 'BALANCE' && paidBefore < deposit)) throw new ConflictException('Số tiền cần trả đã thay đổi. Vui lòng tạo phiên thanh toán mới.');
       if (paidBefore + amount > total) {
         throw new BadRequestException('Số tiền thanh toán vượt quá số dư cần trả.');
       }
 
-      const reference = `SIM-${session.session_code}`;
+      const reference = verified ? `VNPAY-${verified.vnp_TransactionNo}` : `SIM-${session.session_code}`;
       const [dup] = await m.query('SELECT id FROM order_receipts WHERE reference=?', [reference]);
       if (dup) {
         throw new ConflictException('Giao dịch đã được ghi nhận trước đó.');
@@ -169,8 +199,8 @@ export class PaymentsService {
       // Insert order receipt
       await m.query(
         `INSERT INTO order_receipts (order_id, quote_id, amount, method, source, session_id, reference, received_at, recorded_by)
-         VALUES (?, ?, ?, ?, 'ONLINE_SIMULATION', ?, ?, UTC_TIMESTAMP(3), ?)`,
-        [session.order_id, session.quote_id, amount, session.payment_method, session.id, reference, user.id]
+         VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), ?)`,
+        [session.order_id, session.quote_id, amount, verified ? (verified.vnp_CardType==='QRCODE'?'BANK_TRANSFER':verified.vnp_CardType==='INTCARD'?'CARD':session.payment_method) : session.payment_method, verified?'VNPAY_SANDBOX':'ONLINE_SIMULATION', session.id, reference, user.id]
       );
 
       const newPaid = paidBefore + amount;
@@ -197,14 +227,14 @@ export class PaymentsService {
 
       // Record audit for receipt
       await m.query(
-        "INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value, reason) VALUES (?, 'RECEIPT', ?, 'SIMULATION_PAYMENT', ?, ?)",
-        [user.id, session.order_id, JSON.stringify({ sessionCode, amount, method: session.payment_method, type: session.payment_type }), 'Khách thanh toán trực tuyến mô phỏng']
+        "INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value, reason) VALUES (?, 'RECEIPT', ?, ?, ?, ?)",
+        [user.id, session.order_id, verified?'VNPAY_PAYMENT':'SIMULATION_PAYMENT', JSON.stringify({ sessionCode, amount, method: session.payment_method, type: session.payment_type }), verified?'VNPAY Sandbox đã xác nhận qua IPN':'Khách thanh toán trực tuyến mô phỏng']
       );
 
       // In-app notifications for Manager and Customer
       const managers = await m.query("SELECT id FROM users WHERE role='MANAGER' AND account_status='ACTIVE'");
       const paymentLabel = session.payment_type === 'DEPOSIT' ? 'đặt cọc' : 'thanh toán phần còn lại';
-      const notifContent = `Đơn ${session.order_code} vừa được ${paymentLabel} thành công: ${amount.toLocaleString('vi-VN')} đ (Mô phỏng).`;
+      const notifContent = `Đơn ${session.order_code} vừa được ${paymentLabel} thành công: ${amount.toLocaleString('vi-VN')} đ (${verified?'VNPAY Sandbox':'Mô phỏng'}).`;
 
       for (const mgr of managers) {
         await m.query(
@@ -219,7 +249,7 @@ export class PaymentsService {
       );
 
       // Broadcast WebSocket
-      socketService.notifyPayment({
+      event = {
         orderId: String(session.order_id),
         orderCode: session.order_code,
         customerId: String(session.customer_id),
@@ -232,7 +262,7 @@ export class PaymentsService {
         balance: newBalance,
         orderStatus: nextOrderStatus,
         message: 'Thanh toán thành công.',
-      });
+      };
 
       return {
         sessionCode,
@@ -246,6 +276,25 @@ export class PaymentsService {
         orderStatus: nextOrderStatus,
       };
     });
+    if (event) socketService.notifyPayment(event);
+    return result;
+  }
+
+  async vnpayIpn(query:unknown){
+    const p=verifyVnp(query);if(!p)return {RspCode:'97',Message:'Invalid signature'};
+    const [session]=await this.db.query('SELECT * FROM payment_sessions WHERE session_code=?',[p.vnp_TxnRef]);
+    if(!session||!String(session.session_code).startsWith('VNP'))return {RspCode:'01',Message:'Order not found'};
+    if(p.vnp_Amount!==String(Number(session.amount)*100))return {RspCode:'04',Message:'Invalid amount'};
+    if(session.status!=='PENDING')return {RspCode:'02',Message:'Already confirmed'};
+    const success=p.vnp_ResponseCode==='00'&&p.vnp_TransactionStatus==='00';
+    if(success&&(!/^\d{14}$/.test(p.vnp_PayDate||'')||p.vnp_PayDate<vnpDate(new Date(new Date(session.created_at).getTime()-60000))||p.vnp_PayDate>vnpDate(new Date(new Date(session.created_at).getTime()+16*60000))||!/^\d+$/.test(p.vnp_TransactionNo||'')||p.vnp_TransactionNo==='0'))return {RspCode:'99',Message:'Invalid transaction time or reference'};
+    try{
+      await this.settle({id:String(session.customer_id),role:Role.CUSTOMER} as User,session.session_code,{result:success?'SUCCESS':p.vnp_ResponseCode==='24'?'CANCELLED':'FAILED',failureReason:success?undefined:'VNPAY '+p.vnp_ResponseCode},p);
+      return {RspCode:'00',Message:'Confirmed'};
+    }catch{
+      const [current]=await this.db.query('SELECT status FROM payment_sessions WHERE id=?',[session.id]);
+      return current?.status!=='PENDING'?{RspCode:'02',Message:'Already confirmed'}:{RspCode:'99',Message:'Unable to confirm'};
+    }
   }
 
   async getSession(user: User, sessionCode: string) {
@@ -260,9 +309,7 @@ export class PaymentsService {
 
     if (!session) throw new NotFoundException('Không tìm thấy phiên thanh toán.');
 
-    if (user.role === Role.CUSTOMER && String(session.customer_id) !== String(user.id)) {
-      throw new ForbiddenException('Bạn không sở hữu phiên thanh toán này.');
-    }
+    this.access(user, session.customer_id);
 
     const mockInfo = this.getMockPaymentDetails(
       session.payment_method,
@@ -280,6 +327,7 @@ export class PaymentsService {
       amount: Number(session.amount),
       status: session.status,
       createdAt: session.created_at,
+      expiresAt: new Date(new Date(session.created_at).getTime()+15*60*1000).toISOString(),
       completedAt: session.completed_at,
       failureReason: session.failure_reason,
       ...mockInfo,
@@ -290,9 +338,7 @@ export class PaymentsService {
     const [order] = await this.db.query('SELECT * FROM orders WHERE id=?', [orderId]);
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng.');
 
-    if (user.role === Role.CUSTOMER && String(order.customer_id) !== String(user.id)) {
-      throw new ForbiddenException('Bạn không sở hữu đơn hàng này.');
-    }
+    this.access(user, order.customer_id);
 
     const [quote] = await this.db.query(
       "SELECT id, total, deposit, deposit_percent, expires_at FROM order_quotes WHERE order_id=? AND status='APPROVED' ORDER BY id DESC LIMIT 1",

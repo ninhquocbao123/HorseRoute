@@ -9,6 +9,11 @@ import {
   IncidentSeverity,
   DamageTarget,
   AlertType,
+  CareActivityType,
+  HorseAppetite,
+  HorseReportStatus,
+  HORSE_VITALS_RANGE,
+  HORSE_REPORT_MAX_PHOTOS,
   isValidSubType,
 } from '@my-project/shared';
 
@@ -28,20 +33,20 @@ const milestoneTimeSchema = z.string().datetime({ offset: false }).refine(value 
 export const DEFAULT_MAX_RETROACTIVE_MINUTES = 120;
 const CLOCK_SKEW_MS = 60_000;
 
-function checkOccurredAt(occurredAt: string, maxRetroactiveMinutes: number, context: z.RefinementCtx) {
+function checkOccurredAt(occurredAt: string, maxRetroactiveMinutes: number, context: z.RefinementCtx, field = 'occurredAt') {
   const timestamp = Date.parse(occurredAt);
   const now = Date.now();
   if (timestamp > now + CLOCK_SKEW_MS) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['occurredAt'],
+      path: [field],
       message: 'Thời điểm xảy ra không được ở tương lai (BR-LEG-03).',
     });
   }
   if (now - timestamp > maxRetroactiveMinutes * 60 * 1000) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['occurredAt'],
+      path: [field],
       message: `Đã vượt quá thời gian cho phép nhập bù (${maxRetroactiveMinutes} phút). Vui lòng báo Điều phối viên hiệu chỉnh (UC-14).`,
     });
   }
@@ -80,25 +85,72 @@ export const correctLegSchema = z.object({
 export type CorrectLegInput = z.infer<typeof correctLegSchema>;
 
 // Stage 2 schemas
-export const createHorseLogSchema = z.object({
-  horseId: legIdSchema,
-  conditionStatus: z.nativeEnum(HorseConditionStatus, {
-    errorMap: () => ({ message: 'Tình trạng ngựa không hợp lệ (STABLE, OFF_FEED, STRESSED, CLIMATE_CHANGE).' }),
-  }),
+/** Multipart gửi cờ là chuỗi 'true'/'false'; JSON gửi boolean. */
+const formBoolean = z.preprocess(
+  value => (value === 'true' ? true : value === 'false' ? false : value),
+  z.boolean({ invalid_type_error: 'Giá trị phải là true hoặc false.' }),
+);
+/** Một nhãn là chuỗi, nhiều nhãn là mảng (field lặp lại); tối đa bằng số ảnh cho phép. */
+const formList = (item: z.ZodTypeAny, max: number, message: string) => z.preprocess(
+  value => (value === undefined || value === null ? [] : Array.isArray(value) ? value : [value]),
+  z.array(item).max(max, message),
+);
+const noFuture = (loggedAt: string, context: z.RefinementCtx) => {
+  if (Date.parse(loggedAt) > Date.now() + 60000) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['loggedAt'], message: 'Thời điểm ghi nhật ký không được ở tương lai.' });
+  }
+};
+
+const horseConditionSchema = z.nativeEnum(HorseConditionStatus, {
+  errorMap: () => ({ message: 'Tình trạng ngựa không hợp lệ (STABLE, OFF_FEED, STRESSED, CLIMATE_CHANGE).' }),
+});
+/** Các trường nội dung báo cáo sức khỏe, dùng chung cho tạo và sửa nháp. */
+const horseReportFields = {
+  conditionStatus: horseConditionSchema,
   note: z.string().trim().max(1000, 'Ghi chú tối đa 1000 ký tự.').optional().nullable(),
   loggedAt: milestoneTimeSchema,
+  customerNote: z.string().trim().max(1000, 'Ghi chú gửi khách tối đa 1000 ký tự.').optional().nullable(),
+  bodyTempC: z.coerce.number({ invalid_type_error: 'Nhiệt độ phải là số.' })
+    .refine(value => value >= HORSE_VITALS_RANGE.bodyTempC.min && value <= HORSE_VITALS_RANGE.bodyTempC.max,
+      `Nhiệt độ cơ thể phải trong khoảng ${HORSE_VITALS_RANGE.bodyTempC.min}..${HORSE_VITALS_RANGE.bodyTempC.max} °C.`)
+    .refine(value => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9, 'Nhiệt độ chỉ có tối đa 1 chữ số thập phân.')
+    .optional().nullable(),
+  heartRateBpm: z.coerce.number({ invalid_type_error: 'Nhịp tim phải là số.' })
+    .int('Nhịp tim phải là số nguyên.')
+    .min(HORSE_VITALS_RANGE.heartRateBpm.min, `Nhịp tim phải trong khoảng ${HORSE_VITALS_RANGE.heartRateBpm.min}..${HORSE_VITALS_RANGE.heartRateBpm.max} lần/phút.`)
+    .max(HORSE_VITALS_RANGE.heartRateBpm.max, `Nhịp tim phải trong khoảng ${HORSE_VITALS_RANGE.heartRateBpm.min}..${HORSE_VITALS_RANGE.heartRateBpm.max} lần/phút.`)
+    .optional().nullable(),
+  appetite: z.nativeEnum(HorseAppetite, { errorMap: () => ({ message: 'Ăn uống không hợp lệ (NORMAL, REDUCED, REFUSED).' }) }).optional().nullable(),
+  sendToCustomer: formBoolean.optional(),
+  captions: formList(z.string().trim().max(100, 'Nhãn ảnh tối đa 100 ký tự.'), HORSE_REPORT_MAX_PHOTOS, `Tối đa ${HORSE_REPORT_MAX_PHOTOS} nhãn ảnh.`),
+};
+
+/**
+ * Tạo nhật ký ngựa. Không có `reportStatus` = nhật ký cũ (bất biến); có `reportStatus` (DRAFT | SENT) = báo cáo sức khỏe.
+ */
+export const createHorseLogSchema = z.object({
+  horseId: legIdSchema,
   correctsLogId: legIdSchema.optional().nullable(),
-}).strict().superRefine(({ loggedAt }, context) => {
-  const timestamp = Date.parse(loggedAt);
-  const now = Date.now();
-  if (timestamp > now + 60000) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['loggedAt'],
-      message: 'Thời điểm ghi nhật ký không được ở tương lai.',
-    });
+  reportStatus: z.nativeEnum(HorseReportStatus, { errorMap: () => ({ message: 'Trạng thái báo cáo không hợp lệ (DRAFT, SENT).' }) }).optional(),
+  ...horseReportFields,
+}).strict().superRefine((data, context) => {
+  noFuture(data.loggedAt, context);
+  if (!data.reportStatus) {
+    const extra = (['customerNote', 'bodyTempC', 'heartRateBpm', 'appetite', 'sendToCustomer'] as const).filter(key => data[key] !== undefined && data[key] !== null);
+    for (const key of extra) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'Trường của báo cáo sức khỏe cần kèm reportStatus (DRAFT hoặc SENT).' });
+    }
   }
 });
+
+/** Sửa nháp: thay toàn bộ nội dung chỉnh được (trường vắng = xóa), không đổi ngựa / bản được đính chính / trạng thái. */
+export const updateHorseReportSchema = z.object({
+  ...horseReportFields,
+  removeAttachmentIds: formList(legIdSchema, HORSE_REPORT_MAX_PHOTOS, 'Xóa tối đa 3 ảnh mỗi lần.'),
+}).strict().superRefine((data, context) => noFuture(data.loggedAt, context));
+export type UpdateHorseReportInput = z.infer<typeof updateHorseReportSchema>;
+
+export const sendHorseReportSchema = z.object({ sendToCustomer: formBoolean.optional() }).strict();
 export type CreateHorseLogInput = z.infer<typeof createHorseLogSchema>;
 
 /** Số từ multipart (chuỗi) hoặc JSON (number); chuỗi rỗng đã bị normalizeForm bỏ. */
@@ -212,3 +264,54 @@ export type PositionsBatchInput = z.infer<typeof positionsBatchSchema>;
 
 /** `?since=` của vệt đường: UTC ISO tùy chọn. */
 export const trackQuerySchema = z.object({ since: milestoneTimeSchema.optional() });
+
+/** Ghi hoạt động chăm sóc (gap-analysis-escort.md mục 4.2): đúng trường theo loại, trường không thuộc loại phải rỗng (khớp CHECK ở DB). */
+const blank = (value: unknown) => value === undefined || value === null;
+
+export function buildCareActivitySchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
+  return z.object({
+    activityType: z.nativeEnum(CareActivityType, { errorMap: () => ({ message: 'Loại hoạt động không hợp lệ (FEED, WATER, REST).' }) }),
+    horseId: legIdSchema.optional().nullable(),
+    feedDescription: z.string().trim().min(1, 'Khẩu phần không được để trống.').max(200, 'Khẩu phần tối đa 200 ký tự.').optional().nullable(),
+    amountLiters: z.number({ invalid_type_error: 'Lượng nước phải là số.' }).min(0.1, 'Lượng nước tối thiểu 0,1 L.').max(200, 'Lượng nước tối đa 200 L.')
+      .refine(value => Math.abs(Math.round(value * 10) / 10 - value) < 1e-9, 'Lượng nước chỉ có tối đa 1 chữ số thập phân.').optional().nullable(),
+    durationMinutes: z.number({ invalid_type_error: 'Thời gian nghỉ phải là số.' }).int('Thời gian nghỉ phải là số phút nguyên.')
+      .min(1, 'Thời gian nghỉ tối thiểu 1 phút.').max(720, 'Thời gian nghỉ tối đa 720 phút.').optional().nullable(),
+    note: z.string().trim().max(255, 'Ghi chú tối đa 255 ký tự.').optional().nullable(),
+    performedAt: milestoneTimeSchema,
+    correctsActivityId: legIdSchema.optional().nullable(),
+  }).strict().superRefine((input, context) => {
+    const issue = (path: string, message: string) => context.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    const needs = (field: 'horseId' | 'feedDescription' | 'amountLiters' | 'durationMinutes', label: string) => { if (blank(input[field])) issue(field, label + ' là bắt buộc.'); };
+    const mustBeEmpty = (field: 'feedDescription' | 'amountLiters' | 'durationMinutes', label: string) => { if (!blank(input[field])) issue(field, label + ' không áp dụng cho loại hoạt động này.'); };
+    if (input.activityType === CareActivityType.FEED) {
+      needs('horseId', 'Ngựa'); needs('feedDescription', 'Khẩu phần');
+      mustBeEmpty('amountLiters', 'Lượng nước'); mustBeEmpty('durationMinutes', 'Thời gian nghỉ');
+    } else if (input.activityType === CareActivityType.WATER) {
+      needs('horseId', 'Ngựa'); needs('amountLiters', 'Lượng nước');
+      mustBeEmpty('feedDescription', 'Khẩu phần'); mustBeEmpty('durationMinutes', 'Thời gian nghỉ');
+    } else {
+      needs('durationMinutes', 'Thời gian nghỉ');
+      mustBeEmpty('feedDescription', 'Khẩu phần'); mustBeEmpty('amountLiters', 'Lượng nước');
+    }
+    checkOccurredAt(input.performedAt, maxRetroactiveMinutes, context, 'performedAt');
+  });
+}
+export const careActivitySchema = buildCareActivitySchema();
+export type CareActivityInput = z.infer<typeof careActivitySchema>;
+
+/** `from` / `to` của GET care-activities: cùng có hoặc cùng không; UTC ISO; to > from; tối đa 7 ngày. */
+export const MAX_CARE_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const careRangeSchema = z.object({
+  from: milestoneTimeSchema.optional(),
+  to: milestoneTimeSchema.optional(),
+}).superRefine(({ from, to }, context) => {
+  if ((from === undefined) !== (to === undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: [from === undefined ? 'from' : 'to'], message: 'Phải gửi cả from và to, hoặc không gửi.' });
+    return;
+  }
+  if (from === undefined || to === undefined) return;
+  const span = Date.parse(to) - Date.parse(from);
+  if (span <= 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ['to'], message: 'to phải sau from.' });
+  else if (span > MAX_CARE_RANGE_MS) context.addIssue({ code: z.ZodIssueCode.custom, path: ['to'], message: 'Khoảng thời gian tối đa 7 ngày.' });
+});

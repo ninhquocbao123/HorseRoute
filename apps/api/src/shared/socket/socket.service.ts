@@ -1,3 +1,4 @@
+import { DataSource } from 'typeorm';
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { TokenService } from '../utils/jwt.util';
@@ -23,7 +24,7 @@ export interface PaymentEventPayload {
 export class SocketService {
   private io: SocketIOServer | null = null;
 
-  attach(server: HttpServer, tokens: TokenService, corsOrigin?: string) {
+  attach(server: HttpServer, tokens: TokenService, corsOrigin?: string, db?: DataSource) {
     const origins = (corsOrigin || '').split(',').map(s => s.trim()).filter(Boolean);
     this.io = new SocketIOServer(server, {
       cors: {
@@ -34,17 +35,19 @@ export class SocketService {
       pingInterval: 15000,
     });
 
-    this.io.use((socket: Socket, next) => {
+    this.io.use(async (socket: Socket, next) => {
       try {
         const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '');
         if (!token) {
           return next(new Error('AUTHENTICATION_REQUIRED'));
         }
         const payload = tokens.verify(token) as { sub: string; email: string; role: string };
+        const [account] = db ? await db.query("SELECT id,role,account_status FROM users WHERE id=?",[payload.sub]) : [];
+        if (!account || account.account_status !== 'ACTIVE') return next(new Error('INVALID_ACCOUNT'));
         socket.data.user = {
           id: payload.sub,
           email: payload.email,
-          role: payload.role,
+          role: account.role,
         };
         next();
       } catch (e: any) {
@@ -69,11 +72,16 @@ export class SocketService {
       logger.info('socket_connected', { socketId: socket.id, userId: user.id, role: user.role });
 
       // Join / leave specific order room
-      socket.on('join:order', (orderId: string) => {
-        if (orderId) {
-          socket.join(`order:${orderId}`);
-          logger.info('socket_joined_order', { socketId: socket.id, orderId });
-        }
+      socket.on('join:order', async (orderId: string, ack?: (result: {ok:boolean})=>void) => {
+        const reply = (ok:boolean) => { if(typeof ack === 'function') ack({ok}); };
+        if(typeof orderId !== 'string' || !/^[1-9]\d{0,19}$/.test(orderId) || !db) return reply(false);
+        try {
+          const [order] = await db.query('SELECT customer_id FROM orders WHERE id=?',[orderId]);
+          if (!order || !(user.role === 'MANAGER' || (user.role === 'CUSTOMER' && String(order.customer_id) === String(user.id)))) return reply(false);
+          if (!socket.connected) return reply(false);
+          await socket.join('order:'+orderId);
+          reply(true);
+        } catch { reply(false); }
       });
 
       socket.on('leave:order', (orderId: string) => {
@@ -94,6 +102,12 @@ export class SocketService {
 
     // Emit to order room, customer user room, and all managers
     this.io.to([`order:${payload.orderId}`, `user:${payload.customerId}`, 'role:MANAGER']).emit('payment:updated', payload);
+  }
+
+  /** Phát một sự kiện tới phòng riêng `user:{id}` của từng người (chỉ THÊM, không đổi các sự kiện khác). */
+  emitToUsers(userIds: string[], event: string, payload: unknown) {
+    if (!this.io || !userIds.length) return;
+    this.io.to(userIds.map(id => `user:${id}`)).emit(event, payload);
   }
 
   notifyOrderStatus(orderId: string, customerId: string, status: string, details?: any) {

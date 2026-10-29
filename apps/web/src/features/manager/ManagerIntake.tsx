@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Alert,App,Input,Select,Spin} from 'antd';
 import {DownOutlined,UpOutlined} from '@ant-design/icons';
@@ -13,7 +14,7 @@ export function intakeStage(o:Row){if(o.status==='PENDING')return 'waiting';if([
 const count=(value:unknown)=>{const n=Number(value);return Number.isFinite(n)?Math.max(0,n):0;};
 const date=(v?:string|null)=>v?new Date(v).toLocaleDateString('vi-VN'):'Chưa có';
 export default function ManagerIntake({search,onSearchChange,onRefresh}:{search:string;onSearchChange:(value:string)=>void;onRefresh:()=>void}){
- const {message}=App.useApp(),[params,setParams]=useSearchParams();const selected=params.get('order');
+ const {message}=useFeedback(),[params,setParams]=useSearchParams();const selected=params.get('order');
  const [orders,setOrders]=useState<Row[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState(''),[filter,setFilter]=useState('active'),[category,setCategory]=useState('all'),[sort,setSort]=useState('newest'),[display,setDisplay]=useState('cards'),[expanded,setExpanded]=useState<Record<string,boolean>>({}),[limits,setLimits]=useState<Record<string,number>>({});
  const [detail,setDetail]=useState<OrderDetail|null>(null),[context,setContext]=useState<any>(null),[detailError,setDetailError]=useState(''),[detailLoading,setDetailLoading]=useState(false);
  const [options,setOptions]=useState<ReviewOptions>({coordinators:[]}),[coordinator,setCoordinator]=useState(''),[busy,setBusy]=useState(false),[note,setNote]=useState(''),[actionError,setActionError]=useState('');const sequence=useRef(0);

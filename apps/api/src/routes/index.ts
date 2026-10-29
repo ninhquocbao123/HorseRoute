@@ -24,6 +24,7 @@ export function apiRoutes(services: Services, tokens: TokenService) {
   router.use('/auth', authRoutes(services.auth));
   router.use('/health', healthRoutes(services.health));
   router.use('/pricing', publicPricingRoutes(services.pricing));
+  router.get('/payments/vnpay/ipn', async(req,res)=>{try{res.json(await services.payments.vnpayIpn(req.query));}catch{res.json({RspCode:'99',Message:'Unable to process'});}});
   // Every route below this boundary is authenticated by default.
   router.use(authenticate(services.users, tokens));
   router.use('/customer', customerRoutes(services.customer));

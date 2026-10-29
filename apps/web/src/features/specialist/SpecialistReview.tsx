@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useEffect, useState, useRef } from 'react';
 import { App, Button, Input, Modal } from 'antd';
 import { api } from '../../lib/axios';
@@ -10,8 +11,22 @@ function HorsePhoto({horse,orderId}:{horse:Horse;orderId:string}){
  useEffect(()=>{let active=true,object='';setUrl('');if(horse.photo_id)void api.get(`/specialist/orders/${orderId}/photos/${horse.photo_id}`,{responseType:'blob'}).then(r=>{if(active){object=URL.createObjectURL(r.data);setUrl(object);}}).catch(()=>{});return()=>{active=false;if(object)URL.revokeObjectURL(object);};},[orderId,horse.photo_id]);
  return <div className="sp-horse-photo">{url?<img className="sp-horse-image" src={url} alt={horse.name}/>:<><Icon file="6eb82"/><span>{horse.name}</span></>}</div>;
 }
+function DocumentThumbnail({orderId,attachmentId,name}:{orderId:string;attachmentId?:string;name:string}){
+ const [url,setUrl]=useState('');
+ const [failed,setFailed]=useState(false);
+ useEffect(()=>{
+  const controller=new AbortController();let object='';let active=true;
+  setUrl('');setFailed(false);
+  if(attachmentId)void api.get<Blob>(`/documents/orders/${orderId}/files/${attachmentId}`,{responseType:'blob',signal:controller.signal}).then(({data})=>{
+   if(!active)return;
+   if(data.type.startsWith('image/')){object=URL.createObjectURL(data);setUrl(object);}else setFailed(true);
+  }).catch(()=>{if(active)setFailed(true);});
+  return()=>{active=false;controller.abort();if(object)URL.revokeObjectURL(object);};
+ },[orderId,attachmentId]);
+ return url&&!failed?<img src={url} alt={'Ảnh thu nhỏ '+name} onError={()=>setFailed(true)}/>:<span className="sp-doc-thumbnail-fallback">{!attachmentId?'Chưa có tệp':!failed?'Đang tải…':/\.pdf$/i.test(name)?'PDF':'Xem tệp'}</span>;
+}
 export default function SpecialistReview({detail,onReload,onDirty}:{detail:SpecialistDetail;onReload:()=>Promise<void>;onDirty:(dirty:boolean)=>void}){
- const {message,modal}=App.useApp();const [horseId,setHorseId]=useState(String(detail.horses[0]?.id||''));
+ const {message,modal}=useFeedback();const [horseId,setHorseId]=useState(String(detail.horses[0]?.id||''));
  const [note,setNote]=useState(detail.assessment?.note||''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
  const previousAssessment=useRef(detail.assessment?.status);
  useEffect(()=>{if(previousAssessment.current==='NEED_INFO'&&detail.assessment?.status==='IN_REVIEW'){setNote('');setDirty(false);}previousAssessment.current=detail.assessment?.status;},[detail.assessment?.status]);
@@ -36,7 +51,7 @@ export default function SpecialistReview({detail,onReload,onDirty}:{detail:Speci
  const canSupplement=detail.documents.some(d=>['NOT_SUBMITTED','INVALID','EXPIRED'].includes(d.status));
  const checklist=<><div className="sp-section-heading"><h3>Giấy tờ kiểm dịch ({reviewed}/{docs.length} đã kiểm tra)</h3><Button type="link" onClick={()=>setFull(!full)}>{full?'Thu gọn':'Xem toàn màn hình'}</Button></div>{docs.map(doc=>{
    const latest=detail.versions.find(v=>String(v.document_id)===String(doc.id));const locked=detail.dossiers.some(d=>String(d.horse_id)===String(doc.horse_id)&&['SUBMITTED','REVIEWING','APPROVED'].includes(d.status));
-   return <article className="sp-document" key={doc.id}><button className="sp-doc-preview" aria-label={'Xem '+doc.document_name} disabled={!latest||busy} onClick={()=>latest&&void download(latest.attachment_id,latest.original_name)}><Icon file="6eb82"/></button><div className="sp-doc-text"><strong>{doc.document_name}</strong><small>{latest?latest.original_name:'Chưa có tệp'}{doc.expiry_date?' · Hết hạn '+displayDate(doc.expiry_date):''}</small>{doc.invalid_reason&&<p>{doc.invalid_reason}</p>}</div><div className="sp-doc-actions">{doc.status!=='SUBMITTED'&&<button type="button" disabled={!mutable||locked||busy} onClick={()=>openReview(doc,'REQUEST')} title="Yêu cầu bổ sung giấy tờ này" className={'sp-badge '+(doc.status==='VALID'?'green':['INVALID','EXPIRED'].includes(doc.status)?'red':'teal')}><Icon file={doc.status==='VALID'?'d9d72':['INVALID','EXPIRED'].includes(doc.status)?'68b26':'bf032'}/>{documentLabels[doc.status]}</button>}{mutable&&!locked&&doc.status==='SUBMITTED'&&<><Button danger disabled={busy} onClick={()=>openReview(doc,'INVALID')}>Không hợp lệ</Button><Button type="primary" disabled={busy} onClick={()=>openReview(doc,'VALID')}>Hợp lệ</Button></>}</div></article>;
+   return <article className="sp-document" key={doc.id}><button className="sp-doc-preview" aria-label={'Xem '+doc.document_name} disabled={!latest||busy} onClick={()=>latest&&void download(latest.attachment_id,latest.original_name)}><DocumentThumbnail key={latest?.attachment_id||doc.id} orderId={String(detail.order.id)} attachmentId={latest?.attachment_id} name={latest?.original_name||doc.document_name}/></button><div className="sp-doc-text"><strong>{doc.document_name}</strong><small>{latest?latest.original_name:'Chưa có tệp'}{doc.expiry_date?' · Hết hạn '+displayDate(doc.expiry_date):''}</small>{doc.invalid_reason&&<p>{doc.invalid_reason}</p>}</div><div className="sp-doc-actions">{doc.status!=='SUBMITTED'&&<button type="button" disabled={!mutable||locked||busy} onClick={()=>openReview(doc,'REQUEST')} title="Yêu cầu bổ sung giấy tờ này" className={'sp-badge '+(doc.status==='VALID'?'green':['INVALID','EXPIRED'].includes(doc.status)?'red':'teal')}><Icon file={doc.status==='VALID'?'d9d72':['INVALID','EXPIRED'].includes(doc.status)?'68b26':'bf032'}/>{documentLabels[doc.status]}</button>}{mutable&&!locked&&doc.status==='SUBMITTED'&&<><Button danger disabled={busy} onClick={()=>openReview(doc,'INVALID')}>Không hợp lệ</Button><Button type="primary" disabled={busy} onClick={()=>openReview(doc,'VALID')}>Hợp lệ</Button></>}</div></article>;
  })}{!docs.length&&<p>Ngựa chưa có checklist giấy tờ.</p>}</>;
  return <div className="sp-assessment">
   <section className="sp-card"><div className="sp-section-heading"><div><h2>{detail.order.order_code} · {detail.customer.full_name}</h2><small>Tiếp nhận lúc {detail.assessment?.accepted_at?new Date(detail.assessment.accepted_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'—'} · {detail.order.origin_country===detail.order.destination_country?'Trong nước':'Quốc tế'} · {detail.order.origin_address} → {detail.order.destination_address} · đón {displayDate(detail.order.desired_departure_date)}</small></div><span className="sp-badge gold"><Icon file="35b82"/>{assessmentLabels[detail.assessment?.status||'IN_REVIEW']}</span></div><div className="sp-contact-grid"><dl><div><dt>Người gửi</dt><dd>{detail.order.booking?.sender?.name||detail.customer.full_name} · {detail.order.booking?.sender?.phone||detail.customer.phone||'Chưa có số điện thoại'}</dd></div><div><dt>Địa chỉ gửi</dt><dd>{detail.order.origin_address}</dd></div></dl><dl><div><dt>Người nhận</dt><dd>{detail.order.booking?.recipient?.name||'Chưa cung cấp'} · {detail.order.booking?.recipient?.phone||'Chưa có số điện thoại'}</dd></div><div><dt>Địa chỉ nhận</dt><dd>{detail.order.destination_address}</dd></div></dl></div></section>

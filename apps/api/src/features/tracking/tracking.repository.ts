@@ -31,6 +31,23 @@ const routeFallback = <T extends Record<string, any>>(row: T): T => {
   return normalized;
 };
 
+/** Cột báo cáo sức khỏe khi tạo mới. */
+export interface HorseReportColumns {
+  reportStatus: import('@my-project/shared').HorseReportStatus;
+  bodyTempC: number | null;
+  heartRateBpm: number | null;
+  appetite: import('@my-project/shared').HorseAppetite | null;
+  customerNote: string | null;
+  sendToCustomer: boolean;
+}
+
+/** Nội dung chỉnh được của nháp. */
+export interface HorseReportEditable extends Omit<HorseReportColumns, 'reportStatus'> {
+  conditionStatus: import('@my-project/shared').HorseConditionStatus;
+  note: string | null;
+  loggedAt: string;
+}
+
 export class TrackingRepository {
   constructor(private readonly db: DataSource | EntityManager) {}
 
@@ -153,7 +170,8 @@ export class TrackingRepository {
 
   async getTripHorses(orderId: string): Promise<HorseInTrip[]> {
     return this.db.query(
-      `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus
+      `SELECT CAST(id AS CHAR) AS id, name, passport_no AS passportNo, order_status AS orderStatus,
+        breed, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birthDate
       FROM horses WHERE order_id = ? AND order_status = 'NORMAL' ORDER BY id ASC`,
       [orderId]
     );
@@ -401,12 +419,33 @@ export class TrackingRepository {
     );
   }
 
-  async notify(recipientId: string, eventType: string, content: string, relatedType: string, relatedId: string): Promise<void> {
-    await this.db.query(
+  /** Mã người dùng được phân công chuyến (tài xế / hộ tống). */
+  async getTripCrewIds(tripId: string): Promise<string[]> {
+    const rows = await this.db.query(`SELECT CAST(user_id AS CHAR) AS userId FROM trip_assignments WHERE trip_id = ?`, [tripId]);
+    return rows.map((row: { userId: string }) => row.userId);
+  }
+
+  /** Thông báo IN_APP mới nhất của từng người nhận cho một sự kiện của chuyến (để đẩy qua socket sau khi commit). */
+  async findLatestTripNotifications(recipientIds: string[], eventType: string, tripId: string): Promise<{ recipientId: string; id: string; content: string; createdAt: Date }[]> {
+    if (!recipientIds.length) return [];
+    const rows = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id, CAST(recipient_id AS CHAR) AS recipientId, content, created_at AS createdAt
+      FROM notifications WHERE recipient_id IN (${recipientIds.map(() => '?').join(',')}) AND event_type = ? AND related_type = 'TRIP' AND related_id = ? AND channel = 'IN_APP'
+      ORDER BY id DESC LIMIT 50`,
+      [...recipientIds, eventType, tripId]
+    );
+    const seen = new Set<string>();
+    return rows.filter((row: { recipientId: string }) => (seen.has(row.recipientId) ? false : (seen.add(row.recipientId), true)));
+  }
+
+  /** Tạo thông báo IN_APP; trả mã để đẩy `notification:new` sau khi commit. */
+  async notify(recipientId: string, eventType: string, content: string, relatedType: string, relatedId: string): Promise<string> {
+    const result = await this.db.query(
       `INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel)
       VALUES (?, ?, ?, ?, ?, 'IN_APP')`,
       [recipientId, eventType, content, relatedType, relatedId]
     );
+    return String(result?.insertId ?? '');
   }
 
   async notifyStakeholders(tripId: string, orderId: string, eventType: string, content: string): Promise<void> {
@@ -437,14 +476,45 @@ export class TrackingRepository {
     return rows.length > 0;
   }
 
-  async findHorseLog(logId: string): Promise<{ id: string; horseId: string; legId: string; tripId: string } | undefined> {
+  /**
+   * Nhật ký / báo cáo kèm ngữ cảnh đơn và chuyến. `lock` khóa dòng báo cáo (sửa / xóa / gửi) để hai request không gửi đôi.
+   * `corrected` = đã có bản ĐÃ GỬI (hoặc nhật ký cũ) đính chính nó; nháp đính chính chưa tính (hai nháp cùng sửa một bản được phép tồn tại, bản gửi sau bị chặn).
+   */
+  async findHorseLog(logId: string, lock = false): Promise<{
+    id: string;
+    horseId: string;
+    horseName: string;
+    legId: string;
+    tripId: string;
+    orderId: string;
+    orderCode: string;
+    orderStatus: OrderStatus;
+    customerId: string;
+    plannedBy: string;
+    createdBy: string;
+    conditionStatus: import('@my-project/shared').HorseConditionStatus;
+    customerNote: string | null;
+    reportStatus: import('@my-project/shared').HorseReportStatus | null;
+    sendToCustomer: boolean;
+    correctsLogId: string | null;
+    corrected: boolean;
+  } | undefined> {
     const [row] = await this.db.query(
-      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, CAST(hl.leg_id AS CHAR) AS legId,
-        CAST(l.trip_id AS CHAR) AS tripId
-      FROM horse_logs hl JOIN legs l ON l.id = hl.leg_id WHERE hl.id = ?`,
+      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, h.name AS horseName, CAST(hl.leg_id AS CHAR) AS legId,
+        CAST(l.trip_id AS CHAR) AS tripId, CAST(t.order_id AS CHAR) AS orderId, o.order_code AS orderCode, o.status AS orderStatus,
+        CAST(o.customer_id AS CHAR) AS customerId, CAST(t.planned_by AS CHAR) AS plannedBy, CAST(hl.created_by AS CHAR) AS createdBy,
+        hl.condition_status AS conditionStatus, hl.customer_note AS customerNote, hl.report_status AS reportStatus,
+        hl.send_to_customer AS sendToCustomer, CAST(hl.corrects_log_id AS CHAR) AS correctsLogId,
+        EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id AND (c.report_status IS NULL OR c.report_status = 'SENT')) AS corrected
+      FROM horse_logs hl
+      JOIN legs l ON l.id = hl.leg_id
+      JOIN trips t ON t.id = l.trip_id
+      JOIN orders o ON o.id = t.order_id
+      JOIN horses h ON h.id = hl.horse_id
+      WHERE hl.id = ?${lock ? ' FOR UPDATE OF hl' : ''}`,
       [logId]
     );
-    return row;
+    return row ? { ...row, sendToCustomer: Boolean(Number(row.sendToCustomer)), corrected: Boolean(Number(row.corrected)) } : undefined;
   }
 
   async legBelongsToTrip(legId: string, tripId: string): Promise<boolean> {
@@ -460,11 +530,15 @@ export class TrackingRepository {
     tripId: string;
     horseLogId: string | null;
     incidentId: string | null;
+    /** Chỉ có với ảnh của nhật ký ngựa: trạng thái báo cáo và người tạo (ảnh nháp chỉ người tạo xem được). */
+    reportStatus?: string | null;
+    logCreatedBy?: string | null;
   } | undefined> {
     const [row] = await this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id, a.original_name AS originalName, a.file_type AS fileType,
         a.storage_path AS storagePath, CAST(COALESCE(l.trip_id, i.trip_id) AS CHAR) AS tripId,
-        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId
+        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId,
+        h.report_status AS reportStatus, CAST(h.created_by AS CHAR) AS logCreatedBy
       FROM attachments a
       LEFT JOIN horse_logs h ON h.id = a.horse_log_id
       LEFT JOIN legs l ON l.id = h.leg_id
@@ -540,17 +614,112 @@ export class TrackingRepository {
     note: string | null,
     loggedAt: string,
     createdBy: string,
-    correctsLogId: string | null
+    correctsLogId: string | null,
+    report?: HorseReportColumns
   ): Promise<string> {
+    // Nhật ký cũ không truyền `report`: các cột báo cáo giữ giá trị mặc định (NULL / 0).
     const result = await this.db.query(
-      `INSERT INTO horse_logs (horse_id, leg_id, condition_status, note, logged_at, created_by, corrects_log_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [horseId, legId, conditionStatus, note, new Date(loggedAt), createdBy, correctsLogId]
+      `INSERT INTO horse_logs (horse_id, leg_id, condition_status, note, logged_at, created_by, corrects_log_id,
+        body_temp_c, heart_rate_bpm, appetite, customer_note, report_status, send_to_customer, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${report?.reportStatus === 'SENT' ? 'UTC_TIMESTAMP()' : 'NULL'})`,
+      [horseId, legId, conditionStatus, note, new Date(loggedAt), createdBy, correctsLogId,
+        report?.bodyTempC ?? null, report?.heartRateBpm ?? null, report?.appetite ?? null, report?.customerNote ?? null,
+        report?.reportStatus ?? null, report?.sendToCustomer ? 1 : 0]
     );
     return String(result.insertId);
   }
 
-  async getTripHorseLogs(tripId: string): Promise<import('./tracking.dto').HorseLogRow[]> {
+  /** Sửa nháp: thay toàn bộ nội dung chỉnh được. Chỉ chạy trên dòng còn DRAFT. */
+  async updateHorseReport(logId: string, fields: HorseReportEditable): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET condition_status = ?, note = ?, logged_at = ?, customer_note = ?, body_temp_c = ?, heart_rate_bpm = ?,
+        appetite = ?, send_to_customer = ?
+      WHERE id = ? AND report_status = 'DRAFT'`,
+      [fields.conditionStatus, fields.note, new Date(fields.loggedAt), fields.customerNote, fields.bodyTempC, fields.heartRateBpm,
+        fields.appetite, fields.sendToCustomer ? 1 : 0, logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  /** DRAFT → SENT (giờ UTC của DB). Trả số dòng đổi: 0 nghĩa là không còn là nháp. */
+  async markHorseReportSent(logId: string, sendToCustomer: boolean): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET report_status = 'SENT', send_to_customer = ?, sent_at = UTC_TIMESTAMP()
+      WHERE id = ? AND report_status = 'DRAFT'`,
+      [sendToCustomer ? 1 : 0, logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  async deleteHorseReport(logId: string): Promise<number> {
+    const result = await this.db.query(`DELETE FROM horse_logs WHERE id = ? AND report_status = 'DRAFT'`, [logId]);
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  /** Ảnh hiện có của một nhật ký (để đếm, xóa và dọn tệp). */
+  async getLogAttachmentRefs(logId: string): Promise<{ id: string; storagePath: string }[]> {
+    return this.db.query(`SELECT CAST(id AS CHAR) AS id, storage_path AS storagePath FROM attachments WHERE horse_log_id = ?`, [logId]);
+  }
+
+  async deleteAttachments(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await this.db.query(`DELETE FROM attachments WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+  }
+
+  /** Chặng đầu tiên của chuyến: nơi ghi nhật ký khi đơn READY (chưa chặng nào chạy). */
+  async getFirstLegId(tripId: string): Promise<string | null> {
+    const [row] = await this.db.query(`SELECT CAST(id AS CHAR) AS id FROM legs WHERE trip_id = ? ORDER BY seq_no ASC LIMIT 1`, [tripId]);
+    return row?.id ?? null;
+  }
+
+  /**
+   * Báo cáo khách xem được của một đơn: SENT + gửi khách; bỏ bản gốc đã có bản đính chính cũng SENT + gửi khách (khách chỉ thấy bản mới nhất).
+   */
+  async getCustomerHorseReports(orderId: string): Promise<import('./tracking.dto').CustomerHorseReportRow[]> {
+    return this.db.query(
+      `SELECT CAST(hl.id AS CHAR) AS id, CAST(hl.horse_id AS CHAR) AS horseId, h.name AS horseName, hl.condition_status AS conditionStatus,
+        hl.body_temp_c AS bodyTempC, hl.heart_rate_bpm AS heartRateBpm, hl.appetite, hl.customer_note AS customerNote,
+        hl.logged_at AS loggedAt, hl.sent_at AS sentAt, hl.customer_viewed_at AS viewedAt, u.full_name AS escortName,
+        CAST(hl.created_by AS CHAR) AS createdBy
+      FROM horse_logs hl
+      JOIN horses h ON h.id = hl.horse_id
+      JOIN users u ON u.id = hl.created_by
+      WHERE h.order_id = ? AND hl.report_status = 'SENT' AND hl.send_to_customer = 1
+        AND NOT EXISTS (SELECT 1 FROM horse_logs c WHERE c.corrects_log_id = hl.id AND c.report_status = 'SENT' AND c.send_to_customer = 1)
+      ORDER BY hl.sent_at DESC, hl.id DESC LIMIT 200`,
+      [orderId]
+    );
+  }
+
+  /** Đặt "khách đã xem" lần đầu. Trả số dòng đổi: 1 = lần đầu, 0 = đã xem từ trước. */
+  async markHorseReportViewed(logId: string): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE horse_logs SET customer_viewed_at = UTC_TIMESTAMP() WHERE id = ? AND customer_viewed_at IS NULL AND report_status = 'SENT'`,
+      [logId]
+    );
+    return Number(result?.affectedRows ?? 0);
+  }
+
+  async getHorseReportViewedAt(logId: string): Promise<Date | null> {
+    const [row] = await this.db.query(`SELECT customer_viewed_at AS viewedAt FROM horse_logs WHERE id = ?`, [logId]);
+    return row?.viewedAt ?? null;
+  }
+
+  /** Ảnh có thuộc báo cáo đã gửi cho khách này (đơn của họ) không. */
+  async isReportPhotoVisibleToCustomer(attachmentId: string, customerId: string): Promise<boolean> {
+    const rows = await this.db.query(
+      `SELECT a.id FROM attachments a
+      JOIN horse_logs hl ON hl.id = a.horse_log_id
+      JOIN horses h ON h.id = hl.horse_id
+      JOIN orders o ON o.id = h.order_id
+      WHERE a.id = ? AND hl.report_status = 'SENT' AND hl.send_to_customer = 1 AND o.customer_id = ? LIMIT 1`,
+      [attachmentId, customerId]
+    );
+    return rows.length > 0;
+  }
+
+  /** Nháp chỉ người tạo (`viewerId`) thấy; nhật ký cũ và báo cáo đã gửi hiện cho mọi vai trò đọc nội bộ. */
+  async getTripHorseLogs(tripId: string, viewerId: string): Promise<import('./tracking.dto').HorseLogRow[]> {
     return this.db.query(
       `SELECT CAST(hl.id AS CHAR) AS id,
         CAST(hl.horse_id AS CHAR) AS horseId,
@@ -561,13 +730,94 @@ export class TrackingRepository {
         hl.logged_at AS loggedAt,
         CAST(hl.created_by AS CHAR) AS createdBy,
         u.full_name AS createdByName,
-        CAST(hl.corrects_log_id AS CHAR) AS correctsLogId
+        ta.role AS createdByCrewRole,
+        CAST(hl.corrects_log_id AS CHAR) AS correctsLogId,
+        hl.body_temp_c AS bodyTempC,
+        hl.heart_rate_bpm AS heartRateBpm,
+        hl.appetite,
+        hl.customer_note AS customerNote,
+        hl.report_status AS reportStatus,
+        hl.send_to_customer AS sendToCustomer,
+        hl.sent_at AS sentAt,
+        hl.customer_viewed_at AS customerViewedAt
       FROM horse_logs hl
       JOIN legs l ON l.id = hl.leg_id
       JOIN horses h ON h.id = hl.horse_id
       JOIN users u ON u.id = hl.created_by
-      WHERE l.trip_id = ?
+      LEFT JOIN trip_assignments ta ON ta.trip_id = l.trip_id AND ta.user_id = hl.created_by
+      WHERE l.trip_id = ? AND (hl.report_status IS NULL OR hl.report_status = 'SENT' OR hl.created_by = ?)
       ORDER BY hl.logged_at ASC, hl.id ASC`,
+      [tripId, viewerId]
+    );
+  }
+
+  // ─── Hoạt động chăm sóc (horse_care_activities) ─────────────────────────────
+
+  /** Chặng đang chạy (MOVING / AT_STOP) của chuyến; null khi chưa xuất phát. */
+  async getCurrentLegId(tripId: string): Promise<string | null> {
+    const [row] = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id FROM legs WHERE trip_id = ? AND status IN ('MOVING','AT_STOP') ORDER BY seq_no ASC LIMIT 1`,
+      [tripId]
+    );
+    return row ? row.id : null;
+  }
+
+  async insertCareActivity(input: {
+    tripId: string; legId: string | null; horseId: string | null; activityType: string; feedDescription: string | null;
+    amountLiters: number | null; durationMinutes: number | null; note: string | null; performedAt: string; createdBy: string; correctsActivityId: string | null;
+  }): Promise<string> {
+    const result = await this.db.query(
+      `INSERT INTO horse_care_activities
+        (trip_id, leg_id, horse_id, activity_type, feed_description, amount_liters, duration_minutes, note, performed_at, created_by, corrects_activity_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [input.tripId, input.legId, input.horseId, input.activityType, input.feedDescription, input.amountLiters, input.durationMinutes, input.note,
+        new Date(input.performedAt), input.createdBy, input.correctsActivityId]
+    );
+    return String(result.insertId);
+  }
+
+  /** Bản ghi gốc để đính chính, kèm việc đã có bản đính chính khác trỏ tới nó chưa. */
+  async findCareActivity(id: string): Promise<{ id: string; tripId: string; horseId: string | null; activityType: string; corrected: boolean } | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(a.id AS CHAR) AS id, CAST(a.trip_id AS CHAR) AS tripId, CAST(a.horse_id AS CHAR) AS horseId, a.activity_type AS activityType,
+        EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id) AS corrected
+      FROM horse_care_activities a WHERE a.id = ?`,
+      [id]
+    );
+    return row ? { ...row, horseId: row.horseId ?? null, corrected: Boolean(Number(row.corrected)) } : undefined;
+  }
+
+  /**
+   * Mới nhất trước; bỏ các bản đã bị đính chính (chỉ trả bản mới nhất). Có khoảng thì lọc `performed_at` trong [from, to).
+   * `onlyId` lấy đúng một bản ghi (kể cả đã bị đính chính). Tối đa 1000 dòng.
+   */
+  async getCareActivities(tripId: string, range?: { from: Date; to: Date }, onlyId?: string): Promise<import('./tracking.dto').CareActivityRow[]> {
+    const filters = ['a.trip_id = ?', 'NOT EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id)'];
+    const params: unknown[] = [tripId];
+    if (range) { filters.push('a.performed_at >= ? AND a.performed_at < ?'); params.push(range.from, range.to); }
+    if (onlyId) { filters.length = 1; filters.push('a.id = ?'); params.push(onlyId); }
+    return this.db.query(
+      `SELECT CAST(a.id AS CHAR) AS id, CAST(a.trip_id AS CHAR) AS tripId, CAST(a.leg_id AS CHAR) AS legId, CAST(a.horse_id AS CHAR) AS horseId,
+        h.name AS horseName, a.activity_type AS activityType, a.feed_description AS feedDescription, a.amount_liters AS amountLiters,
+        a.duration_minutes AS durationMinutes, a.note, a.performed_at AS performedAt, CAST(a.created_by AS CHAR) AS createdBy,
+        u.full_name AS createdByName, a.created_at AS createdAt, CAST(a.corrects_activity_id AS CHAR) AS correctsActivityId
+      FROM horse_care_activities a
+      LEFT JOIN horses h ON h.id = a.horse_id
+      JOIN users u ON u.id = a.created_by
+      WHERE ${filters.join(' AND ')}
+      ORDER BY a.performed_at DESC, a.id DESC LIMIT 1000`,
+      params
+    );
+  }
+
+  /** Lần cho ăn mới nhất (chưa bị đính chính) của từng ngựa trên toàn chuyến, không phụ thuộc khoảng from/to. */
+  async getLastFeedByHorse(tripId: string): Promise<{ horseId: string; performedAt: Date }[]> {
+    return this.db.query(
+      `SELECT CAST(a.horse_id AS CHAR) AS horseId, MAX(a.performed_at) AS performedAt
+      FROM horse_care_activities a
+      WHERE a.trip_id = ? AND a.activity_type = 'FEED' AND a.horse_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM horse_care_activities c WHERE c.corrects_activity_id = a.id)
+      GROUP BY a.horse_id`,
       [tripId]
     );
   }
@@ -747,7 +997,13 @@ export class TrackingRepository {
     return String(result.insertId);
   }
 
-  async getTripAlerts(tripId: string): Promise<import('./tracking.dto').AlertRow[]> {
+  /**
+   * Cảnh báo của chuyến. Có `recipientId` thì ghép thêm thông báo `TRIP_ALERT` của người đó để toast biết đã đọc hay chưa.
+   * Ghép MỘT-MỘT theo thứ tự: với cùng chuyến + người nhận + nội dung (thông báo kết thúc bằng `: <nội dung cảnh báo>`), cảnh báo
+   * thứ k theo (sent_at, id) nhận thông báo thứ k theo (created_at, id); mỗi thông báo chỉ gán cho một cảnh báo, thừa cảnh báo thì null.
+   * Không dùng khoảng cách thời gian (DATETIME chỉ chính xác tới giây, và alerts.sent_at / notifications.created_at làm tròn khác nhau).
+   */
+  async getTripAlerts(tripId: string, recipientId: string | null = null): Promise<import('./tracking.dto').AlertRow[]> {
     return this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id,
         CAST(a.trip_id AS CHAR) AS tripId,
@@ -755,12 +1011,25 @@ export class TrackingRepository {
         a.content,
         CAST(a.sent_by AS CHAR) AS sentBy,
         u.full_name AS sentByName,
-        a.sent_at AS sentAt
+        a.sent_at AS sentAt,
+        CAST(n.id AS CHAR) AS notificationId,
+        n.is_read AS notificationRead
       FROM alerts a
       JOIN users u ON u.id = a.sent_by
+      LEFT JOIN notifications n ON n.recipient_id = ? AND n.event_type = 'TRIP_ALERT' AND n.related_type = 'TRIP' AND n.related_id = a.trip_id
+        AND RIGHT(n.content, CHAR_LENGTH(a.content) + 2) = CONCAT(': ', a.content)
+        AND (
+          SELECT COUNT(*) FROM notifications y
+          WHERE y.recipient_id = n.recipient_id AND y.event_type = 'TRIP_ALERT' AND y.related_type = 'TRIP' AND y.related_id = a.trip_id
+            AND RIGHT(y.content, CHAR_LENGTH(a.content) + 2) = CONCAT(': ', a.content)
+            AND (y.created_at < n.created_at OR (y.created_at = n.created_at AND y.id < n.id))
+        ) = (
+          SELECT COUNT(*) FROM alerts b
+          WHERE b.trip_id = a.trip_id AND b.content = a.content AND (b.sent_at < a.sent_at OR (b.sent_at = a.sent_at AND b.id < a.id))
+        )
       WHERE a.trip_id = ?
       ORDER BY a.sent_at ASC, a.id ASC`,
-      [tripId]
+      [recipientId, tripId]
     );
   }
 

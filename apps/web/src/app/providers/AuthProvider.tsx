@@ -1,3 +1,4 @@
+import { disconnectSocket } from '../../lib/socket';
 import { createContext, ReactNode, useCallback, useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import type { IUser } from '@my-project/shared';
@@ -43,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((e) => {
         if (!active || getAccessToken() !== token) return;
-        clearAccessToken();
+        disconnectSocket();
+    clearAccessToken();
         setSyncError(
           isAxiosError(e) ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' : 'Không thể tải thông tin tài khoản.',
         );
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const onLoginSuccess = useCallback((token: string, user: IUser, remember = true) => {
+    disconnectSocket();
     saveAccessToken(token, remember);
     queryClient.clear();
     setAccount(user);
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    disconnectSocket();
     clearAccessToken();
     queryClient.clear();
     setAccount(null);

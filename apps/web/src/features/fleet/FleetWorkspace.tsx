@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Form, Input, InputNumber, Modal, Select, Table, Tag, Tooltip } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -19,7 +20,7 @@ const STATUS_OPTIONS: { value: VehicleStatusFilter; label: string }[] = [
 
 /** Danh mục phương tiện (FR-TRP-01): Coordinator thêm, sửa trạng thái và xóa xe chưa từng dùng. */
 export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
-  const { message, modal } = App.useApp();
+  const { message, modal } = useFeedback();
   const [form] = Form.useForm<FormValues>();
   const [items, setItems] = useState<Vehicle[]>([]);
   const [total, setTotal] = useState(0);
@@ -151,7 +152,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
         <Select value={status} options={STATUS_OPTIONS} onChange={value => { setStatus(value); setPage(1); }} aria-label="Lọc theo trạng thái" />
         <Button onClick={() => void load()} disabled={loading}>Làm mới</Button>
       </div>
-      {loadError && <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
+      {loadError && <Alert type="error" showIcon title={loadError} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
       <Table<Vehicle>
         rowKey="id" size="middle" columns={columns} dataSource={items} loading={loading} scroll={{ x: 'max-content' }}
         locale={{ emptyText: query || status !== 'all' ? 'Không có phương tiện phù hợp bộ lọc.' : 'Chưa có phương tiện nào.' }}
@@ -164,7 +165,7 @@ export default function FleetWorkspace({ canEdit }: { canEdit: boolean }) {
         okText={editing === 'new' ? 'Thêm' : 'Lưu'} cancelText="Hủy" confirmLoading={saving}
         onOk={() => form.submit()} onCancel={() => { if (!saving) setEditing(null); }}
       >
-        {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+        {formError && <Alert type="error" showIcon title={formError} style={{ marginBottom: 16 }} />}
         {editing !== 'new' && editing?.inActiveUse && (
           <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Xe đang nằm trong kế hoạch đã duyệt: không thể đổi trạng thái hoặc giảm sức chứa dưới số ngựa cần chở." />
         )}

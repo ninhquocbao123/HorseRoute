@@ -1,0 +1,90 @@
+/* E1 "Quản lý ngựa" của hộ tống (Figma 57:5425). Dùng biến --drs-* của khung tài xế (driver-shell.css) và .drv-card / .drv-input. */
+.esc { display: grid; gap: 16px; min-width: 0; }
+.esc-columns { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+.esc-main { display: grid; gap: 20px; min-width: 0; }
+.esc-side { display: grid; gap: 16px; position: sticky; top: 16px; min-width: 0; }
+.esc-horses { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; align-items: start; }
+.drs .esc .drv-card { border-color: var(--drs-line); border-radius: var(--drs-radius-card); padding: 18px; }
+.esc-empty p { margin: 0; color: var(--drs-muted); }
+
+/* Thẻ ngựa */
+.esc-horse { display: grid; gap: 12px; }
+.esc-horse-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.esc-horse-photo {
+  display: inline-grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; border-radius: var(--drs-radius);
+  background: #d5e6e1; color: var(--drs-navy2); font-size: 28px;
+}
+.esc-horse-name { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.esc-horse-name strong { font-size: 17px; font-weight: 800; color: var(--drs-ink); }
+.esc-horse-name small { font-size: 12px; color: var(--drs-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.esc-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  background: var(--drs-soft); color: var(--drs-muted);
+}
+.esc-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.esc-badge.is-stable { background: var(--drs-green-bg); color: var(--drs-green); }
+.esc-badge.is-off_feed { background: #ffedd5; color: #c2410c; }
+.esc-badge.is-stressed { background: var(--drs-red-soft); color: var(--drs-red-text); }
+.esc-badge.is-climate_change { background: #dbeafe; color: #1d4ed8; }
+.esc-lastfeed {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--drs-radius);
+  background: var(--drs-navy); color: #fff; font-size: 13px; font-weight: 600;
+}
+.esc-lastfeed .anticon { color: var(--drs-gold); font-size: 16px; }
+.esc-none { padding: 6px 12px; font-size: 13px; color: var(--drs-muted); }
+
+/* Hàng hoạt động */
+.esc-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.esc-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--drs-radius); min-width: 0; }
+.esc-row-time { min-width: 44px; font-size: 13px; font-weight: 700; color: var(--drs-muted); white-space: nowrap; }
+.esc-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; font-size: 16px; }
+.esc-icon.is-feed { background: #fef3c7; color: #b45309; }
+.esc-icon.is-water { background: #d7eeee; color: var(--drs-navy2); }
+.esc-icon.is-rest { background: #e9e5f7; color: #5b4bb0; }
+.esc-row-main { display: grid; flex: 1; min-width: 0; }
+.esc-row-main strong { font-size: 14px; font-weight: 600; color: var(--drs-ink); }
+.esc-row-main small { font-size: 12px; color: var(--drs-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.esc-tag { padding: 2px 8px; border-radius: 99px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.drs .esc-edit { border-color: var(--drs-line); color: var(--drs-navy2); font-weight: 600; border-radius: 8px; }
+.drs .esc-day { width: 150px; }
+.esc-history-count { margin: 4px 0 8px; font-size: 13px; color: var(--drs-muted); }
+.drs .esc-pager { margin-top: 12px; justify-content: center; }
+
+/* Chi tiết lịch sử hộ tống (chỉ xem) */
+.esc-detail-extra { display: grid; gap: 20px; }
+.esc-detail-horses ul, .esc-reports ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.esc-detail-horses ul { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.esc-detail-horses li { display: flex; align-items: center; gap: 12px; }
+.esc-detail-horses li span:last-child { display: grid; }
+.esc-detail-horses small { color: var(--drs-muted); font-size: 12px; }
+.esc-horse-photo.is-small { width: 40px; height: 40px; font-size: 20px; border-radius: 10px; }
+.esc-reports li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 4px; border-bottom: 1px solid var(--drs-line); }
+.esc-reports li:last-child { border-bottom: 0; }
+.esc-report-main { display: grid; flex: 1; min-width: 140px; }
+.esc-report-main small, .esc-report-state { font-size: 12px; color: var(--drs-muted); }
+.drs .esc-more { margin-top: 10px; }
+
+/* Ghi nhận nhanh */
+.esc-form { display: grid; gap: 12px; }
+.esc-error { color: var(--drs-red-text); font-size: 12px; font-weight: 500; }
+.esc-applyall { font-size: 14px; color: var(--drs-ink); }
+.esc-form-actions { display: grid; gap: 10px; }
+.drs .esc-save { width: 100%; background: var(--drs-navy); border-color: var(--drs-navy); color: #fff; font-weight: 700; border-radius: var(--drs-radius); height: 48px; }
+.drs .esc-save:not(:disabled):hover { background: var(--drs-navy2) !important; border-color: var(--drs-navy2) !important; color: #fff !important; }
+.drs .esc-save:disabled { background: var(--drs-soft); border-color: var(--drs-line); color: var(--drs-muted); }
+.drs .esc-quick .drv-input .ant-select, .drs .esc-quick .drv-input > .ant-input { height: 46px; }
+
+/* Hôm nay */
+.esc-today dl { display: grid; gap: 10px; margin: 12px 0 0; }
+.esc-today dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.esc-today dt { color: var(--drs-muted); }
+.esc-today dd { margin: 0; font-weight: 600; color: var(--drs-ink); }
+
+/* Nút "Báo sự cố" nhỏ trên topbar (6.7) */
+.drs .esc-incident-btn { padding: 0 14px; font-weight: 600; border-color: var(--drs-red); color: var(--drs-red); background: var(--drs-red-bg); }
+.drs .esc-incident-btn:not(:disabled):hover { background: #fde4e4 !important; border-color: var(--drs-red) !important; color: var(--drs-red) !important; }
+
+@media (max-width: 1199px) {
+  .esc-columns { grid-template-columns: minmax(0, 1fr); }
+  .esc-side { position: static; order: -1; }
+}

@@ -1,9 +1,10 @@
+import PaymentSimulationModal from '../payments/PaymentSimulationModal';
 import { useEffect, useState, useCallback } from 'react';
 import { Alert, Spin, Empty, Button, Tag } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { api } from '../../lib/axios';
 import { useOrderSocket } from '../../lib/socket';
-import PaymentSimulationModal from '../payments/PaymentSimulationModal';
+
 
 const money = (n: number | string) => Number(n || 0).toLocaleString('vi-VN') + '\u00A0đ';
 
@@ -33,8 +34,9 @@ export default function CustomerQuote({
   orderStatus?: string;
   onPaymentSuccess?: (resultData: any) => void;
 }) {
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [paymentType, setPaymentType] = useState<'DEPOSIT' | 'BALANCE'>('DEPOSIT');
+  const [paymentModalOpen,setPaymentModalOpen]=useState(false);
+  const [paymentType,setPaymentType]=useState<'DEPOSIT'|'BALANCE'>('DEPOSIT');
+
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -78,13 +80,11 @@ export default function CustomerQuote({
   });
 
   const handleOpenDeposit = () => {
-    setPaymentType('DEPOSIT');
-    setPaymentModalOpen(true);
+    setPaymentType('DEPOSIT');setPaymentModalOpen(true);
   };
 
   const handleOpenBalance = () => {
-    setPaymentType('BALANCE');
-    setPaymentModalOpen(true);
+    setPaymentType('BALANCE');setPaymentModalOpen(true);
   };
 
   const paid = Number(data?.paid || 0);
@@ -114,7 +114,7 @@ export default function CustomerQuote({
         </div>
 
         {error ? (
-          <Alert type="error" message="Không tải được báo giá. Vui lòng mở lại đơn." />
+          <Alert type="error" title="Không tải được báo giá. Vui lòng mở lại đơn." />
         ) : data ? (
           <>
             <p className="cq-expiry">Hiệu lực đến {new Date(data.expires_at).toLocaleString('vi-VN')}</p>
@@ -147,7 +147,8 @@ export default function CustomerQuote({
                       <b>{money(i.amount)}</b>
                     </div>
                   ))}
-                </section>
+                  
+      </section>
               );
             })}
             <dl className="cq-summary">
@@ -210,7 +211,7 @@ export default function CustomerQuote({
               <Alert
                 type="error"
                 showIcon
-                message="Đơn hàng đã bị từ chối"
+                title="Đơn hàng đã bị từ chối"
                 description="Hồ sơ vận chuyển bị chuyên viên từ chối. Đơn hàng không thể tiếp tục đặt cọc hay thanh toán."
                 style={{ marginTop: 14 }}
               />
@@ -257,24 +258,12 @@ export default function CustomerQuote({
               </>
             )}
 
-            {!isRejected && (
-              <PaymentSimulationModal
-                open={paymentModalOpen}
-                orderId={orderId}
-                orderCode={orderCode}
-                paymentType={paymentType}
-                amount={paymentType === 'DEPOSIT' ? depositRemaining : remaining}
-                onClose={() => setPaymentModalOpen(false)}
-                onSuccess={(resultData) => {
-                  fetchQuote();
-                  onPaymentSuccess?.(resultData);
-                }}
-              />
-            )}
+
           </>
         ) : (
           !loading && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có báo giá chính thức" />
         )}
+      {!isRejected&&<PaymentSimulationModal open={paymentModalOpen} orderId={orderId} orderCode={orderCode} paymentType={paymentType} amount={paymentType==='DEPOSIT'?depositRemaining:remaining} onClose={()=>setPaymentModalOpen(false)} onSuccess={result=>{fetchQuote();onPaymentSuccess?.(result);}}/>}
       </section>
     </Spin>
   );

@@ -1,3 +1,4 @@
+import {useFeedback} from '../../../components/useFeedback';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useEffect, useState } from 'react';
@@ -30,7 +31,7 @@ export default function TripDetailPage() {
   const listSearch = tripListSearch(readTripListParams(search));
   const activeTab = readTab(search);
   const { account } = useAuth();
-  const { message: messageApi } = App.useApp();
+  const { message: messageApi } = useFeedback();
   const [reviewOpen,setReviewOpen]=useState(false); const [reviewing,setReviewing]=useState(false); const qc=useQueryClient();
 
   const query = useTripDetailQuery(tripId);

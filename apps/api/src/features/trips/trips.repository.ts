@@ -75,6 +75,7 @@ export class TripsRepository {
     for (const sql of [
       'SELECT m.id FROM leg_milestones m JOIN legs l ON l.id=m.leg_id WHERE l.trip_id=? LIMIT 1 FOR UPDATE',
       'SELECT h.id FROM horse_logs h JOIN legs l ON l.id=h.leg_id WHERE l.trip_id=? LIMIT 1 FOR UPDATE',
+      'SELECT c.id FROM horse_care_activities c WHERE c.trip_id=? LIMIT 1 FOR UPDATE',
       'SELECT i.id FROM incidents i LEFT JOIN legs l ON l.id=i.leg_id WHERE i.trip_id=? OR l.trip_id=? LIMIT 1 FOR UPDATE',
       'SELECT p.id FROM trip_positions p WHERE p.trip_id=? LIMIT 1 FOR UPDATE',
     ]) {

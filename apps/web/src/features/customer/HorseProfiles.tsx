@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import { useRef, useState, type ReactNode } from 'react';
 import { App, Alert, Button, Empty, Modal } from 'antd';
 import { CheckCircleOutlined, FileTextOutlined, PlusOutlined, ArrowRightOutlined, ArrowLeftOutlined, UploadOutlined, EyeOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
@@ -19,7 +20,7 @@ function age(date:string) {
 }
 
 export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,showFile,preview}:Props) {
-  const {message,modal} = App.useApp();
+  const {message,modal} = useFeedback();
   const [editing,setEditing] = useState<Profile|null>(null);
   const [step,setStep] = useState(0), [filter,setFilter] = useState('all');
   const [pending,setPending] = useState<Record<string,PendingFile>>({});
@@ -53,7 +54,8 @@ export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,s
     setBusy(true);setSaveError('');
     let profileSaved=false;
     try {
-      const {id,files,documents:docs,...payload}=editing;
+      const {id,name,passportNo,breed,birthDate,sex,coatColor,microchip,weightKg,heightCm,ownerName,feed,note,documentNote,revision:currentRevision}=editing;
+      const payload={name,passportNo,breed,birthDate,sex,coatColor,microchip,weightKg,heightCm,ownerName,feed,note,documentNote,revision:currentRevision};
       const r=await(id?api.put('/customer/profiles/'+id,payload):api.post('/customer/profiles',payload));
       const savedId=String(r.data.id),revision=(editing.revision||0)+1;
       profileSaved=true;
@@ -98,7 +100,7 @@ export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,s
     </article>)}</div>
     {!visible.length&&<div className="hp-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={profiles.length?'Không có hồ sơ phù hợp bộ lọc.':'Chưa có ngựa trong hồ sơ của bạn.'}/>{!profiles.length&&<Button onClick={()=>open()} icon={<PlusOutlined/>}>Thêm ngựa đầu tiên</Button>}</div>}
     <p className="hp-footnote">Đủ giấy tờ cơ bản là đã tải đủ tệp.</p>
-    <Modal open={!!editing} title={null} footer={null} width={1040} className="hp-modal" onCancel={close} maskClosable={false} closable={!busy} keyboard={!busy} destroyOnHidden>
+    <Modal open={!!editing} title={null} footer={null} width={1040} className="hp-modal" onCancel={close} mask={{closable:false}} closable={!busy} keyboard={!busy} destroyOnHidden>
       {editing&&<><header className="hp-modal-header"><h2>{editing.id?'Chỉnh sửa hồ sơ ngựa':'Thêm ngựa vào hồ sơ'}</h2><p>Khai báo một lần, sử dụng cho các lần đặt chuyến sau.</p></header>
       <div className="hp-steps" aria-label="Các bước tạo hồ sơ"><button aria-current={step===0?'step':undefined} className={step===0?'active':''} disabled={busy} onClick={()=>setStep(0)}><EditOutlined/><span>Nhận dạng & đặc điểm</span></button><button aria-current={step===1?'step':undefined} className={step===1?'active':''} disabled={busy} onClick={next}><FileTextOutlined/><span>Giấy tờ & kiểm dịch</span><small>{count(editing)}/{coreTypes.length} giấy</small></button></div>
       <form ref={form} onSubmit={e=>{e.preventDefault();if(step===0)next();else void save();}}>

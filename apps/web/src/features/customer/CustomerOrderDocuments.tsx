@@ -1,3 +1,4 @@
+import {useFeedback} from '../../components/useFeedback';
 import type {OrderDetail} from '../orders/types';
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Empty, Spin } from 'antd';
@@ -11,7 +12,7 @@ type Detail={documents:Doc[];versions:Version[];dossiers:{horse_id:string;status
 const labels:Record<string,string>={NOT_SUBMITTED:'Chưa nộp',INVALID:'Cần bổ sung',EXPIRED:'Hết hạn',SUBMITTED:'Chờ thẩm định',VALID:'Đã duyệt'};
 const needsFile=(d:Doc)=>['NOT_SUBMITTED','INVALID','EXPIRED'].includes(d.status);
 export default function CustomerOrderDocuments({orderId,status,initialHorseId,initialDocumentId,onPendingChange,onSaved,horseDetails}:{horseDetails?:OrderDetail['horses'];orderId:string;status:string;initialHorseId?:string;initialDocumentId?:string;onPendingChange:(pending:boolean)=>void;onSaved:()=>void}) {
-  const {message,modal}=App.useApp();
+  const {message,modal}=useFeedback();
   const [detail,setDetail]=useState<Detail>(),[error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [horse,setHorse]=useState(initialHorseId||''),[document,setDocument]=useState(initialDocumentId||''),[files,setFiles]=useState<Record<string,File>>({});
   const [preview,setPreview]=useState<{file:Blob;name:string}|null>(null);

@@ -184,7 +184,7 @@ export class OrdersService {
       if(dto.booking){
         if(!dto.booking.termsAccepted)throw fieldError({booking:'Bạn cần đồng ý điều khoản vận chuyển.'});
         for(const contact of [dto.booking.sender,dto.booking.recipient])if(!contact.name||!contact.phone||!contact.address)throw fieldError({booking:'Điền đủ tên, điện thoại và địa chỉ của người gửi, người nhận.'});
-        const capacity={LIGHT:2,MEDIUM:6,HEAVY:9}[dto.booking.vehicleClass];
+        const capacity=dto.booking.vehicleCapacity??{LIGHT:2,MEDIUM:6,HEAVY:9}[dto.booking.vehicleClass];
         if(dto.horses.length>capacity)throw fieldError({booking:'Số ngựa vượt sức chứa của hạng xe.'});
       }
       const kept=new Set<string>();
