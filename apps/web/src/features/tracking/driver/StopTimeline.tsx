@@ -1,5 +1,5 @@
 import { CheckOutlined, PauseOutlined, TruckOutlined } from '@ant-design/icons';
-import type { ILegTracking } from '@my-project/shared';
+import type { ILegTracking, ITripMapStop } from '@my-project/shared';
 import { tripStops } from './driver-ui';
 
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -9,8 +9,8 @@ const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digi
  * ✓ đã qua · 🚚 đang tới (điểm đến của chặng đang chạy) · ⏸ đang dừng (xe đứng tại điểm này) · → kế tiếp (khi đang dừng) · ○ chưa tới.
  * Các trạng thái chạy/dừng chỉ có khi `running` (chuyến IN_TRANSIT).
  */
-export default function StopTimeline({ legs, horseCount, running = false }: { legs: ILegTracking[]; horseCount: number; running?: boolean }) {
-  const stops = tripStops(legs, horseCount, running);
+export default function StopTimeline({ legs, horseCount, running = false, mapStops }: { legs: ILegTracking[]; horseCount: number; running?: boolean; mapStops?: ITripMapStop[] }) {
+  const stops = tripStops(legs, horseCount, running, mapStops);
   return (
     <section className="drv-card drv-stops" aria-labelledby="drv-stops-title">
       <h3 id="drv-stops-title" className="drv-card-title">Các chặng</h3>
@@ -25,9 +25,11 @@ export default function StopTimeline({ legs, horseCount, running = false }: { le
                 <strong>{stop.name}</strong>
                 <small>{stop.note}</small>
               </span>
-              <time dateTime={stop.plannedAt}>
-                {time.format(new Date(stop.plannedAt))}{stop.dayOffset > 0 && ` +${stop.dayOffset}`}
-              </time>
+              {stop.plannedAt && (
+                <time dateTime={stop.plannedAt}>
+                  {time.format(new Date(stop.plannedAt))}{stop.dayOffset > 0 && ` +${stop.dayOffset}`}
+                </time>
+              )}
             </li>
           ))}
         </ol>

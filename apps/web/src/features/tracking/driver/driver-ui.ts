@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { INCIDENT_SEVERITY_META, INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type IncidentSeverity, type IncidentType } from '@my-project/shared';
+import { INCIDENT_SEVERITY_META, INCIDENT_SUB_TYPES, type DamageTarget, type ILegTracking, type ITripMapStop, type IncidentSeverity, type IncidentType } from '@my-project/shared';
 import type { NextAction } from '../tracking.format';
 import { headingLeg, isStopped, tripPhase } from './trip-phase';
 
@@ -44,7 +44,7 @@ export const tripProgress = (legs: ILegTracking[]) => {
  * D1b (chỉ khi `running`): `current` = điểm đến của chặng đang chạy ("đang tới"); `stopped` = điểm xe đang dừng (AT_STOP, hoặc chặng trước
  * đã xong còn chặng sau chưa xuất phát); `next` = điểm kế tiếp khi xe đang dừng. Một điểm chỉ mang tối đa một trong ba cờ.
  */
-export type TripStop = { key: string; name: string; note: string; plannedAt: string; dayOffset: number; reached: boolean; current: boolean; stopped: boolean; next: boolean };
+export type TripStop = { key: string; name: string; note: string; plannedAt: string | null; dayOffset: number; reached: boolean; current: boolean; stopped: boolean; next: boolean };
 
 const STOP_NOTE: Record<string, string> = {
   REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
@@ -59,8 +59,10 @@ const localDay = (iso: string) => {
  * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
  * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
  */
-export function tripStops(legs: ILegTracking[], horseCount: number, running = false): TripStop[] {
+export function tripStops(legs: ILegTracking[], horseCount: number, running = false, mapStops: ITripMapStop[] = []): TripStop[] {
   if (!legs.length) return [];
+  // Lộ trình mới: một chặng đại diện, các điểm dừng giữa nằm trong route_plan (GET /map trả ở `stops`); chưa có giờ dự kiến riêng.
+  if (legs.length === 1 && mapStops.length > 2) return routePlanStops(legs[0], horseCount, running, mapStops);
   const phase = running ? tripPhase(legs) : ({ kind: 'none' } as const);
   const stoppedId = phase.kind === 'stopped' ? phase.stop.id : phase.kind === 'between' ? phase.prev?.id ?? null : null;
   const headingId = headingLeg(phase)?.id ?? null;
@@ -82,6 +84,27 @@ export function tripStops(legs: ILegTracking[], horseCount: number, running = fa
     stopped: leg.id === stoppedId,
     next: waiting && leg.id === headingId,
   }))];
+}
+
+function routePlanStops(leg: ILegTracking, horseCount: number, running: boolean, mapStops: ITripMapStop[]): TripStop[] {
+  const started = leg.status !== 'NOT_STARTED';
+  const done = leg.status === 'AT_STOP' || leg.status === 'COMPLETED';
+  const startDay = localDay(leg.plannedDepartureAt);
+  const last = mapStops.length - 1;
+  return mapStops.map((stop, index) => {
+    const end = index === last;
+    return {
+      key: index === 0 ? 'start' : end ? leg.id : `via-${stop.locationId}-${index}`,
+      name: stop.name,
+      note: index === 0 ? `Nhận ${horseCount} ngựa` : end ? 'Bàn giao' : STOP_NOTE[stop.locationType] ?? 'Điểm dừng',
+      plannedAt: index === 0 ? leg.plannedDepartureAt : end ? leg.plannedArrivalAt : null,
+      dayOffset: end ? localDay(leg.plannedArrivalAt) - startDay : 0,
+      reached: index === 0 ? started : end && done,
+      current: running && end && leg.status === 'MOVING',
+      stopped: running && end && leg.status === 'AT_STOP',
+      next: false,
+    };
+  });
 }
 
 /** 5 mục kiểm tra trước khi chạy (Figma D1); tick lưu ở client theo chuyến (quyết định 5.3). */
@@ -144,6 +167,11 @@ export function formatDuration(ms: number) {
   return rest ? `${hours} giờ ${String(rest).padStart(2, '0')}` : `${hours} giờ`;
 }
 
+/** Chữ trên nút check-in khi chuyến đang chạy: đã tới điểm nhận thì việc còn lại là giao ngựa, ghi rõ để không nhầm. */
+export function checkInLabel(action: NextAction) {
+  return action.kind === 'milestone' && action.milestone === 'DELIVERED' ? 'Xác nhận đã giao' : 'Check-in chặng';
+}
+
 /** Tiêu đề hộp thoại "Check-in chặng": ghi rõ hành động cụ thể vì nút chỉ ghi chung. */
 export function checkInTitle(action: NextAction, leg: ILegTracking) {
   if (action.kind === 'complete') return `Hoàn thành chặng tới ${leg.toLocationName}`;
@@ -173,11 +201,16 @@ export function formatKm(km: number) {
 
 type VehicleLike = { id: string; code: string; capacityStalls: number };
 
-/** "51C-482.19 · 4 chuồng" cho xe của một chặng; thiếu chi tiết xe thì chỉ biển số. */
+const vehicleText = (v: VehicleLike) => `${v.code} · ${v.capacityStalls} chuồng`;
+
+/**
+ * "51C-482.19 · 4 chuồng" cho xe của một chặng; thiếu chi tiết xe thì chỉ biển số.
+ * Chuyến theo lộ trình mới chỉ có một chặng đại diện không gắn xe: dùng các xe đã bố trí cho chuyến (trip_vehicles).
+ */
 export function vehicleLabel(leg: ILegTracking | undefined, vehicles: VehicleLike[] | undefined) {
-  if (!leg?.vehicleCode) return null;
+  if (!leg?.vehicleCode) return vehicles?.length ? vehicles.map(vehicleText).join(', ') : null;
   const found = vehicles?.find(v => v.id === leg.vehicleId);
-  return found ? `${found.code} · ${found.capacityStalls} chuồng` : leg.vehicleCode;
+  return found ? vehicleText(found) : leg.vehicleCode;
 }
 
 /** Xe hiện thị ở ô "Xe": chặng đang chạy (IN_TRANSIT), chặng đầu (READY), chặng cuối (đã giao). */

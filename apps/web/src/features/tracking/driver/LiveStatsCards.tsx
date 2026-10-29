@@ -4,6 +4,10 @@ import { ClockCircleOutlined, DashboardOutlined, EnvironmentOutlined } from '@an
 import type { ILegTracking, ITripMap } from '@my-project/shared';
 import { formatDayTime, formatDuration, formatKm } from './driver-ui';
 import { elapsedSub, isStopped, nextStopView, tripPhase } from './trip-phase';
+import type { GpsFix } from './useGpsSharing';
+
+/** Số đo GPS trên máy còn được coi là "đang có tín hiệu" trong khoảng này (máy lấy mẫu mỗi 5 giây). */
+const OWN_FIX_FRESH_MS = 30_000;
 
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
@@ -38,15 +42,19 @@ function Stat({ label, icon, value, sub, tone, clamp, valueTone }: {
 /**
  * Ba thẻ dưới bản đồ D1b (Figma 57:5212).
  * - "Chặng tiếp": thêm "còn X km" khi /map tính được (km còn lại của cả chuyến trừ các chặng sau).
- * - "Tốc độ": GPS mới nhất khi còn LIVE, so với VMAX; GPS cũ → "GPS cũ n phút"; chưa có GPS → "—".
+ * - "Tốc độ": ưu tiên số đo GPS vừa lấy trên máy tài xế (cập nhật ~5 giây, không chờ gửi/tải lại /map); không có thì dùng GPS mới
+ *   nhất của server khi còn LIVE; so với VMAX; GPS cũ → "GPS cũ n phút"; chưa có GPS → "—".
  * - "Đã chạy" = giờ hiện tại − giờ xuất phát thực tế chặng 1; dòng phụ = giờ đến dự kiến của chặng hiện tại − giờ hiện tại.
  */
-export default function LiveStatsCards({ legs, map }: { legs: ILegTracking[]; map: ITripMap | null }) {
+export default function LiveStatsCards({ legs, map, ownFix = null }: { legs: ILegTracking[]; map: ITripMap | null; ownFix?: GpsFix | null }) {
   const now = useNow();
+  // Đồng hồ riêng 5 giây cho tốc độ trên máy: số đo cũ quá 30 giây thì quay về dữ liệu server.
+  const tick = useNow(5_000);
   const phase = tripPhase(legs);
   const next = nextStopView(phase, map);
   const kmToNext = next?.km ?? null;
-  const speed = speedView(map, now, isStopped(phase));
+  const local = ownFix && ownFix.speedKmh !== null && tick - Date.parse(ownFix.at) < OWN_FIX_FRESH_MS ? ownFix.speedKmh : null;
+  const speed = local !== null ? liveSpeed(local, map?.speedLimitKmh ?? null) : speedView(map, now, isStopped(phase));
   const departedAt = legs[0]?.actualDepartureAt ? Date.parse(legs[0].actualDepartureAt) : null;
   const arrival = next?.arrivalAt ? new Date(next.arrivalAt) : null;
   const elapsed = elapsedSub(phase, now);
@@ -63,6 +71,11 @@ export default function LiveStatsCards({ legs, map }: { legs: ILegTracking[]; ma
       />
     </div>
   );
+}
+
+function liveSpeed(kmh: number, limit: number | null) {
+  const over = limit !== null && kmh > limit;
+  return { value: `${Math.round(kmh)} km/h`, sub: limit !== null ? `giới hạn ${limit} km/h` : 'Chưa cấu hình giới hạn', tone: over ? 'warn' as const : undefined, over };
 }
 
 function speedView(map: ITripMap | null, now: number, stopped: boolean): { value: string; sub: string; tone?: 'muted' | 'warn'; over: boolean } {

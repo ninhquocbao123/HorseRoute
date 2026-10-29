@@ -28,6 +28,10 @@ export function trackingRoutes(service: TrackingService) {
   // Khách xem báo cáo đã gửi cho đơn của mình
   router.get('/orders/:orderId/horse-reports', authorize(Role.CUSTOMER), controller.customerHorseReports);
   router.post('/orders/:orderId/horse-reports/:id/view', authorize(Role.CUSTOMER), controller.viewHorseReport);
+  // Khách xem nhật ký chăm sóc (cho ăn, uống nước, nghỉ chân) của đơn mình
+  router.get('/orders/:orderId/care-activities', authorize(Role.CUSTOMER), controller.customerCareActivities);
+  // Khách xem bản đồ hành trình theo mốc (không GPS)
+  router.get('/orders/:orderId/map', createUserRateLimiter(60), authorize(Role.CUSTOMER), controller.customerOrderMap);
   // Hoạt động chăm sóc (gap-analysis-escort.md): chỉ hộ tống ghi; đọc cho mọi vai trò nội bộ trong phạm vi chuyến
   router.post('/trips/:tripId/care-activities', authorize(Role.DRIVER_ESCORT), controller.createCareActivity);
   router.get('/trips/:tripId/care-activities', authorize(...internal), controller.careActivities);

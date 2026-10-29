@@ -1092,6 +1092,20 @@ export class TrackingService {
     });
   }
 
+  /**
+   * Customer xem nhật ký chăm sóc (cho ăn / uống nước / nghỉ chân) của đơn mình. Cùng điều kiện hiển thị với timeline khách:
+   * chỉ khi kế hoạch đã duyệt và đơn READY / IN_TRANSIT / DELIVERED; trước đó trả danh sách rỗng.
+   */
+  async getCustomerCareActivities(account: User, rawOrderId: string): Promise<ICareActivityList> {
+    const orderId = await this.requireOwnOrder(account, rawOrderId);
+    const header = (await this.repository.findOrderForTimeline(orderId))!;
+    const visible = header.tripId !== null && header.planStatus === PlanStatus.APPROVED
+      && [OrderStatus.READY, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED].includes(header.orderStatus);
+    const activities = visible ? (await this.repository.getCareActivities(header.tripId!)).map(row => this.toCareActivity(row)) : [];
+    const lastFeed = visible ? await this.repository.getLastFeedByHorse(header.tripId!) : [];
+    return { activities, summary: careSummary(activities, lastFeed) };
+  }
+
   async getCareActivities(account: User, rawTripId: string, rawQuery: unknown): Promise<ICareActivityList> {
     const tripId = parse(legIdSchema, rawTripId);
     const rawRange = (rawQuery ?? {}) as Record<string, unknown>;
@@ -1100,20 +1114,8 @@ export class TrackingService {
     await this.authorizeTrip(this.repository, account, tripId, [Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST, Role.DRIVER_ESCORT]);
     const range = query.from && query.to ? { from: new Date(query.from), to: new Date(query.to) } : undefined;
     const activities = (await this.repository.getCareActivities(tripId, range)).map(row => this.toCareActivity(row));
-
-    const summary: ICareSummary = { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} };
-    for (const item of activities) {
-      if (item.activityType === CareActivityType.WATER) summary.waterLiters += item.amountLiters ?? 0;
-      else if (item.activityType === CareActivityType.FEED) summary.meals += 1;
-      else {
-        summary.rests += 1;
-        summary.restMinutes += item.durationMinutes ?? 0;
-      }
-    }
-    summary.waterLiters = Math.round(summary.waterLiters * 10) / 10;
     // Chuyến chạy qua đêm: "lần cho ăn gần nhất" nhìn toàn chuyến, không bị cắt theo from/to.
-    for (const feed of await this.repository.getLastFeedByHorse(tripId)) summary.lastFeedAtByHorse[feed.horseId] = new Date(feed.performedAt).toISOString();
-    return { activities, summary };
+    return { activities, summary: careSummary(activities, await this.repository.getLastFeedByHorse(tripId)) };
   }
 
   async createIncident(account: User, rawTripId: string, body: unknown, files: Upload[] = []): Promise<IIncident> {
@@ -1519,6 +1521,41 @@ export class TrackingService {
   }
 
   /**
+   * Bản đồ cho khách chủ đơn: tuyến, điểm dừng và vị trí xe **theo mốc tài xế đã ghi**, không dùng GPS (khách không xem GPS).
+   * Xe đứng ở điểm cuối cùng đã tới: chưa xuất phát / vừa xuất phát → điểm đầu chặng; đã đến / hoàn thành → điểm cuối chặng.
+   * Chỉ có dữ liệu khi kế hoạch đã duyệt và đơn READY / IN_TRANSIT / DELIVERED; trước đó 404 như chưa có hành trình.
+   */
+  async getCustomerOrderMap(account: User, rawOrderId: string): Promise<ITripMap> {
+    const orderId = await this.requireOwnOrder(account, rawOrderId);
+    const header = (await this.repository.findOrderForTimeline(orderId))!;
+    const visible = header.tripId !== null && header.planStatus === PlanStatus.APPROVED
+      && [OrderStatus.READY, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED].includes(header.orderStatus);
+    if (!visible) throw new NotFoundException('Hành trình chưa sẵn sàng để hiển thị.');
+    const tripId = header.tripId!;
+    const legs = await this.repository.getTripMapLegs(tripId);
+    const routes = new Map<string, ResolvedRoute | null>();
+    await Promise.all(legs.map(async leg => {
+      const { from, to } = legEnds(leg);
+      if (leg.routeCoordinates?.length) routes.set(leg.id, { mode: 'ROAD', coordinates: leg.routeCoordinates, distanceKm: (leg.routeDistanceM ?? 0) / 1000 });
+      else routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
+    }));
+    const map = buildTripMap({ trip: { id: tripId, orderCode: header.orderCode, orderStatus: header.orderStatus }, legs, routes, latest: undefined, speedLimitKmh: null, now: Date.now() });
+    // Chặng đang chạy (MOVING): builder ước tính theo giờ kế hoạch; với khách thì giữ xe ở điểm đã ghi mốc gần nhất (điểm xuất phát chặng).
+    const moving = legs.findIndex(leg => leg.status === LegStatus.MOVING);
+    const line = moving >= 0 ? routes.get(legs[moving].id)?.coordinates : null;
+    if (moving >= 0 && line?.length) {
+      const leg = legs[moving];
+      const departed = leg.actualDepartureAt ? ` lúc ${VN_CLOCK.format(leg.actualDepartureAt)}` : '';
+      map.position = { source: 'ESTIMATED', lng: line[0][0], lat: line[0][1], asOf: (leg.actualDepartureAt ?? new Date()).toISOString(), legId: leg.id,
+        label: `Đã xuất phát từ ${leg.fromName}${departed}, đang trên đường đến ${leg.toName}` };
+      const rest = map.legs.slice(moving).map(item => item.distanceKm);
+      map.remainingKm = rest.every(km => km !== null) ? Math.round(rest.reduce<number>((sum, km) => sum + (km ?? 0), 0) * 10) / 10 : null;
+    }
+    // Khách không thấy cảnh báo kỹ thuật của bản đồ nội bộ.
+    return { ...map, latestPosition: null, speedLimitKmh: null, warnings: [] };
+  }
+
+  /**
    * Nhận lô vị trí từ Driver/Escort được phân công. Chỉ khi đơn IN_TRANSIT, có chặng đang MOVING/AT_STOP và chặng đó
    * không phải chặng bay (409). Gửi lại cùng `recordedAt` không tạo bản ghi trùng (INSERT IGNORE theo khóa duy nhất).
    */
@@ -1598,3 +1635,21 @@ export class TrackingService {
     return removed;
   }
 }
+
+/** Tổng hợp nước / bữa ăn / nghỉ chân trên đúng các hoạt động trả về; lần cho ăn gần nhất theo từng ngựa. */
+function careSummary(activities: ICareActivity[], lastFeed: { horseId: string; performedAt: Date }[]): ICareSummary {
+  const summary: ICareSummary = { waterLiters: 0, meals: 0, rests: 0, restMinutes: 0, lastFeedAtByHorse: {} };
+  for (const item of activities) {
+    if (item.activityType === CareActivityType.WATER) summary.waterLiters += item.amountLiters ?? 0;
+    else if (item.activityType === CareActivityType.FEED) summary.meals += 1;
+    else {
+      summary.rests += 1;
+      summary.restMinutes += item.durationMinutes ?? 0;
+    }
+  }
+  summary.waterLiters = Math.round(summary.waterLiters * 10) / 10;
+  for (const feed of lastFeed) summary.lastFeedAtByHorse[feed.horseId] = new Date(feed.performedAt).toISOString();
+  return summary;
+}
+
+const VN_CLOCK = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });

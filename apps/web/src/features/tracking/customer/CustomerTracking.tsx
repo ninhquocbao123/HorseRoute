@@ -1,45 +1,75 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { IOrderTimeline, ITimelineLeg } from '@my-project/shared';
+import { HORSE_APPETITE_LABEL, HORSE_CONDITION_META, type ICareActivityList, type IHorseReport, type IOrderTimeline } from '@my-project/shared';
+import AttachmentImage from '../AttachmentImage';
+import { activityDetail, careLabel } from '../escort/care-ui';
 import { errorMessage, trackingApi } from '../tracking.api';
-import { LEG_STATUS_LABEL, MILESTONE_LABEL, ORDER_STATUS_LABEL, formatDateTime } from '../tracking.format';
+import CustomerJourneyTimeline from './CustomerJourneyTimeline';
+import { ORDER_STATUS_LABEL, formatDateTime } from '../tracking.format';
 import { statuses } from '../../orders/types';
 
 type OrderItem = Awaited<ReturnType<typeof trackingApi.customerOrders>>[number];
 
 const REFRESH_MS = 60_000;
 
-function LegStep({ leg }: { leg: ITimelineLeg }) {
-  const done = leg.status === 'COMPLETED';
-  const active = leg.status === 'MOVING' || leg.status === 'AT_STOP';
+/** Nhật ký chăm sóc của hộ tống (cho ăn, uống nước, nghỉ chân), mới nhất trước. */
+function CareLog({ care }: { care: ICareActivityList }) {
+  const { summary } = care;
   return (
-    <li className={'trk-step' + (done ? ' is-done' : active ? ' is-active' : '')} data-status={leg.status}>
-      <span className="trk-step-dot" aria-hidden="true">{done ? '✓' : leg.seqNo}</span>
-      <div className="trk-step-body">
-        <div className="trk-leg-head">
-          <strong>{leg.fromLocationName} → {leg.toLocationName}</strong>
-          <span className="status-chip" data-status={leg.status}>{LEG_STATUS_LABEL[leg.status]}</span>
-        </div>
-        <p className="trk-muted">
-          Dự kiến {formatDateTime(leg.plannedDepartureAt)} – {formatDateTime(leg.plannedArrivalAt)}
-          {leg.isOverdue && <span className="trk-late"> · Chậm so với dự kiến</span>}
-        </p>
-        {leg.milestones.length > 0 ? (
-          <ul className="trk-milestones">
-            {leg.milestones.map(m => (
-              <li key={m.milestoneType}>
-                <span>{MILESTONE_LABEL[m.milestoneType]}</span>
-                <time dateTime={m.occurredAt}>{formatDateTime(m.occurredAt)}</time>
+    <section className="portal-panel trk-panel trk-care" aria-label="Nhật ký chăm sóc ngựa">
+      <div className="portal-panel-heading"><h2>Nhật ký chăm sóc ngựa</h2></div>
+      {care.activities.length === 0 ? (
+        <p className="trk-muted">Hộ tống chưa ghi hoạt động chăm sóc nào cho chuyến này.</p>
+      ) : (
+        <>
+          <p className="trk-care-summary">
+            {summary.meals} bữa ăn · {summary.waterLiters.toLocaleString('vi-VN')} L nước · {summary.rests} lần nghỉ chân{summary.restMinutes ? ` (${summary.restMinutes} phút)` : ''}
+          </p>
+          <ul className="trk-care-list">
+            {care.activities.map(activity => (
+              <li key={activity.id}>
+                <time dateTime={activity.performedAt}>{formatDateTime(activity.performedAt)}</time>
+                <span className={'trk-care-type is-' + activity.activityType.toLowerCase()}>{careLabel(activity.activityType)}</span>
+                <span className="trk-care-main">
+                  <strong>{activity.horseName ?? 'Cả đoàn'}</strong>
+                  <small>{activityDetail(activity) || '—'} · {activity.createdByName}</small>
+                </span>
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="trk-muted">Chưa có mốc thực tế.</p>
-        )}
-        {leg.lastUpdatedAt && (
-          <p className="trk-updated">Cập nhật lần cuối lúc {formatDateTime(leg.lastUpdatedAt)}{leg.lastUpdatedByName ? ` bởi ${leg.lastUpdatedByName}` : ''}</p>
-        )}
-      </div>
-    </li>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Báo cáo sức khỏe hộ tống chọn gửi cho khách (tình trạng, chỉ số, ảnh). */
+function HorseReports({ reports }: { reports: IHorseReport[] }) {
+  if (!reports.length) return null;
+  return (
+    <section className="portal-panel trk-panel" aria-label="Báo cáo sức khỏe ngựa">
+      <div className="portal-panel-heading"><h2>Báo cáo sức khỏe ngựa</h2></div>
+      <ul className="trk-reports">
+        {reports.map(report => {
+          const meta = HORSE_CONDITION_META[report.conditionStatus];
+          const vitals = [report.bodyTempC !== null && `${report.bodyTempC.toLocaleString('vi-VN')} °C`, report.heartRateBpm !== null && `${report.heartRateBpm} nhịp/phút`,
+            report.appetite && `Ăn uống: ${HORSE_APPETITE_LABEL[report.appetite]}`].filter(Boolean).join(' · ');
+          return (
+            <li key={report.id} className={meta?.attention ? 'is-attention' : undefined}>
+              <div className="trk-leg-head">
+                <strong>{report.horseName} · {meta?.label ?? report.conditionStatus}</strong>
+                <time dateTime={report.sentAt}>{formatDateTime(report.sentAt)}</time>
+              </div>
+              {vitals && <p className="trk-muted">{vitals}</p>}
+              {report.customerNote && <p>{report.customerNote}</p>}
+              {report.photos.length > 0 && (
+                <div className="trk-report-photos">{report.photos.map(photo => <AttachmentImage key={photo.id} id={photo.id} name={photo.caption ?? report.horseName} />)}</div>
+              )}
+              <p className="trk-updated">Hộ tống {report.escortName}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -47,6 +77,8 @@ export default function CustomerTracking() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<IOrderTimeline | null>(null);
+  const [care, setCare] = useState<ICareActivityList | null>(null);
+  const [reports, setReports] = useState<IHorseReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [error, setError] = useState('');
@@ -66,7 +98,15 @@ export default function CustomerTracking() {
   const loadTimeline = useCallback(async (orderId: string, silent = false) => {
     if (!silent) setLoadingTimeline(true);
     try {
-      setTimeline(await trackingApi.orderTimeline(orderId));
+      const [nextTimeline, nextCare, nextReports] = await Promise.all([
+        trackingApi.orderTimeline(orderId),
+        // Nhật ký/báo cáo là phần phụ: lỗi thì vẫn hiện tiến độ chặng.
+        trackingApi.customerCareActivities(orderId).catch(() => null),
+        trackingApi.customerHorseReports(orderId).catch(() => [] as IHorseReport[]),
+      ]);
+      setTimeline(nextTimeline);
+      setCare(nextCare);
+      setReports(nextReports);
       setError('');
     } catch (e) {
       setError(errorMessage(e, 'Không tải được tiến độ đơn hàng.'));
@@ -76,6 +116,8 @@ export default function CustomerTracking() {
   }, []);
 
   useEffect(() => {
+    setCare(null);
+    setReports([]);
     if (!selected) return setTimeline(null);
     void loadTimeline(selected);
   }, [selected, loadTimeline]);
@@ -112,7 +154,8 @@ export default function CustomerTracking() {
           </label>
 
           {loadingTimeline && !timeline && <p role="status">Đang tải tiến độ…</p>}
-          {timeline && (
+          {timeline && timeline.legs.length > 0 && <CustomerJourneyTimeline timeline={timeline} />}
+          {timeline && timeline.legs.length === 0 && (
             <section className="portal-panel trk-panel" aria-label="Tiến độ đơn hàng">
               <div className="portal-panel-heading">
                 <div>
@@ -128,15 +171,13 @@ export default function CustomerTracking() {
                   Cập nhật lần cuối lúc {formatDateTime(timeline.lastUpdatedAt)}{timeline.lastUpdatedByName ? ` bởi ${timeline.lastUpdatedByName}` : ''}
                 </p>
               )}
-              {timeline.legs.length === 0 ? (
-                <p className="trk-hint">
-                  Lịch trình chi tiết sẽ hiển thị sau khi kế hoạch vận chuyển được duyệt và đơn hàng sẵn sàng. Chúng tôi sẽ thông báo cho bạn khi có cập nhật.
-                </p>
-              ) : (
-                <ol className="trk-steps">{timeline.legs.map(leg => <LegStep key={leg.seqNo} leg={leg} />)}</ol>
-              )}
+              <p className="trk-hint">
+                Lịch trình chi tiết sẽ hiển thị sau khi kế hoạch vận chuyển được duyệt và đơn hàng sẵn sàng. Chúng tôi sẽ thông báo cho bạn khi có cập nhật.
+              </p>
             </section>
           )}
+          {timeline && timeline.legs.length > 0 && care && <CareLog care={care} />}
+          {timeline && <HorseReports reports={reports} />}
         </>
       )}
     </div>

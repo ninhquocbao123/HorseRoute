@@ -3,6 +3,7 @@ import type {
   IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
+  IHorseReport,
   ICareActivity,
   ICareActivityList,
   ICareActivityCreateInput,
@@ -52,6 +53,12 @@ export const trackingApi = {
   activeTrips: () => api.get<IActiveTrips>('/tracking/operations/active-trips').then(r => r.data),
   tripTimeline: (tripId: string) => api.get<ITripTimeline>(`/tracking/trips/${tripId}/timeline`).then(r => r.data),
   orderTimeline: (orderId: string) => api.get<IOrderTimeline>(`/tracking/orders/${orderId}/timeline`).then(r => r.data),
+  /** Customer: bản đồ hành trình, vị trí xe theo mốc tài xế đã ghi (không GPS). */
+  customerOrderMap: (orderId: string) => api.get<ITripMap>(`/tracking/orders/${orderId}/map`).then(r => r.data),
+  /** Customer: nhật ký chăm sóc ngựa của đơn mình (rỗng khi chuyến chưa sẵn sàng). */
+  customerCareActivities: (orderId: string) => api.get<ICareActivityList>(`/tracking/orders/${orderId}/care-activities`).then(r => r.data),
+  /** Customer: báo cáo sức khỏe ngựa hộ tống đã gửi cho khách. */
+  customerHorseReports: (orderId: string) => api.get<IHorseReport[]>(`/tracking/orders/${orderId}/horse-reports`).then(r => r.data),
   correctLeg: (legId: string, body: { status: LegStatus; reason: string; occurredAt?: string }) =>
     api.patch<{ legId: string; status: string; orderStatus: string }>(`/tracking/legs/${legId}/correct`, body).then(r => r.data),
   updateIncident: (incidentId: string, body: { status: 'ACKNOWLEDGED' | 'CLOSED'; handlingNote?: string }) =>

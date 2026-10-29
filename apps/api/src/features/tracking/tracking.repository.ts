@@ -189,10 +189,12 @@ export class TrackingRepository {
     );
   }
 
-  /** Khách hàng, người nhận (orders) và điều phối viên lập kế hoạch (trips.planned_by). */
+  /** Khách hàng, người nhận (orders, đơn mới lưu ở booking_details.recipient) và điều phối viên lập kế hoạch (trips.planned_by). */
   async getTripContacts(tripId: string): Promise<TripContactsRow | undefined> {
     const [row] = await this.db.query(
-      `SELECT c.full_name AS customerName, o.recipient_name AS recipientName, o.recipient_phone AS recipientPhone,
+      `SELECT c.full_name AS customerName,
+        COALESCE(NULLIF(o.recipient_name, ''), NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.booking_details, '$.recipient.name')), '')) AS recipientName,
+        COALESCE(NULLIF(o.recipient_phone, ''), NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.booking_details, '$.recipient.phone')), '')) AS recipientPhone,
         p.full_name AS coordinatorName, p.phone AS coordinatorPhone
       FROM trips t
       JOIN orders o ON o.id = t.order_id

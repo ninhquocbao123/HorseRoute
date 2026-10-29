@@ -51,6 +51,14 @@ export class TrackingController {
     res.json(await this.service.sendHorseReport(req.account, String(req.params.id), req.body));
   };
 
+  customerOrderMap: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCustomerOrderMap(req.account, String(req.params.orderId)));
+  };
+
+  customerCareActivities: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCustomerCareActivities(req.account, String(req.params.orderId)));
+  };
+
   customerHorseReports: RequestHandler = async (req, res) => {
     res.json(await this.service.getCustomerHorseReports(req.account, String(req.params.orderId)));
   };
