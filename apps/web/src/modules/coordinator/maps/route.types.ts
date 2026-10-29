@@ -10,22 +10,18 @@ export interface Waypoint {
 }
 
 export interface RouteCandidate {
-  id: string
   geometry: LineString
   distanceM: number
   durationS: number
-}
-
-export interface RouteSnapshot extends RouteCandidate {
-  waypoints: Waypoint[]
-  inputKey: string
+  provider: 'mapbox'
   calculatedAt: string
-  provider: 'osrm'
-  profile: 'driving'
+  inputKey: string
+  verificationToken: string
 }
 
 export interface AddressResult {
   id: string
   label: string
-  position: LatLng
+  latitude: number
+  longitude: number
 }

@@ -5,6 +5,7 @@ import type {
   TripListResponse,
   TripPlanOptions,
   TripPlanInput,
+  TripScheduleInput,
 } from "../types/trip.types";
 
 export async function getTrips(
@@ -24,7 +25,7 @@ export async function getTripPlanOptions(tripId: string, signal?: AbortSignal) {
   );
   return data;
 }
-export async function saveTripPlan(tripId: string, input: TripPlanInput) {
+export async function saveTripPlan(tripId: string, input: TripPlanInput | TripScheduleInput) {
   const { data } = await api.put<TripDetail>(
     `/trips/${encodeURIComponent(tripId)}/plan`,
     input,

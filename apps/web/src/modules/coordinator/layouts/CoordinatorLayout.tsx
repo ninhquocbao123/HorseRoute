@@ -12,7 +12,7 @@ import {
 import { Avatar, Button, ConfigProvider, Drawer, Grid, Layout, Menu, Modal, Tooltip, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
 import { coordinatorPaths } from '../routes/coordinator.paths';
 import { coordinatorTheme } from '../theme/coordinator.theme';
@@ -57,6 +57,7 @@ export default function CoordinatorLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const blocker = useBlocker(dirty);
   useEffect(() => { const warn = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }; window.addEventListener('beforeunload',warn); return () => window.removeEventListener('beforeunload',warn); }, [dirty]);
   const screens = Grid.useBreakpoint();
   const location = useLocation();
@@ -73,8 +74,6 @@ export default function CoordinatorLayout() {
     : pageTitles[location.pathname] ?? { title: 'HorseRoute' };
 
   const go = (path: string) => {
-    if (dirty && !window.confirm('Bạn có thay đổi chưa lưu. Rời trang?')) return;
-    setDirty(false);
     navigate(path);
     setDrawerOpen(false);
   };
@@ -152,6 +151,12 @@ export default function CoordinatorLayout() {
             <Content className="coordinator-content"><Outlet context={{setDirty,go}} /></Content>
           </Layout>
         </Layout>
+        <Modal
+          open={blocker.state === 'blocked'} title="Bạn có thay đổi chưa lưu"
+          okText="Rời trang" cancelText="Ở lại"
+          onOk={() => { if (blocker.state === 'blocked') blocker.proceed(); }}
+          onCancel={() => { if (blocker.state === 'blocked') blocker.reset(); }}
+        >Rời trang sẽ bỏ những thay đổi chưa lưu.</Modal>
         <Modal
           open={logoutOpen} centered title="Bạn muốn đăng xuất?" okText="Đăng xuất" cancelText="Ở lại"
           rootClassName="coordinator-scope coordinator-modal" onCancel={() => setLogoutOpen(false)}

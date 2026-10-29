@@ -33,6 +33,10 @@ export interface TripDetail extends TripSummary {
   approvedBy: string | null;
   approvedAt: string | null;
   returnReason: string | null;
+  originAddress: string;
+  destinationAddress: string;
+  routePlan: import('../../coordinator/maps/TripRoutePlanner').RoutePlan | null;
+  routePlanRevision: number;
   legs: TripLeg[];
 }
 
@@ -48,10 +52,11 @@ export interface TripListResponse extends TripListParams {
   items: TripListItem[];
   total: number;
 }
-export interface TripPlanOptions { locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:'LIGHT'|'MEDIUM'|'HEAVY'; capacityStalls:number; status:'AVAILABLE'|'RESERVED'|'IN_TRANSIT'; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }[] }
-export interface TripPlanLegInput { id?:string; fromLocationId:string; toLocationId:string; vehicleId:string; plannedDepartureAt:string; plannedArrivalAt:string }
+export interface TripPlanOptions { requiredHorseCount:number; locations: { id:string; name:string; locationType:string; country:string; timezone:string; address:string|null; latitude:number|null; longitude:number|null }[]; vehicles: { id:string; plateOrCode:string; vehicleType:'LIGHT'|'MEDIUM'|'HEAVY'; capacityStalls:number; status:'AVAILABLE'|'RESERVED'|'IN_TRANSIT'; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }[] }
+export interface TripPlanLegInput { id?:string; fromLocationId:string; toLocationId:string; vehicleId?:string; plannedDepartureAt:string; plannedArrivalAt:string }
 export interface TripPlanInput { legs:TripPlanLegInput[] }
+export interface TripScheduleInput { plannedDepartureAt:string; plannedArrivalAt:string; routePlanRevision:number }
 export interface CrewOption { id:string; fullName:string; crewType:'DRIVER'|'ESCORT'|null; workStatus:'AVAILABLE'|'IN_TRIP'|null; selectable:boolean|null; scheduleEvaluation:'NOT_EVALUATED'; blockingReasons:{code:string;message:string}[] }
-export interface TripAssignment { id:string; userId:string; fullName:string; role:'DRIVER'|'ESCORT'; assignedBy:string; assignedAt:string; crewType:'DRIVER'|'ESCORT'|null; workStatus:'AVAILABLE'|'IN_TRIP'|null }
-export interface TripAssignments { tripId:string; items:TripAssignment[]; crewReadiness:{complete:boolean;blockers:{code:string;message:string;userId?:string}[]} }
-export interface TripAssignmentsInput { assignments:{userId:string;role:'DRIVER'|'ESCORT'}[] }
+export interface TripAssignment { tripVehicleId?:string|null; id:string; userId:string; fullName:string; role:'DRIVER'|'ESCORT'; assignedBy:string; assignedAt:string; crewType:'DRIVER'|'ESCORT'|null; workStatus:'AVAILABLE'|'IN_TRIP'|null }
+export interface TripAssignments { vehicles?: {id:string;vehicleId:string;plateNumber:string;capacityStalls:number;horseCount:number|null;crew:TripAssignment[]}[]; tripId:string; items:TripAssignment[]; crewReadiness:{complete:boolean;blockers:{code:string;message:string;userId?:string}[]} }
+export interface TripAssignmentsInput { vehicles:{vehicleId:string;horseCount:number;crew:{userId:string;role:'DRIVER'|'ESCORT'}[]}[] }

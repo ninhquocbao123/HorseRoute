@@ -20,7 +20,7 @@ export default function TripPlanningSummary({
   personName,
 }: {
   legs: TripPlanLegInput[];
-  roster: TripAssignmentsInput["assignments"];
+  roster: TripAssignmentsInput["vehicles"][number]["crew"];
   locationName: (id: string) => string;
   vehicleName: (id: string) => string;
   personName: (id: string) => string;
@@ -40,7 +40,7 @@ export default function TripPlanningSummary({
       icon: <CarOutlined />,
       label: "Phương tiện",
       value: vehiclesReady
-        ? [...new Set(legs.map((l) => vehicleName(l.vehicleId)))].join(", ")
+        ? [...new Set(legs.map((l) => vehicleName(l.vehicleId!)))].join(", ")
         : "",
     },
     {

@@ -21,7 +21,10 @@ export function quoteAmounts(subtotal:number,adjustment:number,vatPercent:number
 export class ManagerService {
  constructor(private db:DataSource){}
  async intake(u:User){this.allow(u);return this.db.query(`SELECT o.id,o.order_code,o.status,o.created_at,o.desired_departure_date,o.origin_country,o.destination_country,o.origin_address,o.destination_address,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.sender.city')) origin_city,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.recipient.city')) destination_city,JSON_UNQUOTE(JSON_EXTRACT(o.booking_details,'$.durationDays')) duration_days,u.full_name customer_name,a.status assessment_status,s.full_name specialist_name,
- (SELECT COUNT(DISTINCT l.vehicle_id) FROM legs l JOIN trips t ON t.id=l.trip_id WHERE t.order_id=o.id) vehicle_count,
+ (SELECT CASE WHEN EXISTS(SELECT 1 FROM trip_vehicles tv WHERE tv.trip_id=t.id)
+   THEN (SELECT COUNT(*) FROM trip_vehicles tv WHERE tv.trip_id=t.id)
+   ELSE (SELECT COUNT(DISTINCT l.vehicle_id) FROM legs l WHERE l.trip_id=t.id AND l.vehicle_id IS NOT NULL) END
+   FROM trips t WHERE t.order_id=o.id ORDER BY t.id LIMIT 1) vehicle_count,
  (SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status<>'REMOVED') horse_count,
  (SELECT COUNT(*) FROM documents d JOIN horses h ON h.id=d.horse_id WHERE h.order_id=o.id AND h.order_status<>'REMOVED') document_count,
  (SELECT COUNT(*) FROM documents d JOIN horses h ON h.id=d.horse_id WHERE h.order_id=o.id AND h.order_status<>'REMOVED' AND d.status='VALID') valid_count,

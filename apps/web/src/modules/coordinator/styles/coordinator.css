@@ -114,14 +114,12 @@
 .coordinator-scope .departure-panel .coordinator-arrival-field { grid-column: 1 / -1; }
 /* ── Trip Action Bar ─────────────────────────────────────────────────────── */
 .coordinator-scope .trip-action-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
+  position: static;
   background: #ffffff;
   border: 1px solid #d4e4e4;
   border-radius: 12px;
   padding: 14px 16px;
-  margin-top: 16px;
+  margin-top: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -196,7 +194,15 @@
 }
 
 @media (max-width: 640px) {
-  .coordinator-scope .trip-action-bar__row { flex-wrap: wrap; }
+  .coordinator-scope .trip-action-bar { padding: 12px; }
+  .coordinator-scope .trip-action-bar__status { flex-direction: column; align-items: stretch; }
+  .coordinator-scope .trip-action-chip { border-radius: 10px; }
+  .coordinator-scope .trip-action-bar__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .coordinator-scope .trip-action-bar__row > span:first-child { display: none; }
+  .coordinator-scope .trip-action-bar__spacer { display: none; }
+  .coordinator-scope .trip-action-bar__row .ant-btn,
+  .coordinator-scope .trip-action-bar__row > span:not(.trip-action-bar__spacer) { width: 100%; }
+  .coordinator-scope .trip-action-bar__row > span .ant-btn { width: 100%; }
 }
 @media(max-width:767px) { .coordinator-scope .departure-panel .coordinator-leg-grid { grid-template-columns: 1fr; } }
 .coordinator-scope .assignment-resource-body > small,

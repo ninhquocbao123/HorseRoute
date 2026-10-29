@@ -17,6 +17,7 @@ import { reviewTripPlan } from '../api/trips.api';
 import { tripQueryKeys } from '../constants/trip-query-keys';
 import TripReviewDialog from '../components/TripReviewDialog';
 import TripAssignmentsPanel from '../components/TripAssignmentsPanel';
+import TripRoutePlanSummary from '../components/TripRoutePlanSummary';
 
 function readTab(search: URLSearchParams): TripDetailTab {
   const raw = search.get('tab');
@@ -149,13 +150,14 @@ export default function TripDetailPage() {
                     <span className="trip-count">{trip.legs.length} chặng</span>
                   )}
                   {account?.role === 'COORDINATOR' && trip.planStatus === 'DRAFT' && ['APPROVED', 'PREPARING'].includes(trip.orderStatus) && (
-                    <Link className="trip-action-button" to={`/dashboard/trips/${trip.id}/plan${listSearch}`}>
+                    <Link className="trip-action-button" to={`/coordinator/trips/${trip.id}`}>
                       {trip.legs.length > 0 ? 'Chỉnh sửa kế hoạch' : 'Lập kế hoạch'}
                     </Link>
                   )}
                 </div>
               </div>
               <p className="trip-timezone">Thời gian hiển thị: Asia/Ho_Chi_Minh (UTC+07:00).</p>
+              {trip.routePlan && <TripRoutePlanSummary routePlan={trip.routePlan} />}
               <TripLegTimeline legs={trip.legs} />
 
             </>

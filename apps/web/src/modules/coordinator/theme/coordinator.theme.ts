@@ -17,6 +17,22 @@ export const coordinatorTheme: ThemeConfig = {
     controlHeight: 44,
   },
   components: {
+    Alert: {
+      colorInfo: '#0284c7',
+      colorInfoBg: '#eff8ff',
+      colorInfoBorder: '#bae0fd',
+      colorSuccess: '#16a34a',
+      colorSuccessBg: '#f0fdf4',
+      colorSuccessBorder: '#bbf7d0',
+      colorWarning: '#d97706',
+      colorWarningBg: '#fffbeb',
+      colorWarningBorder: '#fde68a',
+      colorError: '#dc2626',
+      colorErrorBg: '#fff1f2',
+      colorErrorBorder: '#fecdd3',
+      colorText: '#183b45',
+      colorTextHeading: '#183b45',
+    },
     Layout: { siderBg: '#0f4d55', headerBg: '#f4faf9', bodyBg: '#f4faf9' },
     Menu: {
       darkItemBg: 'transparent',

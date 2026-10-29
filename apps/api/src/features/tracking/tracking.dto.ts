@@ -154,6 +154,9 @@ export interface TripMapLegRow {
   toLat: string | number | null;
   toLng: string | number | null;
   vehicleType: string | null;
+  routeCoordinates?: [number, number][];
+  routeDistanceM?: number;
+  routeWaypoints?: { id: string; name: string; type: string; lat: number; lng: number }[];
 }
 
 export interface PositionRow {

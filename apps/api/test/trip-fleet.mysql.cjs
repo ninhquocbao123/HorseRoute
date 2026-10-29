@@ -1,0 +1,42 @@
+// Local disposable MySQL only. Never reads application credentials.
+require('reflect-metadata');
+require('ts-node').register({project:require('path').resolve(__dirname,'../tsconfig.json'),transpileOnly:true});
+const assert=require('node:assert/strict'), crypto=require('node:crypto');
+const {DataSource}=require('typeorm');const {User}=require('../src/features/users/users.model');
+const {TripsRepository}=require('../src/features/trips/trips.repository');const {TripsService}=require('../src/features/trips/trips.service');
+const {TrackingRepository}=require('../src/features/tracking/tracking.repository');
+const {TripFleet1800000015000}=require('../src/database/migrations/1800000015000-TripFleet');
+const {TripRoutePlan1800000013000}=require('../src/database/migrations/1800000013000-TripRoutePlan');
+const {RepresentativeTripLeg1800000016000}=require('../src/database/migrations/1800000016000-RepresentativeTripLeg');
+const {issueRouteToken,routeInputKey}=require('../src/features/trips/trip-route-plan');
+const options={type:'mysql',host:'127.0.0.1',port:33379,username:'root',password:'fleet-test-local-only',timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,entities:[User]};
+const name='wdp_flow3_test_'+crypto.randomBytes(8).toString('hex');let admin,db;
+(async()=>{try{
+ admin=await new DataSource({...options,database:'mysql'}).initialize();await admin.query('CREATE DATABASE `'+name+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+ db=await new DataSource({...options,database:name}).initialize();await require('./load-schema.cjs')(db);
+ const q=(s,p)=>db.query(s,p); const runner=db.createQueryRunner();await new TripRoutePlan1800000013000().up(runner);await new TripFleet1800000015000().up(runner);await new RepresentativeTripLeg1800000016000().up(runner);await runner.release();
+ await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES
+ (1,'customer@test','x','Customer','CUSTOMER','ACTIVE'),(3,'coord@test','x','Coordinator','COORDINATOR','ACTIVE'),
+ (4,'manager@test','x','Manager','MANAGER','ACTIVE'),(10,'d1@test','x','D1','DRIVER_ESCORT','ACTIVE'),(11,'e1@test','x','E1','DRIVER_ESCORT','ACTIVE'),(12,'d2@test','x','D2','DRIVER_ESCORT','ACTIVE'),(13,'e2@test','x','E2','DRIVER_ESCORT','ACTIVE')`);
+ await q(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES(10,'DRIVER','AVAILABLE'),(11,'ESCORT','AVAILABLE'),(12,'DRIVER','AVAILABLE'),(13,'ESCORT','AVAILABLE')`);
+ await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES(20,'HEAVY',9,'TEST20','AVAILABLE'),(21,'HEAVY',9,'TEST21','AVAILABLE')`);
+ await q(`INSERT INTO locations(id,name,location_type,country,timezone) VALUES(1,'A','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'B','REST_STOP','VN','Asia/Ho_Chi_Minh')`);
+ await q(`INSERT INTO orders(id,order_code,customer_id,status) VALUES(100,'TEST100',1,'APPROVED'),(101,'TEST101',1,'APPROVED')`);
+ await q(`INSERT INTO trips(id,order_id,plan_status,planned_by) VALUES(100,100,'DRAFT',3),(101,101,'DRAFT',3)`);
+ for(let i=0;i<18;i++) for(const order of [100,101]) await q(`INSERT INTO horses(order_id,owner_id,name,passport_no) VALUES(?,1,'H',?)`,[order,`${order}-${i}`]);
+ const svc=new TripsService(new TripsRepository(db)), actor={id:'3',role:'COORDINATOR'},manager={id:'4',role:'MANAGER'};
+ process.env.ROUTE_PREVIEW_SECRET='fleet-test-route-secret-with-at-least-32-characters';
+ const points=[{id:'origin',kind:'ORIGIN',label:'A',latitude:10,longitude:106,note:''},{id:'rest',kind:'REST_STOP',label:'Nghỉ',latitude:11,longitude:107,note:''},{id:'destination',kind:'DESTINATION',label:'B',latitude:12,longitude:108,note:''}];
+ const route={geometry:{type:'LineString',coordinates:[[106,10],[107,11],[108,12]]},distanceM:300000,durationS:10000,provider:'mapbox',calculatedAt:new Date().toISOString(),inputKey:routeInputKey(points)};
+ for(const tripId of ['100','101']) await svc.saveRoutePlan(actor,tripId,{revision:0,routePlan:{version:1,waypoints:points,selectedRoute:route},verificationToken:issueRouteToken(tripId,route)});
+ const input={vehicles:[{vehicleId:'20',horseCount:9,crew:[{userId:'10',role:'DRIVER'},{userId:'11',role:'ESCORT'}]},{vehicleId:'21',horseCount:9,crew:[{userId:'12',role:'DRIVER'},{userId:'13',role:'ESCORT'}]}]};
+ const saved=await svc.saveAssignments(actor,'100',input);assert.equal(saved.vehicles.length,2);assert.equal(saved.items.length,4);assert.ok(saved.crewReadiness.complete);console.log('PASS save/reload 18 horses, two vehicles with separate crews');
+ await assert.rejects(()=>svc.saveAssignments({...actor,id:'99'},'100',input));
+ const bad=structuredClone(input);bad.vehicles[0].horseCount=10;await assert.rejects(()=>svc.saveAssignments(actor,'100',bad));assert.equal((await svc.assignments(actor,'100')).vehicles[0].horseCount,9);console.log('PASS scope and rollback');
+ const schedule={plannedDepartureAt:'2031-01-01T01:00:45Z',plannedArrivalAt:'2031-01-01T03:00:45Z',routePlanRevision:1};
+ await svc.savePlan(actor,'100',schedule);await svc.submitPlan(actor,'100',{});await svc.reviewPlan(manager,'100',{decision:'APPROVED'});
+ const planned=await svc.detail(actor,'100');assert.equal(planned.legs.length,1);assert.equal(planned.legs[0].vehicleId,null);assert.equal(planned.legs[0].fromLocationName,'A');assert.equal(planned.legs[0].toLocationName,'B');
+ const tracking=new TrackingRepository(db);assert.equal((await tracking.getTripVehicles('100')).length,2);assert.deepEqual(await tracking.getDepartureBlockers('100','100'),[]);console.log('PASS save schedule / submit / approve / tracking fleet');
+ await assert.rejects(()=>svc.saveAssignments(actor,'100',input));
+ await svc.savePlan(actor,'101',schedule);await assert.rejects(()=>svc.saveAssignments(actor,'101',input));console.log('PASS locked approved plan and schedule collision');
+}finally{if(db?.isInitialized)await db.destroy();if(admin?.isInitialized){await admin.query('DROP DATABASE `'+name+'`');await admin.destroy();}}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1060,7 +1060,11 @@ export class TrackingService {
     const routes = new Map<string, ResolvedRoute | null>();
     await Promise.all(legs.map(async leg => {
       const { from, to } = legEnds(leg);
-      routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
+      if (leg.routeCoordinates?.length) {
+        routes.set(leg.id,{mode:'ROAD',coordinates:leg.routeCoordinates,distanceKm:(leg.routeDistanceM ?? 0)/1000});
+      } else {
+        routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
+      }
     }));
     return buildTripMap({ trip: { id: trip.id, orderCode: trip.orderCode, orderStatus: trip.orderStatus }, legs, routes, latest, speedLimitKmh, now: Date.now() });
   }

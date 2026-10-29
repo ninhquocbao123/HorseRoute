@@ -16,8 +16,8 @@ export interface VehicleUse { orderCode: string; tripId: string; orderStatus: st
 const ACTIVE_USE = `t.plan_status='APPROVED' AND o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT')`;
 const select = `SELECT CAST(v.id AS CHAR) AS id, v.license_plate AS plateOrCode, v.vehicle_type AS vehicleType,
   v.capacity_stalls AS capacityStalls, v.status,
-  (SELECT COUNT(*) FROM legs l WHERE l.vehicle_id=v.id) AS legCount,
-  EXISTS(SELECT 1 FROM legs l JOIN trips t ON t.id=l.trip_id JOIN orders o ON o.id=t.order_id WHERE l.vehicle_id=v.id AND ${ACTIVE_USE}) AS inActiveUse
+  ((SELECT COUNT(*) FROM legs l WHERE l.vehicle_id=v.id)+(SELECT COUNT(*) FROM trip_vehicles tv WHERE tv.vehicle_id=v.id)) AS legCount,
+  EXISTS(SELECT 1 FROM trip_vehicles tv JOIN trips t ON t.id=tv.trip_id JOIN orders o ON o.id=t.order_id WHERE tv.vehicle_id=v.id AND ${ACTIVE_USE}) AS inActiveUse
   FROM vehicles v`;
 const map = (row: any): VehicleItem => ({
   id: row.id, plateOrCode: row.plateOrCode, vehicleType: row.vehicleType, capacityStalls: Number(row.capacityStalls),
@@ -62,9 +62,9 @@ export class VehiclesRepository {
   /** Các đơn đang dùng xe trong kế hoạch đã duyệt, kèm số ngựa NORMAL cần chở. */
   async uses(id: string): Promise<VehicleUse[]> {
     const rows = await this.db.query(`SELECT DISTINCT o.order_code AS orderCode, CAST(t.id AS CHAR) AS tripId, o.status AS orderStatus,
-      (SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status='NORMAL') AS horseCount
-      FROM legs l JOIN trips t ON t.id=l.trip_id JOIN orders o ON o.id=t.order_id
-      WHERE l.vehicle_id=? AND ${ACTIVE_USE} ORDER BY tripId`, [id]);
+      tv.horse_count AS horseCount
+      FROM trip_vehicles tv JOIN trips t ON t.id=tv.trip_id JOIN orders o ON o.id=t.order_id
+      WHERE tv.vehicle_id=? AND ${ACTIVE_USE} ORDER BY tripId`, [id]);
     return rows.map((row: any) => ({ ...row, horseCount: Number(row.horseCount) }));
   }
   async audit(actor: string, id: string, action: string, before: unknown, after: unknown): Promise<void> {

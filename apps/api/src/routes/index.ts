@@ -17,6 +17,7 @@ import { trackingRoutes } from '../features/tracking/tracking.routes';
 import { publicPricingRoutes, managerPricingRoutes } from '../features/pricing/pricing.routes';
 import { managerRoutes } from '../features/manager/manager.routes';
 import { paymentsRoutes } from '../features/payments/payments.routes';
+import { mapsRoutes } from '../features/trips/maps.routes';
 
 export function apiRoutes(services: Services, tokens: TokenService) {
   const router = Router();
@@ -31,6 +32,7 @@ export function apiRoutes(services: Services, tokens: TokenService) {
   router.use('/orders', ordersRoutes(services.orders));
   router.use('/documents', documentsRoutes(services.documents));
   router.use('/trips', tripsRoutes(services.trips));
+  router.use('/maps', mapsRoutes());
   router.use('/vehicles', vehiclesRoutes(services.vehicles));
   router.use('/locations', locationsRoutes(services.locations));
   router.use('/tracking', trackingRoutes(services.tracking));

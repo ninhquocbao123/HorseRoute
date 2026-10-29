@@ -3,8 +3,6 @@ import {
   CarOutlined,
   TeamOutlined,
   SendOutlined,
-  EnvironmentOutlined,
-  PlusOutlined,
   CheckOutlined,
   UserOutlined,
   SaveOutlined,
@@ -42,11 +40,11 @@ import {
   submitTripPlan,
 } from "../../trips/api/trips.api";
 import { inputToUtc, utcToInput } from "../../trips/utils/trip-time.utils";
-import { tripPlanSchema } from "../../trips/schemas/trip-plan.schema";
+import { tripScheduleSchema } from "../../trips/schemas/trip-plan.schema";
 import { tripQueryKeys } from "../../trips/constants/trip-query-keys";
 import type {
-  TripPlanLegInput,
   TripAssignmentsInput,
+  TripPlanLegInput,
 } from "../../trips/types/trip.types";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { errorMessage } from "../../../features/tracking/tracking.api";
@@ -54,12 +52,69 @@ import TripRoutePlanner from "../maps/TripRoutePlanner";
 import { tripLoadError } from "./trip-error";
 import { isValidTripId } from "../../trips/utils/trip-detail.utils";
 import TripOrderSidebar from "./TripOrderSidebar";
+type FleetDraft = TripAssignmentsInput["vehicles"];
 export default function CoordinatorTripPage() {
   const { tripId = "" } = useParams();
   return isValidTripId(tripId) ? (
     <TripWorkspace key={tripId} id={tripId} />
   ) : (
     <Alert type="error" message="ID chuyến không hợp lệ" />
+  );
+}
+
+function validateFleetCrew(fleet: FleetDraft): string {
+  if (!fleet.length) return "Chưa chọn phương tiện.";
+  const people = new Set<string>();
+  for (const vehicle of fleet) {
+    const drivers = vehicle.crew.filter(
+      (person) => person.role === "DRIVER",
+    ).length;
+    const escorts = vehicle.crew.filter(
+      (person) => person.role === "ESCORT",
+    ).length;
+    if (drivers < 1 || drivers > 2) return "Mỗi xe cần từ 1 đến 2 tài xế.";
+    if (escorts < 1 || escorts > 2) return "Mỗi xe cần từ 1 đến 2 lơ xe.";
+    for (const person of vehicle.crew) {
+      if (people.has(person.userId))
+        return "Một người chỉ được phân công cho một xe trong chuyến.";
+      people.add(person.userId);
+    }
+  }
+  return "";
+}
+
+function validateVehicleSelection(
+  fleet: FleetDraft,
+  requiredHorseCount: number,
+  options: { id: string; capacityStalls: number }[],
+): string {
+  if (!fleet.length) return "Chưa chọn phương tiện.";
+  if (!requiredHorseCount) return "Đơn chưa có ngựa NORMAL để bố trí.";
+  let total = 0;
+  for (const vehicle of fleet) {
+    const capacity = options.find(
+      (item) => item.id === vehicle.vehicleId,
+    )?.capacityStalls;
+    if (!capacity) return `Không tìm thấy xe ${vehicle.vehicleId}.`;
+    if (!Number.isInteger(vehicle.horseCount) || vehicle.horseCount < 1)
+      return "Số ngựa trên mỗi xe phải là số nguyên dương.";
+    if (vehicle.horseCount > capacity)
+      return `Xe ${vehicle.vehicleId} vượt sức chứa.`;
+    total += vehicle.horseCount;
+  }
+  return total === requiredHorseCount
+    ? ""
+    : `Cần bố trí đúng ${requiredHorseCount} ngựa; hiện tại đã bố trí ${total}.`;
+}
+
+function validateFleetDraft(
+  fleet: FleetDraft,
+  requiredHorseCount: number,
+  options: { id: string; capacityStalls: number }[],
+): string {
+  return (
+    validateVehicleSelection(fleet, requiredHorseCount, options) ||
+    validateFleetCrew(fleet)
   );
 }
 function TripWorkspace({ id }: { id: string }) {
@@ -74,18 +129,17 @@ function TripWorkspace({ id }: { id: string }) {
     go: (p: string) => void;
   }>();
   const [legs, setLegs] = useState<TripPlanLegInput[]>([]);
-  const [roster, setRoster] = useState<TripAssignmentsInput["assignments"]>([]);
+  const [fleet, setFleet] = useState<FleetDraft>([]);
   const [changed, setChanged] = useState(false),
-    [crewChanged, setCrewChanged] = useState(false),
+    [assignmentChanged, setAssignmentChanged] = useState(false),
+    [routeChanged, setRouteChanged] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [vehicleLeg, setVehicleLeg] = useState<number | null>(null),
+  const [vehicleOpen, setVehicleOpen] = useState(false),
     [crewOpen, setCrewOpen] = useState(false),
     [search, setSearch] = useState("");
-  const [pendingVehicle, setPendingVehicle] = useState("");
-  const [pendingRoster, setPendingRoster] = useState<
-    TripAssignmentsInput["assignments"]
-  >([]);
+  const [pendingFleet, setPendingFleet] = useState<FleetDraft>([]);
+  const [activeCrewVehicleId, setActiveCrewVehicleId] = useState("");
   const [vehiclePage, setVehiclePage] = useState(1);
   const [vehiclePageSize, setVehiclePageSize] = useState(12);
   const [vehicleStatus, setVehicleStatus] = useState("AVAILABLE");
@@ -97,7 +151,7 @@ function TripWorkspace({ id }: { id: string }) {
   );
   const [crewStatus, setCrewStatus] = useState("AVAILABLE");
   const [crewPageSize, setCrewPageSize] = useState(12);
-  const dirty = changed || crewChanged;
+  const dirty = changed || assignmentChanged || routeChanged;
   useEffect(() => {
     setDirty(dirty);
     return () => setDirty(false);
@@ -110,7 +164,6 @@ function TripWorkspace({ id }: { id: string }) {
               id: l.id,
               fromLocationId: l.fromLocationId,
               toLocationId: l.toLocationId,
-              vehicleId: l.vehicleId || "",
               plannedDepartureAt: utcToInput(l.plannedDepartureAt),
               plannedArrivalAt: utcToInput(l.plannedArrivalAt),
             }))
@@ -118,7 +171,6 @@ function TripWorkspace({ id }: { id: string }) {
               {
                 fromLocationId: "",
                 toLocationId: "",
-                vehicleId: "",
                 plannedDepartureAt: "",
                 plannedArrivalAt: "",
               },
@@ -126,22 +178,23 @@ function TripWorkspace({ id }: { id: string }) {
       );
   }, [detail.data, changed]);
   useEffect(() => {
-    if (crew.assignments.data && !crewChanged)
-      setRoster(
-        crew.assignments.data.items.map((a) => ({
-          userId: a.userId,
-          role: a.role,
+    if (crew.assignments.data && !assignmentChanged)
+      setFleet(
+        (crew.assignments.data.vehicles ?? []).map((vehicle) => ({
+          vehicleId: vehicle.vehicleId,
+          horseCount: vehicle.horseCount ?? 0,
+          crew: vehicle.crew.map((person) => ({
+            userId: person.userId,
+            role: person.role,
+          })),
         })),
       );
-  }, [crew.assignments.data, crewChanged]);
-  const crewEditable =
-    !!detail.data &&
-    ["APPROVED", "PREPARING"].includes(detail.data.orderStatus) &&
-    detail.data.legs.every((l) => l.status === "NOT_STARTED");
+  }, [crew.assignments.data, assignmentChanged]);
   const editable =
     detail.data?.planStatus === "DRAFT" &&
     ["APPROVED", "PREPARING"].includes(detail.data.orderStatus) &&
     detail.data.legs.every((leg) => leg.status === "NOT_STARTED");
+  const crewEditable = editable;
   function update(index: number, patch: Partial<TripPlanLegInput>) {
     setLegs((v) => v.map((l, i) => (i === index ? { ...l, ...patch } : l)));
     setChanged(true);
@@ -149,64 +202,68 @@ function TripWorkspace({ id }: { id: string }) {
   async function save(send: boolean) {
     if (!editable || busy) return;
     setError("");
-    if (!legs.length) {
-      setError("Vui lòng thêm ít nhất một chặng vận chuyển.");
+    const currentTrip = detail.data;
+    const routePlan = currentTrip?.routePlan;
+    if (!routePlan) {
+      setError("Hãy xác định và lưu lộ trình trước khi lưu kế hoạch.");
       return;
     }
-    const incompleteLeg = legs.findIndex(
-      (l) => !l.fromLocationId || !l.toLocationId || !l.vehicleId,
-    );
-    if (incompleteLeg !== -1) {
-      setError(
-        `Chặng ${incompleteLeg + 1}: vui lòng chọn đủ điểm đi, điểm đến và phương tiện.`,
-      );
+    if (routeChanged) {
+      setError("Lộ trình có thay đổi chưa lưu. Hãy lưu lộ trình trước.");
       return;
     }
+    if (!routePlan.selectedRoute) {
+      setError("Hãy tính, chọn và lưu một tuyến đường trước.");
+      return;
+    }
+    const schedule = legs[0];
     if (
-      legs.some(
-        (l) =>
-          !Number.isFinite(Date.parse(l.plannedDepartureAt)) ||
-          !Number.isFinite(Date.parse(l.plannedArrivalAt)),
-      )
+      !schedule ||
+      !Number.isFinite(Date.parse(schedule.plannedDepartureAt)) ||
+      !Number.isFinite(Date.parse(schedule.plannedArrivalAt))
     ) {
-      setError("Vui lòng nhập đầy đủ ngày giờ hợp lệ cho từng chặng.");
+      setError("Vui lòng nhập đầy đủ ngày giờ khởi hành và đến nơi.");
       return;
     }
-    const result = tripPlanSchema.safeParse({ legs });
+    const result = tripScheduleSchema.safeParse({
+      plannedDepartureAt: schedule.plannedDepartureAt,
+      plannedArrivalAt: schedule.plannedArrivalAt,
+      routePlanRevision: currentTrip!.routePlanRevision,
+    });
     if (!result.success) {
       setError(result.error.issues.map((i) => i.message).join(" "));
       return;
     }
-    if (
-      crewChanged &&
-      (roster.length < 2 ||
-        new Set(roster.map((r) => r.userId)).size !== roster.length ||
-        !roster.some((r) => r.role === "DRIVER") ||
-        !roster.some((r) => r.role === "ESCORT"))
-    ) {
-      setError("Cần tài xế và hộ tống khác người.");
-      return;
+    if (assignmentChanged || send) {
+      const fleetError = validateFleetDraft(
+        fleet,
+        options.data?.requiredHorseCount ?? 0,
+        options.data?.vehicles ?? [],
+      );
+      if (fleetError) {
+        setError(fleetError);
+        return;
+      }
     }
     setBusy(true);
     let planSaved = false;
+    let assignmentSaved = false;
     try {
+      // Lưu phân công trước để lịch tổng được backend kiểm tra trên đúng đội xe/tổ mới nhất.
+      if (assignmentChanged) {
+        const savedCrew = await saveTripAssignments(id, { vehicles: fleet });
+        qc.setQueryData(tripQueryKeys.assignments(account?.id, id), savedCrew);
+        setAssignmentChanged(false);
+        assignmentSaved = true;
+      }
       const saved = await saveTripPlan(id, {
-        legs: legs.map((l) => ({
-          ...l,
-          plannedDepartureAt: inputToUtc(l.plannedDepartureAt),
-          plannedArrivalAt: inputToUtc(l.plannedArrivalAt),
-        })),
+        plannedDepartureAt: inputToUtc(schedule.plannedDepartureAt),
+        plannedArrivalAt: inputToUtc(schedule.plannedArrivalAt),
+        routePlanRevision: currentTrip!.routePlanRevision,
       });
       planSaved = true;
       qc.setQueryData(tripQueryKeys.detail(account?.id, id), saved);
       setChanged(false);
-      if (crewChanged) {
-        const savedCrew = await saveTripAssignments(id, {
-          assignments: roster,
-        });
-        qc.setQueryData(tripQueryKeys.assignments(account?.id, id), savedCrew);
-        setCrewChanged(false);
-      }
       if (send) {
         const submitted = await submitTripPlan(id);
         qc.setQueryData(tripQueryKeys.detail(account?.id, id), submitted);
@@ -216,7 +273,7 @@ function TripWorkspace({ id }: { id: string }) {
       );
     } catch (e) {
       setError(
-        `${planSaved ? "Kế hoạch đã lưu; bước tiếp theo chưa được xác nhận. " : ""}${errorMessage(e)}`,
+        `${planSaved ? "Kế hoạch đã lưu; bước gửi duyệt chưa thành công. " : assignmentSaved ? "Phân công đã lưu; thời gian kế hoạch chưa được xác nhận. " : ""}${errorMessage(e)}`,
       );
       if (send) void detail.refetch();
     } finally {
@@ -227,24 +284,24 @@ function TripWorkspace({ id }: { id: string }) {
   }
 
   async function saveCrewOnly() {
-    if (!crewEditable || busy || !crewChanged) return;
-    if (
-      roster.length < 2 ||
-      !roster.some((r) => r.role === "DRIVER") ||
-      !roster.some((r) => r.role === "ESCORT") ||
-      new Set(roster.map((r) => r.userId)).size !== roster.length
-    ) {
-      setError("Cần tài xế và hộ tống khác người.");
+    if (!crewEditable || busy || !assignmentChanged) return;
+    const fleetError = validateFleetDraft(
+      fleet,
+      options.data?.requiredHorseCount ?? 0,
+      options.data?.vehicles ?? [],
+    );
+    if (fleetError) {
+      setError(fleetError);
       return;
     }
     setBusy(true);
     setError("");
     try {
-      const saved = await saveTripAssignments(id, { assignments: roster });
+      const saved = await saveTripAssignments(id, { vehicles: fleet });
       qc.setQueryData(tripQueryKeys.assignments(account?.id, id), saved);
-      setCrewChanged(false);
+      setAssignmentChanged(false);
       await detail.refetch();
-      void message.success("Đã lưu phân công nhân sự.");
+      void message.success("Đã lưu phân công phương tiện và nhân sự.");
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -278,9 +335,9 @@ function TripWorkspace({ id }: { id: string }) {
     key;
   const vehicleName = (key: string) =>
     options.data?.vehicles.find((v) => v.id === key)?.plateOrCode ||
-    trip.legs.find((l) => l.vehicleId === key)?.vehicleCode ||
+    crew.assignments.data?.vehicles?.find((v) => v.vehicleId === key)
+      ?.plateNumber ||
     key;
-  const locations = options.data?.locations || [];
   const vehicles = options.data?.vehicles || [];
   const normalizedSearch = search.trim().toLocaleLowerCase("vi");
   const filteredVehicles = vehicles.filter(
@@ -289,9 +346,6 @@ function TripWorkspace({ id }: { id: string }) {
       (vehicleStatus === "ALL" || vehicle.status === vehicleStatus) &&
       (vehicleType === "ALL" || vehicle.vehicleType === vehicleType) &&
       (vehicleCapacity === null || vehicle.capacityStalls >= vehicleCapacity),
-  );
-  const selectedVehicle = vehicles.find(
-    (vehicle) => vehicle.id === pendingVehicle,
   );
   const knownCrew = [...(crew.options.data?.items ?? [])];
   for (const assigned of crew.assignments.data?.items ?? []) {
@@ -319,30 +373,40 @@ function TripWorkspace({ id }: { id: string }) {
       person.crewType === activeCrewRole &&
       (crewStatus === "ALL" || person.workStatus === crewStatus),
   );
-  const crewSelectionComplete =
-    pendingRoster.some((item) => item.role === "DRIVER") &&
-    pendingRoster.some((item) => item.role === "ESCORT") &&
-    new Set(pendingRoster.map((item) => item.userId)).size ===
-      pendingRoster.length;
-  const assignedVehicleCount = legs.filter((leg) => leg.vehicleId).length;
+  const activePendingVehicle = pendingFleet.find(
+    (vehicle) => vehicle.vehicleId === activeCrewVehicleId,
+  );
+  const pendingRoster = activePendingVehicle?.crew ?? [];
+  const allPendingCrew = pendingFleet.flatMap((vehicle) => vehicle.crew);
+  const crewSelectionComplete = !validateFleetCrew(pendingFleet);
+  const assignedVehicleCount = fleet.length;
+  const allocatedHorseCount = fleet.reduce(
+    (total, vehicle) => total + vehicle.horseCount,
+    0,
+  );
+  const requiredHorseCount = options.data?.requiredHorseCount ?? 0;
   const vehiclesComplete =
-    legs.length > 0 && assignedVehicleCount === legs.length;
-  const assignedVehicleNames = [
-    ...new Set(
-      legs
-        .filter((leg) => leg.vehicleId)
-        .map((leg) => vehicleName(leg.vehicleId)),
-    ),
-  ];
+    assignedVehicleCount > 0 && allocatedHorseCount === requiredHorseCount;
+  const assignedVehicleNames = fleet.map((vehicle) =>
+    vehicleName(vehicle.vehicleId),
+  );
+  const roster = fleet.flatMap((vehicle) => vehicle.crew);
   const rosterNames = (role: "DRIVER" | "ESCORT") =>
     roster
       .filter((item) => item.role === role)
       .map((item) => personName(item.userId));
   const driverNames = rosterNames("DRIVER");
   const escortNames = rosterNames("ESCORT");
-  const crewComplete = driverNames.length > 0 && escortNames.length > 0;
+  const crewComplete = fleet.length > 0 && !validateFleetCrew(fleet);
+  const schedule = legs[0];
+  const scheduleComplete =
+    !!schedule &&
+    Number.isFinite(Date.parse(schedule.plannedDepartureAt)) &&
+    Number.isFinite(Date.parse(schedule.plannedArrivalAt)) &&
+    Date.parse(schedule.plannedArrivalAt) >
+      Date.parse(schedule.plannedDepartureAt);
 
-  const serverBlockers = crewChanged
+  const serverBlockers = assignmentChanged
     ? []
     : (crew.assignments.data?.crewReadiness.blockers ?? []);
   const readinessIssues = [
@@ -350,14 +414,34 @@ function TripWorkspace({ id }: { id: string }) {
       key: b.code + (b.userId || ""),
       text: b.message,
     })),
-    ...(crewChanged && !crewComplete
+    ...(assignmentChanged && !crewComplete
       ? [
           {
             key: "LOCAL_CREW_INCOMPLETE",
-            text: "Cần chọn đủ tài xế và hộ tống.",
+            text: "Mỗi xe cần 1–2 tài xế và 1–2 lơ xe.",
           },
         ]
       : []),
+    ...(!scheduleComplete
+      ? [
+          {
+            key: "SCHEDULE_INCOMPLETE",
+            text: "Chưa nhập đầy đủ thời gian khởi hành và đến nơi.",
+          },
+        ]
+      : []),
+    ...(!trip.routePlan
+      ? [{ key: "ROUTE_PLAN_MISSING", text: "Chưa lưu lộ trình." }]
+      : !trip.routePlan.selectedRoute
+        ? [
+            {
+              key: "ROUTE_NOT_SELECTED",
+              text: "Chưa tính và chọn tuyến đường.",
+            },
+          ]
+        : routeChanged
+          ? [{ key: "ROUTE_UNSAVED", text: "Lộ trình có thay đổi chưa lưu." }]
+          : []),
   ];
   const submitBlocked = readinessIssues.length > 0;
 
@@ -407,106 +491,45 @@ function TripWorkspace({ id }: { id: string }) {
           <Card className="route-planner-card">
             <div className="section-heading">
               <div>
-                <Typography.Title level={3}>Lộ trình đề xuất</Typography.Title>
+                <Typography.Text className="route-planner-eyebrow">
+                  LẬP LỘ TRÌNH
+                </Typography.Text>
+                <Typography.Title level={3}>
+                  Thiết lập lộ trình vận chuyển
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  Xác định điểm gửi, điểm nhận và chọn tuyến trên bản đồ.
+                  Xác nhận điểm gửi và điểm nhận từ đơn, thêm các điểm nghỉ, sau
+                  đó tính tuyến và lưu lộ trình.
                 </Typography.Text>
               </div>
             </div>
-            {legs.map((leg, i) => (
-              <section
-                className="coordinator-route-leg"
-                key={leg.id || `new-${i}`}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: 16,
-                  }}
-                >
-                  <strong>
-                    <EnvironmentOutlined /> Chặng {i + 1}
-                  </strong>
-                  {editable && !leg.id && (
-                    <Button
-                      danger
-                      size="small"
-                      disabled={busy}
-                      onClick={() => {
-                        setLegs((v) => v.filter((_, n) => n !== i));
-                        setChanged(true);
-                      }}
-                    >
-                      Xóa chặng
-                    </Button>
-                  )}
-                </div>
-                <div className="coordinator-leg-grid coordinator-waypoint-fields">
-                  <label>
-                    Điểm gửi
-                    <Select
-                      showSearch
-                      optionFilterProp="label"
-                      disabled={!editable || busy}
-                      value={leg.fromLocationId || undefined}
-                      placeholder="Chọn điểm đi"
-                      options={locations.map((l) => ({
-                        value: l.id,
-                        label: l.address ? l.name + " · " + l.address : l.name,
-                      }))}
-                      onChange={(v) => update(i, { fromLocationId: v })}
-                    />
-                  </label>
-                  <label>
-                    Điểm nhận
-                    <Select
-                      showSearch
-                      optionFilterProp="label"
-                      disabled={!editable || busy}
-                      value={leg.toLocationId || undefined}
-                      placeholder="Chọn điểm đến"
-                      options={locations.map((l) => ({
-                        value: l.id,
-                        label: l.address ? l.name + " · " + l.address : l.name,
-                      }))}
-                      onChange={(v) => update(i, { toLocationId: v })}
-                    />
-                  </label>
-                </div>
-              </section>
-            ))}
-            {!legs.length && <Empty description="Chưa lập chặng" />}
-            {editable && (
-              <Button
-                icon={<PlusOutlined />}
-                disabled={busy || legs.length >= 50}
-                onClick={() => {
-                  setLegs((v) => [
-                    ...v,
-                    {
-                      fromLocationId: v.at(-1)?.toLocationId || "",
-                      toLocationId: "",
-                      vehicleId: "",
-                      plannedDepartureAt: v.at(-1)?.plannedArrivalAt || "",
-                      plannedArrivalAt: "",
-                    },
-                  ]);
-                  setChanged(true);
-                }}
-              >
-                Thêm chặng
-              </Button>
-            )}
+            <ol
+              className="route-planner-flow"
+              aria-label="Các bước lập lộ trình"
+            >
+              <li>Xác nhận hai đầu</li>
+              <li>Thêm điểm nghỉ</li>
+              <li>Chọn tuyến</li>
+              <li>Lưu lộ trình</li>
+            </ol>
             <TripRoutePlanner
-              legs={legs}
-              locations={locations}
+              tripId={id}
+              originAddress={trip.originAddress}
+              destinationAddress={trip.destinationAddress}
+              initialPlan={trip.routePlan}
+              initialRevision={trip.routePlanRevision}
               readOnly={!editable}
-            />
-            <Alert
-              style={{ marginTop: 18 }}
-              type="info"
-              message="Kế hoạch lưu địa điểm trong danh mục, xe và giờ từng chặng. Chặng đã lưu không thể xóa hoặc đổi thứ tự. Địa chỉ tự do chưa có API lưu tương ứng."
+              onDirtyChange={setRouteChanged}
+              onSaved={(routePlan, routePlanRevision) => {
+                qc.setQueryData(
+                  tripQueryKeys.detail(account?.id, id),
+                  (current: typeof trip | undefined) =>
+                    current
+                      ? { ...current, routePlan, routePlanRevision }
+                      : current,
+                );
+                setChanged(true);
+              }}
             />
           </Card>
 
@@ -517,7 +540,7 @@ function TripWorkspace({ id }: { id: string }) {
                   Phân công phương tiện & nhân sự
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  Chọn xe, tài xế và hộ tống phù hợp cho chuyến vận chuyển.
+                  Chọn xe, tài xế và lơ xe phù hợp cho chuyến vận chuyển.
                 </Typography.Text>
               </div>
             </div>
@@ -552,7 +575,7 @@ function TripWorkspace({ id }: { id: string }) {
                   </strong>
                   <p>
                     {vehiclesComplete
-                      ? `${assignedVehicleCount} chặng đã được bố trí phương tiện.`
+                      ? `${assignedVehicleCount} xe · ${allocatedHorseCount}/${requiredHorseCount} ngựa đã được bố trí.`
                       : "Chọn phương tiện đang rảnh để bố trí cho chuyến đi."}
                   </p>
                 </div>
@@ -567,19 +590,22 @@ function TripWorkspace({ id }: { id: string }) {
                     busy ||
                     options.isPending ||
                     options.isError ||
-                    !legs.length
+                    !requiredHorseCount
                   }
                   onClick={() => {
-                    const index = legs.findIndex((leg) => !leg.vehicleId);
-                    const target = index >= 0 ? index : 0;
                     setSearch("");
                     setVehiclePage(1);
                     setVehiclePageSize(12);
                     setVehicleStatus("AVAILABLE");
                     setVehicleType("ALL");
                     setVehicleCapacity(null);
-                    setPendingVehicle(legs[target]?.vehicleId || "");
-                    setVehicleLeg(target);
+                    setPendingFleet(
+                      fleet.map((vehicle) => ({
+                        ...vehicle,
+                        crew: vehicle.crew.map((person) => ({ ...person })),
+                      })),
+                    );
+                    setVehicleOpen(true);
                   }}
                 >
                   {vehiclesComplete
@@ -615,13 +641,13 @@ function TripWorkspace({ id }: { id: string }) {
                     </strong>
                   </div>
                   <div>
-                    <span>Hộ tống</span>
+                    <span>Lơ xe</span>
                     <strong
                       className={
                         escortNames.length ? "" : "assignment-placeholder"
                       }
                     >
-                      {escortNames.join(", ") || "Chưa chọn hộ tống"}
+                      {escortNames.join(", ") || "Chưa chọn lơ xe"}
                     </strong>
                   </div>
                 </div>
@@ -636,7 +662,8 @@ function TripWorkspace({ id }: { id: string }) {
                     busy ||
                     resourcesLoading ||
                     crew.assignments.isError ||
-                    crew.options.isError
+                    crew.options.isError ||
+                    !fleet.length
                   }
                   onClick={() => {
                     setSearch("");
@@ -644,7 +671,13 @@ function TripWorkspace({ id }: { id: string }) {
                     setActiveCrewRole("DRIVER");
                     setCrewStatus("AVAILABLE");
                     setCrewPageSize(12);
-                    setPendingRoster(roster.map((r) => ({ ...r })));
+                    setPendingFleet(
+                      fleet.map((vehicle) => ({
+                        ...vehicle,
+                        crew: vehicle.crew.map((person) => ({ ...person })),
+                      })),
+                    );
+                    setActiveCrewVehicleId(fleet[0]?.vehicleId ?? "");
                     setCrewOpen(true);
                   }}
                 >
@@ -656,9 +689,9 @@ function TripWorkspace({ id }: { id: string }) {
           <Card className="departure-panel">
             <div className="section-heading">
               <div>
-                <Typography.Title level={3}>Khởi hành</Typography.Title>
+                <Typography.Title level={3}>Thời gian dự kiến</Typography.Title>
                 <Typography.Text type="secondary">
-                  Sắp xếp thời gian từng chặng · giờ Việt Nam (UTC+7).
+                  Giờ Việt Nam (UTC+7).
                 </Typography.Text>
               </div>
             </div>
@@ -666,73 +699,123 @@ function TripWorkspace({ id }: { id: string }) {
               <Empty description="Thêm chặng để đặt lịch khởi hành" />
             )}
             {legs.map((leg, i) => (
-              <div className="coordinator-leg-grid" key={leg.id || i}>
-                <label>
-                  Chặng {i + 1} · Ngày khởi hành
-                  <DatePicker
-                    format="DD/MM/YYYY"
-                    value={
-                      leg.plannedDepartureAt
-                        ? dayjs(leg.plannedDepartureAt)
-                        : null
-                    }
-                    disabled={!editable || busy}
-                    onChange={(v) =>
-                      update(i, {
-                        plannedDepartureAt: v
-                          ? v.format("YYYY-MM-DD") +
-                            "T" +
-                            (leg.plannedDepartureAt.split("T")[1] || "00:00")
-                          : "",
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  Giờ khởi hành
-                  <TimePicker
-                    format="HH:mm"
-                    minuteStep={15}
-                    value={
-                      leg.plannedDepartureAt
-                        ? dayjs(leg.plannedDepartureAt)
-                        : null
-                    }
-                    disabled={!editable || busy || !leg.plannedDepartureAt}
-                    onChange={(v) =>
-                      update(i, {
-                        plannedDepartureAt: v
-                          ? leg.plannedDepartureAt.split("T")[0] +
-                            "T" +
-                            v.format("HH:mm")
-                          : "",
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  Trạm nghỉ qua đêm
-                  <Select
-                    disabled
-                    placeholder="Chưa có API lưu trạm nghỉ riêng"
-                  />
-                </label>
-                <label className="coordinator-arrival-field">
-                  Đến dự kiến
-                  <DatePicker
-                    showTime={{ format: "HH:mm" }}
-                    format="DD/MM/YYYY HH:mm"
-                    value={
-                      leg.plannedArrivalAt ? dayjs(leg.plannedArrivalAt) : null
-                    }
-                    disabled={!editable || busy}
-                    onChange={(v) =>
-                      update(i, {
-                        plannedArrivalAt: v ? v.format("YYYY-MM-DDTHH:mm") : "",
-                      })
-                    }
-                  />
-                </label>
+              <div className="departure-timeline" key={leg.id || i}>
+                {legs.length > 1 && (
+                  <div className="departure-leg-title">Chặng {i + 1}</div>
+                )}
+                <section
+                  className="departure-milestone departure-milestone-start"
+                  aria-label={`Khởi hành dự kiến chặng ${i + 1}`}
+                >
+                  <h4>Khởi hành dự kiến</h4>
+                  <div className="departure-time-fields">
+                    <label>
+                      Ngày
+                      <DatePicker
+                        aria-label={`Ngày khởi hành chặng ${i + 1}`}
+                        placeholder="Chọn ngày"
+                        format="DD/MM/YYYY"
+                        value={
+                          leg.plannedDepartureAt
+                            ? dayjs(leg.plannedDepartureAt)
+                            : null
+                        }
+                        disabled={!editable || busy}
+                        onChange={(v) =>
+                          update(i, {
+                            plannedDepartureAt: v
+                              ? v.format("YYYY-MM-DD") +
+                                "T" +
+                                (leg.plannedDepartureAt.split("T")[1] ||
+                                  "00:00")
+                              : "",
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Giờ
+                      <TimePicker
+                        popupClassName="departure-time-popup"
+                        aria-label={`Giờ khởi hành chặng ${i + 1}`}
+                        placeholder="Chọn giờ"
+                        format="HH:mm"
+                        minuteStep={15}
+                        value={
+                          leg.plannedDepartureAt
+                            ? dayjs(leg.plannedDepartureAt)
+                            : null
+                        }
+                        disabled={!editable || busy || !leg.plannedDepartureAt}
+                        onChange={(v) =>
+                          update(i, {
+                            plannedDepartureAt: v
+                              ? leg.plannedDepartureAt.split("T")[0] +
+                                "T" +
+                                v.format("HH:mm")
+                              : "",
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </section>
+                <section
+                  className="departure-milestone departure-milestone-end"
+                  aria-label={`Đến nơi dự kiến chặng ${i + 1}`}
+                >
+                  <h4>Đến nơi dự kiến</h4>
+                  <div className="departure-time-fields">
+                    <label>
+                      Ngày
+                      <DatePicker
+                        aria-label={`Ngày đến chặng ${i + 1}`}
+                        placeholder="Chọn ngày"
+                        format="DD/MM/YYYY"
+                        value={
+                          leg.plannedArrivalAt
+                            ? dayjs(leg.plannedArrivalAt)
+                            : null
+                        }
+                        disabled={!editable || busy}
+                        onChange={(v) =>
+                          update(i, {
+                            plannedArrivalAt: v
+                              ? v.format("YYYY-MM-DD") +
+                                "T" +
+                                (leg.plannedArrivalAt.split("T")[1] || "00:00")
+                              : "",
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Giờ
+                      <TimePicker
+                        popupClassName="departure-time-popup"
+                        aria-label={`Giờ đến chặng ${i + 1}`}
+                        placeholder="Chọn giờ"
+                        format="HH:mm"
+                        minuteStep={15}
+                        value={
+                          leg.plannedArrivalAt
+                            ? dayjs(leg.plannedArrivalAt)
+                            : null
+                        }
+                        disabled={!editable || busy || !leg.plannedArrivalAt}
+                        onChange={(v) =>
+                          update(i, {
+                            plannedArrivalAt: v
+                              ? leg.plannedArrivalAt.split("T")[0] +
+                                "T" +
+                                v.format("HH:mm")
+                              : "",
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </section>
               </div>
             ))}
           </Card>
@@ -796,7 +879,7 @@ function TripWorkspace({ id }: { id: string }) {
               }
               onClick={() => void save(false)}
             >
-              Lưu nháp
+              Lưu chặng và phân công
             </Button>
           )}
 
@@ -805,7 +888,7 @@ function TripWorkspace({ id }: { id: string }) {
               icon={<SaveOutlined />}
               loading={busy}
               disabled={
-                !crewChanged ||
+                !assignmentChanged ||
                 crew.assignments.isPending ||
                 crew.assignments.isError
               }
@@ -844,31 +927,43 @@ function TripWorkspace({ id }: { id: string }) {
         </div>
       </div>
       <Modal
-        open={vehicleLeg !== null}
+        open={vehicleOpen}
         rootClassName="coordinator-scope"
         className="assignment-picker vehicle-picker"
         width={1200}
         title={`Chọn phương tiện · ${filteredVehicles.length} kết quả`}
-        onCancel={() => setVehicleLeg(null)}
+        onCancel={() => setVehicleOpen(false)}
         footer={
           <div className="vehicle-picker-footer">
             <div className="vehicle-picker-summary">
               <span>Phương tiện đang chọn</span>
               <strong>
-                {selectedVehicle?.plateOrCode || "Chưa chọn phương tiện"}
+                {pendingFleet.length
+                  ? `${pendingFleet.length} xe · ${pendingFleet.reduce((total, vehicle) => total + vehicle.horseCount, 0)}/${requiredHorseCount} ngựa`
+                  : "Chưa chọn phương tiện"}
               </strong>
             </div>
             <div className="vehicle-picker-actions">
-              <Button danger type="primary" onClick={() => setVehicleLeg(null)}>
+              <Button
+                danger
+                type="primary"
+                onClick={() => setVehicleOpen(false)}
+              >
                 Hủy
               </Button>
               <Button
                 type="primary"
-                disabled={!pendingVehicle}
+                disabled={
+                  !!validateVehicleSelection(
+                    pendingFleet,
+                    requiredHorseCount,
+                    vehicles,
+                  )
+                }
                 onClick={() => {
-                  if (vehicleLeg !== null)
-                    update(vehicleLeg, { vehicleId: pendingVehicle });
-                  setVehicleLeg(null);
+                  setFleet(pendingFleet);
+                  setAssignmentChanged(true);
+                  setVehicleOpen(false);
                 }}
               >
                 Xác nhận chọn
@@ -878,7 +973,8 @@ function TripWorkspace({ id }: { id: string }) {
         }
       >
         <p className="ap-hint">
-          Nhấn vào thẻ xe để chọn phương tiện. Mỗi chuyến chỉ chọn một xe.
+          Chọn một hoặc nhiều xe chạy xuyên suốt chuyến và phân bổ đủ{" "}
+          {requiredHorseCount} ngựa.
         </p>
         <div className="vehicle-picker-filters">
           <label className="vehicle-filter-search">
@@ -948,10 +1044,14 @@ function TripWorkspace({ id }: { id: string }) {
                 vehiclePage * vehiclePageSize,
               )
               .map((v) => {
-                const selected = pendingVehicle === v.id;
-                const currentForLeg =
-                  vehicleLeg !== null && legs[vehicleLeg]?.vehicleId === v.id;
-                const disabled = v.selectable === false && !currentForLeg;
+                const selectedVehicle = pendingFleet.find(
+                  (vehicle) => vehicle.vehicleId === v.id,
+                );
+                const selected = !!selectedVehicle;
+                const currentSaved = fleet.some(
+                  (vehicle) => vehicle.vehicleId === v.id,
+                );
+                const disabled = v.selectable === false && !currentSaved;
                 return (
                   <button
                     type="button"
@@ -959,7 +1059,29 @@ function TripWorkspace({ id }: { id: string }) {
                     disabled={disabled}
                     aria-pressed={selected}
                     className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
-                    onClick={() => setPendingVehicle(v.id)}
+                    onClick={() => {
+                      setPendingFleet((current) => {
+                        if (selected)
+                          return current.filter(
+                            (vehicle) => vehicle.vehicleId !== v.id,
+                          );
+                        const allocated = current.reduce(
+                          (total, vehicle) => total + vehicle.horseCount,
+                          0,
+                        );
+                        return [
+                          ...current,
+                          {
+                            vehicleId: v.id,
+                            horseCount: Math.min(
+                              v.capacityStalls,
+                              Math.max(1, requiredHorseCount - allocated),
+                            ),
+                            crew: [],
+                          },
+                        ];
+                      });
+                    }}
                   >
                     <span className="resource-card-top">
                       <span className="resource-card-icon">
@@ -994,6 +1116,31 @@ function TripWorkspace({ id }: { id: string }) {
                         <span>Sức chứa</span>
                         <strong>{v.capacityStalls} ngựa</strong>
                       </span>
+                      {selectedVehicle && (
+                        <span
+                          className="resource-card-field"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <span>Số ngựa bố trí</span>
+                          <InputNumber
+                            min={1}
+                            max={v.capacityStalls}
+                            value={selectedVehicle.horseCount}
+                            onChange={(value) =>
+                              setPendingFleet((current) =>
+                                current.map((vehicle) =>
+                                  vehicle.vehicleId === v.id
+                                    ? {
+                                        ...vehicle,
+                                        horseCount: Number(value ?? 0),
+                                      }
+                                    : vehicle,
+                                ),
+                              )
+                            }
+                          />
+                        </span>
+                      )}
                     </span>
                     {v.blockingReasons.map((reason) => (
                       <span
@@ -1046,7 +1193,10 @@ function TripWorkspace({ id }: { id: string }) {
         onCancel={() => setCrewOpen(false)}
         footer={
           <div className="crew-picker-footer">
-            <strong>Đã chọn {pendingRoster.length}/2 vị trí</strong>
+            <strong>
+              Đã chọn {allPendingCrew.length} nhân sự cho {pendingFleet.length}{" "}
+              xe
+            </strong>
             <div className="crew-picker-actions">
               <Button danger type="primary" onClick={() => setCrewOpen(false)}>
                 Hủy
@@ -1055,8 +1205,8 @@ function TripWorkspace({ id }: { id: string }) {
                 type="primary"
                 disabled={!crewSelectionComplete}
                 onClick={() => {
-                  setRoster(pendingRoster);
-                  setCrewChanged(true);
+                  setFleet(pendingFleet);
+                  setAssignmentChanged(true);
                   setCrewOpen(false);
                 }}
               >
@@ -1067,9 +1217,32 @@ function TripWorkspace({ id }: { id: string }) {
         }
       >
         <p className="ap-hint">
-          Chọn một tài xế và một hộ tống đang rảnh. Xác nhận để lưu cả hai vị
-          trí.
+          Chọn 1–2 tài xế và 1–2 lơ xe cho từng xe. Một người chỉ được thuộc một
+          tổ.
         </p>
+        <div
+          className="crew-picker-tabs"
+          role="tablist"
+          aria-label="Chọn xe cần phân công"
+        >
+          {pendingFleet.map((vehicle) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeCrewVehicleId === vehicle.vehicleId}
+              className={
+                activeCrewVehicleId === vehicle.vehicleId ? "is-active" : ""
+              }
+              key={vehicle.vehicleId}
+              onClick={() => {
+                setActiveCrewVehicleId(vehicle.vehicleId);
+                setSearch("");
+              }}
+            >
+              {vehicleName(vehicle.vehicleId)} · {vehicle.horseCount} ngựa
+            </button>
+          ))}
+        </div>
         <div className="crew-picker-summary" aria-live="polite">
           <div>
             <span>Tài xế đã chọn</span>
@@ -1081,12 +1254,12 @@ function TripWorkspace({ id }: { id: string }) {
             </strong>
           </div>
           <div>
-            <span>Hộ tống đã chọn</span>
+            <span>Lơ xe đã chọn</span>
             <strong>
               {pendingRoster
                 .filter((item) => item.role === "ESCORT")
                 .map((item) => personName(item.userId))
-                .join(", ") || "Chưa chọn hộ tống"}
+                .join(", ") || "Chưa chọn lơ xe"}
             </strong>
           </div>
         </div>
@@ -1103,7 +1276,7 @@ function TripWorkspace({ id }: { id: string }) {
                 setSearch("");
               }}
             >
-              {role === "DRIVER" ? "Tài xế" : "Hộ tống"}
+              {role === "DRIVER" ? "Tài xế" : "Lơ xe"}
             </button>
           ))}
         </div>
@@ -1149,9 +1322,8 @@ function TripWorkspace({ id }: { id: string }) {
                 const selected = pendingRoster.some(
                   (r) => r.userId === p.id && r.role === activeCrewRole,
                 );
-                const used = pendingRoster.some(
-                  (r) => r.userId === p.id && r.role !== activeCrewRole,
-                );
+                const used =
+                  allPendingCrew.some((r) => r.userId === p.id) && !selected;
                 const roleMismatch = p.crewType !== activeCrewRole;
                 const unavailable = p.selectable === false;
                 const disabled =
@@ -1161,7 +1333,7 @@ function TripWorkspace({ id }: { id: string }) {
                   ...(roleMismatch
                     ? [
                         p.crewType
-                          ? `Hồ sơ chỉ cho phép vai trò ${p.crewType === "DRIVER" ? "Tài xế" : "Hộ tống"}.`
+                          ? `Hồ sơ chỉ cho phép vai trò ${p.crewType === "DRIVER" ? "Tài xế" : "Lơ xe"}.`
                           : "Chưa có hồ sơ nhân sự.",
                       ]
                     : []),
@@ -1178,13 +1350,22 @@ function TripWorkspace({ id }: { id: string }) {
                     aria-pressed={selected}
                     className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
                     onClick={() => {
-                      setPendingRoster((v) =>
-                        selected
-                          ? v.filter((r) => r.userId !== p.id)
-                          : [
-                              ...v.filter((r) => r.role !== activeCrewRole),
-                              { userId: p.id, role: activeCrewRole },
-                            ],
+                      setPendingFleet((current) =>
+                        current.map((vehicle) => {
+                          if (vehicle.vehicleId !== activeCrewVehicleId)
+                            return vehicle;
+                          return {
+                            ...vehicle,
+                            crew: selected
+                              ? vehicle.crew.filter(
+                                  (person) => person.userId !== p.id,
+                                )
+                              : [
+                                  ...vehicle.crew,
+                                  { userId: p.id, role: activeCrewRole },
+                                ],
+                          };
+                        }),
                       );
                     }}
                   >
@@ -1208,7 +1389,7 @@ function TripWorkspace({ id }: { id: string }) {
                         {p.crewType === "DRIVER"
                           ? "Tài xế"
                           : p.crewType === "ESCORT"
-                            ? "Hộ tống"
+                            ? "Lơ xe"
                             : "Chưa có hồ sơ"}
                       </span>
                     </span>

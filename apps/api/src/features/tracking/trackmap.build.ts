@@ -78,8 +78,12 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
 
   const mapLegs: ITripMapLeg[] = legs.map((leg, index) => {
     const ends = legEnds(leg);
-    if (index === 0) addStop(leg.fromId, leg.fromName, leg.fromType, ends.from);
-    addStop(leg.toId, leg.toName, leg.toType, ends.to);
+    if (leg.routeWaypoints?.length) {
+      leg.routeWaypoints.forEach(point => addStop(point.id,point.name,point.type,[point.lng,point.lat]));
+    } else {
+      if (index === 0) addStop(leg.fromId, leg.fromName, leg.fromType, ends.from);
+      addStop(leg.toId, leg.toName, leg.toType, ends.to);
+    }
     const route = routes.get(leg.id) ?? null;
     if (route?.mode === 'STRAIGHT') warnings.push(`Chặng ${leg.seqNo}: chưa có tuyến đường bộ, đang vẽ đường thẳng ước lượng`);
     return {
