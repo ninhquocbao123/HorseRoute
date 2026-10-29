@@ -1,3 +1,4 @@
+import { DateInput } from '../../components/DateInput';
 import {useFeedback} from '../../components/useFeedback';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, App, Button, Modal, Tag } from 'antd';
@@ -51,6 +52,6 @@ export default function PricingWorkspace({onLeaveGuardChange}:{onLeaveGuardChang
    <p className="pricing-help">Tạo bởi: {selected.createdByName||'Hệ thống'} · Áp dụng bởi: {selected.publishedByName||'Hệ thống'} · Cập nhật {date(selected.updatedAt)} · Lần lưu {selected.revision}</p>
    {draft&&<div className="pricing-actions"><span>{dirty?'Có thay đổi chưa lưu':'Bản nháp đã lưu'}</span><Button loading={busy} disabled={!dirty} onClick={()=>void save()}>Lưu bản nháp</Button><Button type="primary" disabled={busy||dirty} onClick={()=>{setEffective('');setPublishOpen(true);}}>Áp dụng bảng giá</Button></div>}
   </section>}
-  <Modal title="Áp dụng phiên bản bảng giá" open={publishOpen} confirmLoading={busy} onCancel={()=>!busy&&setPublishOpen(false)} onOk={()=>void publish()} okText="Xác nhận áp dụng" cancelText="Quay lại"><p>Phiên bản #{selected?.id} sẽ cập nhật bảng giá trên Landing Page và dùng cho các dự toán mới từ thời điểm hiệu lực. Lịch sử các phiên bản trước được giữ nguyên.</p><label className="pricing-publish-time">Ngày giờ hiệu lực<input aria-label="Ngày giờ hiệu lực" type="datetime-local" value={effective} onChange={e=>setEffective(e.target.value)}/></label><p>Để trống để áp dụng ngay. Ngày giờ được nhập theo múi giờ trên thiết bị ({Intl.DateTimeFormat().resolvedOptions().timeZone}).</p>{error&&<Alert type="error" title={error}/>}</Modal>
+  <Modal title="Áp dụng phiên bản bảng giá" open={publishOpen} confirmLoading={busy} onCancel={()=>!busy&&setPublishOpen(false)} onOk={()=>void publish()} okText="Xác nhận áp dụng" cancelText="Quay lại"><p>Phiên bản #{selected?.id} sẽ cập nhật bảng giá trên Landing Page và dùng cho các dự toán mới từ thời điểm hiệu lực. Lịch sử các phiên bản trước được giữ nguyên.</p><label className="pricing-publish-time">Ngày giờ hiệu lực<DateInput aria-label="Ngày giờ hiệu lực" type="datetime-local" value={effective} onChange={e=>setEffective(e.target.value)}/></label><p>Để trống để áp dụng ngay. Ngày giờ được nhập theo múi giờ trên thiết bị ({Intl.DateTimeFormat().resolvedOptions().timeZone}).</p>{error&&<Alert type="error" title={error}/>}</Modal>
  </div>;
 }

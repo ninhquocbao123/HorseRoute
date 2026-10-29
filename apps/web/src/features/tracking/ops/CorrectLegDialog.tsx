@@ -1,3 +1,4 @@
+import { DateInput } from '../../../components/DateInput';
 import { useState } from 'react';
 import type { ITripTimelineLeg, LegStatus } from '@my-project/shared';
 import { errorMessage, trackingApi } from '../tracking.api';
@@ -53,7 +54,7 @@ export default function CorrectLegDialog({ leg, onClose, onDone }: {
         </label>
         <label className="trk-field">
           Giờ thực tế áp dụng cho mốc còn thiếu
-          <input type="datetime-local" value={time} max={toLocalInput(new Date())} disabled={busy} onChange={event => setTime(event.target.value)} />
+          <DateInput type="datetime-local" value={time} max={toLocalInput(new Date())} disabled={busy} onChange={event => setTime(event.target.value)} />
           <small>Chỉ dùng khi trạng thái mới cần thêm mốc chưa được ghi (hiện: xuất phát {formatDateTime(leg.actualDepartureAt)}, đến {formatDateTime(leg.actualArrivalAt)}).</small>
         </label>
         <p className="trk-hint">

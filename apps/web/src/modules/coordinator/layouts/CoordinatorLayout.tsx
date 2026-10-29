@@ -1,3 +1,4 @@
+import AccountProfile from '../../../components/AccountProfile';
 import {
   BellOutlined,
   CalendarOutlined,
@@ -80,21 +81,7 @@ export default function CoordinatorLayout() {
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => go(key);
   const initial = account?.fullName.trim().slice(0, 1).toUpperCase() || 'C';
 
-  const userPanel = (compact = false) => compact ? (
-    <Tooltip title={`${account?.fullName || 'Điều phối viên'} · Điều phối`} placement="right">
-      <Avatar className="coordinator-user-avatar">{initial}</Avatar>
-    </Tooltip>
-  ) : (
-    <div className="coordinator-user-panel">
-      <button type="button" className="coordinator-user-link" onClick={() => go(coordinatorPaths.account)}>
-        <Avatar className="coordinator-user-avatar">{initial}</Avatar>
-        <span><strong>{account?.fullName}</strong><small>Điều phối viên</small></span>
-      </button>
-      <Tooltip title="Đăng xuất">
-        <Button type="text" icon={<LogoutOutlined />} aria-label="Đăng xuất" onClick={() => setLogoutOpen(true)} />
-      </Tooltip>
-    </div>
-  );
+  const userPanel = (compact = false) => account ? <AccountProfile account={account} roleName="Điều phối viên" compact={compact}><Button type="text" icon={<LogoutOutlined />} aria-label="Đăng xuất" onClick={() => setLogoutOpen(true)} /></AccountProfile> : null;
 
   const sidebarContent = (compact = false) => (
     <>

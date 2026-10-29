@@ -1,3 +1,4 @@
+import { DateInput } from '../../components/DateInput';
 import {SearchOutlined,EnvironmentOutlined,FlagOutlined,CalendarOutlined,InfoCircleOutlined,ArrowRightOutlined} from '@ant-design/icons';
 import { useState } from 'react';
 import { Button, Empty, Input, Pagination } from 'antd';
@@ -35,8 +36,8 @@ export default function CustomerOrders({orders,onOpen,onBook}:{orders:CustomerOr
     <div className="customer-heading"><div><h2>Đơn của tôi</h2><p>Quản lý và theo dõi tất cả đơn vận chuyển của bạn.</p></div><Button className="customer-gold" onClick={onBook}>Đặt chuyến mới</Button></div>
     <div className="co-filters">
       <label>Tìm kiếm<Input prefix={<SearchOutlined/>} allowClear value={search} placeholder="Mã đơn, điểm đón, điểm giao, tên ngựa" onChange={e=>{setSearch(e.target.value);setPage(1);}}/></label>
-      <label>Khởi hành từ<Input type="date" value={from} max={to||undefined} onChange={e=>{setFrom(e.target.value);setPage(1);}}/></label>
-      <label>Đến ngày<Input type="date" value={to} min={from||undefined} onChange={e=>{setTo(e.target.value);setPage(1);}}/></label>
+      <label>Khởi hành từ<DateInput type="date" value={from} max={to||undefined} onChange={e=>{setFrom(e.target.value);setPage(1);}}/></label>
+      <label>Đến ngày<DateInput type="date" value={to} min={from||undefined} onChange={e=>{setTo(e.target.value);setPage(1);}}/></label>
     </div>
     <div className="co-status-filters" aria-label="Lọc trạng thái đơn"><button type="button" aria-pressed={!status} onClick={()=>{setStatus('');setPage(1);}}>Tất cả <span>{orders.length}</span></button>{Object.entries(statuses).filter(([value])=>orders.some(o=>o.status===value)).map(([value,label])=><button type="button" key={value} aria-pressed={status===value} onClick={()=>{setStatus(value);setPage(1);}}>{label} <span>{orders.filter(o=>o.status===value).length}</span></button>)}</div>
     <div className="co-list">{filtered.slice((current-1)*10,current*10).map(order=>{

@@ -1,3 +1,4 @@
+import { DateInput } from '../../../components/DateInput';
 import {useFeedback} from '../../../components/useFeedback';
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -302,7 +303,7 @@ function LegForm({
                   ? "Điểm đến"
                   : "Phương tiện"}
               <select
-                {...form.register(`${p}.${name}`)}
+                value={form.watch(`${p}.${name}`)} onChange={e => form.setValue(`${p}.${name}`, e.target.value, { shouldDirty: true, shouldValidate: true })}
                 disabled={saving || (name === "fromLocationId" && index > 0)}
               >
                 {name === "fromLocationId" && index > 0 && (
@@ -331,7 +332,7 @@ function LegForm({
             {name === "plannedDepartureAt"
               ? "Khởi hành dự kiến (giờ Việt Nam)"
               : "Đến dự kiến (giờ Việt Nam)"}
-            <input
+            <DateInput
               type="datetime-local"
               {...form.register(`${p}.${name}`)}
               disabled={saving}

@@ -1,3 +1,4 @@
+import AccountProfile from '../../../components/AccountProfile';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Badge, Button, Drawer, Input } from 'antd';
 import { BellOutlined, CalendarOutlined, HistoryOutlined, LogoutOutlined, ReloadOutlined, SearchOutlined, TruckOutlined, WarningOutlined } from '@ant-design/icons';
@@ -109,11 +110,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
               </button>
             ))}
           </nav>
-          <div className="drs-user">
-            <span className="drs-avatar" aria-hidden="true">{account.fullName.trim().split(/\s+/).pop()?.slice(0, 1)}</span>
-            <span className="drs-user-name"><strong>{account.fullName}</strong><small>{roleLabel}</small></span>
-            <Button type="text" className="drs-logout" icon={<LogoutOutlined />} aria-label="Đăng xuất" onClick={() => setConfirmLogout(true)} />
-          </div>
+          <AccountProfile account={account} roleName={roleLabel}><Button type="text" className="drs-logout" icon={<LogoutOutlined />} aria-label="Đăng xuất" onClick={() => setConfirmLogout(true)} /></AccountProfile>
         </div>
       </aside>
 

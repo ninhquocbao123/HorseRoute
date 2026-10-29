@@ -9,8 +9,9 @@ import LandingMarkup from './LandingMarkup';
 import { initializeLanding } from './landing-v7.behavior';
 import { onPricingPublished } from '../pricing/pricing-sync';
 import './landing-page.css';
+import './customer-landing.css';
 
-export default function LandingPage() {
+export default function LandingPage({embedded=false}:{embedded?:boolean}) {
   const root = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { account } = useAuth();
@@ -26,7 +27,7 @@ export default function LandingPage() {
   },[reload]);
   useEffect(() => {
     if (!root.current) return;
-    return initializeLanding(root.current, path => navigate(account && path === '/login' ? '/dashboard' : path), async (code, phone) => {
+    return initializeLanding(root.current, path => navigate(account && path === '/login' ? (embedded ? '/dashboard?view=booking' : '/dashboard') : path), async (code, phone) => {
       if (!account) { navigate(`/login?order=${encodeURIComponent(code)}`); return { message: 'Đăng nhập để xem đơn hàng của bạn.', step: 0 }; }
       if (account.role !== 'CUSTOMER' || !account.phone?.replace(/\D/g, '').endsWith(phone)) return { message: 'Không tìm thấy đơn phù hợp với thông tin đã nhập.', step: 0 };
       const { data } = await api.get<{ items: { id: string; order_code: string; status: string }[] }>('/orders', { params: { search: code, limit: 10, page: 1 } });
@@ -36,6 +37,6 @@ export default function LandingPage() {
       const labels: Record<string, string> = { DRAFT: 'Bản nháp', PENDING: 'Đã nhận đơn', NEED_INFO: 'Cần bổ sung thông tin', REJECTED: 'Đã từ chối', APPROVED: 'Đã duyệt', PREPARING: 'Đang chuẩn bị', READY: 'Sẵn sàng vận chuyển', IN_TRANSIT: 'Đang vận chuyển', DELIVERED: 'Đã bàn giao', CANCELLED: 'Đã hủy' };
       return { message: `${order.order_code}: ${labels[order.status] || order.status}`, step: steps[order.status] || 0 };
     },priceBook,input=>calculateEstimate(priceBook!.config,input,priceBook!.id));
-  }, [account, navigate,priceBook]);
-  return <div ref={root} className="v7-public"><PublicSymbols />{pricingError&&<Alert type="warning" title={pricingError} action={<Button onClick={()=>setReload(n=>n+1)}>Thử lại</Button>}/>}<LandingMarkup /><button type="button" className="totop on" aria-label="Lên đầu trang" onClick={() => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' })}><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button></div>;
+  }, [account, navigate,priceBook,embedded]);
+  return <div ref={root} className={embedded?'v7-public customer-landing':'v7-public'} data-theme={embedded?'light':undefined}><PublicSymbols />{pricingError&&<Alert type="warning" title={pricingError} action={<Button onClick={()=>setReload(n=>n+1)}>Thử lại</Button>}/>}<LandingMarkup />{!embedded&&<button type="button" className="totop on" aria-label="Lên đầu trang" onClick={() => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' })}><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>}</div>;
 }

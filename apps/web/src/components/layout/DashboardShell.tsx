@@ -1,8 +1,8 @@
+import AccountProfile from '../AccountProfile';
 import BrandLogo from '../BrandLogo';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { IUser } from '@my-project/shared';
-import AccountMenu from '../../features/auth/pages/components/AccountMenu';
 import LogoutDialog from '../../features/auth/pages/components/LogoutDialog';
 import { workspaces } from '../../features/home/role-workspaces';
 import '../../features/home/workspace.css';
@@ -81,15 +81,14 @@ export default function DashboardShell({
             </button>
           ))}
         </nav>
-        <div className="portal-sidebar-bottom"><p>Mỗi hành trình.<br />Một cam kết an toàn.</p></div>
+        <AccountProfile account={account} roleName={config.name}><button type="button" aria-label="Đăng xuất" onClick={()=>setConfirmLogout(true)}>↪</button></AccountProfile>
       </aside>
       <div className="portal-body">
         <header className="portal-topbar">
           <button ref={menuButton} type="button" className="portal-menu" aria-label="Bật tắt menu"
             aria-controls="dashboard-sidebar" aria-expanded={mobile} onClick={() => setMobile(value => !value)}>☰</button>
           <div className="portal-breadcrumb">Không gian làm việc / <strong>{title}</strong></div>
-          <AccountMenu account={account} roleName={config.name}
-            onAccount={() => go(dashboardPath('account'))} onLogout={() => setConfirmLogout(true)} />
+
         </header>
         <main className="portal-main" id="portal-main" tabIndex={-1}>
           {showHeading && <div className="portal-page-heading"><div>

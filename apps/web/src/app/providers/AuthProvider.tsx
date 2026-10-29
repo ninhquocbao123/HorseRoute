@@ -11,6 +11,7 @@ interface AuthState {
   loading: boolean;
   syncError: string;
   logout: () => void;
+  updateAccount: (user: IUser) => void;
   onLoginSuccess: (token: string, user: IUser, remember?: boolean) => void;
 }
 
@@ -19,6 +20,7 @@ export const AuthContext = createContext<AuthState>({
   loading: true,
   syncError: '',
   logout: () => {},
+  updateAccount: () => {},
   onLoginSuccess: () => {},
 });
 
@@ -70,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ account, loading, syncError, logout, onLoginSuccess }}>
+    <AuthContext.Provider value={{ account, loading, syncError, logout, onLoginSuccess, updateAccount: setAccount }}>
       {children}
     </AuthContext.Provider>
   );

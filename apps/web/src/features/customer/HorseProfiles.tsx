@@ -1,3 +1,4 @@
+import { DateInput } from '../../components/DateInput';
 import {useFeedback} from '../../components/useFeedback';
 import { useRef, useState, type ReactNode } from 'react';
 import { App, Alert, Button, Empty, Modal } from 'antd';
@@ -113,7 +114,7 @@ export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,s
               <Field label="Mã microchip *"><input required maxLength={50} value={editing.microchip} placeholder="Ví dụ: VN-985211" onChange={e=>change({microchip:e.target.value})}/></Field>
               <Field label="Giống ngựa *"><input required list="hp-breeds" maxLength={50} value={editing.breed} placeholder="Chọn hoặc nhập giống ngựa" onChange={e=>change({breed:e.target.value})}/><datalist id="hp-breeds">{['Thoroughbred','Arabian','Quarter Horse','Warmblood','Appaloosa','Ngựa Việt Nam'].map(v=><option key={v} value={v}/>)}</datalist></Field>
               <Field label="Giới tính"><select value={editing.sex} onChange={e=>change({sex:e.target.value})}><option value="">Chưa xác định</option><option>Đực</option><option>Cái</option></select></Field>
-              <Field label="Ngày sinh *"><input required type="date" max={new Date().toLocaleDateString('en-CA')} value={editing.birthDate} onChange={e=>change({birthDate:e.target.value})}/></Field>
+              <Field label="Ngày sinh *"><DateInput required type="date" max={new Date().toLocaleDateString('en-CA')} value={editing.birthDate} onChange={e=>change({birthDate:e.target.value})}/></Field>
               <Field label="Màu lông *"><input required maxLength={30} value={editing.coatColor} placeholder="Ví dụ: Nâu đỏ" onChange={e=>change({coatColor:e.target.value})}/></Field>
               <Field label="Cân nặng (kg)"><input type="number" min={0} max={2000} value={editing.weightKg??''} onChange={e=>change({weightKg:e.target.value?Number(e.target.value):null})}/></Field>
               <Field label="Chiều cao (cm)"><input type="number" min={0} max={300} value={editing.heightCm??''} onChange={e=>change({heightCm:e.target.value?Number(e.target.value):null})}/></Field>
