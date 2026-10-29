@@ -61,7 +61,7 @@
 .ois-nav-badge{font-size:10px;font-weight:700;white-space:nowrap;border-radius:12px;padding:3px 7px;background:#e1f4e8;color:#267452}
 .ois-tab-content{padding:26px 28px;overflow-y:auto;min-width:0}
 .ois-section-heading{display:flex;align-items:center;gap:12px;margin:0 0 22px}
-.ois-section-heading h2{font-size:21px;color:#173e46;margin:0;font-weight:750}
+.ois-section-heading h2{font-family:inherit;font-size:21px;color:#173e46;margin:0;font-weight:700;letter-spacing:normal;line-height:1.5}
 .ois-plan-status{display:inline-flex;align-items:center;min-height:27px;padding:4px 11px;border-radius:999px;background:#eef2f2;color:#526967;font-size:12px;font-weight:750;line-height:1;white-space:nowrap}
 .ois-plan-status--approved{background:#d9f7e5;color:#087443;border:1px solid #9de2b9;box-shadow:0 0 0 2px rgba(25,153,90,.06)}
 .ois-plan-status--pending_approval{background:#fff3ce;color:#966100;border:1px solid #f3d77a}
@@ -69,3 +69,6 @@
 .ois-proposed-route{--line:#dfe8ea;--muted:#6b8389;color:#173e46}
 .ois-footer{flex-wrap:wrap}
 @media(max-width:760px){.ois-workspace{display:flex;flex-direction:column;height:calc(100dvh - 230px)}.ois-sidebar{display:flex;gap:8px;padding:10px;border-right:0;border-bottom:1px solid #dfe8ea;flex-shrink:0;overflow-x:auto}.ois-sidebar>p{display:none}.ois-sidebar>button{width:auto;min-width:160px;margin:0;padding:10px;gap:8px}.ois-nav-icon{flex-basis:30px;height:34px}.ois-nav-badge{display:none}.ois-tab-content{padding:18px;flex:1}.ois-section-heading h2{font-size:18px}.ois-tab-content .ois-panel{padding:16px}.order-intake-sheet .ant-modal-body{padding:0;max-height:none}}
+
+/* Modal content is portaled outside the manager workspace. */
+.order-intake-sheet :is(h1,h2,h3,h4,h5,h6){font-family:inherit;letter-spacing:normal;line-height:1.5}

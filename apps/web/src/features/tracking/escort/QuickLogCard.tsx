@@ -1,3 +1,4 @@
+import { DateInput } from '../../../components/DateInput';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Select } from 'antd';
 import { isAxiosError } from 'axios';
@@ -170,7 +171,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
         </label>
         <label className="drv-input">
           <span>Giờ thực hiện</span>
-          <Input aria-label="Giờ thực hiện" type="datetime-local" value={performedAt} disabled={!canWrite || busy}
+          <DateInput aria-label="Giờ thực hiện" type="datetime-local" value={performedAt} disabled={!canWrite || busy}
             status={showError('performedAt') ? 'error' : undefined} onChange={event => setEditedAt(event.target.value)} />
           {showError('performedAt') && <small className="esc-error" role="alert">{errors.performedAt}</small>}
         </label>

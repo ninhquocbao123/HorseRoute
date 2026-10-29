@@ -1,3 +1,4 @@
+import { DateInput } from '../../components/DateInput';
 import { Button, Select } from 'antd';
 import { SwapOutlined, CalendarOutlined, EnvironmentOutlined, HomeOutlined, UserOutlined } from '@ant-design/icons';
 import type { ReactNode } from 'react';
@@ -29,7 +30,7 @@ export default function BookingContacts({date,onDate,sender,recipient,onContact,
   return <div className="booking-contacts">
     <section className="bc-section"><header><h3><CalendarOutlined/> Hành trình & ngày đi</h3></header>
       {international&&<div className="bc-country-route">{countryControl('sender')}<Button className="bc-swap" aria-label="Đảo chiều hành trình" icon={<SwapOutlined/>} onClick={()=>onRoute(recipient.country,sender.country)}/>{countryControl('recipient')}</div>}
-      <div className="bc-date"><Field label="Ngày khởi hành *"><input type="date" required min={earliest} value={date} onChange={e=>onDate(e.target.value)}/></Field><small>Sớm nhất {earliest.split('-').reverse().join('/')}</small></div>
+      <div className="bc-date"><Field label="Ngày khởi hành *"><DateInput type="date" required min={earliest} value={date} onChange={e=>onDate(e.target.value)}/></Field><small>Sớm nhất {earliest.split('-').reverse().join('/')}</small></div>
     </section>
     {(['sender','recipient'] as const).map(key=>{
       const contact=key==='sender'?sender:recipient;
