@@ -58,7 +58,7 @@ async function main() {
       assert.equal(assignments.status,200,JSON.stringify(assignments.data));
       const schedule = await f.call('PUT','/trips/100/plan',3,{
         plannedDepartureAt:'2031-01-01T01:00:00.000Z',
-        plannedArrivalAt:'2031-01-01T03:00:00.000Z',
+        plannedArrivalAt:'2031-01-02T03:00:00.000Z',
         routePlanRevision:3,
       });
       assert.equal(schedule.status,200,JSON.stringify(schedule.data));

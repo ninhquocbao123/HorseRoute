@@ -1,9 +1,9 @@
-import { Alert, Button, Card, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Spin, Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
-import { statuses, type OrderDetail } from '../../../features/orders/types';
+import { type OrderDetail } from '../../../features/orders/types';
 
 type Contact = { name?: string; phone?: string };
 type SidebarOrder = OrderDetail & {
@@ -29,7 +29,6 @@ export default function TripOrderSidebar({ orderId }: { orderId: string }) {
     { label: 'Người nhận', name: booking?.recipient?.name || order.recipient_name, phone: booking?.recipient?.phone || order.recipient_phone },
   ];
   return <Card className="trip-command-header">
-    <div className="command-header-topline"><Tag color="blue">{statuses[order.status] || order.status}</Tag></div>
     <div className="command-title-row"><div><Typography.Text className="command-eyebrow">THÔNG TIN ĐƠN VẬN CHUYỂN</Typography.Text><Typography.Title level={2}>{order.order_code}</Typography.Title></div></div>
     <div className="journey-strip">
       {[{ label: 'ĐIỂM ĐÓN', address: order.origin_address }, { label: 'ĐIỂM GIAO', address: order.destination_address }].map((point) => <div className="journey-point" key={point.label}><span className="journey-marker"><EnvironmentOutlined /></span><div><small>{point.label}</small><strong>{point.address || 'Chưa cung cấp'}</strong></div></div>)}

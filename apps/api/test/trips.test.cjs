@@ -36,7 +36,7 @@ test('Plan validates actual UTC dates, DATETIME precision and server-owned field
 test('New route plan schedule accepts only total window bound to a route revision',()=>{
  const valid={plannedDepartureAt:'2026-10-30T00:00:00Z',plannedArrivalAt:'2026-11-08T06:00:00Z',routePlanRevision:3};
  assert.ok(tripPlanSchema.safeParse(valid).success);
- for(const body of [{...valid,plannedArrivalAt:valid.plannedDepartureAt},{...valid,routePlanRevision:-1},{...valid,extra:true}]) {
+ for(const body of [{...valid,plannedArrivalAt:valid.plannedDepartureAt},{...valid,plannedArrivalAt:'2026-10-30T12:00:00Z'},{...valid,routePlanRevision:-1},{...valid,extra:true}]) {
   assert.equal(tripPlanSchema.safeParse(body).success,false);
  }
 });

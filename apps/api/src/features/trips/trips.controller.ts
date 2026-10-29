@@ -4,6 +4,8 @@ import { parse } from '../../shared/utils/validation.util';
 import { tripIdSchema, tripQuerySchema } from './trips.validation';
 export class TripsController {
   constructor(private readonly service: TripsService) {}
+  readiness: RequestHandler = async (req, res) => { res.json(await this.service.readiness(req.account, parse(tripIdSchema, req.params.id))); };
+  release: RequestHandler = async (req, res) => { res.json(await this.service.releaseToDriver(req.account, parse(tripIdSchema, req.params.id), req.body)); };
   assignmentOptions: RequestHandler = async (req, res) => { res.json(await this.service.assignmentOptions(req.account, parse(tripIdSchema, req.params.id))); };
   assignments: RequestHandler = async (req, res) => { res.json(await this.service.assignments(req.account, parse(tripIdSchema, req.params.id))); };
   saveAssignments: RequestHandler = async (req, res) => { res.json(await this.service.saveAssignments(req.account, parse(tripIdSchema, req.params.id), req.body)); };

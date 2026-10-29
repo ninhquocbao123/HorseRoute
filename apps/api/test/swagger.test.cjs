@@ -4,7 +4,7 @@ const {openApiDocument:doc}=require('../src/shared/config/openapi');
 test('Swagger preserves all routes, registration, nested horses and multipart security',()=>{
  const registration=doc.components.schemas.RegisterDto;
  for(const field of ['email','password','fullName','phone','address'])assert.ok(registration.required.includes(field),field);
- assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),84);
+ assert.equal(Object.values(doc.paths).reduce((n,p)=>n+Object.keys(p).length,0),86);
  assert.deepEqual(doc.paths['/api/v1/auth/register'].post.security,[]);
  assert.ok(doc.paths['/api/v1/orders/{id}/review'].post.security.length);
  assert.ok(doc.components.schemas.DraftOrderDto.properties.horses.items.$ref);
@@ -91,9 +91,9 @@ test('All OpenAPI references resolve and Trip response examples match declared r
   if (!path.startsWith('/api/v1/trips')) continue;
   for (const op of Object.values(item)) {
    const media = op.responses[200].content['application/json'];
-   for (const example of Object.values(media.examples)) validate(example.value, media.schema);
+   for (const example of Object.values(media.examples || {})) validate(example.value, media.schema);
    const body = op.requestBody?.content['application/json'];
-   if (body) for (const example of Object.values(body.examples)) validate(example.value, body.schema);
+   if (body) for (const example of Object.values(body.examples || {})) validate(example.value, body.schema);
   }
  }
 });
@@ -123,8 +123,9 @@ test('Crew API documents strict input, both roles and crew-only readiness',()=>{
  assert.ok(doc.components.schemas.TripAssignments.properties.crewReadiness);
 });
 
-test('Manual readiness endpoints are removed and assignment documents automatic READY', () => {
- assert.ok(!doc.paths['/api/v1/trips/{id}/readiness']);
+test('Readiness is read-only and Manager explicitly releases the trip', () => {
+ assert.ok(doc.paths['/api/v1/trips/{id}/readiness'].get);
+ assert.ok(doc.paths['/api/v1/trips/{id}/start-transport'].post);
  assert.ok(!doc.paths['/api/v1/orders/{id}/mark-ready']);
  assert.ok(!doc.components.schemas.TripReadiness);
  assert.ok(!doc.components.schemas.MarkReadyResult);

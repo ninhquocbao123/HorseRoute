@@ -3,11 +3,12 @@ export const tripPlanSchema=z.object({legs:z.array(z.object({id:z.string().optio
 export type TripPlanFormValues=z.infer<typeof tripPlanSchema>;
 export const tripScheduleSchema=z.object({
   plannedDepartureAt:z.string().min(1,'Chọn thời gian khởi hành.'),
-  plannedArrivalAt:z.string().min(1,'Chọn thời gian đến.'),
+  plannedArrivalAt:z.string().min(1,'Chọn ngày giờ giao dự kiến.'),
   routePlanRevision:z.number().int().min(0),
 }).superRefine((value,ctx)=>{
   const departure=Date.parse(value.plannedDepartureAt),arrival=Date.parse(value.plannedArrivalAt);
   if(!Number.isFinite(departure))ctx.addIssue({code:'custom',path:['plannedDepartureAt'],message:'Thời gian khởi hành không hợp lệ.'});
-  if(!Number.isFinite(arrival))ctx.addIssue({code:'custom',path:['plannedArrivalAt'],message:'Thời gian đến không hợp lệ.'});
-  if(Number.isFinite(departure)&&Number.isFinite(arrival)&&arrival<=departure)ctx.addIssue({code:'custom',path:['plannedArrivalAt'],message:'Thời gian đến phải sau thời gian khởi hành.'});
+  if(!Number.isFinite(arrival))ctx.addIssue({code:'custom',path:['plannedArrivalAt'],message:'Ngày giờ giao dự kiến không hợp lệ.'});
+  if(value.plannedDepartureAt.split('T')[0]===value.plannedArrivalAt.split('T')[0])ctx.addIssue({code:'custom',path:['plannedArrivalAt'],message:'Ngày giao dự kiến không được trùng với Ngày khởi hành dự kiến.'});
+  if(Number.isFinite(departure)&&Number.isFinite(arrival)&&arrival<=departure)ctx.addIssue({code:'custom',path:['plannedArrivalAt'],message:'Ngày giờ giao dự kiến phải sau ngày giờ khởi hành dự kiến.'});
 });

@@ -98,20 +98,21 @@ export default function CoordinatorLayout() {
 
   const sidebarContent = (compact = false) => (
     <>
-      <Brand collapsed={compact} onClick={() => go(coordinatorPaths.dashboard)} />
+      <div className={`coordinator-brand-row${compact ? ' is-collapsed' : ''}`}>
+        <Brand collapsed={compact} onClick={() => go(coordinatorPaths.dashboard)} />
+        {isDesktop && (
+          <Tooltip title={compact ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} placement="right">
+            <Button
+              type="text"
+              className="coordinator-sider-toggle"
+              icon={compact ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(value => !value)}
+              aria-label={compact ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
+            />
+          </Tooltip>
+        )}
+      </div>
       {!compact && <div className="coordinator-role-chip"><span />Điều phối viên</div>}
-      {isDesktop && (
-        <Tooltip title={compact ? 'Mở rộng sidebar' : 'Thu gọn sidebar'} placement="right">
-          <Button
-            block className="coordinator-sider-toggle"
-            icon={compact ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(value => !value)}
-            aria-label={compact ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-          >
-            {!compact && 'Thu gọn'}
-          </Button>
-        </Tooltip>
-      )}
       {!compact && <div className="coordinator-nav-heading">ĐIỀU PHỐI</div>}
       <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} onClick={handleMenuClick} inlineCollapsed={compact} />
       <div className="coordinator-sider-user">{userPanel(compact)}</div>

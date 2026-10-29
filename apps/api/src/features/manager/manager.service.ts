@@ -42,7 +42,8 @@ export class ManagerService {
   const input=bookingEstimateInput(booking,Number(count.n),order.origin_country!==order.destination_country);let estimate=null,estimateError=null;
   if(input){try{const current=await new PricingService(this.db).current();estimate=calculateEstimate(current.config,input,current.id);}catch{estimateError='Chưa tính được giá từ bảng giá hiện hành.';}}
   else estimateError='Đơn chưa có đủ thông tin để tính giá.';
-  return {booking,input,estimate,estimateError,assessment:assessment||null,stagedDocumentCount:Number(staged.n)};
+  const [trip]=await this.db.query('SELECT CAST(id AS CHAR) id FROM trips WHERE order_id=? ORDER BY id DESC LIMIT 1',[orderId]);
+  return {booking,input,estimate,estimateError,assessment:assessment||null,stagedDocumentCount:Number(staged.n),tripId:trip?.id||null};
  }
  async overview(u:User){this.allow(u);const [counts]=await this.db.query(`SELECT COUNT(*) total,SUM(DATE(CONVERT_TZ(created_at,'+00:00','+07:00'))=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+07:00'))) newToday,SUM(status='PENDING') pending,SUM(status='REJECTED') rejected,SUM(status IN ('APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED') AND YEAR(reviewed_at)=YEAR(UTC_TIMESTAMP()) AND MONTH(reviewed_at)=MONTH(UTC_TIMESTAMP())) approvedMonth FROM orders WHERE status<>'DRAFT'`);
  const [quotes]=await this.db.query("SELECT COUNT(*) pending FROM orders o WHERE o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT') AND NOT EXISTS(SELECT 1 FROM order_quotes q WHERE q.order_id=o.id AND q.status='APPROVED')");return {...counts,quotesPending:Number(quotes.pending)};}

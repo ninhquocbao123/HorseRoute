@@ -152,6 +152,19 @@ const crewEmpty = { vehicles: [], tripId: '200', items: [], crewReadiness: { com
   { code: 'MISSING_DRIVER', message: 'Chưa có tài xế hợp lệ.' }, { code: 'MISSING_ESCORT', message: 'Chưa có người hộ tống hợp lệ.' },
 ] } };
 export const tripPaths = {
+  '/api/v1/trips/{id}/readiness': { get: {
+    ...readCommon, operationId: 'getTripReadiness', summary: 'Kiểm tra kế hoạch và điều kiện chuyển chuyến', parameters: [pathId],
+    description: 'Manager hoặc Coordinator phụ trách. Chỉ đọc; không chuyển trạng thái. Kiểm tra tuyến, lịch, sức chứa, tổ nhân sự và xung đột. canStart chỉ true khi Trip APPROVED và Order PREPARING. blockers trả điều kiện không đạt đầu tiên.',
+    responses: { 200: { description: 'Kết quả tại thời điểm kiểm tra', content: { 'application/json': { schema: {
+      type: 'object', properties: { tripId: { type: 'string' }, planStatus: { type: 'string' }, orderStatus: { type: 'string' }, valid: { type: 'boolean' }, canStart: { type: 'boolean' }, blockers: { type: 'array', items: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } } } },
+    } } } }, ...errors('/api/v1/trips/{id}/readiness', [400,401,403,404,500]) },
+  } },
+  '/api/v1/trips/{id}/start-transport': { post: {
+    ...readCommon, operationId: 'releaseTripToDriver', summary: 'Manager chuyển chuyến đã duyệt cho tài xế', parameters: [pathId],
+    description: 'Yêu cầu Trip APPROVED và Order PREPARING. Kiểm tra lại dữ liệu và lịch trong transaction, chuyển Order READY, audit và thông báo. Không ghi nhận khởi hành thực tế; tài xế xác nhận qua API tracking. Gọi lặp sau khi đã chuyển trả 409.',
+    requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false }, example: {} } } },
+    responses: { 200: response('TripDetail', { ready: { value: { ...detail, planStatus: 'APPROVED', orderStatus: 'READY' } } }), ...errors('/api/v1/trips/{id}/start-transport', [400,401,403,404,409,500]) },
+  } },
   '/api/v1/maps/search': { get: {
     ...readCommon, operationId: 'searchMapAddresses', summary: '[Đã triển khai] Coordinator tìm địa chỉ qua backend',
     description: 'Chỉ gọi khi nhấn Tìm/Enter. Query q dài 3–200 ký tự; tối đa 30 request/phút/tài khoản. Mapbox permanent=true vì tọa độ được lưu trong route_plan; không tự chọn kết quả.',
@@ -194,7 +207,7 @@ APPROVED: kiểm tra lại chặng, tuyến, giờ, trạng thái xe và sức c
 Khoảng lịch [đi, đến), giờ đến > giờ đi. Chưa có số phút đệm/tối thiểu được chốt. Xe đang MOVING/AT_STOP hoặc đã xuất phát chưa ghi nhận đến ở Order IN_TRANSIT khác bị chặn cho tới khi xác nhận kết thúc vận hành; không suy ra xe đã rảnh từ giờ đến dự kiến.
 Ghi approvedBy từ tài khoản hiện tại, approvedAt UTC server; xóa returnReason.
 RETURNED: bắt buộc reason sau trim, 1–255 ký tự; Trip về DRAFT, xóa approvedBy/approvedAt, lưu lý do. Có thể trả lại kế hoạch rỗng/sai để Coordinator sửa.
-Cả hai quyết định giữ nguyên ID chặng, ghi audit REVIEW_PLAN + thông báo IN_APP cho Coordinator cùng transaction. Nếu duyệt APPROVED khi đã đủ DRIVER/ESCORT hợp lệ, Order PREPARING tự động chuyển READY cùng audit/thông báo. Lỗi rollback toàn bộ. Duyệt lần nữa hoặc sửa Trip đã duyệt trả 409.`,
+Cả hai quyết định giữ nguyên ID chặng, ghi audit REVIEW_PLAN + thông báo IN_APP cho Coordinator cùng transaction. Duyệt giữ Order PREPARING; Manager dùng POST start-transport để chuyển READY sau khi kiểm tra lại. Lỗi rollback toàn bộ. Duyệt lần nữa hoặc sửa Trip đã duyệt trả 409.`,
     requestBody: { required: true, content: { 'application/json': { schema: ref('ReviewTripPlanInput'), examples: {
       approve: { value: { decision: 'APPROVED' } }, returned: { value: { decision: 'RETURNED', reason: 'Điều chỉnh xe và thời gian chặng thứ hai.' } },
     } } } },

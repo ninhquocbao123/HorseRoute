@@ -1,3 +1,4 @@
+import TripStatusBar from './TripStatusBar';
 import {
   ArrowLeftOutlined,
   CarOutlined,
@@ -27,7 +28,6 @@ import {
   Modal,
   Pagination,
   Select,
-  Spin,
   Tag,
   Typography,
 } from "antd";
@@ -222,7 +222,7 @@ function TripWorkspace({ id }: { id: string }) {
       !Number.isFinite(Date.parse(schedule.plannedDepartureAt)) ||
       !Number.isFinite(Date.parse(schedule.plannedArrivalAt))
     ) {
-      setError("Vui lòng nhập đầy đủ ngày giờ khởi hành và đến nơi.");
+      setError("Vui lòng nhập đầy đủ Ngày khởi hành dự kiến và Ngày giao dự kiến.");
       return;
     }
     const result = tripScheduleSchema.safeParse({
@@ -309,14 +309,15 @@ function TripWorkspace({ id }: { id: string }) {
       void qc.invalidateQueries({ queryKey: ["trips", account?.id, "list"] });
     }
   }
-  if (detail.isPending) return <Spin />;
-  if (detail.isError || !detail.data)
+  if (detail.isPending) return <TripStatusBar loading />;
+  if (!detail.data)
     return (
       <Alert
         type="error"
         message="Không tải được chuyến"
         description={
           <>
+            <p>Chưa tải được trạng thái đơn.</p>
             <p>{tripLoadError(detail.error)}</p>
             <Button onClick={() => go("/coordinator/trips")}>
               Về danh sách chuyến
@@ -399,10 +400,17 @@ function TripWorkspace({ id }: { id: string }) {
   const escortNames = rosterNames("ESCORT");
   const crewComplete = fleet.length > 0 && !validateFleetCrew(fleet);
   const schedule = legs[0];
+  const scheduleDatesMatch = Boolean(
+    schedule?.plannedDepartureAt &&
+      schedule?.plannedArrivalAt &&
+      schedule.plannedDepartureAt.split("T")[0] ===
+        schedule.plannedArrivalAt.split("T")[0],
+  );
   const scheduleComplete =
     !!schedule &&
     Number.isFinite(Date.parse(schedule.plannedDepartureAt)) &&
     Number.isFinite(Date.parse(schedule.plannedArrivalAt)) &&
+    !scheduleDatesMatch &&
     Date.parse(schedule.plannedArrivalAt) >
       Date.parse(schedule.plannedDepartureAt);
 
@@ -422,11 +430,18 @@ function TripWorkspace({ id }: { id: string }) {
           },
         ]
       : []),
-    ...(!scheduleComplete
+    ...(scheduleDatesMatch
+      ? [
+          {
+            key: "SCHEDULE_SAME_DATE",
+            text: "Ngày giao dự kiến không được trùng với Ngày khởi hành dự kiến.",
+          },
+        ]
+      : !scheduleComplete
       ? [
           {
             key: "SCHEDULE_INCOMPLETE",
-            text: "Chưa nhập đầy đủ thời gian khởi hành và đến nơi.",
+            text: "Chưa nhập đầy đủ Ngày khởi hành dự kiến và Ngày giao dự kiến.",
           },
         ]
       : []),
@@ -447,13 +462,14 @@ function TripWorkspace({ id }: { id: string }) {
 
   return (
     <div className="trip-detail-page trip-detail-professional">
-      <div>
+      <div className="trip-detail-toolbar">
         <Button
           icon={<ArrowLeftOutlined />}
           onClick={() => go("/coordinator/trips")}
         >
           Danh sách chuyến
         </Button>
+        <TripStatusBar orderStatus={trip.orderStatus} planStatus={trip.planStatus} />
       </div>
       {!editable && (
         <Alert
@@ -705,9 +721,9 @@ function TripWorkspace({ id }: { id: string }) {
                 )}
                 <section
                   className="departure-milestone departure-milestone-start"
-                  aria-label={`Khởi hành dự kiến chặng ${i + 1}`}
+                  aria-label={`Ngày khởi hành dự kiến chặng ${i + 1}`}
                 >
-                  <h4>Khởi hành dự kiến</h4>
+                  <h4>Ngày khởi hành dự kiến</h4>
                   <div className="departure-time-fields">
                     <label>
                       Ngày
@@ -721,6 +737,12 @@ function TripWorkspace({ id }: { id: string }) {
                             : null
                         }
                         disabled={!editable || busy}
+                        disabledDate={(date) =>
+                          Boolean(
+                            leg.plannedArrivalAt &&
+                              !date.isBefore(dayjs(leg.plannedArrivalAt), "day"),
+                          )
+                        }
                         onChange={(v) =>
                           update(i, {
                             plannedDepartureAt: v
@@ -762,14 +784,14 @@ function TripWorkspace({ id }: { id: string }) {
                 </section>
                 <section
                   className="departure-milestone departure-milestone-end"
-                  aria-label={`Đến nơi dự kiến chặng ${i + 1}`}
+                  aria-label={`Ngày giao dự kiến chặng ${i + 1}`}
                 >
-                  <h4>Đến nơi dự kiến</h4>
+                  <h4>Ngày giao dự kiến</h4>
                   <div className="departure-time-fields">
                     <label>
                       Ngày
                       <DatePicker
-                        aria-label={`Ngày đến chặng ${i + 1}`}
+                        aria-label={`Ngày giao dự kiến chặng ${i + 1}`}
                         placeholder="Chọn ngày"
                         format="DD/MM/YYYY"
                         value={
@@ -778,6 +800,12 @@ function TripWorkspace({ id }: { id: string }) {
                             : null
                         }
                         disabled={!editable || busy}
+                        disabledDate={(date) =>
+                          Boolean(
+                            leg.plannedDepartureAt &&
+                              !date.isAfter(dayjs(leg.plannedDepartureAt), "day"),
+                          )
+                        }
                         onChange={(v) =>
                           update(i, {
                             plannedArrivalAt: v
@@ -793,7 +821,7 @@ function TripWorkspace({ id }: { id: string }) {
                       Giờ
                       <TimePicker
                         popupClassName="departure-time-popup"
-                        aria-label={`Giờ đến chặng ${i + 1}`}
+                        aria-label={`Giờ giao dự kiến chặng ${i + 1}`}
                         placeholder="Chọn giờ"
                         format="HH:mm"
                         minuteStep={15}
@@ -824,7 +852,7 @@ function TripWorkspace({ id }: { id: string }) {
           <TripOrderSidebar orderId={trip.orderId} />
         </aside>
       </div>
-      <div className="trip-action-bar">
+      {trip.planStatus !== "PENDING_APPROVAL" && <div className="trip-action-bar">
         {/* Dải trạng thái */}
         {editable &&
           (() => {
@@ -925,7 +953,7 @@ function TripWorkspace({ id }: { id: string }) {
             </span>
           )}
         </div>
-      </div>
+      </div>}
       <Modal
         open={vehicleOpen}
         rootClassName="coordinator-scope"

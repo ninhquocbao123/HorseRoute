@@ -1,6 +1,6 @@
 import { tripFleetSchema, TripFleetInput } from './trip-fleet.schema';
 import { parse } from '../../shared/utils/validation.util';
-import { legacyTripPlanSchema, tripIdSchema, tripPlanSchema, submitTripPlanSchema, LegacyTripPlanInput, reviewTripPlanSchema, tripAssignmentsSchema, routePlanWriteSchema, routePreviewSchema } from './trips.validation';
+import { isSameVietnamCalendarDate, legacyTripPlanSchema, tripIdSchema, tripPlanSchema, submitTripPlanSchema, LegacyTripPlanInput, reviewTripPlanSchema, tripAssignmentsSchema, routePlanWriteSchema, routePreviewSchema } from './trips.validation';
 import { Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
@@ -182,7 +182,8 @@ export class TripsService {
       const leg = detail.legs[0];
       if (!detail.plannedDepartureAt || !detail.plannedArrivalAt ||
         detail.plannedDepartureAt !== leg.plannedDepartureAt || detail.plannedArrivalAt !== leg.plannedArrivalAt ||
-        Date.parse(leg.plannedArrivalAt) <= Date.parse(leg.plannedDepartureAt)) {
+        Date.parse(leg.plannedArrivalAt) <= Date.parse(leg.plannedDepartureAt) ||
+        isSameVietnamCalendarDate(leg.plannedDepartureAt, leg.plannedArrivalAt)) {
         throw new ConflictException('Thời gian dự kiến chưa hợp lệ hoặc chưa khớp chặng vận hành. Hãy lưu lại kế hoạch.');
       }
       if (approval) await repo.lockTransportHorses(orderId);
@@ -238,13 +239,6 @@ export class TripsService {
         await this.validateAssignedCrewSchedule(repo, id, before.plannedDepartureAt, before.plannedArrivalAt);
       }
       await repo.reviewPlan(id, account.id, input);
-      if (input.decision === 'APPROVED' && checkCrewReadiness(await repo.assignments(id)).complete) {
-        const markedReady = await repo.markOrderReady(orderId);
-        if (markedReady) {
-          await repo.auditOrderReady(account.id, orderId, id, order.status);
-          await repo.notifyOrderReady(orderId, id);
-        }
-      }
       const after = await service.detail(account, id);
       const reviewSnapshot = (detail: TripDetail) => JSON.stringify({ planStatus: detail.planStatus,
         orderStatus: detail.orderStatus, approvedBy: detail.approvedBy, approvedAt: detail.approvedAt, returnReason: detail.returnReason });
@@ -252,6 +246,58 @@ export class TripsService {
       await repo.auditReview(account.id, id, reviewSnapshot(before), reviewSnapshot(after), reason);
       await repo.notifyPlanCoordinator(id, trip.plannedBy, input.decision, reason);
       return after;
+    });
+  }
+  async readiness(account: User, rawId: string) {
+    const id = parse(tripIdSchema, rawId);
+    await this.accessible(account, id);
+    return this.repository.transaction(async repo => {
+      const orderId = await repo.orderId(id);
+      if (!orderId) throw new NotFoundException('Không tìm thấy chuyến.');
+      const order = await repo.lockOrder(orderId);
+      const trip = await repo.lockTrip(id);
+      const detail = await new TripsService(repo).detail(account, id);
+      const blockers: { code: string; message: string }[] = [];
+      try {
+        if (!trip || trip.orderId !== orderId || !order) throw new ConflictException('Đơn của chuyến đã thay đổi.');
+        if (!['PENDING_APPROVAL', 'APPROVED'].includes(trip.planStatus) || order.status !== 'PREPARING') {
+          throw new ConflictException('Chỉ kiểm tra kế hoạch chờ duyệt hoặc đã duyệt của đơn đang chuẩn bị.');
+        }
+        const legs = await repo.lockLegs(id);
+        if (legs.some(l => l.status !== 'NOT_STARTED' || l.actualDepartureAt || l.actualArrivalAt) || await repo.hasHistory(id)) {
+          throw new ConflictException('Chuyến đã có dữ liệu vận hành.');
+        }
+        await this.validateStoredPlan(repo, detail, legs.length, orderId, true);
+      } catch (error) {
+        if (!(error instanceof BadRequestException || error instanceof ConflictException)) throw error;
+        const response = error.getResponse();
+        blockers.push({ code: 'PLAN_NOT_READY', message: typeof response === 'string' ? response : String(response.message || 'Kế hoạch chưa hợp lệ.') });
+      }
+      return { tripId: id, planStatus: detail.planStatus, orderStatus: detail.orderStatus,
+        valid: blockers.length === 0, canStart: blockers.length === 0 && detail.planStatus === 'APPROVED' && detail.orderStatus === 'PREPARING', blockers };
+    });
+  }
+  async releaseToDriver(account: User, rawId: string, body: unknown): Promise<TripDetail> {
+    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Manager được chuyển chuyến cho tài xế.');
+    const id = parse(tripIdSchema, rawId);
+    parse(submitTripPlanSchema, body);
+    return this.repository.transaction(async repo => {
+      const orderId = await repo.orderId(id);
+      if (!orderId) throw new NotFoundException('Không tìm thấy chuyến.');
+      const order = await repo.lockOrder(orderId), trip = await repo.lockTrip(id);
+      if (!order || !trip || trip.orderId !== orderId || trip.planStatus !== 'APPROVED' || order.status !== 'PREPARING') {
+        throw new ConflictException('Chỉ chuyển chuyến khi kế hoạch APPROVED và đơn PREPARING.');
+      }
+      const legs = await repo.lockLegs(id);
+      if (legs.some(l => l.status !== 'NOT_STARTED' || l.actualDepartureAt || l.actualArrivalAt) || await repo.hasHistory(id)) {
+        throw new ConflictException('Chuyến đã có dữ liệu vận hành.');
+      }
+      const service = new TripsService(repo), detail = await service.detail(account, id);
+      await this.validateStoredPlan(repo, detail, legs.length, orderId, true);
+      if (!await repo.markOrderReady(orderId)) throw new ConflictException('Trạng thái đơn đã thay đổi.');
+      await repo.auditOrderReady(account.id, orderId, id, order.status);
+      await repo.notifyOrderReady(orderId, id);
+      return service.detail(account, id);
     });
   }
   private async validateAssignedCrewSchedule(repo: TripsRepository, tripId: string, departure: string | null, arrival: string | null) {

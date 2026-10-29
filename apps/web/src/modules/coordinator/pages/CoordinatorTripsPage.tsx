@@ -11,6 +11,14 @@ export const planLabels: Record<string, string> = {
   PENDING_APPROVAL: "Chờ duyệt",
   APPROVED: "Đã duyệt",
 };
+
+const orderStatusTabs = [
+  ["PREPARING", "Đang chuẩn bị"],
+  ["REJECTED", "Từ chối"],
+  ["READY", "Sẵn sàng"],
+  ["all", "Tổng hợp"],
+] as const;
+
 export default function CoordinatorTripsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -22,7 +30,7 @@ export default function CoordinatorTripsPage() {
   const limit = 20;
   const query = useTripsQuery({ page, limit });
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("PREPARING");
   const items = query.data?.items || [];
   const rows = items.filter(
     (t) =>
@@ -47,7 +55,7 @@ export default function CoordinatorTripsPage() {
           role="group"
           aria-label="Trạng thái đơn trong trang hiện tại"
         >
-          {[["all", "Tổng hợp"], ...Object.entries(orderLabels).filter(([value]) => items.some(t => t.orderStatus === value))].map(
+          {orderStatusTabs.map(
             ([value, label]) => (
               <button
                 key={value}

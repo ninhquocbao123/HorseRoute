@@ -26,12 +26,13 @@
 .coordinator-sider .ant-layout-sider-children,
 .coordinator-mobile-drawer .ant-drawer-body { display: flex; flex-direction: column; background: var(--coordinator-navy); }
 .coordinator-mobile-drawer .ant-drawer-content { background: var(--coordinator-navy); }
+.coordinator-brand-row { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 26px; }
 .coordinator-brand {
   display: flex; align-items: center; gap: 12px; width: calc(100% - 36px); min-height: 76px;
   margin: 10px 18px 0; padding: 0; border: 0; background: transparent; color: #fff;
   font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; text-align: left;
 }
-.coordinator-brand.is-collapsed { justify-content: center; width: 100%; margin-inline: 0; }
+.coordinator-brand.is-collapsed { justify-content: center; width: auto; margin-inline: 0; }
 .coordinator-brand__mark {
   display: inline-grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center;
   border: 2px solid rgba(255,255,255,.92); border-radius: 50%; color: var(--coordinator-gold);
@@ -43,7 +44,8 @@
   background: rgba(255,255,255,.055); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
 }
 .coordinator-role-chip span { width: 7px; height: 7px; border-radius: 50%; background: #53d487; box-shadow: 0 0 0 4px rgba(83,212,135,.13); }
-.coordinator-sider-toggle { width: calc(100% - 36px) !important; margin: 0 18px 16px; border-color: rgba(255,255,255,.14) !important; color: #d4e5e7 !important; background: rgba(255,255,255,.04) !important; }
+.coordinator-sider-toggle { flex: 0 0 32px; width: 32px !important; height: 32px; padding: 0 !important; border: 0 !important; border-radius: 8px; color: #d4e5e7 !important; background: transparent !important; }
+.coordinator-sider-toggle:hover { color: #fff !important; background: rgba(255,255,255,.1) !important; }
 .coordinator-nav-heading { margin: 6px 28px 8px; color: rgba(224,241,242,.55); font-size: 11px; font-weight: 800; letter-spacing: .14em; }
 .coordinator-sider .ant-menu,
 .coordinator-mobile-drawer .ant-menu { padding: 0 12px; border-inline-end: 0 !important; background: transparent !important; }
@@ -94,10 +96,13 @@
 
 .coordinator-modal .ant-modal-content { border-radius: 18px; }
 .coordinator-sider .ant-layout-sider-children { background: transparent; }
-.coordinator-brand { width: 100%; min-height: 43px; padding: 0 8px; margin: 0 0 26px; gap: 13px; font-size: 24px; font-weight: 850; }
+.coordinator-brand { flex: 1 1 auto; width: auto; min-width: 0; min-height: 43px; padding: 0 8px; margin: 0; gap: 13px; font-size: 24px; font-weight: 850; }
 .coordinator-role-chip { margin: 0 8px 20px; color: #ffc24a; background: rgba(255,189,63,.15); border: 0; text-transform: none; font-size: 13px; letter-spacing: normal; }
 .coordinator-role-chip span { background: #ffbd3f; box-shadow: none; }
-.coordinator-sider-toggle { width: 100% !important; margin: 0 0 18px; height: 42px; }
+.coordinator-brand-row.is-collapsed { gap: 2px; justify-content: center; }
+.coordinator-brand-row.is-collapsed .coordinator-brand { flex: 0 0 auto; padding: 0; }
+.coordinator-brand-row.is-collapsed .brand-mark { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; font-size: 18px; }
+.coordinator-brand-row.is-collapsed .coordinator-sider-toggle { flex-basis: 26px; width: 26px !important; height: 28px; }
 .coordinator-sider .ant-menu { padding: 0; }
 .coordinator-sider-user { padding: 12px; border: 0; border-radius: 15px; background: rgba(255,255,255,.08); }
 .coordinator-header { padding: 26px 40px 18px; align-items: flex-start; }

@@ -264,7 +264,7 @@ export class TripsRepository {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       SELECT id,'ORDER_READY',?,'ORDER',?,'IN_APP' FROM users WHERE id IN
       (SELECT customer_id FROM orders WHERE id=? UNION SELECT planned_by FROM trips WHERE id=? UNION SELECT user_id FROM trip_assignments WHERE trip_id=?)`,
-    [`Đơn ${orderId} đã tự động chuyển sang READY sau khi kế hoạch được duyệt và phân công đủ nhân sự.`, orderId, orderId, tripId, tripId]);
+    [`Manager đã chuyển chuyến ${tripId} cho tổ tài xế. Đơn ${orderId} sẵn sàng vận chuyển.`, orderId, orderId, tripId, tripId]);
   }
   async notifyCrew(tripId: string, userId: string, role: string | null) {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)

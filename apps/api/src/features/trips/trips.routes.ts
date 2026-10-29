@@ -7,6 +7,8 @@ import { createUserRateLimiter } from '../../shared/middlewares/rateLimiter.midd
 export function tripsRoutes(service: TripsService) {
   const router = Router(), controller = new TripsController(service);
   router.use(authorize(Role.COORDINATOR, Role.MANAGER));
+  router.get('/:id/readiness', controller.readiness);
+  router.post('/:id/start-transport', authorize(Role.MANAGER), controller.release);
   router.get('/:id/assignment-options', controller.assignmentOptions);
   router.get('/:id/assignments', controller.assignments);
   router.put('/:id/assignments', authorize(Role.COORDINATOR), controller.saveAssignments);

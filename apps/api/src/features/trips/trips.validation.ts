@@ -14,6 +14,18 @@ const planTime = z.string().datetime({ offset: false }).refine(value => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) && date.toISOString() === value.replace(/(?<!\.000)Z$/, '.000Z');
 }, 'Ngày giờ phải tồn tại, UTC có Z, chính xác đến giây (có thể dùng .000Z).');
+
+export function vietnamCalendarDate(value: string): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(value));
+  const read = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? '';
+  return `${read('year')}-${read('month')}-${read('day')}`;
+}
+
+export function isSameVietnamCalendarDate(first: string, second: string): boolean {
+  return vietnamCalendarDate(first) === vietnamCalendarDate(second);
+}
 export const legacyTripPlanSchema = z.object({
   legs: z.array(z.object({
     id: tripIdSchema.optional(), fromLocationId: tripIdSchema, toLocationId: tripIdSchema,
@@ -38,8 +50,11 @@ export const tripScheduleSchema = z.object({
   plannedArrivalAt: planTime,
   routePlanRevision: z.number().int().min(0).max(2_147_483_647),
 }).strict().superRefine((value, context) => {
+  if (isSameVietnamCalendarDate(value.plannedDepartureAt, value.plannedArrivalAt)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['plannedArrivalAt'], message: 'Ngày giao dự kiến không được trùng với Ngày khởi hành dự kiến.' });
+  }
   if (Date.parse(value.plannedArrivalAt) <= Date.parse(value.plannedDepartureAt)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ['plannedArrivalAt'], message: 'Giờ đến phải sau giờ khởi hành.' });
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['plannedArrivalAt'], message: 'Ngày giờ giao dự kiến phải sau ngày giờ khởi hành dự kiến.' });
   }
 });
 // Giữ payload legs cũ cho chuyến legacy; Coordinator mới chỉ gửi lịch tổng + revision của route_plan.
