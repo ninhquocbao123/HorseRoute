@@ -370,7 +370,7 @@ export class TrackingService {
               throw new ConflictException('Chuyến chưa đủ điều kiện xuất phát: ' + blockers.map(b => b.message).join(' '));
             }
             nextOrderStatus = OrderStatus.IN_TRANSIT;
-            await repo.updateOrderStatus(leg.orderId, OrderStatus.IN_TRANSIT);
+            await repo.updateOrderStatus(leg.orderId, OrderStatus.IN_TRANSIT, String(account.id));
             await repo.audit(
               String(account.id),
               'ORDER',
@@ -438,7 +438,7 @@ export class TrackingService {
           nextOrderStatus = OrderStatus.DELIVERED;
 
           await repo.updateLegStatus(legId, LegStatus.COMPLETED, String(account.id));
-          await repo.updateOrderStatus(leg.orderId, OrderStatus.DELIVERED);
+          await repo.updateOrderStatus(leg.orderId, OrderStatus.DELIVERED, String(account.id));
           await repo.audit(
             String(account.id),
             'ORDER',
@@ -636,7 +636,7 @@ export class TrackingService {
           ? OrderStatus.IN_TRANSIT
           : OrderStatus.READY;
       if (nextOrderStatus !== leg.orderStatus) {
-        await repo.updateOrderStatus(leg.orderId, nextOrderStatus);
+        await repo.updateOrderStatus(leg.orderId, nextOrderStatus, actorId);
         await repo.audit(
           actorId,
           'ORDER',

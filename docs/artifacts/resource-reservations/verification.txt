@@ -1,0 +1,32 @@
+HorseRoute resource reservations — verification 2026-10-30 (Asia/Ho_Chi_Minh)
+Build: pnpm build — PASS (shared/API/web and TypeScript)
+API: pnpm --filter api test — 171 PASS, 0 FAIL
+Allocator: node apps/web/test/allocate-crew.test.cjs — 5 PASS, 0 FAIL
+
+Isolated MySQL:
+PASS migrations on isolated MySQL wdp_flow3_test_6eb3cf476b84263c
+PASS reserve draft, own resources selectable and resave
+PASS validation + late failure rollback, vehicle replacement keeps crew
+PASS manual status blocked for draft reservation and idle vehicle
+PASS concurrent same vehicle: one winner
+PASS concurrent same crew with different vehicles: one winner
+PASS submit/return/review/readiness/READY retains reservations
+PASS DEPARTED/DELIVERED lifecycle with assignment history
+PASS correction reacquires free resources and READY reserves them
+PASS old tracking correction cannot reclaim reused resources; transaction rolls back
+PASS removed crew released while unchanged vehicle remains reserved
+PASS migration downgrade guarded, down/up works without reservations
+
+Browser + real API + isolated MySQL:
+PASS route/fleet/representative-leg migrations on isolated MySQL: wdp_flow3_test_91d3ec7a4190f0e3; old rows preserved
+PASS choose crew before vehicle without dates; all statuses; modal confirm does not persist
+PASS cancel crew modal restores confirmed draft
+PASS all vehicle states, busy locked, replace/remove all vehicles keeps people
+PASS own reserved people/vehicle deselect and reselect
+PASS assignment saved / schedule failed message; no page errors
+
+Limits:
+Synthetic local test data; no shared database writes or production deployment.
+Read-only shared database report found 2 ownership conflicts and 5 singly owned resources with incorrect statuses.
+Old-data conflicts require an explicit business decision; no winner selected and no assignments deleted.
+Other standalone legacy *.mysql.cjs scenarios were not all rerun; current resource lifecycle is covered by resource-reservations.mysql.cjs.
