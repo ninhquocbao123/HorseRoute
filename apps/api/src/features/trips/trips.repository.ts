@@ -1,3 +1,4 @@
+import { lockResources, resourceOwners, assertResourceOwner, syncTripResources, writeResourceStatus } from './trip-resources';
 import { DataSource, EntityManager } from 'typeorm';
 import { TripSummary, TripLeg, TripPlanOptions, TripAssignment, CrewOption } from './trips.dto';
 
@@ -32,12 +33,29 @@ export class TripsRepository {
   transaction<T>(work: (repository: TripsRepository) => Promise<T>): Promise<T> {
     return this.db.transaction('READ COMMITTED', manager => work(new TripsRepository(manager)));
   }
+  async lockFleetResources(id: string, input: import('./trip-fleet.schema').TripFleetInput) {
+    const oldVehicles = await this.fleet(id), oldCrew = await this.assignments(id);
+    await lockResources(this.db, [...oldVehicles.map(v=>v.vehicleId),...input.vehicles.map(v=>v.vehicleId)],
+      [...oldCrew.map(p=>p.userId),...input.vehicles.flatMap(v=>v.crew.map(p=>p.userId))]);
+    for (const v of oldVehicles) await assertResourceOwner(this.db,'vehicle',v.vehicleId,id);
+    for (const p of oldCrew) await assertResourceOwner(this.db,'crew',p.userId,id);
+  }
+  async crewAvailable(id:string, tripId:string, status:string|null) {
+    const owners = await resourceOwners(this.db,'crew',id);
+    return !owners.some(o=>o.tripId!==tripId) && (status==='AVAILABLE' || (status==='RESERVED' && owners.some(o=>o.tripId===tripId)));
+  }
+  resourceOwners(kind:'vehicle'|'crew', id:string) { return resourceOwners(this.db,kind,id); }
   fleet(id: string): Promise<{ id: string; vehicleId: string; plateNumber: string; capacityStalls: number; horseCount: number | null }[]> {
     return this.db.query(`SELECT CAST(tv.id AS CHAR) id,CAST(tv.vehicle_id AS CHAR) vehicleId,
       v.license_plate plateNumber,v.capacity_stalls capacityStalls,tv.horse_count horseCount
       FROM trip_vehicles tv JOIN vehicles v ON v.id=tv.vehicle_id WHERE tv.trip_id=? ORDER BY tv.id`, [id]);
   }
   async replaceFleet(id: string, actor: string, input: import('./trip-fleet.schema').TripFleetInput) {
+    const oldVehicles = await this.fleet(id), oldCrew = await this.assignments(id);
+    const wantedVehicles = new Set(input.vehicles.map(v=>v.vehicleId));
+    const wantedCrew = new Set(input.vehicles.flatMap(v=>v.crew.map(p=>p.userId)));
+    for (const v of oldVehicles) if (!wantedVehicles.has(v.vehicleId)) await writeResourceStatus(this.db,'vehicle',v.vehicleId,'AVAILABLE',id,actor);
+    for (const p of oldCrew) if (!wantedCrew.has(p.userId)) await writeResourceStatus(this.db,'crew',p.userId,'AVAILABLE',id,actor);
     await this.db.query('DELETE FROM trip_assignments WHERE trip_id=?', [id]);
     await this.db.query('DELETE FROM trip_vehicles WHERE trip_id=?', [id]);
     for (const vehicle of input.vehicles) {
@@ -47,6 +65,7 @@ export class TripsRepository {
         (trip_id,trip_vehicle_id,user_id,role,assigned_by,assigned_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())`,
         [id,row.id,person.userId,person.role,actor]);
     }
+    await syncTripResources(this.db,id,'RESERVED',actor);
     // Fleet is the source of truth; shared route legs no longer carry a single vehicle.
     await this.db.query('UPDATE legs SET vehicle_id=NULL WHERE trip_id=?', [id]);
   }
@@ -89,11 +108,12 @@ export class TripsRepository {
     return rows.length > 0;
   }
   async lockAvailableVehicle(id: string, tripId: string, exclusive = false): Promise<boolean> {
-    const rows = await this.db.query(`SELECT id FROM vehicles WHERE id=? AND
-      (status='AVAILABLE' OR EXISTS(SELECT 1 FROM trip_vehicles WHERE trip_id=? AND vehicle_id=vehicles.id))
-      ${exclusive ? 'FOR UPDATE' : 'FOR SHARE'}`, [id, tripId]);
-    return rows.length > 0;
+    const [row] = await this.db.query(`SELECT status FROM vehicles WHERE id=? ${exclusive?'FOR UPDATE':'FOR SHARE'}`,[id]);
+    if (!row) return false;
+    const owners = await resourceOwners(this.db,'vehicle',id);
+    return !owners.some(o=>o.tripId!==tripId) && (row.status==='AVAILABLE' || (row.status==='RESERVED' && owners.some(o=>o.tripId===tripId)));
   }
+
   async writeLeg(tripId: string, actorId: string, leg: import('./trips.validation').LegacyTripPlanInput['legs'][number], seqNo: number) {
     const values = [leg.fromLocationId, leg.toLocationId, leg.vehicleId ?? null, new Date(leg.plannedDepartureAt), new Date(leg.plannedArrivalAt), actorId];
     if (leg.id) {
@@ -212,18 +232,12 @@ export class TripsRepository {
       [`Chuyến ${id}: kế hoạch đã được gửi, chờ Manager duyệt.`, id]);
   }
   async assignmentOptions(tripId: string): Promise<CrewOption[]> {
-    const rows = await this.db.query(`SELECT CAST(u.id AS CHAR) AS id,u.full_name AS fullName,cp.crew_type AS crewType,cp.work_status AS workStatus,
-      EXISTS(SELECT 1 FROM trip_assignments a WHERE a.trip_id=? AND a.user_id=u.id) AS assignedHere
+    const rows: {id:string;fullName:string;crewType:CrewOption['crewType'];workStatus:CrewOption['workStatus']}[] = await this.db.query(`SELECT CAST(u.id AS CHAR) id,u.full_name fullName,cp.crew_type crewType,cp.work_status workStatus
       FROM users u LEFT JOIN crew_profiles cp ON cp.user_id=u.id
-      WHERE u.role='DRIVER_ESCORT' AND u.account_status='ACTIVE' ORDER BY u.full_name,u.id`, [tripId]);
-    return rows.map((row: { id: string; fullName: string; crewType: CrewOption['crewType']; workStatus: CrewOption['workStatus']; assignedHere: number }) => {
-      const blockingReasons: CrewOption['blockingReasons'] = [];
-      if (!row.crewType) blockingReasons.push({ code: 'MISSING_CREW_PROFILE', message: 'Tài khoản chưa có hồ sơ nhân sự.' });
-      else if (row.workStatus !== 'AVAILABLE' && !Number(row.assignedHere)) blockingReasons.push({ code: 'CREW_UNAVAILABLE', message: 'Nhân sự đang trong chuyến khác.' });
-      return { id: row.id, fullName: row.fullName, crewType: row.crewType, workStatus: row.workStatus,
-        selectable: blockingReasons.length ? false : null, scheduleEvaluation: 'NOT_EVALUATED', blockingReasons };
-    });
+      WHERE u.role='DRIVER_ESCORT' AND u.account_status='ACTIVE' ORDER BY u.full_name,u.id`);
+    return Promise.all(rows.map(async row => ({...row, selectable: !!row.crewType && await this.crewAvailable(row.id,tripId,row.workStatus)})));
   }
+
   assignments(id: string): Promise<AssignmentRow[]> {
     return this.db.query(`SELECT CAST(a.id AS CHAR) AS id,CAST(a.user_id AS CHAR) AS userId,u.full_name AS fullName,
       CAST(a.trip_vehicle_id AS CHAR) AS tripVehicleId,a.role,CAST(a.assigned_by AS CHAR) AS assignedBy,a.assigned_at AS assignedAt,

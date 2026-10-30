@@ -1,3 +1,4 @@
+import { syncTripResources, resourceOwners, lockResources } from '../trips/trip-resources';
 import { DataSource, EntityManager } from 'typeorm';
 import { LegStatus, MilestoneType, CrewRole, OrderStatus, PlanStatus } from '@my-project/shared';
 import { checkCrewReadiness } from '../trips/trips.crew';
@@ -233,6 +234,10 @@ export class TrackingRepository {
     plannedBy: string;
     customerId: string;
   } | undefined> {
+    const [scope] = await this.db.query('SELECT CAST(t.order_id AS CHAR) orderId,CAST(t.id AS CHAR) tripId FROM legs l JOIN trips t ON t.id=l.trip_id WHERE l.id=?',[legId]);
+    if (!scope) return undefined;
+    await this.db.query('SELECT id FROM orders WHERE id=? FOR UPDATE',[scope.orderId]);
+    await this.db.query('SELECT id FROM trips WHERE id=? FOR UPDATE',[scope.tripId]);
     const [row] = await this.db.query(
       `SELECT CAST(l.id AS CHAR) AS id, CAST(l.trip_id AS CHAR) AS tripId, l.seq_no AS seqNo, l.status,
         CAST(l.from_location_id AS CHAR) AS fromLocationId, CAST(l.to_location_id AS CHAR) AS toLocationId,
@@ -404,7 +409,9 @@ export class TrackingRepository {
     );
   }
 
-  async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+  async updateOrderStatus(orderId: string, status: OrderStatus, actor?:string): Promise<void> {
+    const trips: {id:string}[] = await this.db.query('SELECT CAST(id AS CHAR) id FROM trips WHERE order_id=? ORDER BY id',[orderId]);
+    for (const trip of trips) await syncTripResources(this.db,trip.id,status,actor);
     await this.db.query(
       `UPDATE orders SET status = ? WHERE id = ?`,
       [status, orderId]
@@ -576,6 +583,15 @@ export class TrackingRepository {
       LEFT JOIN crew_profiles cp ON cp.user_id = a.user_id WHERE a.trip_id = ?`,
       [tripId]
     );
+    const vehicleIds: {id:string}[] = await this.db.query('SELECT CAST(vehicle_id AS CHAR) id FROM trip_vehicles WHERE trip_id=?',[tripId]);
+    await lockResources(this.db,vehicleIds.map(v=>v.id),crew.map((p:{userId:string})=>p.userId));
+    for(const person of crew) {
+      const [profile] = await this.db.query('SELECT cp.work_status workStatus,cp.crew_type crewType,u.account_status accountStatus,u.role accountRole FROM users u LEFT JOIN crew_profiles cp ON cp.user_id=u.id WHERE u.id=?',[person.userId]);
+      Object.assign(person,profile);
+      const owners = await resourceOwners(this.db,'crew',person.userId);
+      person.reservedHere = owners.some(o=>o.tripId===tripId) && !owners.some(o=>o.tripId!==tripId);
+      if(owners.some(o=>o.tripId!==tripId)) person.workStatus='IN_TRIP';
+    }
     blockers.push(...checkCrewReadiness(crew).blockers);
 
     const horses: { id: string; status: string }[] = await this.db.query(
@@ -591,12 +607,13 @@ export class TrackingRepository {
     const fleet: {id:string;vehicleStatus:string;capacity:number;horseCount:number|null;busy:number}[] = await this.db.query(
       `SELECT CAST(tv.id AS CHAR) id,v.status vehicleStatus,v.capacity_stalls capacity,tv.horse_count horseCount,
         EXISTS(SELECT 1 FROM trip_vehicles other JOIN trips t ON t.id=other.trip_id JOIN orders o ON o.id=t.order_id
-          WHERE other.vehicle_id=tv.vehicle_id AND other.trip_id<>tv.trip_id AND o.status='IN_TRANSIT') busy
+          WHERE other.vehicle_id=tv.vehicle_id AND other.trip_id<>tv.trip_id AND o.status NOT IN ('DELIVERED','CANCELLED')) busy
         FROM trip_vehicles tv JOIN vehicles v ON v.id=tv.vehicle_id WHERE tv.trip_id=?`, [tripId]);
     if (!fleet.length) blockers.push({code:'VEHICLE_MISSING',message:'Chưa phân công xe.'});
     if (fleet.reduce((n,v)=>n+Number(v.horseCount || 0),0)!==normal) blockers.push({code:'VEHICLE_CAPACITY',message:'Số ngựa bố trí không khớp số ngựa NORMAL.'});
     for (const vehicle of fleet) {
       if (!vehicle.horseCount || vehicle.horseCount>vehicle.capacity) blockers.push({code:'VEHICLE_CAPACITY',message:'Số ngựa của xe vượt sức chứa hoặc chưa được phân bổ.'});
+      if (!['AVAILABLE','RESERVED'].includes(vehicle.vehicleStatus)) blockers.push({code:'VEHICLE_BUSY',message:'Xe không sẵn sàng xuất phát.'});
       if (Number(vehicle.busy)) blockers.push({code:'VEHICLE_BUSY',message:'Xe đang vận hành chuyến khác.'});
       for (const role of ['DRIVER','ESCORT']) {
         const count=crew.filter((p: {tripVehicleId:string;role:string})=>p.tripVehicleId===vehicle.id && p.role===role).length;

@@ -52,8 +52,8 @@ export class VehiclesService {
         if (!await repo.lock(id)) throw new NotFoundException('Không tìm thấy phương tiện.');
         const before = (await repo.find(id))!;
         const uses = await repo.uses(id);
-        if (before.status !== input.status && uses.length) {
-          throw new ConflictException(`Xe đang nằm trong kế hoạch đã duyệt của đơn ${uses.map(u => u.orderCode).join(', ')}; chưa thể đổi trạng thái vận hành.`);
+        if (before.status !== input.status && (uses.length || input.status !== 'AVAILABLE')) {
+          throw new ConflictException(`Trạng thái xe do phân công và vận hành quyết định${uses.length ? ` (đơn ${uses.map(u => u.orderCode).join(', ')})` : ''}; không thể đổi thủ công trái với phân công.`);
         }
         const need = Math.max(0, ...uses.map(u => u.horseCount));
         if (input.capacityStalls < need) {

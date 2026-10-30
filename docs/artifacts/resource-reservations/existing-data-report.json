@@ -1,0 +1,94 @@
+{
+  "generatedAt": "2026-10-30T05:35:36.684Z",
+  "mode": "READ ONLY",
+  "vehicles": [
+    {
+      "resourceId": "1",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "25",
+          "orderStatus": "READY"
+        },
+        {
+          "tripId": "29",
+          "orderStatus": "PREPARING"
+        }
+      ],
+      "expectedStatus": null
+    },
+    {
+      "resourceId": "2",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "28",
+          "orderStatus": "IN_TRANSIT"
+        }
+      ],
+      "expectedStatus": "IN_TRANSIT"
+    }
+  ],
+  "crew": [
+    {
+      "resourceId": "22",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "28",
+          "orderStatus": "IN_TRANSIT"
+        }
+      ],
+      "expectedStatus": "IN_TRIP"
+    },
+    {
+      "resourceId": "23",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "29",
+          "orderStatus": "PREPARING"
+        }
+      ],
+      "expectedStatus": "RESERVED"
+    },
+    {
+      "resourceId": "27",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "25",
+          "orderStatus": "READY"
+        }
+      ],
+      "expectedStatus": "RESERVED"
+    },
+    {
+      "resourceId": "1023",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "28",
+          "orderStatus": "IN_TRANSIT"
+        },
+        {
+          "tripId": "29",
+          "orderStatus": "PREPARING"
+        }
+      ],
+      "expectedStatus": null
+    },
+    {
+      "resourceId": "1027",
+      "actualStatus": "AVAILABLE",
+      "activeTrips": [
+        {
+          "tripId": "25",
+          "orderStatus": "READY"
+        }
+      ],
+      "expectedStatus": "RESERVED"
+    }
+  ],
+  "unlinkedCrew": []
+}
