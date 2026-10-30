@@ -3,7 +3,9 @@ import type {
   IDriverTripDetail,
   IDriverTripSummary,
   IHorseLog,
+  IHorseReport,
   ICareActivity,
+  ICoordinatorIncident,
   ICareActivityList,
   ICareActivityCreateInput,
   IIncident,
@@ -37,6 +39,8 @@ export const trackingApi = {
     api.post<ITripPositionBatchResult>(`/tracking/trips/${tripId}/positions`, { points }).then(r => r.data),
   recordMilestone: (legId: string, milestoneType: MilestoneType, occurredAt: string) =>
     api.post<MilestoneResult>(`/tracking/legs/${legId}/milestones`, { milestoneType, occurredAt }).then(r => r.data),
+  recordWaypointCheckin: (legId: string, waypointId: string, occurredAt: string) =>
+    api.post(`/tracking/legs/${legId}/waypoints/${waypointId}/checkin`, { occurredAt }).then(r => r.data),
   completeLeg: (legId: string, occurredAt: string) =>
     api.post(`/tracking/legs/${legId}/complete`, { occurredAt }).then(r => r.data),
   horseLogs: (tripId: string) => api.get<IHorseLog[]>(`/tracking/trips/${tripId}/horse-logs`).then(r => r.data),
@@ -44,17 +48,33 @@ export const trackingApi = {
   /** Hoạt động chăm sóc; có `range` thì tổng hợp theo khoảng (nhưng `lastFeedAtByHorse` luôn theo toàn chuyến). */
   careActivities: (tripId: string, range?: { from: string; to: string }) =>
     api.get<ICareActivityList>(`/tracking/trips/${tripId}/care-activities`, { params: range }).then(r => r.data),
-  createCareActivity: (tripId: string, body: ICareActivityCreateInput) =>
-    api.post<ICareActivity>(`/tracking/trips/${tripId}/care-activities`, body).then(r => r.data),
+  /** Có ảnh thì gửi multipart (trường `photos`), không thì JSON như cũ. */
+  createCareActivity: (tripId: string, body: ICareActivityCreateInput, photos: File[] = []) => {
+    if (!photos.length) return api.post<ICareActivity>(`/tracking/trips/${tripId}/care-activities`, body).then(r => r.data);
+    const form = new FormData();
+    for (const [key, value] of Object.entries(body)) if (value !== null && value !== undefined) form.set(key, String(value));
+    photos.forEach(photo => form.append('photos', photo));
+    return api.post<ICareActivity>(`/tracking/trips/${tripId}/care-activities`, form).then(r => r.data);
+  },
   incidents: (tripId: string) => api.get<IIncident[]>(`/tracking/trips/${tripId}/incidents`).then(r => r.data),
   createIncident: (tripId: string, form: FormData) => api.post<IIncident>(`/tracking/trips/${tripId}/incidents`, form).then(r => r.data),
   alerts: (tripId: string) => api.get<IAlert[]>(`/tracking/trips/${tripId}/alerts`).then(r => r.data),
   activeTrips: () => api.get<IActiveTrips>('/tracking/operations/active-trips').then(r => r.data),
   tripTimeline: (tripId: string) => api.get<ITripTimeline>(`/tracking/trips/${tripId}/timeline`).then(r => r.data),
   orderTimeline: (orderId: string) => api.get<IOrderTimeline>(`/tracking/orders/${orderId}/timeline`).then(r => r.data),
+  /** Customer: bản đồ hành trình, vị trí xe theo mốc tài xế đã ghi (không GPS). */
+  customerOrderMap: (orderId: string) => api.get<ITripMap>(`/tracking/orders/${orderId}/map`).then(r => r.data),
+  /** Customer: nhật ký chăm sóc ngựa của đơn mình (rỗng khi chuyến chưa sẵn sàng). */
+  customerCareActivities: (orderId: string) => api.get<ICareActivityList>(`/tracking/orders/${orderId}/care-activities`).then(r => r.data),
+  /** Customer: báo cáo sức khỏe ngựa hộ tống đã gửi cho khách. */
+  customerHorseReports: (orderId: string) => api.get<IHorseReport[]>(`/tracking/orders/${orderId}/horse-reports`).then(r => r.data),
   correctLeg: (legId: string, body: { status: LegStatus; reason: string; occurredAt?: string }) =>
     api.patch<{ legId: string; status: string; orderStatus: string }>(`/tracking/legs/${legId}/correct`, body).then(r => r.data),
-  updateIncident: (incidentId: string, body: { status: 'ACKNOWLEDGED' | 'CLOSED'; handlingNote?: string }) =>
+  /** Trang "Xử lý sự cố" của điều phối viên: đang mở (NEW / đang xử lý) hoặc đã xử lý. */
+  coordinatorIncidents: (scope: 'open' | 'closed') => api.get<ICoordinatorIncident[]>('/tracking/incidents', { params: { scope } }).then(r => r.data),
+  incident: (incidentId: string) => api.get<ICoordinatorIncident>(`/tracking/incidents/${incidentId}`).then(r => r.data),
+  /** ACKNOWLEDGED = gửi hướng xử lý (gửi được nhiều lần, kèm thời gian chờ); CLOSED = đã xử lý xong. */
+  updateIncident: (incidentId: string, body: { status: 'ACKNOWLEDGED' | 'CLOSED'; handlingNote: string; waitMinutes?: number | null }) =>
     api.patch<IIncident>(`/tracking/incidents/${incidentId}`, body).then(r => r.data),
   createAlert: (tripId: string, body: { alertType: AlertType; content: string }) =>
     api.post<IAlert>(`/tracking/trips/${tripId}/alerts`, body).then(r => r.data),

@@ -88,3 +88,9 @@
   .esc-columns { grid-template-columns: minmax(0, 1fr); }
   .esc-side { position: static; order: -1; }
 }
+
+/* Ảnh cập nhật cho khách trong nhật ký chăm sóc */
+.esc-photos { display: grid; gap: 6px; }
+.drs .esc-photos.is-invalid .drv-photo-add { border-color: var(--drs-red); color: var(--drs-red-text); }
+.esc-row-photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.esc-row-photos .trk-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid var(--drs-line); background: var(--drs-soft); display: inline-grid; place-items: center; font-size: 10px; color: var(--drs-muted); text-align: center; }

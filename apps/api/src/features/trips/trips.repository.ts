@@ -186,8 +186,13 @@ export class TripsRepository {
     await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason)
       VALUES (?,'TRIP',?,'REVIEW_PLAN',?,?,?)`, [actor, id, before, after, reason]);
   }
+  /** Mã đơn để nội dung thông báo dễ đọc ("Đơn VCN-…"); thiếu thì về id chuyến. */
+  private async tripLabel(tripId: string) {
+    const [row] = await this.db.query('SELECT o.order_code AS code FROM trips t JOIN orders o ON o.id=t.order_id WHERE t.id=?', [tripId]);
+    return row?.code ? `Đơn ${row.code}` : `Chuyến ${tripId}`;
+  }
   async notifyPlanCoordinator(id: string, coordinatorId: string, decision: string, reason: string | null) {
-    const message = `Chuyến ${id}: ${decision === 'APPROVED' ? 'kế hoạch đã được duyệt.' : 'kế hoạch được trả lại: ' + reason}`;
+    const message = `${await this.tripLabel(id)}: ${decision === 'APPROVED' ? 'kế hoạch đã được duyệt.' : 'kế hoạch được trả lại: ' + reason}`;
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       VALUES (?,'TRIP_PLAN_REVIEWED',?,'TRIP',?,'IN_APP')`, [coordinatorId, message, id]);
   }
@@ -209,7 +214,7 @@ export class TripsRepository {
   async notifyPlanManagers(id: string) {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       SELECT id,'TRIP_PLAN_SUBMITTED',?,'TRIP',?,'IN_APP' FROM users WHERE role='MANAGER' AND account_status='ACTIVE'`,
-      [`Chuyến ${id}: kế hoạch đã được gửi, chờ Manager duyệt.`, id]);
+      [`${await this.tripLabel(id)}: kế hoạch đã được gửi, chờ Manager duyệt.`, id]);
   }
   async assignmentOptions(tripId: string): Promise<CrewOption[]> {
     const rows = await this.db.query(`SELECT CAST(u.id AS CHAR) AS id,u.full_name AS fullName,cp.crew_type AS crewType,cp.work_status AS workStatus,
@@ -265,12 +270,14 @@ export class TripsRepository {
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       SELECT id,'ORDER_READY',?,'ORDER',?,'IN_APP' FROM users WHERE id IN
       (SELECT customer_id FROM orders WHERE id=? UNION SELECT planned_by FROM trips WHERE id=? UNION SELECT user_id FROM trip_assignments WHERE trip_id=?)`,
-    [`Manager đã chuyển chuyến ${tripId} cho tổ tài xế. Đơn ${orderId} sẵn sàng vận chuyển.`, orderId, orderId, tripId, tripId]);
+    [`${await this.tripLabel(tripId)}: Manager đã chuyển chuyến cho tổ tài xế, sẵn sàng vận chuyển.`, orderId, orderId, tripId, tripId]);
   }
   async notifyCrew(tripId: string, userId: string, role: string | null) {
+    const label = await this.tripLabel(tripId);
+    const roleName = ({ DRIVER: 'tài xế', ESCORT: 'hộ tống' } as Record<string, string>)[role ?? ''] ?? role;
     await this.db.query(`INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel)
       VALUES (?,'TRIP_CREW_CHANGED',?,'TRIP',?,'IN_APP')`, [userId,
-      role ? `Chuyến ${tripId}: bạn được phân công vai trò ${role}.` : `Chuyến ${tripId}: phân công của bạn đã được gỡ.`, tripId]);
+      role ? `${label}: bạn được phân công vai trò ${roleName}.` : `${label}: phân công của bạn đã được gỡ.`, tripId]);
   }
   async list(scope: TripScope, limit: number, offset: number): Promise<{ rows: TripListRow[]; total: number }> {
     const where = scopeWhere(scope);

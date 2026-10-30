@@ -15,6 +15,7 @@ export function trackingRoutes(service: TrackingService) {
   router.get('/driver/trips', authorize(Role.DRIVER_ESCORT), controller.driverTrips);
   router.get('/trips/:id', authorize(...internal), controller.tripDetail);
   router.post('/legs/:legId/milestones', authorize(Role.DRIVER_ESCORT), controller.recordMilestone);
+  router.post('/legs/:legId/waypoints/:waypointId/checkin', authorize(Role.DRIVER_ESCORT), controller.recordWaypointCheckin);
   router.post('/legs/:legId/complete', authorize(Role.DRIVER_ESCORT), controller.completeLeg);
   router.patch('/legs/:legId/correct', authorize(Role.COORDINATOR, Role.MANAGER), controller.correctLeg);
 
@@ -28,11 +29,18 @@ export function trackingRoutes(service: TrackingService) {
   // Khách xem báo cáo đã gửi cho đơn của mình
   router.get('/orders/:orderId/horse-reports', authorize(Role.CUSTOMER), controller.customerHorseReports);
   router.post('/orders/:orderId/horse-reports/:id/view', authorize(Role.CUSTOMER), controller.viewHorseReport);
+  // Khách xem nhật ký chăm sóc (cho ăn, uống nước, nghỉ chân) của đơn mình
+  router.get('/orders/:orderId/care-activities', authorize(Role.CUSTOMER), controller.customerCareActivities);
+  // Khách xem bản đồ hành trình theo mốc (không GPS)
+  router.get('/orders/:orderId/map', createUserRateLimiter(60), authorize(Role.CUSTOMER), controller.customerOrderMap);
   // Hoạt động chăm sóc (gap-analysis-escort.md): chỉ hộ tống ghi; đọc cho mọi vai trò nội bộ trong phạm vi chuyến
-  router.post('/trips/:tripId/care-activities', authorize(Role.DRIVER_ESCORT), controller.createCareActivity);
+  router.post('/trips/:tripId/care-activities', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createCareActivity);
   router.get('/trips/:tripId/care-activities', authorize(...internal), controller.careActivities);
   router.post('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT), uploadPhotos, controller.createIncident);
   router.get('/trips/:tripId/incidents', authorize(Role.DRIVER_ESCORT, Role.COORDINATOR, Role.MANAGER), controller.incidents);
+  // Trang "Xử lý sự cố" của điều phối viên (Manager xem được tất cả)
+  router.get('/incidents', authorize(Role.COORDINATOR, Role.MANAGER), controller.coordinatorIncidents);
+  router.get('/incidents/:id', authorize(Role.COORDINATOR, Role.MANAGER), controller.incident);
   router.patch('/incidents/:id', authorize(Role.COORDINATOR), controller.updateIncident);
   router.post('/trips/:tripId/alerts', authorize(Role.COORDINATOR), controller.createAlert);
   router.get('/trips/:tripId/alerts', authorize(...internal), controller.alerts);

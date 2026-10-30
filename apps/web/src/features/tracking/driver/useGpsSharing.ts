@@ -15,7 +15,7 @@ const MAX_BACKOFF_MS = 5 * 60_000;
 const PREFIX = 'wdp:tracking:';
 
 export type GpsStatus = 'off' | 'unsupported' | 'denied' | 'locating' | 'sharing' | 'offline' | 'stopped';
-export type GpsFix = { lng: number; lat: number; speedKmh: number | null; at: string };
+export type GpsFix = { lng: number; lat: number; speedKmh: number | null; headingDeg: number | null; at: string };
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -159,7 +159,7 @@ export function useGpsSharing({ tripId, userId, eligible }: { tripId: string; us
         const queue = [...gpsQueue.get(tripId, userId), point];
         gpsQueue.set(tripId, userId, queue);
         setQueued(queue.length);
-        setLastFix({ lng: point.longitude, lat: point.latitude, speedKmh: point.speedMps === undefined ? null : Math.round(point.speedMps * 3.6), at: recordedAt });
+        setLastFix({ lng: point.longitude, lat: point.latitude, speedKmh: point.speedMps === undefined ? null : Math.round(point.speedMps * 3.6), headingDeg: point.headingDeg ?? null, at: recordedAt });
         setStatus(current => (current === 'locating' ? 'sharing' : current));
       },
       error => {

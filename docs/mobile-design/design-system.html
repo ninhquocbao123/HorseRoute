@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HorseRoute Design System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: thanh trên dính (tên + chuyển sáng/tối + mục lục), nội dung một cột rộng tối đa 1120px;
+   mỗi component một hàng, các trạng thái xếp cạnh nhau trong ô rộng như màn điện thoại 343pt. */
+:root{--bg:#f6faf9;--surface:#ffffff;--surfaceMuted:#e7f1f1;--surfaceElevated:#ffffff;--surfaceBrand:#0b3b42;--surfaceBrandAlt:#14606a;--onBrand:#ffffff;--onBrandMuted:#b9d3d6;--textPrimary:#0d2a2e;--textSecondary:#546d71;--textDisabled:#94a8a9;--border:#d8e6e6;--borderInput:#738a8d;--borderStrong:#0b3b42;--accent:#f4b942;--accentPressed:#ce9025;--onAccent:#2b1a00;--accentText:#7b4e00;--accentSubtle:#fef9ec;--link:#14606a;--focusRing:#14606a;--tabActive:#0b3b42;--tabInactive:#546d71;--successFg:#166534;--successBg:#eaf6ee;--successSolid:#166534;--warningFg:#a24a05;--warningBg:#fdf1e4;--warningSolid:#b45309;--dangerFg:#b42318;--dangerBg:#fdeceb;--dangerSolid:#dc2626;--infoFg:#14606a;--infoBg:#f2f8f8;--infoSolid:#14606a;--neutralFg:#546d71;--neutralBg:#e7f0f0;--overlay:rgba(6,20,22,0.48);--shadow-sm:0 1px 2px rgba(11,59,66,.04),0 0 0 0 transparent;--shadow-md:0 4px 12px rgba(11,59,66,.06);--shadow-lg:0 12px 32px rgba(11,59,66,.10)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#061416;--surface:#0c2326;--surfaceMuted:#08191b;--surfaceElevated:#133034;--surfaceBrand:#104d56;--surfaceBrandAlt:#14606a;--onBrand:#ffffff;--onBrandMuted:#b9d3d6;--textPrimary:#e8f4f4;--textSecondary:#96b4b7;--textDisabled:#55716f;--border:#1a3a3e;--borderInput:#56777a;--borderStrong:#96b4b7;--accent:#f4b942;--accentPressed:#f5c76d;--onAccent:#2b1a00;--accentText:#f5c76d;--accentSubtle:#2a2410;--link:#7cc7cf;--focusRing:#7cc7cf;--tabActive:#e8f4f4;--tabInactive:#96b4b7;--successFg:#6fd39a;--successBg:#0f2a1e;--successSolid:#17753f;--warningFg:#f3a35c;--warningBg:#2e1f0f;--warningSolid:#b45309;--dangerFg:#ff8a80;--dangerBg:#341514;--dangerSolid:#dc2626;--infoFg:#7cc7cf;--infoBg:#0f2e33;--infoSolid:#14606a;--neutralFg:#96b4b7;--neutralBg:#12302f;--overlay:rgba(0,0,0,0.6);--shadow-sm:none;--shadow-md:none;--shadow-lg:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#061416;--surface:#0c2326;--surfaceMuted:#08191b;--surfaceElevated:#133034;--surfaceBrand:#104d56;--surfaceBrandAlt:#14606a;--onBrand:#ffffff;--onBrandMuted:#b9d3d6;--textPrimary:#e8f4f4;--textSecondary:#96b4b7;--textDisabled:#55716f;--border:#1a3a3e;--borderInput:#56777a;--borderStrong:#96b4b7;--accent:#f4b942;--accentPressed:#f5c76d;--onAccent:#2b1a00;--accentText:#f5c76d;--accentSubtle:#2a2410;--link:#7cc7cf;--focusRing:#7cc7cf;--tabActive:#e8f4f4;--tabInactive:#96b4b7;--successFg:#6fd39a;--successBg:#0f2a1e;--successSolid:#17753f;--warningFg:#f3a35c;--warningBg:#2e1f0f;--warningSolid:#b45309;--dangerFg:#ff8a80;--dangerBg:#341514;--dangerSolid:#dc2626;--infoFg:#7cc7cf;--infoBg:#0f2e33;--infoSolid:#14606a;--neutralFg:#96b4b7;--neutralBg:#12302f;--overlay:rgba(0,0,0,0.6);--shadow-sm:none;--shadow-md:none;--shadow-lg:none;color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+:root{--font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+html{scroll-padding-top:120px}
+body{margin:0;background:var(--bg);color:var(--textPrimary);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--borderInput);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--border)}
+.top .in{max-width:1120px;margin:0 auto;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
+.brandmark{display:flex;gap:10px;align-items:center;font-weight:700;font-size:17px}
+.brandmark .tile{width:32px;height:32px;border-radius:9px;background:var(--accent);color:var(--onAccent);display:grid;place-items:center}
+.brandmark small{font-weight:500;color:var(--textSecondary);font-size:13px}
+.seg{display:inline-flex;background:var(--surfaceMuted);border-radius:12px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:13px;font-weight:600;border:0;background:transparent;color:var(--textPrimary);padding:6px 12px;border-radius:9px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--surfaceBrand);color:var(--onBrand)}
+.seg button:focus-visible,.toc a:focus-visible{outline:2px solid var(--focusRing);outline-offset:2px}
+.toc{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:13px;width:100%}
+.toc a{color:var(--textSecondary);text-decoration:none;font-weight:500;padding:2px 0}
+.toc a:hover{color:var(--link)}
+@media (max-width:700px){.toc{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;padding-bottom:4px}.brandmark small{display:none}}
+.spacer{flex:1}
+main{max-width:1120px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:56px}
+h1{font-size:28px;line-height:36px;margin:0;letter-spacing:-.3px;text-wrap:balance}
+h2{font-size:22px;line-height:30px;margin:0;letter-spacing:-.2px;text-wrap:balance}
+h3{font-size:17px;line-height:24px;margin:0}
+p{margin:0;max-width:68ch}
+.lead{color:var(--textSecondary);font-size:16px}
+.sec{display:flex;flex-direction:column;gap:20px;min-width:0}
+.sec-h{display:flex;flex-direction:column;gap:6px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--textSecondary)}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--textSecondary)}
+.note{font-size:13px;color:var(--textSecondary)}
+.scroll{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;font-size:13px;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+th{font-weight:600;color:var(--textSecondary);font-size:12px}
+.pass{color:var(--successFg);font-weight:600}
+.fail{color:var(--dangerFg);font-weight:600}
+/* bảng màu */
+.scale{display:flex;flex-direction:column;gap:6px}
+.scale .row{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:4px}
+.sw{border-radius:8px;height:56px;display:flex;align-items:flex-end;padding:5px 6px;font-size:10.5px;font-family:var(--mono);line-height:1.2;border:1px solid rgba(127,127,127,.15)}
+.sw.anchor{outline:2px solid var(--textPrimary);outline-offset:1px}
+.scale .lbls{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:4px;font-size:11px;color:var(--textSecondary);font-family:var(--mono)}
+@media (max-width:700px){.scale .row,.scale .lbls{grid-template-columns:repeat(6,minmax(0,1fr))}.sw{height:44px}}
+.chip-sw{display:inline-block;width:18px;height:18px;border-radius:5px;vertical-align:middle;border:1px solid rgba(127,127,127,.3)}
+/* lưới demo */
+.comp{display:flex;flex-direction:column;gap:12px;padding-block:20px;border-top:1px solid var(--border)}
+.sec-h + .comp{border-top:0;padding-top:0}
+.comp-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.comp-h .mono{color:var(--textSecondary)}
+.comp-h p{flex-basis:100%;font-size:14px;color:var(--textSecondary)}
+.states{display:flex;align-items:flex-start;gap:16px;overflow-x:auto;padding-bottom:8px;min-width:0}
+.cell{flex:none;width:343px;max-width:calc(100vw - 48px);display:flex;flex-direction:column;gap:8px}
+.cell.wide{width:375px}
+.cell.narrow{width:200px}
+.cell .lab{font-size:12px;font-weight:600;color:var(--textSecondary)}
+.stage{background:var(--bg);border:1px dashed var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:72px;justify-content:center;position:relative;overflow:hidden}
+.stage.surface{background:var(--surface)}
+.stage.flush{padding:0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ================= Component (đúng token, đúng kích thước pt) ================= */
+.k{font-family:var(--font);color:var(--textPrimary)}
+.ic{flex:none;display:block}
+.t-largeTitle{font-size:34px;line-height:42px;font-weight:700;letter-spacing:-.4px}
+.t-title1{font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.3px}
+.t-title2{font-size:22px;line-height:30px;font-weight:600;letter-spacing:-.2px}
+.t-title3{font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.1px}
+.t-display{font-size:24px;line-height:32px;font-weight:700;letter-spacing:-.2px}
+.t-headline{font-size:17px;line-height:24px;font-weight:600}
+.t-body{font-size:17px;line-height:26px}
+.t-callout{font-size:16px;line-height:24px}
+.t-subhead{font-size:15px;line-height:22px}
+.t-footnote{font-size:13px;line-height:19px}
+.t-caption{font-size:12px;line-height:18px;font-weight:500;letter-spacing:.1px}
+.t2{color:var(--textSecondary)}
+/* Button */
+.k-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;font:600 17px/22px var(--font);border:1.5px solid transparent;height:48px;padding:0 20px;width:100%;cursor:pointer;transition:transform .15s,background .15s}
+.k-btn.L{height:56px;font-size:18px;line-height:24px}
+.k-btn.XL{height:64px;font-size:18px;line-height:24px;border-radius:16px}
+.k-btn.S{height:36px;font-size:15px;line-height:20px;padding:0 14px;width:auto;border-radius:8px}
+.k-btn.hug{width:auto}
+.k-btn.primary{background:var(--accent);color:var(--onAccent)}
+.k-btn.primary.is-pressed{background:var(--accentPressed);transform:scale(.98)}
+.k-btn.secondary{background:var(--surface);color:var(--textPrimary);border-color:var(--borderStrong)}
+.k-btn.secondary.is-pressed{background:var(--surfaceMuted);transform:scale(.98)}
+.k-btn.tertiary{background:transparent;color:var(--link);text-decoration:underline;text-underline-offset:3px}
+.k-btn.tertiary.is-pressed{background:var(--surfaceMuted)}
+.k-btn.destructive{background:var(--dangerSolid);color:#fff}
+.k-btn.destructive.is-pressed{filter:brightness(.9);transform:scale(.98)}
+.k-btn.danger-outline{background:var(--surface);color:var(--dangerFg);border-color:var(--dangerFg)}
+.k-btn[disabled]{background:var(--surfaceMuted);color:var(--textDisabled);border-color:transparent;cursor:not-allowed;text-decoration:none}
+.k-btn.is-focus{outline:2px solid var(--focusRing);outline-offset:2px}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.k-iconbtn{width:44px;height:44px;border-radius:999px;display:grid;place-items:center;border:0;background:transparent;color:var(--textPrimary);cursor:pointer;position:relative}
+.k-iconbtn.filled{background:var(--surfaceMuted)}
+.k-iconbtn.is-pressed{background:var(--border)}
+.k-iconbtn[disabled]{color:var(--textDisabled)}
+.dot{position:absolute;top:9px;right:9px;width:9px;height:9px;border-radius:9px;background:var(--accent);border:2px solid var(--surface)}
+.row{display:flex;gap:12px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:12px}
+/* Field */
+.k-field{display:flex;flex-direction:column;gap:6px}
+.k-box{display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 14px;border-radius:12px;background:var(--surface);border:1.5px solid var(--borderInput)}
+.k-box .in{flex:1;display:flex;flex-direction:column;min-width:0}
+.k-box .fl{font-size:12px;line-height:16px;color:var(--textSecondary);font-weight:500}
+.k-box .v{font-size:17px;line-height:24px;color:var(--textPrimary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-box .ph{font-size:17px;line-height:24px;color:var(--textSecondary)}
+.k-box .ic{color:var(--textSecondary)}
+.k-box.focus{border-color:var(--focusRing);box-shadow:0 0 0 3px color-mix(in srgb,var(--focusRing) 22%,transparent)}
+.k-box.error{border-color:var(--dangerFg)}
+.k-box.disabled{background:var(--surfaceMuted);border-color:transparent}
+.k-box.disabled .v{color:var(--textDisabled)}
+.caret{display:inline-block;width:2px;height:20px;background:var(--focusRing);vertical-align:middle;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.help{font-size:13px;line-height:19px;color:var(--textSecondary);display:flex;gap:6px;align-items:flex-start}
+.help.err{color:var(--dangerFg)}
+.k-area{min-height:120px;align-items:flex-start;padding:12px 14px}
+.k-area .v{white-space:normal}
+.count{font-size:12px;color:var(--textSecondary);text-align:right;font-variant-numeric:tabular-nums}
+.k-label{font-size:15px;font-weight:600}
+/* options list */
+.k-options{background:var(--surfaceElevated);border-radius:16px;border:1px solid var(--border);overflow:hidden}
+.k-opt{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-bottom:1px solid var(--border);font-size:17px}
+.k-opt:last-child{border-bottom:0}
+.k-opt.sel{font-weight:600}
+.k-opt .ic.chk{margin-left:auto;color:var(--link)}
+/* Chip */
+.k-chip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--borderInput);background:var(--surface);font:500 15px/20px var(--font);color:var(--textPrimary)}
+.k-chip.L{height:56px;padding:0 18px;font-size:16px;border-radius:16px}
+.k-chip.sel{background:var(--surfaceBrand);border-color:var(--surfaceBrand);color:var(--onBrand)}
+.k-chip.pressed{background:var(--surfaceMuted)}
+.k-chip.dis{background:var(--surfaceMuted);border-color:transparent;color:var(--textDisabled)}
+.k-chip.filter{height:36px;padding:0 12px;font-size:14px}
+.k-chip .n{font-variant-numeric:tabular-nums;opacity:.8}
+/* Stepper */
+.k-stepper{display:flex;align-items:center;border:1.5px solid var(--borderInput);border-radius:12px;background:var(--surface);height:56px;overflow:hidden}
+.k-stepper button{width:64px;height:100%;border:0;background:transparent;color:var(--textPrimary);display:grid;place-items:center;cursor:pointer}
+.k-stepper button[disabled]{color:var(--textDisabled)}
+.k-stepper button.is-pressed{background:var(--surfaceMuted)}
+.k-stepper .val{flex:1;text-align:center;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;border-inline:1px solid var(--border);height:100%;display:flex;align-items:center;justify-content:center;gap:6px}
+.k-stepper .val small{font-size:15px;font-weight:500;color:var(--textSecondary)}
+/* Checklist item */
+.k-checkrow{display:flex;align-items:center;gap:14px;min-height:64px;padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:16px}
+.k-checkrow .tx{flex:1;display:flex;flex-direction:column}
+.k-checkrow .tx b{font-size:17px;line-height:24px;font-weight:600}
+.k-checkrow .tx span{font-size:13px;line-height:19px;color:var(--textSecondary)}
+.k-cb{width:28px;height:28px;border-radius:8px;border:2px solid var(--borderInput);display:grid;place-items:center;flex:none;background:var(--surface);color:var(--onBrand)}
+.k-cb.on{background:var(--surfaceBrand);border-color:var(--surfaceBrand)}
+.k-cb.sm{width:22px;height:22px;border-radius:6px}
+.k-checkrow.done{background:var(--surfaceMuted);border-color:transparent}
+.k-checkrow.err{border-color:var(--dangerFg)}
+.k-checkrow.dis .k-cb{background:var(--surfaceMuted);border-color:var(--border)}
+.k-checkrow.dis b{color:var(--textDisabled)}
+/* Switch */
+.k-switch{width:51px;height:31px;border-radius:999px;background:var(--borderInput);position:relative;flex:none}
+.k-switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .25s}
+.k-switch.on{background:var(--surfaceBrandAlt)}
+.k-switch.on::after{left:22px}
+.k-switch.dis{opacity:.45}
+.setrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;background:var(--surface);border-radius:16px;border:1px solid var(--border)}
+.setrow .tx{flex:1;font-size:17px}
+/* Card */
+.k-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.k-card.brand{background:var(--surfaceBrand);border-color:var(--surfaceBrand);color:var(--onBrand)}
+.k-card.brand .t2{color:var(--onBrandMuted)}
+.k-card.grad{background:linear-gradient(150deg,#0b3b42 0%,#14606a 100%);border-color:transparent;color:#fff}
+.k-card.grad .t2{color:#b9d3d6}
+.k-card.press{background:var(--surfaceMuted)}
+.k-card.sel{border:2px solid var(--borderStrong)}
+.k-card.elev{box-shadow:var(--shadow-sm)}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:15px;line-height:22px}
+.kv span:first-child{color:var(--textSecondary)}
+.kv b{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.hr{height:1px;background:var(--border)}
+.k-card.brand .hr{background:rgba(255,255,255,.18)}
+/* ListItem */
+.k-list{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.k-li{display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.k-li:last-child{border-bottom:0}
+.k-li .lead{width:40px;height:40px;border-radius:12px;background:var(--surfaceMuted);display:grid;place-items:center;color:var(--textPrimary);flex:none}
+.k-li .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.k-li .tx b{font-size:16px;line-height:22px;font-weight:600}
+.k-li .tx span{font-size:13px;line-height:19px;color:var(--textSecondary)}
+.k-li .tr{color:var(--textSecondary);display:flex;align-items:center;gap:6px;font-size:15px}
+.k-li.press{background:var(--surfaceMuted)}
+.k-li.unread{background:var(--accentSubtle)}
+.k-li .udot{width:9px;height:9px;border-radius:9px;background:var(--accent);flex:none}
+.k-li.dis b,.k-li.dis span{color:var(--textDisabled)}
+/* Badge */
+.k-badge{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 8px;border-radius:999px;font:600 13px/18px var(--font);white-space:nowrap}
+.k-badge.sm{height:22px;font-size:12px;padding:0 8px 0 6px;gap:4px}
+.tone-neutral{color:var(--neutralFg);background:var(--neutralBg)}
+.tone-info{color:var(--infoFg);background:var(--infoBg)}
+.tone-brand{color:var(--onBrand);background:var(--surfaceBrand)}
+.tone-success{color:var(--successFg);background:var(--successBg)}
+.tone-warning{color:var(--warningFg);background:var(--warningBg)}
+.tone-danger{color:var(--dangerFg);background:var(--dangerBg)}
+.k-card.brand .k-badge.tone-brand,.k-card.grad .k-badge.tone-brand{background:rgba(255,255,255,.14)}
+.statusgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;align-items:start}
+.sgroup{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sgroup h3{font-size:15px}
+.sgroup .mono{color:var(--textSecondary);font-size:11px}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;min-width:0}
+.srow .mono{overflow:hidden;text-overflow:ellipsis}
+/* Severity bars */
+.sev{display:inline-flex;gap:2px;align-items:flex-end;height:14px}
+.sev i{width:4px;border-radius:1px;background:currentColor;opacity:.25}
+.sev i:nth-child(1){height:6px}.sev i:nth-child(2){height:10px}.sev i:nth-child(3){height:14px}
+.sev i.on{opacity:1}
+/* HorseCard */
+.k-horse{display:flex;gap:12px;align-items:flex-start}
+.k-horse .ph{width:56px;height:56px;border-radius:12px;background:var(--surfaceMuted);display:grid;place-items:center;color:var(--textSecondary);flex:none}
+.k-horse .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.flag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 10px;border-radius:8px;background:var(--surfaceBrand);color:var(--onBrand);align-self:flex-start}
+.metrics{display:flex;gap:16px;font-size:13px;color:var(--textSecondary)}
+.metrics b{color:var(--textPrimary);font-weight:600;font-variant-numeric:tabular-nums}
+/* Timeline */
+.k-tl{display:flex;flex-direction:column}
+.k-st{display:grid;grid-template-columns:28px 1fr auto;gap:0 12px;min-height:60px}
+.k-st .rail{display:flex;flex-direction:column;align-items:center}
+.k-st .nd{width:20px;height:20px;border-radius:20px;border:2px solid var(--borderInput);background:var(--surface);display:grid;place-items:center;flex:none;margin-top:2px;color:var(--onBrand)}
+.k-st .ln{flex:1;width:2px;background:var(--border);margin:2px 0}
+.k-st:last-child .ln{display:none}
+.k-st.done .nd{background:var(--surfaceBrandAlt);border-color:var(--surfaceBrandAlt)}
+.k-st.done .ln{background:var(--surfaceBrandAlt)}
+.k-st.cur .nd{width:24px;height:24px;border:6px solid var(--accent);margin-top:0;background:var(--surfaceBrand)}
+.k-st .tx{display:flex;flex-direction:column;padding-bottom:12px}
+.k-st .tx b{font-size:16px;line-height:22px;font-weight:600}
+.k-st .tx span{font-size:13px;line-height:19px;color:var(--textSecondary)}
+.k-st .tm{font-size:13px;font-variant-numeric:tabular-nums;color:var(--textSecondary);text-align:right;padding-top:2px}
+.k-st.cur .tx b{font-size:17px}
+.k-st.up .tx b{color:var(--textSecondary);font-weight:500}
+/* Map */
+.k-map{height:180px;border-radius:16px;position:relative;overflow:hidden;background:
+ linear-gradient(var(--surfaceMuted),var(--surfaceMuted));border:1px solid var(--border)}
+.k-map svg.base{position:absolute;inset:0;width:100%;height:100%}
+.k-map .tag{position:absolute;left:10px;bottom:10px;background:var(--surface);color:var(--textPrimary);font-size:12px;font-weight:600;padding:5px 9px;border-radius:8px;display:flex;gap:6px;align-items:center;box-shadow:var(--shadow-sm)}
+.k-map .fs{position:absolute;right:8px;top:8px;background:var(--surface);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.k-map .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--textSecondary);font-size:14px;text-align:center;padding:16px}
+/* Photo */
+.k-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.k-ph{aspect-ratio:1;max-width:100%;border-radius:12px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:600}
+.k-ph.add{border:1.5px dashed var(--borderInput);color:var(--textPrimary);background:var(--surface)}
+.k-ph.add.err{border-color:var(--dangerFg);color:var(--dangerFg)}
+.k-ph.img{background:linear-gradient(135deg,#8aa3a6,#546d71)}
+.k-ph.img::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 35%,rgba(255,255,255,.35),transparent 40%)}
+.k-ph .x{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:24px;background:rgba(6,20,22,.6);color:#fff;display:grid;place-items:center}
+.k-ph .bar{position:absolute;left:8px;right:8px;bottom:8px;height:4px;border-radius:4px;background:rgba(255,255,255,.35)}
+.k-ph .bar i{display:block;height:100%;width:60%;background:#fff;border-radius:4px}
+.k-ph .veil{position:absolute;inset:0;background:rgba(6,20,22,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff}
+.k-ph .q{position:absolute;left:6px;bottom:6px;background:rgba(6,20,22,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:6px;display:flex;gap:4px;align-items:center}
+/* Sheet + dialog */
+.phone-bg{background:var(--bg);border-radius:16px;position:relative;height:420px;overflow:hidden;border:1px dashed var(--border)}
+.phone-bg .ghost{padding:16px;display:flex;flex-direction:column;gap:10px}
+.ghost i{display:block;height:14px;border-radius:6px;background:var(--surfaceMuted)}
+.scrim{position:absolute;inset:0;background:var(--overlay)}
+.k-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surfaceElevated);border-radius:24px 24px 0 0;padding:8px 16px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow-lg)}
+.grab{width:36px;height:5px;border-radius:5px;background:var(--borderInput);align-self:center}
+.sheet-h{display:flex;align-items:center;gap:8px}
+.sheet-h h4{flex:1;margin:0;font-size:20px;line-height:28px;font-weight:600}
+.k-dialog{position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);background:var(--surfaceElevated);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow-lg)}
+.k-dialog h4{margin:0;font-size:20px;line-height:28px}
+/* Toast */
+.k-toast{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 12px 10px 16px;border-radius:16px;background:var(--surfaceBrand);color:var(--onBrand);box-shadow:var(--shadow-lg);font-size:15px;line-height:22px}
+.k-toast .tx{flex:1}
+.k-notif{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:22px;background:var(--surfaceElevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);color:var(--textPrimary)}
+.k-notif .ap{width:38px;height:38px;flex:none;border-radius:10px;background:var(--surfaceBrand);color:var(--accent);display:grid;place-items:center}
+.k-notif .nt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:15px;line-height:20px}
+.k-notif .nh{display:flex;justify-content:space-between;gap:8px;font-size:13px;line-height:18px;color:var(--textSecondary)}
+.k-notif .nh b{font-weight:600;color:var(--textPrimary)}
+.k-toast .act{font-weight:700;color:var(--accent);background:transparent;border:0;font:inherit;font-weight:700;padding:8px;min-height:44px;display:flex;align-items:center;gap:6px}
+.k-toast.err{background:var(--dangerBg);color:var(--dangerFg);border:1px solid var(--dangerFg)}
+.k-toast .cd{font-variant-numeric:tabular-nums;color:var(--onBrandMuted);font-size:13px}
+/* Banner */
+.k-banner{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 16px;font-size:15px;line-height:20px;font-weight:500}
+.k-banner .tx{flex:1}
+.k-banner.offline{background:var(--surfaceBrand);color:var(--onBrand)}
+.k-banner.sync{background:var(--surfaceBrandAlt);color:var(--onBrand)}
+.k-banner.warn{background:var(--warningBg);color:var(--warningFg)}
+.k-banner.danger{background:var(--dangerBg);color:var(--dangerFg)}
+.k-banner.info{background:var(--infoBg);color:var(--infoFg)}
+/* Sync indicator */
+.k-sync{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:600}
+/* Empty / error */
+.k-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:28px 8px}
+.k-empty .art{width:64px;height:64px;border-radius:20px;background:var(--surfaceMuted);display:grid;place-items:center;color:var(--textPrimary)}
+.k-empty.err .art{background:var(--dangerBg);color:var(--dangerFg)}
+.k-empty p{color:var(--textSecondary);font-size:15px;max-width:30ch}
+/* Skeleton */
+.sk{background:var(--surfaceMuted);border-radius:8px;position:relative;overflow:hidden}
+.sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--surface) 60%,transparent),transparent);animation:shim 1.4s infinite}
+@keyframes shim{to{transform:translateX(100%)}}
+/* Tab bar */
+.k-tabbar{display:flex;background:var(--surface);border-top:1px solid var(--border);height:56px;box-shadow:var(--shadow-md)}
+.k-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;line-height:14px;font-weight:500;color:var(--tabInactive);position:relative}
+.k-tab.on{color:var(--tabActive);font-weight:700}
+.k-tab.on::before{content:"";position:absolute;top:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+.k-tab .bdg{position:absolute;top:5px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--surfaceBrand);color:var(--onBrand);font-size:11px;font-weight:700;display:grid;place-items:center;border:2px solid var(--surface)}
+/* Header */
+.k-head{background:var(--surface);display:flex;flex-direction:column}
+.k-head .bar{display:flex;align-items:center;height:52px;padding:0 4px;gap:2px}
+.k-head .bar .tt{flex:1;font-size:17px;font-weight:600;text-align:center;margin-right:44px}
+.k-head .bar .tt.left{text-align:left;margin-right:0;font-size:15px}
+.k-head .big{padding:2px 16px 12px}
+.k-head.line{border-bottom:1px solid var(--border)}
+.k-head .prog{height:4px;background:var(--surfaceMuted);margin:0 16px 10px;border-radius:4px}
+.k-head .prog i{display:block;height:100%;width:50%;background:var(--surfaceBrandAlt);border-radius:4px}
+/* SOS */
+.sosbar{display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--border)}
+.sosbar .k-btn.sos{width:auto;flex:none;padding:0 16px;white-space:nowrap}
+/* Permission */
+.k-perm{display:flex;flex-direction:column;gap:16px;padding:8px 4px}
+.k-perm .art{width:72px;height:72px;border-radius:72px;border:2px solid var(--textPrimary);display:grid;place-items:center}
+.k-perm .ben{display:flex;gap:12px;align-items:center;font-size:16px}
+.k-perm .ben span.i{width:40px;height:40px;border-radius:12px;background:var(--surfaceMuted);display:grid;place-items:center;flex:none}
+/* typography demo */
+.typerow{display:grid;grid-template-columns:150px 1fr;gap:12px 24px;padding:14px 0;border-bottom:1px solid var(--border);align-items:baseline}
+.typerow .meta{display:flex;flex-direction:column;gap:2px}
+.typerow .meta b{font-size:14px}
+.typerow .sample{min-width:0;overflow-wrap:anywhere}
+@media (max-width:600px){.typerow{grid-template-columns:1fr}}
+.tokgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.tokcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.spbar{height:14px;background:var(--surfaceBrandAlt);border-radius:3px}
+.rdemo{width:64px;height:48px;background:var(--surfaceMuted);border:1.5px solid var(--borderInput)}
+.shdemo{height:64px;background:var(--surface);border-radius:12px;display:grid;place-items:center;font-size:13px;color:var(--textSecondary)}
+.mot{height:8px;border-radius:8px;background:var(--surfaceMuted);position:relative;overflow:hidden}
+.mot i{position:absolute;top:0;left:0;height:100%;width:28%;border-radius:8px;background:var(--accent);animation:mv 2.4s infinite alternate}
+@keyframes mv{to{left:72%}}
+.rules{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px 24px;margin:0;padding:0;list-style:none}
+.rules li{display:flex;gap:10px;font-size:14px;line-height:21px;min-width:0}
+.rules li .ic{color:var(--link);margin-top:1px}
+.rules li.no .ic{color:var(--dangerFg)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="in">
+    <div class="brandmark"><span class="tile" id="logoTile"></span><span>HorseRoute <small>Design system mobile · v1 · 29/10/2026</small></span></div>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="Giao diện" id="segTheme"><button data-th="light">Sáng</button><button data-th="dark">Tối</button><button data-th="auto">Theo máy</button></div>
+    <nav class="toc" aria-label="Mục lục">
+      <a href="#mau">Màu</a><a href="#vaitro">Màu theo vai trò</a><a href="#tuongphan">Tương phản</a><a href="#trangthai">Trạng thái nghiệp vụ</a><a href="#chu">Chữ</a><a href="#khoang">Khoảng cách, bo góc, bóng</a><a href="#chuyendong">Chuyển động</a><a href="#nut">Nút và nhập liệu</a><a href="#the">Thẻ và danh sách</a><a href="#lop">Lớp phủ và phản hồi</a><a href="#khung">Khung màn</a><a href="#nguyentac">Nguyên tắc</a>
+    </nav>
+  </div>
+</header>
+<main id="main"></main>
+
+<script>
+const DATA = {"palette": {"teal": {"50": "#f2f8f8", "100": "#e7f1f1", "200": "#c5d8d8", "300": "#a3bfc1", "400": "#81a6aa", "500": "#608f94", "600": "#3e777e", "700": "#14606a", "800": "#104d56", "900": "#0b3b42", "950": "#061416"}, "gold": {"50": "#fef9ec", "100": "#fbedce", "200": "#f8e1af", "300": "#f7d58f", "400": "#f5c76d", "500": "#f4b942", "600": "#ce9025", "700": "#a86a00", "800": "#7b4e00", "900": "#513300", "950": "#2b1a00"}, "neutral": {"50": "#f6faf9", "100": "#e7f0f0", "200": "#d8e6e6", "300": "#b5c6c7", "400": "#94a8a9", "500": "#738a8d", "600": "#546d71", "700": "#3c565a", "800": "#243f43", "900": "#0d2a2e", "950": "#061416"}}, "light": {"bg": "#f6faf9", "surface": "#ffffff", "surfaceMuted": "#e7f1f1", "surfaceElevated": "#ffffff", "surfaceBrand": "#0b3b42", "surfaceBrandAlt": "#14606a", "onBrand": "#ffffff", "onBrandMuted": "#b9d3d6", "textPrimary": "#0d2a2e", "textSecondary": "#546d71", "textDisabled": "#94a8a9", "border": "#d8e6e6", "borderInput": "#738a8d", "borderStrong": "#0b3b42", "accent": "#f4b942", "accentPressed": "#ce9025", "onAccent": "#2b1a00", "accentText": "#7b4e00", "accentSubtle": "#fef9ec", "link": "#14606a", "focusRing": "#14606a", "tabActive": "#0b3b42", "tabInactive": "#546d71", "successFg": "#166534", "successBg": "#eaf6ee", "successSolid": "#166534", "warningFg": "#a24a05", "warningBg": "#fdf1e4", "warningSolid": "#b45309", "dangerFg": "#b42318", "dangerBg": "#fdeceb", "dangerSolid": "#dc2626", "infoFg": "#14606a", "infoBg": "#f2f8f8", "infoSolid": "#14606a", "neutralFg": "#546d71", "neutralBg": "#e7f0f0", "overlay": "rgba(6,20,22,0.48)"}, "dark": {"bg": "#061416", "surface": "#0c2326", "surfaceMuted": "#08191b", "surfaceElevated": "#133034", "surfaceBrand": "#104d56", "surfaceBrandAlt": "#14606a", "onBrand": "#ffffff", "onBrandMuted": "#b9d3d6", "textPrimary": "#e8f4f4", "textSecondary": "#96b4b7", "textDisabled": "#55716f", "border": "#1a3a3e", "borderInput": "#56777a", "borderStrong": "#96b4b7", "accent": "#f4b942", "accentPressed": "#f5c76d", "onAccent": "#2b1a00", "accentText": "#f5c76d", "accentSubtle": "#2a2410", "link": "#7cc7cf", "focusRing": "#7cc7cf", "tabActive": "#e8f4f4", "tabInactive": "#96b4b7", "successFg": "#6fd39a", "successBg": "#0f2a1e", "successSolid": "#17753f", "warningFg": "#f3a35c", "warningBg": "#2e1f0f", "warningSolid": "#b45309", "dangerFg": "#ff8a80", "dangerBg": "#341514", "dangerSolid": "#dc2626", "infoFg": "#7cc7cf", "infoBg": "#0f2e33", "infoSolid": "#14606a", "neutralFg": "#96b4b7", "neutralBg": "#12302f", "overlay": "rgba(0,0,0,0.6)"}, "contrast": {"light": [["textPrimary", "bg", "#0d2a2e", "#f6faf9", 14.38, 4.5, true], ["textPrimary", "surface", "#0d2a2e", "#ffffff", 15.13, 4.5, true], ["textPrimary", "surfaceMuted", "#0d2a2e", "#e7f1f1", 13.15, 4.5, true], ["textPrimary", "surfaceElevated", "#0d2a2e", "#ffffff", 15.13, 4.5, true], ["textSecondary", "bg", "#546d71", "#f6faf9", 5.25, 4.5, true], ["textSecondary", "surface", "#546d71", "#ffffff", 5.52, 4.5, true], ["textSecondary", "surfaceMuted", "#546d71", "#e7f1f1", 4.8, 4.5, true], ["onBrand", "surfaceBrand", "#ffffff", "#0b3b42", 12.22, 4.5, true], ["onBrandMuted", "surfaceBrand", "#b9d3d6", "#0b3b42", 7.77, 4.5, true], ["onBrand", "surfaceBrandAlt", "#ffffff", "#14606a", 7.21, 4.5, true], ["onAccent", "accent", "#2b1a00", "#f4b942", 9.49, 4.5, true], ["onAccent", "accentPressed", "#2b1a00", "#ce9025", 6.11, 4.5, true], ["accentText", "surface", "#7b4e00", "#ffffff", 7.16, 4.5, true], ["accentText", "accentSubtle", "#7b4e00", "#fef9ec", 6.81, 4.5, true], ["link", "surface", "#14606a", "#ffffff", 7.21, 4.5, true], ["link", "bg", "#14606a", "#f6faf9", 6.86, 4.5, true], ["tabActive", "surface", "#0b3b42", "#ffffff", 12.22, 4.5, true], ["tabInactive", "surface", "#546d71", "#ffffff", 5.52, 4.5, true], ["borderInput", "surface", "#738a8d", "#ffffff", 3.65, 3, true], ["focusRing", "surface", "#14606a", "#ffffff", 7.21, 3, true], ["successFg", "successBg", "#166534", "#eaf6ee", 6.42, 4.5, true], ["successFg", "surface", "#166534", "#ffffff", 7.13, 4.5, true], ["warningFg", "warningBg", "#a24a05", "#fdf1e4", 5.37, 4.5, true], ["warningFg", "surface", "#a24a05", "#ffffff", 5.97, 4.5, true], ["dangerFg", "dangerBg", "#b42318", "#fdeceb", 5.75, 4.5, true], ["dangerFg", "surface", "#b42318", "#ffffff", 6.57, 4.5, true], ["infoFg", "infoBg", "#14606a", "#f2f8f8", 6.72, 4.5, true], ["neutralFg", "neutralBg", "#546d71", "#e7f0f0", 4.76, 4.5, true], ["onBrand", "successSolid", "#ffffff", "#166534", 7.13, 4.5, true], ["onBrand", "dangerSolid", "#ffffff", "#dc2626", 4.83, 4.5, true], ["onBrand", "warningSolid", "#ffffff", "#b45309", 5.02, 4.5, true], ["onBrand", "infoSolid", "#ffffff", "#14606a", 7.21, 4.5, true]], "dark": [["textPrimary", "bg", "#e8f4f4", "#061416", 16.69, 4.5, true], ["textPrimary", "surface", "#e8f4f4", "#0c2326", 14.55, 4.5, true], ["textPrimary", "surfaceMuted", "#e8f4f4", "#08191b", 16.03, 4.5, true], ["textPrimary", "surfaceElevated", "#e8f4f4", "#133034", 12.45, 4.5, true], ["textSecondary", "bg", "#96b4b7", "#061416", 8.49, 4.5, true], ["textSecondary", "surface", "#96b4b7", "#0c2326", 7.41, 4.5, true], ["textSecondary", "surfaceMuted", "#96b4b7", "#08191b", 8.16, 4.5, true], ["onBrand", "surfaceBrand", "#ffffff", "#104d56", 9.47, 4.5, true], ["onBrandMuted", "surfaceBrand", "#b9d3d6", "#104d56", 6.02, 4.5, true], ["onBrand", "surfaceBrandAlt", "#ffffff", "#14606a", 7.21, 4.5, true], ["onAccent", "accent", "#2b1a00", "#f4b942", 9.49, 4.5, true], ["onAccent", "accentPressed", "#2b1a00", "#f5c76d", 10.61, 4.5, true], ["accentText", "surface", "#f5c76d", "#0c2326", 10.34, 4.5, true], ["accentText", "accentSubtle", "#f5c76d", "#2a2410", 9.77, 4.5, true], ["link", "surface", "#7cc7cf", "#0c2326", 8.51, 4.5, true], ["link", "bg", "#7cc7cf", "#061416", 9.76, 4.5, true], ["tabActive", "surface", "#e8f4f4", "#0c2326", 14.55, 4.5, true], ["tabInactive", "surface", "#96b4b7", "#0c2326", 7.41, 4.5, true], ["borderInput", "surface", "#56777a", "#0c2326", 3.36, 3, true], ["focusRing", "surface", "#7cc7cf", "#0c2326", 8.51, 3, true], ["successFg", "successBg", "#6fd39a", "#0f2a1e", 8.36, 4.5, true], ["successFg", "surface", "#6fd39a", "#0c2326", 8.93, 4.5, true], ["warningFg", "warningBg", "#f3a35c", "#2e1f0f", 7.74, 4.5, true], ["warningFg", "surface", "#f3a35c", "#0c2326", 7.95, 4.5, true], ["dangerFg", "dangerBg", "#ff8a80", "#341514", 7.28, 4.5, true], ["dangerFg", "surface", "#ff8a80", "#0c2326", 7.16, 4.5, true], ["infoFg", "infoBg", "#7cc7cf", "#0f2e33", 7.49, 4.5, true], ["neutralFg", "neutralBg", "#96b4b7", "#12302f", 6.38, 4.5, true], ["onBrand", "successSolid", "#ffffff", "#17753f", 5.75, 4.5, true], ["onBrand", "dangerSolid", "#ffffff", "#dc2626", 4.83, 4.5, true], ["onBrand", "warningSolid", "#ffffff", "#b45309", 5.02, 4.5, true], ["onBrand", "infoSolid", "#ffffff", "#14606a", 7.21, 4.5, true]]}, "status": {"orderStatus": {"type": "OrderStatus", "doc": "orders.status (01 mục 5.1).", "items": {"DRAFT": ["Nháp", "neutral", "file-pen-line"], "PENDING": ["Chờ duyệt", "info", "clock"], "NEED_INFO": ["Cần bổ sung", "warning", "circle-alert"], "REJECTED": ["Từ chối", "danger", "circle-x"], "APPROVED": ["Đã duyệt", "info", "badge-check"], "PREPARING": ["Đang chuẩn bị", "info", "package"], "READY": ["Sẵn sàng vận chuyển", "info", "calendar-check"], "IN_TRANSIT": ["Đang vận chuyển", "brand", "truck"], "DELIVERED": ["Đã giao", "success", "circle-check"], "CANCELLED": ["Đã hủy", "neutral", "ban"]}}, "customerActionStatus": {"type": "CustomerActionStatus", "doc": "Nhãn ghép cho khách (không phải cột DB): đơn APPROVED có báo giá chưa cọc.", "items": {"AWAITING_DEPOSIT": ["Chờ đặt cọc", "warning", "wallet"]}}, "legStatus": {"type": "LegStatus", "doc": "legs.status (01 mục 5.2).", "items": {"NOT_STARTED": ["Chưa bắt đầu", "neutral", "circle-dashed"], "MOVING": ["Đang di chuyển", "brand", "truck"], "AT_STOP": ["Đang dừng", "info", "map-pin"], "COMPLETED": ["Hoàn thành", "success", "circle-check"]}}, "syncStatus": {"type": "SyncStatus", "doc": "Trạng thái của một mục trong hàng chờ offline (COM-12).", "items": {"QUEUED": ["Chờ gửi", "warning", "cloud-off"], "SENDING": ["Đang gửi", "info", "refresh-cw"], "SENT": ["Đã gửi", "success", "check"], "REJECTED": ["Bị từ chối", "danger", "circle-x"]}}, "incidentStatus": {"type": "IncidentStatus", "doc": "incidents.status (01 mục 5.3).", "items": {"NEW": ["Đã gửi, chờ tiếp nhận", "warning", "send"], "ACKNOWLEDGED": ["Đã tiếp nhận", "info", "user-check"], "CLOSED": ["Đã đóng", "neutral", "circle-check"]}}, "incidentSeverity": {"type": "IncidentSeverity", "doc": "Mức độ sự cố. Hiển thị kèm vạch 1-2-3, không chỉ màu.", "items": {"LOW": ["Nhẹ", "neutral", "signal-low"], "MEDIUM": ["Trung bình", "warning", "signal-medium"], "HIGH": ["Nghiêm trọng", "danger", "signal-high"]}}, "horseCondition": {"type": "HorseCondition", "doc": "horse_logs.condition_status (01 mục 4.9).", "items": {"STABLE": ["Sức khỏe ổn định", "success", "heart-pulse"], "OFF_FEED": ["Bỏ ăn", "warning", "utensils-crossed"], "STRESSED": ["Căng thẳng", "warning", "activity"], "CLIMATE_CHANGE": ["Khí hậu thay đổi", "info", "thermometer"]}}, "healthReportStatus": {"type": "HealthReportStatus", "doc": "horse_logs.report_status, thêm VIEWED khi khách đã mở (customer_viewed_at).", "items": {"DRAFT": ["Nháp", "neutral", "file-pen-line"], "SENT": ["Đã gửi", "success", "send"], "VIEWED": ["Khách đã xem", "info", "eye"]}}, "documentStatus": {"type": "DocumentStatus", "doc": "Giấy tờ ngựa (01 mục 5.5).", "items": {"NOT_SUBMITTED": ["Chưa nộp", "neutral", "file"], "SUBMITTED": ["Chờ kiểm tra", "info", "file-clock"], "VALID": ["Hợp lệ", "success", "file-check"], "INVALID": ["Không hợp lệ", "danger", "file-x"], "EXPIRED": ["Hết hạn", "danger", "calendar-x"]}}, "paymentStatus": {"type": "PaymentStatus", "doc": "Phiên thanh toán (chỉ xem trên mobile).", "items": {"PENDING": ["Đang chờ thanh toán", "warning", "hourglass"], "SUCCESS": ["Đã thanh toán", "success", "circle-check"], "FAILED": ["Thanh toán thất bại", "danger", "circle-x"], "CANCELLED": ["Đã hủy", "neutral", "ban"]}}, "orderHorseStatus": {"type": "OrderHorseStatus", "doc": "Ngựa trong đơn. FLAGGED chặn xuất phát.", "items": {"NORMAL": ["Bình thường", "neutral", "check"], "FLAGGED": ["Bị gắn cờ", "danger", "flag"], "REMOVED": ["Đã rút khỏi đơn", "neutral", "circle-minus"]}}}, "roleDesc": {"Nền màn hình": "bg", "Nền thẻ, sheet, ô nhập": "surface", "Nền phụ: chip chưa chọn, ô thông tin, skeleton": "surfaceMuted", "Lớp nổi (sheet, dialog). Dark mode sáng hơn thay cho bóng": "surfaceElevated", "Thẻ nổi bật, header đậm, thanh trạng thái": "surfaceBrand", "Thanh thông báo, chỉ báo GPS": "surfaceBrandAlt", "Chữ và icon trên surfaceBrand": "onBrand", "Chữ phụ trên surfaceBrand": "onBrandMuted", "Chữ chính": "textPrimary", "Chữ phụ, nhãn": "textSecondary", "Chữ bị khóa (được miễn yêu cầu tương phản)": "textDisabled", "Đường kẻ phân tách (trang trí)": "border", "Viền ô nhập, checkbox: đạt 3:1": "borderInput", "Viền đang chọn": "borderStrong", "Nền nút chính. Duy nhất một chỗ mỗi màn": "accent", "Nút chính khi nhấn": "accentPressed", "Chữ trên nút chính": "onAccent", "Chữ vàng (không dùng #f4b942 làm chữ)": "accentText", "Nền nhấn rất nhạt: mục chưa đọc": "accentSubtle", "Liên kết, nút tertiary": "link", "Vòng focus bàn phím, viền ô đang nhập": "focusRing", "Tab đang chọn": "tabActive", "Tab chưa chọn": "tabInactive", "Lớp tối sau sheet và dialog": "overlay"}, "typography": [["largeTitle", 700, 34, 42, -0.4, "Tiêu đề tab gốc"], ["title1", 700, 28, 36, -0.3, "Tiêu đề màn con quan trọng"], ["title2", 600, 22, 30, -0.2, "Tiêu đề khối, permission"], ["title3", 600, 20, 28, -0.1, "Tiêu đề sheet, tuyến trên thẻ"], ["display", 700, 24, 32, -0.2, "Chỉ tài xế: điểm kế tiếp"], ["headline", 600, 17, 24, 0, "Tên dòng, tên ngựa"], ["body", 400, 17, 26, 0, "Nội dung"], ["bodyStrong", 600, 17, 26, 0, "Nội dung nhấn"], ["callout", 400, 16, 24, 0, "Nội dung trong thẻ"], ["subhead", 400, 15, 22, 0, "Mô tả phụ"], ["footnote", 400, 13, 19, 0, "Giờ, mã đơn, trợ giúp"], ["caption", 500, 12, 18, 0.1, "Nhãn nhỏ, tab bar (11 ngoại lệ)"], ["buttonLarge", 600, 18, 24, 0, "Nút L, XL"], ["button", 600, 17, 22, 0, "Nút M"], ["buttonSmall", 600, 15, 20, 0, "Nút S"]], "spacing": {"xxs": 4, "xs": 8, "sm": 12, "md": 16, "lg": 20, "xl": 24, "xxl": 32, "x3l": 40, "x4l": 48, "x5l": 64}, "radius": {"sm": 8, "md": 12, "lg": 16, "xl": 24, "full": 999}};
+const ICONS = {"activity": "<path d=\"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2\" />", "arrow-right": "<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />", "badge-check": "<path d=\"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z\" /> <path d=\"m9 12 2 2 4-4\" />", "ban": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.9 4.9 14.2 14.2\" />", "bell": "<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\" /> <path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\" />", "calendar": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" />", "calendar-check": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" /> <path d=\"m9 16 2 2 4-4\" />", "calendar-x": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" /> <path d=\"m14 14-4 4\" /> <path d=\"m10 14 4 4\" />", "camera": "<path d=\"M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z\" /> <circle cx=\"12\" cy=\"13\" r=\"3\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "check-check": "<path d=\"M18 6 7 17l-5-5\" /> <path d=\"m22 10-7.5 7.5L13 16\" />", "chevron-down": "<path d=\"m6 9 6 6 6-6\" />", "chevron-left": "<path d=\"m15 18-6-6 6-6\" />", "chevron-right": "<path d=\"m9 18 6-6-6-6\" />", "circle-alert": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\" /> <line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\" />", "circle-check": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m9 12 2 2 4-4\" />", "circle-dashed": "<path d=\"M10.1 2.182a10 10 0 0 1 3.8 0\" /> <path d=\"M13.9 21.818a10 10 0 0 1-3.8 0\" /> <path d=\"M17.609 3.721a10 10 0 0 1 2.69 2.7\" /> <path d=\"M2.182 13.9a10 10 0 0 1 0-3.8\" /> <path d=\"M20.279 17.609a10 10 0 0 1-2.7 2.69\" /> <path d=\"M21.818 10.1a10 10 0 0 1 0 3.8\" /> <path d=\"M3.721 6.391a10 10 0 0 1 2.7-2.69\" /> <path d=\"M6.391 20.279a10 10 0 0 1-2.69-2.7\" />", "circle-minus": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M8 12h8\" />", "circle-pause": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"10\" x2=\"10\" y1=\"15\" y2=\"9\" /> <line x1=\"14\" x2=\"14\" y1=\"15\" y2=\"9\" />", "circle-x": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m15 9-6 6\" /> <path d=\"m9 9 6 6\" />", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />", "cloud-off": "<path d=\"m2 2 20 20\" /> <path d=\"M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193\" /> <path d=\"M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07\" />", "droplets": "<path d=\"M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z\" /> <path d=\"M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97\" />", "ellipsis": "<circle cx=\"12\" cy=\"12\" r=\"1\" /> <circle cx=\"19\" cy=\"12\" r=\"1\" /> <circle cx=\"5\" cy=\"12\" r=\"1\" />", "eye": "<path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "eye-off": "<path d=\"M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49\" /> <path d=\"M14.084 14.158a3 3 0 0 1-4.242-4.242\" /> <path d=\"M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143\" /> <path d=\"m2 2 20 20\" />", "file": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" />", "file-check": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"m9 15 2 2 4-4\" />", "file-clock": "<path d=\"M16 22h2a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <circle cx=\"8\" cy=\"16\" r=\"6\" /> <path d=\"M9.5 17.5 8 16.25V14\" />", "file-pen-line": "<path d=\"m18 5-2.414-2.414A2 2 0 0 0 14.172 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2\" /> <path d=\"M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\" /> <path d=\"M8 18h1\" />", "file-text": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M10 9H8\" /> <path d=\"M16 13H8\" /> <path d=\"M16 17H8\" />", "file-x": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"m14.5 12.5-5 5\" /> <path d=\"m9.5 12.5 5 5\" />", "flag": "<path d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\" /> <line x1=\"4\" x2=\"4\" y1=\"22\" y2=\"15\" />", "gauge": "<path d=\"m12 14 4-4\" /> <path d=\"M3.34 19a10 10 0 1 1 17.32 0\" />", "heart-pulse": "<path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\" /> <path d=\"M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27\" />", "hourglass": "<path d=\"M5 22h14\" /> <path d=\"M5 2h14\" /> <path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\" /> <path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\" />", "image": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" ry=\"2\" /> <circle cx=\"9\" cy=\"9\" r=\"2\" /> <path d=\"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "layers": "<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\" /> <path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\" /> <path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\" />", "loader-circle": "<path d=\"M21 12a9 9 0 1 1-6.219-8.56\" />", "locate-off": "<line x1=\"2\" x2=\"5\" y1=\"12\" y2=\"12\" /> <line x1=\"19\" x2=\"22\" y1=\"12\" y2=\"12\" /> <line x1=\"12\" x2=\"12\" y1=\"2\" y2=\"5\" /> <line x1=\"12\" x2=\"12\" y1=\"19\" y2=\"22\" /> <path d=\"M7.11 7.11C5.83 8.39 5 10.1 5 12c0 3.87 3.13 7 7 7 1.9 0 3.61-.83 4.89-2.11\" /> <path d=\"M18.71 13.96c.19-.63.29-1.29.29-1.96 0-3.87-3.13-7-7-7-.67 0-1.33.1-1.96.29\" /> <line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\" />", "lock": "<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />", "log-out": "<path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\" /> <polyline points=\"16 17 21 12 16 7\" /> <line x1=\"21\" x2=\"9\" y1=\"12\" y2=\"12\" />", "mail": "<rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" /> <path d=\"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7\" />", "map-pin": "<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\" /> <circle cx=\"12\" cy=\"10\" r=\"3\" />", "map-pinned": "<path d=\"M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0\" /> <circle cx=\"12\" cy=\"8\" r=\"2\" /> <path d=\"M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712\" />", "mic": "<path d=\"M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z\" /> <path d=\"M19 10v2a7 7 0 0 1-14 0v-2\" /> <line x1=\"12\" x2=\"12\" y1=\"19\" y2=\"22\" />", "minus": "<path d=\"M5 12h14\" />", "navigation": "<polygon points=\"3 11 22 2 13 21 11 13 3 11\" />", "package": "<path d=\"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z\" /> <path d=\"M12 22V12\" /> <path d=\"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7\" /> <path d=\"m7.5 4.27 9 5.15\" />", "package-check": "<path d=\"m16 16 2 2 4-4\" /> <path d=\"M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14\" /> <path d=\"m7.5 4.27 9 5.15\" /> <polyline points=\"3.29 7 12 12 20.71 7\" /> <line x1=\"12\" x2=\"12\" y1=\"22\" y2=\"12\" />", "phone": "<path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z\" />", "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />", "receipt": "<path d=\"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z\" /> <path d=\"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8\" /> <path d=\"M12 17.5v-11\" />", "refresh-cw": "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />", "rotate-ccw": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" />", "route": "<circle cx=\"6\" cy=\"19\" r=\"3\" /> <path d=\"M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15\" /> <circle cx=\"18\" cy=\"5\" r=\"3\" />", "satellite-dish": "<path d=\"M4 10a7.31 7.31 0 0 0 10 10Z\" /> <path d=\"m9 15 3-3\" /> <path d=\"M17 13a6 6 0 0 0-6-6\" /> <path d=\"M21 13A10 10 0 0 0 11 3\" />", "search": "<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />", "send": "<path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\" /> <path d=\"m21.854 2.147-10.94 10.939\" />", "settings": "<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "signal-high": "<path d=\"M2 20h.01\" /> <path d=\"M7 20v-4\" /> <path d=\"M12 20v-8\" /> <path d=\"M17 20V8\" />", "signal-low": "<path d=\"M2 20h.01\" /> <path d=\"M7 20v-4\" />", "signal-medium": "<path d=\"M2 20h.01\" /> <path d=\"M7 20v-4\" /> <path d=\"M12 20v-8\" />", "siren": "<path d=\"M7 18v-6a5 5 0 1 1 10 0v6\" /> <path d=\"M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z\" /> <path d=\"M21 12h1\" /> <path d=\"M18.5 4.5 18 5\" /> <path d=\"M2 12h1\" /> <path d=\"M12 2v1\" /> <path d=\"m4.929 4.929.707.707\" /> <path d=\"M12 12v6\" />", "thermometer": "<path d=\"M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z\" />", "trash-2": "<path d=\"M3 6h18\" /> <path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\" /> <path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\" /> <line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\" /> <line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\" />", "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", "truck": "<path d=\"M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2\" /> <path d=\"M15 18H9\" /> <path d=\"M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14\" /> <circle cx=\"17\" cy=\"18\" r=\"2\" /> <circle cx=\"7\" cy=\"18\" r=\"2\" />", "upload": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"17 8 12 3 7 8\" /> <line x1=\"12\" x2=\"12\" y1=\"3\" y2=\"15\" />", "user": "<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\" /> <circle cx=\"12\" cy=\"7\" r=\"4\" />", "user-check": "<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\" /> <circle cx=\"9\" cy=\"7\" r=\"4\" /> <polyline points=\"16 11 18 13 22 9\" />", "utensils-crossed": "<path d=\"m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8\" /> <path d=\"M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7\" /> <path d=\"m2.1 21.8 6.4-6.3\" /> <path d=\"m19 5-7 7\" />", "wallet": "<path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1\" /> <path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\" />", "wheat": "<path d=\"M2 22 16 8\" /> <path d=\"M3.47 12.53 5 11l1.53 1.53a3.5 3.5 0 0 1 0 4.94L5 19l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z\" /> <path d=\"M7.47 8.53 9 7l1.53 1.53a3.5 3.5 0 0 1 0 4.94L9 15l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z\" /> <path d=\"M11.47 4.53 13 3l1.53 1.53a3.5 3.5 0 0 1 0 4.94L13 11l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z\" /> <path d=\"M20 2h2v2a4 4 0 0 1-4 4h-2V6a4 4 0 0 1 4-4Z\" /> <path d=\"M11.47 17.47 13 19l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L5 19l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z\" /> <path d=\"M15.47 13.47 17 15l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L9 15l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z\" /> <path d=\"M19.47 9.47 21 11l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L13 11l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z\" />", "wifi-off": "<path d=\"M12 20h.01\" /> <path d=\"M8.5 16.429a5 5 0 0 1 7 0\" /> <path d=\"M5 12.859a10 10 0 0 1 5.17-2.69\" /> <path d=\"M19 12.859a10 10 0 0 0-2.007-1.523\" /> <path d=\"M2 8.82a15 15 0 0 1 4.177-2.643\" /> <path d=\"M22 8.82a15 15 0 0 0-11.288-3.764\" /> <path d=\"m2 2 20 20\" />", "x": "<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />", "horse": "<path d=\"M16 3l-1.5 2.2\"/><path d=\"M7 21c.5-3.5 1.6-6 3.5-7.6L8.2 14.5c-1.3.6-2.9.2-3.6-1.1-.6-1-.3-2.3.6-3L12 5.2c2.6-1.9 6.2-1 7.7 1.8.8 1.5 1.3 3.8 1.3 6.3V21\"/><circle cx=\"14\" cy=\"8.5\" r=\".6\" fill=\"currentColor\"/>"};
+</script>
+<script>
+const I = (n, s = 20, extra = '') => `<svg class="ic ${extra}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+document.getElementById('logoTile').innerHTML = I('horse', 20);
+
+/* ---------- Chuyển giao diện ---------- */
+const root = document.documentElement;
+function setTheme(t){
+  if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  document.querySelectorAll('#segTheme button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
+  try { localStorage.setItem('hr-ds-theme', t); } catch (e) {}
+}
+let saved = 'auto'; try { saved = localStorage.getItem('hr-ds-theme') || 'auto'; } catch (e) {}
+setTheme(saved);
+document.getElementById('segTheme').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTheme(b.dataset.th); });
+
+/* ---------- Khung trình bày ---------- */
+const sec = (id, eyebrow, title, lead, body) => `<section class="sec" id="${id}"><div class="sec-h"><span class="eyebrow">${eyebrow}</span><h2>${title}</h2>${lead ? `<p class="lead">${lead}</p>` : ''}</div>${body}</section>`;
+const comp = (name, code, desc, states, cls = '') => `<div class="comp"><div class="comp-h"><h3>${name}</h3><span class="mono">${code}</span><p>${desc}</p></div><div class="states">${states.map(([l, h, c]) => `<div class="cell ${c || cls}"><span class="lab">${l}</span>${h}</div>`).join('')}</div></div>`;
+const st = (h, cls = '') => `<div class="stage ${cls}">${h}</div>`;
+const badge = (spec, sm) => `<span class="k-badge tone-${spec.tone}${sm ? ' sm' : ''}">${I(spec.icon, sm ? 14 : 16)}${spec.label}</span>`;
+const S = DATA.status;
+
+/* ---------- 1. Màu ---------- */
+const anchors = {teal:['100','700','900','950'], gold:['500','700','950'], neutral:['50','200','600','900','950']};
+const scaleNames = {teal:'Teal (brand)', gold:'Vàng (accent)', neutral:'Xám ngả teal (neutral)'};
+const scaleNote = {teal:'Neo: 100 = --soft, 700 = --navy2, 900 = --navy, 950 = nền tối của web.', gold:'Neo: 500 = --gold (nút chính), 700 = --gold-d, 950 = chữ trên nút.', neutral:'Neo: 50 = --bg, 200 = --line, 600 = --muted, 900 = --ink.'};
+function lum(h){const c=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2]}
+function cr(a,b){const x=lum(a),y=lum(b);return ((Math.max(x,y)+.05)/(Math.min(x,y)+.05))}
+const palette = Object.entries(DATA.palette).map(([n, sc]) => `<div class="scale"><div class="row" style="justify-content:space-between"><h3 style="grid-column:1/-1">${scaleNames[n]}</h3></div><div class="row">${Object.entries(sc).map(([k, v]) => { const fg = cr(v,'#ffffff') >= cr(v,'#0d2a2e') ? '#ffffff' : '#0d2a2e'; return `<div class="sw ${anchors[n].includes(k)?'anchor':''}" style="background:${v};color:${fg}" title="${n}.${k} ${v}">${v}</div>`; }).join('')}</div><div class="lbls">${Object.keys(sc).map(k => `<span>${k}</span>`).join('')}</div><p class="note">${scaleNote[n]} Ô có viền đậm là màu lấy nguyên từ web; các bậc còn lại nội suy trong OKLCH.</p></div>`).join('');
+const semRow = (n, l, d) => `<tr><td>${n}</td>${['Fg','Bg','Solid'].map(s => DATA.light[n+s] ? `<td><span class="chip-sw" style="background:${DATA.light[n+s]}"></span> <span class="mono">${DATA.light[n+s]}</span></td>` : '<td>–</td>').join('')}${['Fg','Bg','Solid'].map(s => DATA.dark[n+s] ? `<td><span class="chip-sw" style="background:${DATA.dark[n+s]}"></span> <span class="mono">${DATA.dark[n+s]}</span></td>` : '<td>–</td>').join('')}<td class="muted" style="white-space:normal;min-width:220px">${l}</td></tr>`;
+const semantic = `<div class="scroll"><table><thead><tr><th>Ngữ nghĩa</th><th>Chữ (sáng)</th><th>Nền (sáng)</th><th>Khối đặc (sáng)</th><th>Chữ (tối)</th><th>Nền (tối)</th><th>Khối đặc (tối)</th><th>Ghi chú</th></tr></thead><tbody>
+${semRow('success','Giữ #166534 của web.')}${semRow('warning','Web dùng #ca8a04 (2.9:1 trên trắng, không đọc được). Đổi sang cam đất để không lẫn với vàng nút chính.')}${semRow('danger','#dc2626 của web làm khối đặc; chữ dùng #b42318 đậm hơn.')}${semRow('info','Dùng chính teal 700. Không thêm màu xanh dương.')}${semRow('neutral','Trạng thái không cần chú ý: nháp, đã hủy.')}
+</tbody></table></div>`;
+
+const roleDesc = DATA.roleDesc;
+const roleKeys = Object.keys(DATA.light).filter(k => !/^(success|warning|danger|info|neutral)/.test(k));
+const roles = `<div class="scroll"><table><thead><tr><th>Token</th><th>Sáng</th><th>Tối</th><th>Dùng cho</th></tr></thead><tbody>${roleKeys.map(k => `<tr><td class="mono">${k}</td><td><span class="chip-sw" style="background:${DATA.light[k]}"></span> <span class="mono">${DATA.light[k]}</span></td><td><span class="chip-sw" style="background:${DATA.dark[k]}"></span> <span class="mono">${DATA.dark[k]}</span></td><td class="muted" style="white-space:normal;min-width:240px">${roleDesc[k] || ''}</td></tr>`).join('')}</tbody></table></div>`;
+
+const contrast = `<div class="scroll"><table><thead><tr><th>Chữ / nền</th><th>Mẫu sáng</th><th>Sáng</th><th>Mẫu tối</th><th>Tối</th><th>Yêu cầu</th></tr></thead><tbody>${DATA.contrast.light.map((r, i) => { const d = DATA.contrast.dark[i]; const sample = (f, b) => `<span style="display:inline-block;padding:3px 10px;border-radius:6px;background:${b};color:${f};font-weight:600;border:1px solid rgba(127,127,127,.25)">Ngựa ổn định</span>`; return `<tr><td class="mono">${r[0]} / ${r[1]}</td><td>${sample(r[2], r[3])}</td><td class="${r[6]?'pass':'fail'}">${r[4].toFixed(2)}:1</td><td>${sample(d[2], d[3])}</td><td class="${d[6]?'pass':'fail'}">${d[4].toFixed(2)}:1</td><td class="muted">≥ ${r[5]}:1${r[5] === 3 ? ' (viền, thành phần UI)' : ''}</td></tr>`; }).join('')}</tbody></table></div>
+<p class="note">Cấm: #f4b942 làm chữ trên nền sáng (1.8:1). Chữ vàng dùng accentText. textDisabled được miễn theo WCAG nhưng chỉ dùng cho nội dung bị khóa.</p>`;
+
+/* ---------- 2. Trạng thái nghiệp vụ ---------- */
+const groupTitle = {orderStatus:'Đơn hàng',customerActionStatus:'Nhãn cần khách xử lý',legStatus:'Chặng',syncStatus:'Hàng chờ offline',incidentStatus:'Sự cố',incidentSeverity:'Mức độ sự cố',horseCondition:'Sức khỏe ngựa',healthReportStatus:'Báo cáo sức khỏe',documentStatus:'Giấy tờ',paymentStatus:'Thanh toán',orderHorseStatus:'Ngựa trong đơn'};
+const sevBars = (n, tone) => `<span class="k-badge tone-${tone}"><span class="sev">${[1,2,3].map(i => `<i class="${i<=n?'on':''}"></i>`).join('')}</span>${['','Nhẹ','Trung bình','Nghiêm trọng'][n]}</span>`;
+const statusHTML = `<div class="statusgrid">${Object.entries(S).map(([g, info]) => `<div class="sgroup"><h3>${groupTitle[g]}</h3>${Object.entries(info.items).map(([k, v]) => `<div class="srow"><span class="mono">${k}</span>${g === 'incidentSeverity' ? sevBars({LOW:1,MEDIUM:2,HIGH:3}[k], v[1]) : badge({label:v[0],tone:v[1],icon:v[2]})}</div>`).join('')}</div>`).join('')}</div>
+<p class="note">Mỗi nhãn luôn có icon + chữ. Màu chỉ để quét nhanh, không mang nghĩa một mình. Tone <b>brand</b> (nền teal đậm) chỉ dành cho trạng thái "đang chạy": Đang vận chuyển, Đang di chuyển.</p>`;
+
+/* ---------- 3. Chữ ---------- */
+const typeSamples = {largeTitle:'Chuyến của tôi',title1:'Báo cáo sức khỏe',title2:'Trạm kiểm dịch Mộc Bài',title3:'Ngựa trên chuyến',display:'Cửa khẩu Mộc Bài · 09:40',headline:'Kim Long · Căng thẳng',body:'Xe đã rời Điểm nghỉ Trảng Bàng, dự kiến tới cửa khẩu lúc 09:40.',bodyStrong:'Đã kiểm tra đủ 5 mục trước chuyến',callout:'Ghi nhanh: uống nước cả đoàn, 12 lít',subhead:'Hộ chiếu ngựa hết hạn ngày 12/11/2026',footnote:'Cập nhật 07:42 · Vị trí ước tính theo mốc gần nhất',caption:'CHỜ GỬI · HR-2610-0012',buttonLarge:'Xác nhận đã giao ngựa',button:'Gửi báo cáo',buttonSmall:'Thử lại'};
+const typeHTML = DATA.typography.map(([k, w, fs, lh, ls, use]) => `<div class="typerow"><div class="meta"><b>${k}</b><span class="mono muted">${fs}/${lh} · ${w}${ls ? ' · ' + ls : ''}</span><span class="note">${use}</span></div><div class="sample" style="font-size:${fs}px;line-height:${lh}px;font-weight:${w};letter-spacing:${ls}px">${typeSamples[k]}</div></div>`).join('') +
+`<div class="tokgrid" style="margin-top:16px"><div class="tokcard"><b>Kiểm tra dấu ở cỡ nhỏ</b><div style="font-size:13px;line-height:19px">13pt: Nghiệm thu ệ ộ ữ ỡ ặ ẫ — Kiểm dịch, Bộ hồ sơ, Ngựa đã uống nước, Chữ ký người nhận</div><div style="font-size:12px;line-height:18px;font-weight:500">12pt: Ệ Ộ Ữ Ỡ Ặ Ẫ — Hết hạn, Đã gửi, Mất sóng, Hướng dẫn</div><p class="note">Be Vietnam Pro vẽ dấu chồng tách rõ ở 12–13pt. Không dùng cỡ dưới 12. lineHeight cao hơn iOS 1–2pt để dấu ở dòng trên không chạm dòng dưới.</p></div><div class="tokcard"><b>Độ đậm dùng</b><div style="font-weight:400">400 Regular: nội dung</div><div style="font-weight:500">500 Medium: chú thích, chip</div><div style="font-weight:600">600 SemiBold: tiêu đề, nút</div><div style="font-weight:700">700 Bold: tiêu đề lớn, số liệu chính</div><p class="note">Trên Android mỗi độ đậm là một fontFamily riêng (BeVietnamPro_600SemiBold...).</p></div><div class="tokcard"><b>Số liệu</b><div style="font-size:22px;font-weight:600;font-variant-numeric:tabular-nums">48.600.000 ₫</div><div style="font-size:17px;font-variant-numeric:tabular-nums">38,2 °C · 44 nhịp/phút · 12 L</div><p class="note">Tiền và số đo dùng tabular-nums, dấu chấm hàng nghìn, dấu phẩy thập phân theo tiếng Việt.</p></div></div>`;
+
+/* ---------- 4. Khoảng cách, bo góc, bóng, kích thước ---------- */
+const spaceHTML = `<div class="tokgrid">
+<div class="tokcard"><b>Spacing</b>${Object.entries(DATA.spacing).map(([k, v]) => `<div class="row" style="gap:10px"><span class="mono" style="width:68px">${k} ${v}</span><span class="spbar" style="width:${v * 2}px"></span></div>`).join('')}<p class="note">Lề ngang màn: md 16. Khoảng giữa nút chạm được tối thiểu xs 8.</p></div>
+<div class="tokcard"><b>Bo góc</b><div class="row wrap">${Object.entries(DATA.radius).map(([k, v]) => `<div class="col" style="gap:4px;align-items:center"><span class="rdemo" style="border-radius:${Math.min(v, 24)}px"></span><span class="mono">${k} ${v === 999 ? 'full' : v}</span></div>`).join('')}</div><p class="note">sm 8: chip vuông, badge nhỏ, ô ảnh nhỏ. md 12: nút, ô nhập. lg 16: thẻ, danh sách, nút 64 của tài xế. xl 24: bottom sheet, dialog. full: chip lọc, badge, avatar. Bo đồng tâm: phần tử con = bo cha − padding.</p></div>
+<div class="tokcard"><b>Bóng (chỉ chế độ sáng)</b>${['sm','md','lg'].map(k => `<div class="shdemo" style="box-shadow:var(--shadow-${k})">${k} · ${{sm:'thẻ nổi trên nền',md:'thanh nút đáy, tab bar',lg:'sheet, dialog, toast'}[k]}</div>`).join('')}<p class="note">Màu bóng #0b3b42, opacity 4/6/10%. Chế độ tối không có bóng; lớp nổi dùng surfaceElevated sáng hơn nền. Ưu tiên đường kẻ border trước bóng.</p></div>
+<div class="tokcard"><b>Kích thước chạm và icon</b>${[['touchTarget','44'],['touchTargetLarge','56'],['driverPrimaryButton','64'],['inputHeight','52 (ô nhập có nhãn trong: 56)'],['tabBarHeight','56'],['headerHeight','52']].map(([k, v]) => `<div class="kv"><span class="mono">${k}</span><b>${v}</b></div>`).join('')}<div class="row">${[16,20,24].map(s => `<span class="col" style="gap:4px;align-items:center">${I('truck', s)}<span class="mono">${s}</span></span>`).join('')}<span class="col" style="gap:4px;align-items:center">${I('horse', 24)}<span class="mono">ngựa</span></span></div><p class="note">Icon: Lucide, nét 2. Icon ngựa vẽ riêng cùng nét. Tài xế dùng 24 trong nút chính.</p></div>
+</div>`;
+const motionHTML = `<div class="tokgrid">
+<div class="tokcard"><b>Thời lượng</b>${[['fast','150 ms','nhấn nút, đổi màu, switch'],['base','250 ms','chuyển trạng thái, toast vào'],['slow','350 ms','sheet mở, chuyển màn']].map(([k, v, u]) => `<div class="kv"><span>${k} · ${u}</span><b>${v}</b></div>`).join('')}<div class="mot"><i></i></div></div>
+<div class="tokcard"><b>Easing</b>${[['standard','0.2, 0, 0, 1'],['enter','0, 0, 0, 1'],['exit','0.3, 0, 1, 1']].map(([k, v]) => `<div class="kv"><span>${k}</span><b class="mono">${v}</b></div>`).join('')}<p class="note">Phần tử vào dùng enter (giảm tốc), ra dùng exit (tăng tốc), nhanh hơn lúc vào.</p></div>
+<div class="tokcard"><b>Spring (Reanimated)</b><div class="kv"><span>sheet</span><b class="mono">damping 28 · stiffness 280</b></div><div class="kv"><span>press</span><b class="mono">damping 20 · stiffness 400</b></div><div class="kv"><span>pressScale</span><b class="mono">0.98</b></div><div class="kv"><span>undoWindowMs</span><b class="mono">5000</b></div><p class="note">Bật Reduce Motion: bỏ scale và trượt, chỉ giữ đổi độ mờ 150 ms. Haptic: nhẹ khi lưu ghi nhanh, vừa khi ghi mốc, cảnh báo khi gửi sự cố.</p></div>
+</div>`;
+
+/* ---------- 5. Component ---------- */
+const btn = (v, label, o = {}) => `<button class="k-btn ${v} ${o.size || ''} ${o.cls || ''}" ${o.dis ? 'disabled' : ''}>${o.loading ? I('loader-circle', 20, 'spin') : (o.icon ? I(o.icon, o.size === 'XL' ? 24 : 20) : '')}${o.loading ? (o.loadLabel || 'Đang gửi...') : label}</button>`;
+const box = (lab, val, o = {}) => `<div class="k-field">${o.outerLabel ? `<span class="k-label">${o.outerLabel}</span>` : ''}<div class="k-box ${o.st || ''} ${o.area ? 'k-area' : ''}">${o.lead ? I(o.lead, 20) : ''}<div class="in">${lab ? `<span class="fl">${lab}</span>` : ''}${val ? `<span class="v">${val}${o.st === 'focus' ? '<span class="caret"></span>' : ''}</span>` : `<span class="ph">${o.ph || ''}</span>`}</div>${o.trail ? I(o.trail, 20) : ''}</div>${o.help ? `<span class="help ${o.st === 'error' ? 'err' : ''}">${o.st === 'error' ? I('circle-alert', 16) : ''}${o.help}</span>` : ''}</div>`;
+
+const buttons = comp('Button', 'Button', 'Bốn cấp. Mỗi màn chỉ một nút primary (vàng). Size XL 64 chỉ cho nút chính đáy màn của tài xế; L 56 cho tài xế và hộ tống; M 48 mặc định; S 36 cho hành động trong dòng. Nhãn là động từ cụ thể.', [
+ ['Primary · mặc định', st(btn('primary', 'Gửi báo cáo'))],
+ ['Primary · đang nhấn', st(btn('primary', 'Gửi báo cáo', {cls: 'is-pressed'}))],
+ ['Primary · đang gửi', st(btn('primary', '', {loading: true}))],
+ ['Primary · khóa', st(btn('primary', 'Gửi báo cáo', {dis: true}) + '<span class="help">Khóa chỉ khi không thể làm gì. Thiếu dữ liệu thì để bấm được và báo lỗi tại chỗ.</span>')],
+ ['Primary · focus bàn phím', st(btn('primary', 'Đăng nhập', {cls: 'is-focus'}))],
+ ['XL tài xế (64)', st(btn('primary', 'Đã đến Cửa khẩu Mộc Bài', {size: 'XL', icon: 'map-pin'}))],
+ ['Secondary', st(btn('secondary', 'Lưu nháp') + btn('secondary', 'Lưu nháp', {cls: 'is-pressed'}) + btn('secondary', 'Lưu nháp', {dis: true}))],
+ ['Tertiary', st(`<div class="row">${btn('tertiary', 'Để sau', {cls: 'hug'})}${btn('tertiary', 'Để sau', {cls: 'hug is-pressed'})}</div>`)],
+ ['Destructive', st(btn('destructive', 'Bỏ các mục chưa gửi') + btn('destructive', '', {loading: true, loadLabel: 'Đang xóa...'}))],
+ ['Size', st(btn('primary', 'L 56', {size: 'L'}) + btn('primary', 'M 48') + `<div class="row">${btn('secondary', 'S 36', {size: 'S'})}${btn('secondary', 'Thử lại', {size: 'S', icon: 'refresh-cw'})}</div>`)],
+]);
+const iconbtns = comp('IconButton', 'IconButton', 'Vùng chạm 44 dù icon 20–24. Bắt buộc accessibilityLabel. Chấm vàng cho mục chưa đọc.', [
+ ['Trạng thái', st(`<div class="row wrap"><button class="k-iconbtn" aria-label="Quay lại">${I('chevron-left', 24)}</button><button class="k-iconbtn is-pressed" aria-label="Đang nhấn">${I('chevron-left', 24)}</button><button class="k-iconbtn" disabled aria-label="Khóa">${I('chevron-left', 24)}</button><button class="k-iconbtn filled" aria-label="Thêm">${I('ellipsis', 22)}</button><button class="k-iconbtn" aria-label="Thông báo">${I('bell', 22)}<span class="dot"></span></button></div>`, 'surface')]
+], 'narrow');
+
+const fields = comp('TextField', 'TextField', 'Nhãn nằm trong ô, luôn hiện (không biến mất khi gõ). Viền borderInput đạt 3:1. Lỗi nói rõ cách sửa và nằm ngay dưới ô.', [
+ ['Trống', st(box('Email', '', {lead: 'mail', ph: 'ten@congty.vn'}))],
+ ['Đang nhập', st(box('Email', 'minhanh@clbphutho.vn', {lead: 'mail', st: 'focus'}))],
+ ['Đã điền', st(box('Mật khẩu', '••••••••••', {lead: 'lock', trail: 'eye'}))],
+ ['Lỗi', st(box('Số hộ chiếu ngựa', 'VN-SH-0231', {st: 'error', help: 'Số hộ chiếu này đã có ở hồ sơ Sao Mai. Kiểm tra lại số trên giấy.'}))],
+ ['Khóa', st(box('Mã đơn', 'HR-2610-0012', {st: 'disabled', trail: 'lock', help: 'Không sửa được khi đơn đang vận chuyển.'}))],
+ ['Có gợi ý', st(box('Nhiệt độ (°C)', '38,2', {help: 'Bình thường 37,2–38,3 °C.'}))],
+]);
+const areas = comp('TextArea', 'TextArea', 'Cho mô tả sự cố, ghi chú gửi khách. Có đếm ký tự (giới hạn 1000 theo backend) và nút đọc giọng nói cho tài xế.', [
+ ['Trống, có câu mẫu', st(box('Mô tả', '', {area: true, ph: 'VD: Lốp sau bên phải bị xịt, xe dừng ở lề.'}) + `<div class="row wrap"><span class="k-chip filter">Lốp xịt</span><span class="k-chip filter">Quá nhiệt</span><span class="k-chip filter">${I('mic', 16)}Đọc</span></div>`)],
+ ['Đang nhập', st(box('Ghi chú gửi khách', 'Kim Long hơi căng thẳng khi qua đoạn đường xóc, đã cho nghỉ 20 phút', {area: true, st: 'focus'}) + '<span class="count">68/1000</span>')],
+ ['Lỗi', st(box('Mô tả', '', {area: true, st: 'error', ph: '', help: 'Cần mô tả ngắn để điều phối xử lý. Có thể chọn câu mẫu.'}))],
+]);
+const selects = comp('Select / Picker', 'Select', 'Ô giống TextField, chevron xuống. Mở bottom sheet danh sách (≤ 7 lựa chọn) hoặc màn tìm kiếm (> 7).', [
+ ['Đóng', st(box('Loại điểm dừng', 'Trạm kiểm dịch', {trail: 'chevron-down'}))],
+ ['Chưa chọn, lỗi', st(box('Ngựa liên quan', '', {trail: 'chevron-down', st: 'error', ph: 'Chọn ngựa', help: 'Sự cố Y tế ngựa cần chọn ít nhất một ngựa.'}))],
+ ['Danh sách mở', st(`<div class="k-options">${['Cửa khẩu', 'Trạm kiểm dịch', 'Điểm dừng nghỉ', 'Trạm nhiên liệu'].map((o, i) => `<div class="k-opt ${i === 1 ? 'sel' : ''}">${o}${i === 1 ? I('check', 20, 'chk') : ''}</div>`).join('')}</div>`)],
+]);
+const dates = comp('DateTimePicker', 'DateTimePicker', 'Dùng picker gốc của hệ điều hành trong sheet. Ô hiện ngày giờ theo dạng 29/10/2026 · 09:40. Sửa giờ mốc chỉ trong 24 giờ.', [
+ ['Mặc định', st(box('Giờ thông quan', 'Hôm nay · 09:40', {lead: 'clock', trail: 'chevron-down'}))],
+ ['Ngày', st(box('Ngày lấy ngựa', '05/11/2026', {lead: 'calendar', trail: 'chevron-down'}))],
+ ['Lỗi', st(box('Giờ cho uống', 'Hôm qua · 06:10', {lead: 'clock', st: 'error', help: 'Chỉ ghi bù trong 24 giờ. Chọn giờ sau 07:42 hôm qua.'}))],
+]);
+const chips = comp('Chip / ChoiceChip', 'ChoiceChip', 'Chọn nhanh trong nhật ký hộ tống và loại sự cố. Đang chọn: chỉ đổi sang nền teal đậm + chữ trắng; giữ độ đậm và không thêm tick để chip không đổi bề rộng. Size L 56 cho thao tác đứng ngoài trời. Chip lọc 36 cho danh sách.', [
+ ['Hoạt động chăm sóc (L)', st(`<div class="row wrap"><span class="k-chip L sel">${I('droplets', 20)}Uống nước</span><span class="k-chip L">${I('wheat', 20)}Cho ăn</span><span class="k-chip L">${I('circle-pause', 20)}Nghỉ chân</span></div>`)],
+ ['Trạng thái', st(`<div class="row wrap"><span class="k-chip">Mặc định</span><span class="k-chip pressed">Đang nhấn</span><span class="k-chip sel">Đã chọn</span><span class="k-chip dis">Khóa</span></div>`)],
+ ['Chip lọc', st(`<div class="row wrap"><span class="k-chip filter sel">Đang xử lý <span class="n">3</span></span><span class="k-chip filter">Đang chạy <span class="n">1</span></span><span class="k-chip filter">Đã đóng <span class="n">12</span></span></div>`)],
+]);
+const steppers = comp('Stepper', 'Stepper', 'Nhập số bằng nút ± 64 rộng, giá trị ở giữa, có đơn vị. Chạm giá trị để gõ số.', [
+ ['Mặc định', st(`<div class="k-stepper"><button aria-label="Giảm">${I('minus', 24)}</button><span class="val">12 <small>lít</small></span><button aria-label="Tăng">${I('plus', 24)}</button></div>`)],
+ ['Ở giá trị nhỏ nhất', st(`<div class="k-stepper"><button disabled aria-label="Giảm">${I('minus', 24)}</button><span class="val">0 <small>lít</small></span><button class="is-pressed" aria-label="Tăng">${I('plus', 24)}</button></div>`)],
+]);
+const checks = comp('Checkbox / ChecklistItem', 'ChecklistItem', 'Cả dòng là vùng chạm (≥ 64). Ô vuông 28. Dùng cho kiểm tra trước chuyến. Checkbox nhỏ 22 chỉ dùng trong form khách hàng.', [
+ ['Chưa tick', st(`<div class="k-checkrow"><span class="k-cb"></span><span class="tx"><b>Vách ngăn chuồng</b><span>Chắc chắn, không cạnh sắc</span></span></div>`)],
+ ['Đã tick', st(`<div class="k-checkrow done"><span class="k-cb on">${I('check', 18)}</span><span class="tx"><b>Nước uống đủ cho chặng</b><span>Tối thiểu 40 lít mỗi ngựa</span></span></div>`)],
+ ['Còn thiếu khi bấm tiếp', st(`<div class="k-checkrow err"><span class="k-cb"></span><span class="tx"><b>Giấy tờ ngựa đi kèm</b><span style="color:var(--dangerFg)">Chưa kiểm tra mục này</span></span></div>`)],
+ ['Khóa', st(`<div class="k-checkrow dis"><span class="k-cb"></span><span class="tx"><b>Niêm phong cửa khẩu</b><span>Chỉ có ở chuyến qua biên giới</span></span></div>`)],
+ ['Checkbox nhỏ', st(`<label class="row" style="font-size:16px"><span class="k-cb sm on">${I('check', 14)}</span>Gửi báo cáo này cho khách</label><label class="row" style="font-size:16px"><span class="k-cb sm"></span>Lưu làm mặc định</label>`)],
+]);
+const switches = comp('Switch', 'Switch', 'Bật tắt có hiệu lực ngay, không cần nút Lưu. Nếu cần xác nhận thì dùng Checkbox.', [
+ ['Trạng thái', st(`<div class="setrow"><span class="tx">Thông báo đẩy</span><span class="k-switch on"></span></div><div class="setrow"><span class="tx">Chia sẻ vị trí nền</span><span class="k-switch"></span></div><div class="setrow"><span class="tx t2">Chế độ tiết kiệm pin</span><span class="k-switch dis"></span></div>`)],
+]);
+
+const cards = comp('Card', 'Card', 'Ba biến thể. Mặc định: nền surface, viền border, không bóng. Brand: nền teal đậm cho một thẻ quan trọng nhất màn. Gradient chỉ cho thẻ chuyến đang chạy của khách.', [
+ ['Mặc định', st(`<div class="k-card"><b class="t-headline">Tổng hôm nay</b><div class="kv"><span>Nước</span><b>84 L</b></div><div class="kv"><span>Bữa ăn</span><b>6</b></div><div class="kv"><span>Lần nghỉ</span><b>2</b></div></div>`)],
+ ['Đang nhấn / đang chọn', st(`<div class="k-card press"><b class="t-headline">Đang nhấn</b><span class="t2 t-footnote">Nền surfaceMuted</span></div><div class="k-card sel"><b class="t-headline">Đang chọn</b><span class="t2 t-footnote">Viền 2 borderStrong</span></div>`)],
+ ['Brand', st(`<div class="k-card brand"><span class="t-caption" style="letter-spacing:.06em">ĐIỂM KẾ TIẾP</span><b class="t-display">Cửa khẩu Mộc Bài</b><div class="row" style="gap:8px"><span class="t2 t-subhead">Kế hoạch 09:40 · còn 18 km</span><span class="k-badge sm tone-brand">${I('clock', 14)}Đúng giờ</span></div></div>`)],
+ ['Gradient (chỉ thẻ chuyến của khách)', st(`<div class="k-card grad"><span class="t-caption" style="letter-spacing:.06em">ĐANG VẬN CHUYỂN · HR-2610-0012</span><b class="t-title3">Phú Thọ → Mộc Bài → Phnom Penh</b><span class="t2 t-subhead">Vừa rời Điểm nghỉ Trảng Bàng · 07:26</span></div>`)],
+]);
+const lists = comp('ListItem', 'ListItem', 'Cao tối thiểu 60, phân cách bằng đường kẻ, gom trong một khối bo 16. Icon đầu dòng trong ô 40. Chữ phụ một dòng, cắt bằng dấu ba chấm.', [
+ ['Điều hướng', st(`<div class="k-list"><div class="k-li"><span class="lead">${I('file-text', 20)}</span><span class="tx"><b>Giấy tờ ngựa</b><span>3 hợp lệ · 1 hết hạn</span></span><span class="tr">${I('chevron-right', 20)}</span></div><div class="k-li press"><span class="lead">${I('receipt', 20)}</span><span class="tx"><b>Báo giá và thanh toán</b><span>Đang nhấn</span></span><span class="tr">${I('chevron-right', 20)}</span></div><div class="k-li dis"><span class="lead">${I('wallet', 20)}</span><span class="tx"><b>Hoàn tiền</b><span>Chưa có</span></span></div></div>`)],
+ ['Thông báo chưa đọc', st(`<div class="k-list"><div class="k-li unread"><span class="lead">${I('file-text', 20)}</span><span class="tx"><b>Báo cáo sức khỏe mới: Kim Long</b><span>HR-2610-0012 · 07:06</span></span><span class="udot" aria-label="Chưa đọc"></span></div><div class="k-li"><span class="lead">${I('route', 20)}</span><span class="tx"><b style="font-weight:500">Chuyến đã khởi hành</b><span>HR-2610-0012 · 06:04</span></span></div></div>`)],
+ ['Giá trị bên phải', st(`<div class="k-list"><div class="k-li"><span class="tx"><b>Giao diện</b></span><span class="tr">Theo máy ${I('chevron-right', 18)}</span></div><div class="k-li"><span class="tx"><b>Cỡ chữ</b></span><span class="tr">Vừa ${I('chevron-right', 18)}</span></div></div>`)],
+]);
+const S1 = S.horseCondition.items, SO = S.orderStatus.items;
+const spec = (g, k) => ({label: S[g].items[k][0], tone: S[g].items[k][1], icon: S[g].items[k][2]});
+const badges = comp('StatusBadge', 'StatusBadge', 'Hai cỡ: 26 mặc định, 22 trong thẻ dày. Lấy từ bảng trạng thái nghiệp vụ, không tự đặt màu.', [
+ ['Cỡ mặc định', st(`<div class="row wrap">${badge(spec('orderStatus','IN_TRANSIT'))}${badge(spec('orderStatus','NEED_INFO'))}${badge(spec('customerActionStatus','AWAITING_DEPOSIT'))}${badge(spec('orderStatus','DELIVERED'))}${badge(spec('orderStatus','REJECTED'))}</div>`, 'surface')],
+ ['Cỡ nhỏ', st(`<div class="row wrap">${badge(spec('syncStatus','QUEUED'), 1)}${badge(spec('horseCondition','STRESSED'), 1)}${badge(spec('documentStatus','EXPIRED'), 1)}${badge(spec('legStatus','AT_STOP'), 1)}</div>`, 'surface')],
+]);
+const horseCards = comp('HorseCard', 'HorseCard', 'Hộ tống: tình trạng, giờ ăn uống gần nhất, cảnh báo quá ngưỡng. Khách: thêm giấy tờ. Ảnh 56 bo 12, thiếu ảnh dùng icon ngựa.', [
+ ['Hộ tống · bình thường', st(`<div class="k-card"><div class="k-horse"><span class="ph">${I('horse', 28)}</span><span class="tx"><b class="t-headline">Sao Mai</b>${badge(spec('horseCondition','STABLE'), 1)}</span><button class="k-iconbtn" aria-label="Thêm">${I('ellipsis', 20)}</button></div><div class="metrics"><span>Uống <b>06:40</b></span><span>Ăn <b>06:15</b></span><span>Nghỉ <b>05:50</b></span></div></div>`)],
+ ['Hộ tống · quá ngưỡng', st(`<div class="k-card"><div class="k-horse"><span class="ph">${I('horse', 28)}</span><span class="tx"><b class="t-headline">Kim Long</b>${badge(spec('horseCondition','STRESSED'), 1)}</span><button class="k-iconbtn" aria-label="Thêm">${I('ellipsis', 20)}</button></div><span class="flag">${I('clock', 16)}4 giờ chưa uống</span><div class="metrics"><span>Uống <b>03:38</b></span><span>Ăn <b>06:15</b></span></div></div>`)],
+ ['Khách · hồ sơ', st(`<div class="k-card"><div class="k-horse"><span class="ph">${I('horse', 28)}</span><span class="tx"><b class="t-headline">Bạch Phong</b><span class="t2 t-footnote">Thuần chủng Ả Rập · 7 tuổi · 452 kg</span></span></div><div class="row wrap" style="gap:6px">${badge(spec('documentStatus','EXPIRED'), 1)}${badge(spec('orderStatus','IN_TRANSIT'), 1)}</div></div>`)],
+ ['Đang tải', st(`<div class="k-card"><div class="k-horse"><span class="sk" style="width:56px;height:56px;border-radius:12px"></span><span class="tx" style="gap:8px"><span class="sk" style="height:16px;width:60%"></span><span class="sk" style="height:12px;width:40%"></span></span></div></div>`)],
+]);
+const tripCards = comp('TripCard', 'TripCard', 'Danh sách chuyến của tài xế, hộ tống. Giờ và tuyến là chữ lớn nhất. Chuyến hôm nay đặt trên cùng.', [
+ ['Hôm nay', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><span class="t-caption t2">HÔM NAY · HR-2610-0012</span>${badge(spec('legStatus','MOVING'), 1)}</div><b class="t-title3">Phú Thọ → Phnom Penh</b><div class="kv"><span>Xuất phát</span><b>06:00 · 29/10</b></div><div class="kv"><span>Ngựa · Điểm dừng</span><b>4 · 5</b></div></div>`)],
+ ['Sắp tới', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><span class="t-caption t2">05/11 · HR-2611-0003</span>${badge(spec('legStatus','NOT_STARTED'), 1)}</div><b class="t-title3">Hà Nội → Lạng Sơn</b><div class="kv"><span>Xuất phát</span><b>05:30 · 05/11</b></div></div>`)],
+]);
+const orderCards = comp('OrderCard', 'OrderCard', 'Mã đơn, tuyến, số ngựa, trạng thái, và một dòng "việc của bạn" khi khách cần xử lý.', [
+ ['Cần xử lý', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><span class="mono t2">HR-2610-0009</span>${badge(spec('orderStatus','NEED_INFO'), 1)}</div><b class="t-headline">Phú Thọ → Hà Nội · 2 ngựa</b><div class="hr"></div><div class="row" style="color:var(--warningFg);font-weight:600;font-size:15px">${I('circle-alert', 18)}Bổ sung giấy sức khỏe của Hồng Vân ${I('chevron-right', 18)}</div></div>`)],
+ ['Bình thường', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><span class="mono t2">HR-2609-0031</span>${badge(spec('orderStatus','DELIVERED'), 1)}</div><b class="t-headline">TP.HCM → Đà Lạt · 1 ngựa</b><span class="t2 t-footnote">Giao 21/09/2026 · 14:20</span></div>`)],
+]);
+const quoteCards = comp('QuoteCard', 'QuoteCard', 'Trình bày như hóa đơn. Số canh phải, tabular-nums. Khung trên cùng đổi theo trạng thái. Nút đặt cọc mở web (mobile không thu tiền).', [
+ ['Chờ đặt cọc', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><b class="t-headline">Báo giá HR-2610-0015</b>${badge(spec('customerActionStatus','AWAITING_DEPOSIT'), 1)}</div><div class="kv"><span>Vận chuyển 2 ngựa</span><b>9.800.000 ₫</b></div><div class="kv"><span>Phí kiểm dịch</span><b>1.540.000 ₫</b></div><div class="hr"></div><div class="kv"><span style="color:var(--textPrimary);font-weight:600">Tổng</span><b>11.340.000 ₫</b></div><div class="kv"><span style="color:var(--textPrimary);font-weight:600">Đặt cọc 30%</span><b>3.402.000 ₫</b></div><span class="help">${I('clock', 16)}Hạn đặt cọc 31/10/2026 · 18:00</span>${btn('primary', 'Đặt cọc trên web', {icon: 'arrow-right'})}</div>`)],
+ ['Đã đặt cọc', st(`<div class="k-card"><div class="row" style="justify-content:space-between"><b class="t-headline">Báo giá HR-2610-0012</b>${badge(spec('paymentStatus','SUCCESS'), 1)}</div><div class="kv"><span>Tổng</span><b>48.600.000 ₫</b></div><div class="kv"><span>Đã cọc 28/10</span><b>14.580.000 ₫</b></div><div class="hr"></div><div class="kv"><span style="color:var(--textPrimary);font-weight:600">Còn lại</span><b>34.020.000 ₫</b></div></div>`)],
+]);
+const stop = (cls, name, sub, tm, icon) => `<div class="k-st ${cls}"><div class="rail"><span class="nd">${cls === 'done' ? I('check', 12) : ''}</span><span class="ln"></span></div><div class="tx"><b>${name}</b><span>${sub}</span></div><span class="tm">${tm}</span></div>`;
+const timelines = comp('Timeline mốc chặng', 'StopTimeline', 'Dọc, nút tròn trên đường ray. Đã qua: teal đặc + dấu tick. Hiện tại: viền vàng, chữ lớn hơn. Sắp tới: rỗng, chữ phụ. Mốc chưa gửi có nhãn Chờ gửi.', [
+ ['Tài xế / khách', st(`<div class="k-tl">${stop('done', 'Trường đua Phú Thọ', 'Xuất phát · 06:04', '06:00')}${stop('done', 'Điểm nghỉ Trảng Bàng', 'Đã rời · 07:26', '07:10')}${stop('cur', 'Cửa khẩu Mộc Bài', 'Kế hoạch 09:40 · còn 18 km', '09:40')}${stop('up', 'Phnom Penh', 'Điểm giao', '14:30')}</div>`, 'surface')],
+ ['Mất sóng, mốc chưa gửi', st(`<div class="k-tl">${stop('done', 'Điểm nghỉ Trảng Bàng', `Đã đến 07:02 · ${badge(spec('syncStatus','QUEUED'), 1)}`, '07:10')}${stop('cur', 'Cửa khẩu Mộc Bài', 'Kế hoạch 09:40', '09:40')}</div>`, 'surface')],
+]);
+const mapSvg = `<svg class="base" viewBox="0 0 343 180" preserveAspectRatio="none" aria-hidden="true"><g stroke="var(--border)" stroke-width="1">${[30,60,90,120,150].map(y => `<line x1="0" y1="${y}" x2="343" y2="${y}"/>`).join('')}${[50,100,150,200,250,300].map(x => `<line x1="${x}" y1="0" x2="${x}" y2="180"/>`).join('')}</g><path d="M20 150 C 80 140, 110 100, 170 92 S 270 50, 325 30" fill="none" stroke="var(--surfaceBrandAlt)" stroke-width="4" stroke-linecap="round"/><circle cx="20" cy="150" r="6" fill="var(--surfaceBrandAlt)"/><circle cx="325" cy="30" r="6" fill="var(--surface)" stroke="var(--surfaceBrand)" stroke-width="3"/><circle cx="170" cy="92" r="22" fill="var(--accent)" opacity=".22"/><circle cx="170" cy="92" r="8" fill="var(--accent)" stroke="var(--surfaceBrand)" stroke-width="3"/></svg>`;
+const maps = comp('MapView container', 'MapContainer', 'Thẻ 180 bo 16, có nhãn nguồn vị trí. Khách chỉ thấy vị trí ước tính. Nút mở toàn màn ở góc. Bản đồ thật dùng react-native-maps, kiểu bản đồ nhạt để tuyến teal nổi lên.', [
+ ['Vị trí ước tính (khách)', st(`<div class="k-map">${mapSvg}<span class="tag">${I('map-pinned', 14)}Vị trí ước tính theo mốc gần nhất</span><span class="fs">${I('layers', 18)}</span></div>`, 'flush surface')],
+ ['Đang tải', st(`<div class="k-map"><div class="sk" style="position:absolute;inset:0;border-radius:0"></div><div class="center">${I('loader-circle', 22, 'spin')}Đang tải bản đồ</div></div>`, 'flush surface')],
+ ['Không có vị trí', st(`<div class="k-map"><div class="center">${I('locate-off', 24)}<b style="color:var(--textPrimary)">Chưa có vị trí</b>Chuyến chưa xuất phát hoặc tài xế mất sóng. Lộ trình bên dưới vẫn cập nhật theo mốc.</div></div>`, 'flush surface')],
+]);
+const photos = comp('PhotoPicker / PhotoGrid', 'PhotoPicker', 'Tối đa 3 ảnh, JPG/PNG ≤ 5 MB. Mỗi ô có trạng thái tải riêng. Báo cáo sức khỏe bắt buộc ít nhất 1 ảnh: thiếu thì báo dưới lưới, không khóa nút Gửi.', [
+ ['Chưa có ảnh', st(`<div class="k-photos"><div class="k-ph add">${I('camera', 24)}Chụp ảnh</div></div><span class="help">Chụp rõ vùng bất thường. Tối đa 3 ảnh.</span>`)],
+ ['Thiếu ảnh khi gửi', st(`<div class="k-photos"><div class="k-ph add err">${I('camera', 24)}Chụp ảnh</div></div><span class="help err">${I('circle-alert', 16)}Báo cáo sức khỏe cần ít nhất 1 ảnh.</span>`)],
+ ['Đang tải / xong / lỗi / chờ mạng', st(`<div class="k-photos"><div class="k-ph img"><span class="x">${I('x', 14)}</span></div><div class="k-ph img"><span class="bar"><i></i></span></div><div class="k-ph img"><span class="veil">${I('refresh-cw', 20)}Thử lại</span></div></div><div class="k-photos"><div class="k-ph img"><span class="q">${I('cloud-off', 12)}Chờ gửi</span></div><div class="k-ph add">${I('plus', 22)}Thêm</div></div><span class="help">Ảnh lỗi: chạm để thử lại. Mất sóng: lưu trên máy, gửi khi có mạng.</span>`)],
+]);
+
+const ghost = `<div class="ghost"><i style="width:60%"></i><i></i><i style="width:80%"></i><i></i><i style="width:50%"></i></div>`;
+const sheets = comp('BottomSheet', 'BottomSheet', 'Cho tác vụ tạm thời: ghi nhanh, xác nhận mốc, chọn. Bo 24 phía trên, thanh kéo 36×5, tiêu đề + nút đóng 44. Nút chính ở đáy sheet. Vuốt xuống hoặc chạm nền tối để đóng (nếu chưa nhập gì).', [
+ ['Xác nhận mốc', `<div class="phone-bg">${ghost}<div class="scrim"></div><div class="k-sheet"><span class="grab"></span><div class="sheet-h"><h4>Xác nhận đã thông quan</h4><button class="k-iconbtn" aria-label="Đóng">${I('x', 22)}</button></div>${box('Giờ thông quan', 'Hôm nay · 09:52', {lead: 'clock', trail: 'chevron-down'})}${btn('primary', 'Xác nhận đã thông quan', {size: 'L'})}</div></div>`, 'wide'],
+ ['Ghi nhanh', `<div class="phone-bg">${ghost}<div class="scrim"></div><div class="k-sheet"><span class="grab"></span><div class="sheet-h"><h4>Ghi nhanh</h4><button class="k-iconbtn" aria-label="Đóng">${I('x', 22)}</button></div><div class="row wrap"><span class="k-chip sel">${I('droplets', 18)}Uống nước</span><span class="k-chip">${I('wheat', 18)}Cho ăn</span><span class="k-chip">${I('circle-pause', 18)}Nghỉ</span></div><div class="k-stepper"><button aria-label="Giảm">${I('minus', 24)}</button><span class="val">12 <small>lít</small></span><button aria-label="Tăng">${I('plus', 24)}</button></div>${btn('primary', 'Lưu cho cả đoàn', {size: 'L'})}</div></div>`, 'wide'],
+]);
+const dialogs = comp('Modal / Dialog xác nhận', 'ConfirmDialog', 'Chỉ cho việc không đảo ngược được hoặc mất dữ liệu. Tiêu đề nói hậu quả, nút nói hành động. Nút an toàn là primary; hành động phá hủy dùng destructive.', [
+ ['Chặn', `<div class="phone-bg">${ghost}<div class="scrim"></div><div class="k-dialog"><h4>Còn 3 mục chưa gửi</h4><p class="t2" style="font-size:15px">Đăng xuất bây giờ sẽ mất các mục này. Kết nối mạng để gửi xong rồi đăng xuất.</p>${btn('primary', 'Đã hiểu')}${btn('tertiary', 'Xem các mục')}</div></div>`, 'wide'],
+ ['Phá hủy', `<div class="phone-bg">${ghost}<div class="scrim"></div><div class="k-dialog"><h4>Bỏ bản nháp yêu cầu?</h4><p class="t2" style="font-size:15px">Đã chọn 2 ngựa và tuyến Phú Thọ → Hà Nội. Bỏ thì phải nhập lại từ đầu.</p>${btn('primary', 'Lưu nháp và thoát')}${btn('destructive', 'Bỏ bản nháp')}</div></div>`, 'wide'],
+]);
+const toasts = comp('Toast và thông báo trong app', 'Toast', 'Xác nhận đã lưu: thông báo trượt từ trên xuống như thông báo điện thoại, tự ẩn sau 3 giây. Toast Hoàn tác giữ ở đáy (vùng ngón cái), 5 giây, có đếm ngược. Lỗi cần xử lý thì dùng Banner hoặc lỗi tại chỗ, không dùng toast.', [
+ ['Hoàn tác (tài xế)', st(`<div class="k-toast">${I('check', 20)}<span class="tx">Đã đến Điểm nghỉ Trảng Bàng <span class="cd">· 4 giây</span></span><button class="act">${I('rotate-ccw', 18)}Hoàn tác</button></div>`)],
+ ['Thông báo xác nhận (trên cùng)', st(`<div class="k-notif"><span class="ap">${I('horse', 22)}</span><div class="nt"><div class="nh"><b>HorseRoute</b><span>bây giờ</span></div><span>Đã ghi: Uống nước 12 L · Sao Mai, Kim Long</span></div></div>`)],
+ ['Lỗi nhẹ', st(`<div class="k-toast err">${I('circle-alert', 20)}<span class="tx">Không tải được ảnh. Thử lại sau.</span></div>`)],
+]);
+const banners = comp('Banner (offline / đồng bộ / GPS)', 'Banner', 'Thanh ngang ngay dưới header, cao ≥ 44, chạm được để xem chi tiết. Mất sóng dùng teal đậm (không đỏ) vì đó là tình huống bình thường trên đường.', [
+ ['Mất sóng', st(`<div class="k-banner offline">${I('wifi-off', 18)}<span class="tx">Mất sóng · 3 mục chờ gửi</span>${I('chevron-right', 18)}</div><div class="k-banner sync">${I('refresh-cw', 18, 'spin')}<span class="tx">Đang gửi 3 mục...</span></div>`, 'flush')],
+ ['GPS', st(`<div class="k-banner info">${I('navigation', 18)}<span class="tx">Đang chia sẻ vị trí · cập nhật 07:41</span></div><div class="k-banner warn">${I('satellite-dish', 18)}<span class="tx">GPS yếu · vị trí có thể lệch</span></div>`, 'flush')],
+ ['Cần xử lý', st(`<div class="k-banner danger">${I('triangle-alert', 18)}<span class="tx">1 mục bị từ chối · chạm để xem</span>${I('chevron-right', 18)}</div><div class="k-banner warn">${I('locate-off', 18)}<span class="tx">Chưa cấp quyền vị trí nền</span>${I('chevron-right', 18)}</div>`, 'flush')],
+]);
+const syncSp = k => spec('syncStatus', k);
+const syncs = comp('SyncIndicator', 'SyncIndicator', 'Chỉ báo nhỏ ở header hoặc cạnh từng mục. Chạm mở Hàng chờ đồng bộ (COM-12).', [
+ ['Trạng thái', st(`<div class="row wrap"><span class="k-sync tone-success">${I('check-check', 16)}Đã đồng bộ</span><span class="k-sync tone-warning">${I('cloud-off', 16)}3 chờ gửi</span><span class="k-sync tone-info">${I('refresh-cw', 16, 'spin')}Đang gửi</span><span class="k-sync tone-danger">${I('circle-x', 16)}1 bị từ chối</span></div>`, 'surface')],
+]);
+const empties = comp('EmptyState / ErrorState', 'EmptyState', 'Icon trong ô 64, một câu nói vì sao trống, một hành động nếu có. Không minh họa, không câu đùa. Lỗi nói cách khắc phục.', [
+ ['Trống', st(`<div class="k-empty"><span class="art">${I('truck', 28)}</span><b class="t-headline">Chưa có chuyến nào</b><p>Điều phối sẽ phân công chuyến cho bạn. Bạn sẽ nhận thông báo khi có.</p></div>`, 'surface')],
+ ['Trống có hành động', st(`<div class="k-empty"><span class="art">${I('horse', 28)}</span><b class="t-headline">Chưa có hồ sơ ngựa</b><p>Thêm hồ sơ để đặt vận chuyển nhanh hơn.</p>${btn('primary', 'Thêm hồ sơ ngựa', {cls: 'hug', icon: 'plus'})}</div>`, 'surface')],
+ ['Lỗi', st(`<div class="k-empty err"><span class="art">${I('circle-alert', 28)}</span><b class="t-headline">Không tải được đơn hàng</b><p>Máy chủ không phản hồi. Kiểm tra mạng rồi thử lại.</p>${btn('secondary', 'Thử lại', {cls: 'hug', icon: 'refresh-cw'})}</div>`, 'surface')],
+]);
+const skel = comp('Skeleton', 'Skeleton', 'Giữ đúng hình khối của nội dung thật. Ánh sáng chạy 1,4 giây; tắt khi bật Reduce Motion. Hiện sau 300 ms để tránh nháy.', [
+ ['Danh sách', st(`${[1,2,3].map(() => `<div class="row"><span class="sk" style="width:40px;height:40px;border-radius:12px"></span><span class="col" style="flex:1;gap:8px"><span class="sk" style="height:14px;width:70%"></span><span class="sk" style="height:12px;width:45%"></span></span></div>`).join('')}`, 'surface')],
+ ['Thẻ', st(`<div class="k-card"><span class="sk" style="height:12px;width:35%"></span><span class="sk" style="height:22px;width:80%"></span><span class="sk" style="height:14px;width:55%"></span></div>`)],
+]);
+const tab = (ic, l, on, b) => `<div class="k-tab ${on ? 'on' : ''}">${I(ic, 22)}<span>${l}</span>${b ? `<span class="bdg">${b}</span>` : ''}</div>`;
+const tabbars = comp('TabBar', 'TabBar', 'Cao 56 + safe area. Tab đang chọn: màu tabActive, chữ đậm, vạch vàng 3 ở trên. Số đếm trên nền teal. Mỗi vai trò một bộ tab.', [
+ ['Tài xế', st(`<div class="k-tabbar">${tab('truck', 'Chuyến', 1)}${tab('triangle-alert', 'Sự cố')}${tab('bell', 'Thông báo', 0, 2)}${tab('user', 'Tài khoản')}</div>`, 'flush')],
+ ['Hộ tống', st(`<div class="k-tabbar">${tab('horse', 'Ngựa', 1)}${tab('file-text', 'Nhật ký')}${tab('bell', 'Thông báo')}${tab('user', 'Tài khoản')}</div>`, 'flush')],
+ ['Khách hàng', st(`<div class="k-tabbar">${tab('route', 'Hành trình', 1)}${tab('package-check', 'Đơn hàng', 0, 1)}${tab('horse', 'Ngựa')}${tab('user', 'Tài khoản')}</div>`, 'flush')],
+]);
+const headers = comp('NavigationHeader', 'NavigationHeader', 'Tab gốc: tiêu đề lớn 34 bên trái, thu nhỏ khi cuộn. Màn con: nút quay lại 44 + tiêu đề 17 ở giữa. Đường kẻ dưới chỉ hiện khi đã cuộn.', [
+ ['Tiêu đề lớn', st(`<div class="k-head"><div class="bar"><span style="flex:1"></span><button class="k-iconbtn" aria-label="Thông báo">${I('bell', 22)}<span class="dot"></span></button></div><div class="big t-largeTitle">Hành trình</div></div>`, 'flush')],
+ ['Đã cuộn', st(`<div class="k-head line"><div class="bar"><button class="k-iconbtn" aria-label="Quay lại">${I('chevron-left', 24)}</button><span class="tt">Chi tiết đơn</span></div></div>`, 'flush')],
+ ['Wizard có tiến độ', st(`<div class="k-head line"><div class="bar"><button class="k-iconbtn" aria-label="Đóng">${I('x', 22)}</button><span class="tt left">Bước 2/4 · Tuyến và ngày</span>${btn('tertiary', 'Lưu nháp', {size: 'S'})}</div><div class="prog"><i></i></div></div>`, 'flush')],
+]);
+const sos = comp('SOS / IncidentButton', 'IncidentButton', 'Tài xế: luôn ở bên trái nút chính, 1 chạm, viền đỏ, không dùng nền đỏ đặc để không cạnh tranh với nút chính. Hộ tống: lựa chọn Y tế khẩn có viền đậm trong sheet Báo bất thường.', [
+ ['Thanh đáy tài xế', st(`<div class="sosbar">${btn('danger-outline sos', 'Sự cố', {size: 'XL', icon: 'triangle-alert'})}${btn('primary', 'Rời điểm dừng', {size: 'XL'})}</div>`, 'flush')],
+ ['Y tế khẩn (hộ tống)', st(`<div class="k-checkrow" style="border:2px solid var(--dangerFg)"><span class="lead" style="color:var(--dangerFg)">${I('siren', 26)}</span><span class="tx"><b>Y tế khẩn</b><span>Ngựa cần bác sĩ ngay. Báo điều phối xử lý gấp.</span></span>${I('chevron-right', 20)}</div>`)],
+]);
+const perms = comp('PermissionPrimer', 'PermissionPrimer', 'Hiện trước hộp xin quyền của hệ điều hành. Nói lợi ích theo vai trò, nút chính bật quyền, "Để sau" vẫn vào app.', [
+ ['Vị trí nền (tài xế)', st(`<div class="k-perm"><span class="art">${I('navigation', 32)}</span><b class="t-title2">Chia sẻ vị trí khi đang chạy chuyến</b><div class="ben"><span class="i">${I('route', 20)}</span>Khách và điều phối thấy xe đang ở đâu</div><div class="ben"><span class="i">${I('map-pin', 20)}</span>Gợi ý mốc khi xe tới gần điểm dừng</div><div class="ben"><span class="i">${I('lock', 20)}</span>Chỉ chia sẻ trong chuyến, tự tắt khi hoàn tất</div>${btn('primary', 'Cho phép vị trí', {size: 'L'})}${btn('tertiary', 'Để sau')}</div>`, 'surface')],
+]);
+
+const rulesHTML = `<ul class="rules">${[
+ ['check','Một nút vàng mỗi màn. Các nút khác là secondary hoặc tertiary.'],
+ ['check','Chữ lớn nhất trên màn là thông tin người dùng cần nhất: điểm kế tiếp, tên ngựa, số tiền.'],
+ ['check','Phân tách bằng đường kẻ và khoảng trắng trước, thẻ sau, bóng sau cùng.'],
+ ['check','Trạng thái luôn có icon + chữ. Mức độ sự cố có thêm vạch 1-2-3.'],
+ ['check','Thiếu dữ liệu: để nút bấm được, báo lỗi tại chỗ và nói cách sửa.'],
+ ['check','Mất sóng là tình huống bình thường: dùng teal, không dùng đỏ; mọi thao tác vẫn lưu được.'],
+ ['check','Tài xế và hộ tống: vùng chạm ≥ 56, nút chính 64, chip L 56.'],
+ ['check','Dark mode: chiều sâu bằng surfaceElevated, không bóng; vàng giữ nguyên.'],
+ ['x','Không dùng #f4b942 làm chữ, không dùng vàng cho cảnh báo (warning là cam đất).','no'],
+ ['x','Không gradient trừ thẻ chuyến đang chạy của khách. Không tím, không xanh dương, không glow.','no'],
+ ['x','Không emoji, không icon sparkle hay robot, không minh họa 3D.','no'],
+ ['x','Không màu ngoài token. Màu tím "nghỉ" của web escort thay bằng teal nhạt + icon.','no'],
+].map(([ic, t, c]) => `<li class="${c || ''}">${I(ic === 'x' ? 'circle-x' : 'circle-check', 18)}<span>${t}</span></li>`).join('')}</ul>`;
+
+document.getElementById('main').innerHTML = [
+ `<div class="sec"><span class="eyebrow">Prompt 5 · Đợt duyệt 29/10/2026</span><h1>Design system cho app tài xế, hộ tống và khách hàng</h1><p class="lead">Token và component cho app Expo. Màu gốc lấy từ web (landing-page.css, driver-shell.css), không thêm màu mới; thang màu nội suy từ các màu đó. Mọi component trên trang này vẽ bằng đúng token trong <span class="mono">tokens/theme.ts</span>, đổi Sáng/Tối ở trên để xem cả hai chế độ.</p></div>`,
+ sec('mau', 'Token · Màu', 'Thang màu', 'Một màu nhấn (vàng), một màu thương hiệu (teal), một thang xám ngả teal. Không có xám trung tính.', palette + `<h3>Màu ngữ nghĩa</h3>` + semantic),
+ sec('vaitro', 'Token · Màu', 'Màu theo vai trò', 'Code chỉ dùng tên vai trò, không dùng mã màu hay tên thang.', roles),
+ sec('tuongphan', 'Token · Màu', 'Tương phản đã đo', 'Mọi cặp chữ/nền dùng trong component, cả hai chế độ. Chữ cần ≥ 4.5:1, viền ô nhập và vòng focus cần ≥ 3:1.', contrast),
+ sec('trangthai', 'Token · Nghiệp vụ', 'Trạng thái nghiệp vụ', 'Từ 01-data-inventory mục 5. Mỗi trạng thái có nhãn, tone và icon Lucide cố định.', statusHTML),
+ sec('chu', 'Token · Chữ', 'Typography', 'Be Vietnam Pro, thang iOS. Mỗi màn dùng tối đa 4 cỡ.', typeHTML),
+ sec('khoang', 'Token · Không gian', 'Khoảng cách, bo góc, bóng, kích thước', '', spaceHTML),
+ sec('chuyendong', 'Token · Chuyển động', 'Chuyển động', '', motionHTML),
+ sec('nut', 'Component', 'Nút và nhập liệu', '', buttons + iconbtns + fields + areas + selects + dates + chips + steppers + checks + switches),
+ sec('the', 'Component', 'Thẻ, danh sách, dữ liệu', '', cards + lists + badges + horseCards + tripCards + orderCards + quoteCards + timelines + maps + photos),
+ sec('lop', 'Component', 'Lớp phủ và phản hồi', '', sheets + dialogs + toasts + banners + syncs + empties + skel),
+ sec('khung', 'Component', 'Khung màn', '', tabbars + headers + sos + perms),
+ sec('nguyentac', 'Nguyên tắc', 'Dùng và không dùng', '', rulesHTML),
+].join('');
+</script>
+</body>
+</html>

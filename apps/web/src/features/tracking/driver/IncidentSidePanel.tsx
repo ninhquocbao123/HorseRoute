@@ -58,7 +58,18 @@ export function IncidentListItem({ item }: { item: IIncident }) {
         ? <button type="button" className={'drv-reported-desc is-toggle' + (open ? '' : ' is-clamped')} aria-expanded={open} onClick={() => setOpen(!open)}>{item.description}</button>
         : <span className="drv-reported-desc">{item.description}</span>}
       <time dateTime={item.reportedAt}>{formatDateTime(item.reportedAt)}</time>
-      {item.status === 'CLOSED' && item.handlingNote && <small>Xử lý: {item.handlingNote}</small>}
+      {(() => {
+        // Phản hồi mới nhất của điều phối viên (hướng xử lý + giờ dự kiến xong, hoặc kết quả khi đã xử lý).
+        const latest = item.responses?.[item.responses.length - 1];
+        const note = latest?.note ?? item.handlingNote;
+        if (!note) return null;
+        return (
+          <small className="drv-incident-reply">
+            {item.status === 'CLOSED' ? 'Đã xử lý' : 'Điều phối'}: {note}
+            {item.status !== 'CLOSED' && latest?.expectedAt && <> · dự kiến xong {formatDateTime(latest.expectedAt)}</>}
+          </small>
+        );
+      })()}
     </li>
   );
 }

@@ -63,6 +63,12 @@ export function buildMilestoneSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROAC
 export const createMilestoneSchema = buildMilestoneSchema();
 export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
 
+export function buildWaypointCheckinSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
+  return z.object({ occurredAt: milestoneTimeSchema }).strict()
+    .superRefine(({ occurredAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context));
+}
+export const waypointIdSchema = z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/, 'Mã điểm dừng không hợp lệ.');
+
 export function buildCompleteLegSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
   return z.object({ occurredAt: milestoneTimeSchema }).strict()
     .superRefine(({ occurredAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context));
@@ -210,15 +216,25 @@ export const patchIncidentSchema = z.object({
     errorMap: () => ({ message: 'Trạng thái xử lý sự cố phải là ACKNOWLEDGED hoặc CLOSED.' }),
   }),
   handlingNote: z.string().trim().max(2000, 'Ghi chú xử lý tối đa 2000 ký tự.').optional().nullable(),
+  /** Thời gian chờ dự kiến (phút) khi gửi hướng xử lý */
+  waitMinutes: z.number({ invalid_type_error: 'Thời gian chờ phải là số phút.' }).int('Thời gian chờ phải là số phút nguyên.')
+    .min(1, 'Thời gian chờ tối thiểu 1 phút.').max(1440, 'Thời gian chờ tối đa 24 giờ.').optional().nullable(),
 }).strict().superRefine((data, context) => {
-  if (data.status === IncidentStatus.CLOSED && (!data.handlingNote || data.handlingNote.trim().length === 0)) {
+  if (!data.handlingNote || data.handlingNote.trim().length === 0) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['handlingNote'],
-      message: 'Khi đóng sự cố (CLOSED), bắt buộc phải có ghi chú xử lý (handlingNote) theo quy định BR-INC-03.',
+      message: data.status === IncidentStatus.CLOSED
+        ? 'Khi đóng sự cố (CLOSED), bắt buộc phải có ghi chú xử lý (handlingNote) theo quy định BR-INC-03.'
+        : 'Cần ghi hướng xử lý để gửi cho tài xế / hộ tống.',
     });
   }
+  if (data.status === IncidentStatus.CLOSED && data.waitMinutes) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['waitMinutes'], message: 'Sự cố đã xử lý xong không có thời gian chờ.' });
+  }
 });
+export const incidentScopeSchema = z.object({ scope: z.enum(['open', 'closed']).default('open') });
+
 export type PatchIncidentInput = z.infer<typeof patchIncidentSchema>;
 
 export const createAlertSchema = z.object({

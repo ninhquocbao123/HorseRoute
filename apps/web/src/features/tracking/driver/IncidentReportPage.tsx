@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Select } from 'antd';
-import type { DamageTarget, IDriverTripDetail, IDriverTripSummary, IIncident, IncidentSeverity } from '@my-project/shared';
+import { PHOTO_REQUIRED, type DamageTarget, type IDriverTripDetail, type IDriverTripSummary, type IIncident, type IncidentSeverity } from '@my-project/shared';
 import { errorMessage, trackingApi } from '../tracking.api';
 import { currentLeg } from '../tracking.format';
 import { useDraft } from './useDraft';
@@ -81,6 +81,7 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
     if (draft.description.trim().length < 5) return 'Mô tả chi tiết tối thiểu 5 ký tự.';
     if (!draft.damageTarget) return 'Chọn hư hại liên quan tới xe, ngựa hay cả hai.';
     if (medical && !draft.horseId) return 'Sự cố y tế: chọn con ngựa bị ảnh hưởng.';
+    if (PHOTO_REQUIRED.INCIDENT && !photos.length) return 'Thêm ít nhất 1 ảnh hiện trường để điều phối viên xử lý.';
     return '';
   }
 
@@ -172,11 +173,14 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
           </label>
         )}
 
-        <h3 className="drv-card-title">4. Hình ảnh</h3>
-        <LabeledPhotoGrid
-          photos={photos} captions={captions} onError={setError} disabled={busy}
-          onChange={(nextPhotos, nextCaptions) => { setPhotos(nextPhotos); setCaptions(nextCaptions); }}
-        />
+        <h3 className="drv-card-title">4. Hình ảnh hiện trường{PHOTO_REQUIRED.INCIDENT ? ' (bắt buộc)' : ''}</h3>
+        <div className={'drv-photo-required' + (invalid(PHOTO_REQUIRED.INCIDENT && !photos.length) ? ' is-invalid' : '')}>
+          <LabeledPhotoGrid
+            photos={photos} captions={captions} onError={setError} disabled={busy}
+            onChange={(nextPhotos, nextCaptions) => { setPhotos(nextPhotos); setCaptions(nextCaptions); }}
+          />
+          {invalid(PHOTO_REQUIRED.INCIDENT && !photos.length) && <small className="drv-error-text" role="alert">Điều phối viên cần ảnh để xem và xử lý sự cố.</small>}
+        </div>
 
         {error && <Alert type="error" showIcon title={error} />}
         <div className="drv-form-actions">

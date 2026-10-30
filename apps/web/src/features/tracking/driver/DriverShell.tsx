@@ -81,8 +81,9 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
     // Cảnh báo mới: tải lại /alerts để có thông báo (notificationId) của chính mình; chỉ cảnh báo có thông báo chưa đọc mới thành toast.
     onAlert: () => void alerts.load(),
     onIncidentUpdated: payload => notice.info(
-      payload.status === 'CLOSED' ? `Sự cố #${payload.incidentId} đã được đóng` : `Điều phối viên đã tiếp nhận sự cố #${payload.incidentId}`,
-      payload.status === 'CLOSED' && payload.handlingNote ? `Hướng xử lý: ${payload.handlingNote}` : undefined,
+      payload.status === 'CLOSED' ? `Sự cố #${payload.incidentId} đã xử lý xong` : `Điều phối viên đã phản hồi sự cố #${payload.incidentId}`,
+      [payload.handlingNote, payload.expectedAt && `Dự kiến xử lý xong lúc ${new Date(payload.expectedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`]
+        .filter(Boolean).join(' · ') || undefined,
     ),
     onNotification: addNotice,
     onHorseReportViewed,

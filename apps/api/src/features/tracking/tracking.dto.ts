@@ -50,6 +50,14 @@ export interface MilestoneRow {
   recordedByName: string;
 }
 
+export interface WaypointCheckinRow {
+  legId: string;
+  waypointId: string;
+  label: string;
+  occurredAt: Date;
+  recordedByName: string;
+}
+
 /** Response GET /tracking/trips/:id; kiểu dùng chung với web nằm trong packages/shared. */
 export type HorseInTrip = ITripHorse;
 export type TrackingTripDetail = IDriverTripDetail;
@@ -124,6 +132,7 @@ export interface AttachmentRow {
   caption: string | null;
   horseLogId: string | null;
   incidentId: string | null;
+  careActivityId?: string | null;
 }
 
 export interface IncidentRow {
@@ -148,6 +157,21 @@ export interface IncidentRow {
   receivedBy: string | null;
   handlingNote: string | null;
   closedAt: Date | null;
+  orderId?: string;
+  orderCode?: string;
+  fromName?: string | null;
+  toName?: string | null;
+  reporterRole?: 'DRIVER' | 'ESCORT' | null;
+}
+
+export interface IncidentResponseRow {
+  id: string;
+  incidentId: string;
+  kind: 'RESPONSE' | 'RESOLVED';
+  note: string;
+  waitMinutes: number | null;
+  sentByName: string;
+  sentAt: Date;
 }
 
 export interface AlertRow {

@@ -5,24 +5,29 @@ import BaseMap from './BaseMap';
 import { applyDriverMapTheme, driverMapColors } from './driver-map-theme';
 import { DEFAULT_VIEW } from './map-style';
 import { planView, VN_VIEW } from './map-view-plan';
-import { OFF_ROUTE_KM, travelledRoute } from './route-progress';
+import { OFF_ROUTE_KM, routeBearingAt, travelledRoute } from './route-progress';
 
 type LngLat = [number, number];
 /** Bề rộng ước lượng của nhãn (chữ 12px đậm ≈ 7px/ký tự) + lề 26px từ chấm + padding. */
 const labelWidth = (stop: { name: string }, first: boolean) => 26 + 22 + (stop.name.length + (first ? ' · điểm gửi' : ' · điểm nhận').length) * 7;
-export type OwnFix = { lng: number; lat: number; at: string };
+export type OwnFix = { lng: number; lat: number; at: string; headingDeg?: number | null };
+/** Góc nhìn chế độ dẫn đường (kiểu Google Maps): sát mặt đường, nghiêng, xe nằm phía dưới giữa khung. */
+const NAV_ZOOM = 16;
+const NAV_PITCH = 55;
 
 /**
  * Bản đồ lộ trình của màn tài xế (D1 khi READY, D1b khi IN_TRANSIT). Chỉ import qua lazy chunk.
  * ROAD nét liền; STRAIGHT (đường thẳng ước lượng) và AIR (cung tròn lớn) nét đứt. Tự fit theo tuyến khi đổi chuyến.
  */
-export default function DriverRouteMap({ map, track, running, ownFix }: {
+export default function DriverRouteMap({ map, track, running, ownFix, navigating = false }: {
   /** null khi chưa tải được /map: vẫn hiện bản đồ ở góc nhìn Việt Nam */
   map: ITripMap | null;
   track: ITripTrackPoint[];
   running: boolean;
   /** Điểm GPS vừa lấy trên máy tài xế: cập nhật marker ngay, không chờ lần tải /map kế tiếp */
   ownFix: OwnFix | null;
+  /** Chế độ dẫn đường: camera bám theo xe, quay theo hướng đi; kéo bản đồ thì tạm ngừng bám, có nút "Về giữa". */
+  navigating?: boolean;
 }) {
   const ref = useRef<MapRef>(null);
   const fittedFor = useRef<string | null>(null);
@@ -72,6 +77,39 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
 
   const stops = (map?.stops ?? []).filter(stop => stop.lat !== null && stop.lng !== null);
 
+  // Hướng đi: ưu tiên la bàn GPS của máy (chỉ có khi xe đang chạy), không có thì theo hướng tuyến tại chỗ xe đứng.
+  const bearing = useMemo(() => {
+    if (!vehicle) return 0;
+    if (ownFix?.headingDeg != null && !vehicle.estimated) return ownFix.headingDeg;
+    const leg = mapLegs.find(item => item.status === 'MOVING' || item.status === 'AT_STOP') ?? mapLegs.find(item => item.status !== 'COMPLETED');
+    return routeBearingAt(leg?.coordinates ?? null, [vehicle.lng, vehicle.lat]) ?? 0;
+  }, [vehicle, ownFix?.headingDeg, mapLegs]);
+
+  const [following, setFollowing] = useState(true);
+  const loaded = useRef(false);
+  const follow = () => {
+    const instance = ref.current;
+    if (!instance || !vehicle) return;
+    const height = instance.getContainer().clientHeight;
+    // Lề trên lớn (banner chỉ đường) để xe nằm ở khoảng 2/3 khung như Google Maps.
+    instance.easeTo({ center: [vehicle.lng, vehicle.lat], zoom: NAV_ZOOM, pitch: NAV_PITCH, bearing, duration: 900,
+      padding: { top: Math.round(height * 0.35), bottom: 90, left: 0, right: 0 } });
+  };
+  useEffect(() => {
+    if (navigating) setFollowing(true);
+    const instance = ref.current;
+    if (!instance || !loaded.current) return;
+    if (navigating) follow();
+    else {
+      // Thoát dẫn đường: trả về góc nhìn toàn tuyến, không nghiêng.
+      instance.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 0 });
+      fit();
+    }
+  }, [navigating]); // chỉ khi bật/tắt chế độ
+  useEffect(() => {
+    if (navigating && following && loaded.current) follow();
+  }, [vehicle?.lng, vehicle?.lat, bearing, following]); // bám theo mỗi lần xe có vị trí mới
+
   /** Đưa góc nhìn về đúng chỗ: không điểm nào → Việt Nam; một điểm → zoom ~10; nhiều điểm → fit khung có lề (xem map-view-plan.ts). */
   function fit() {
     const instance = ref.current;
@@ -110,14 +148,23 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
 
   // Đổi chuyến (hoặc dữ liệu tới sau khi bản đồ đã tải): fit lại; các lần làm mới 60 giây thì giữ khung người dùng đang xem.
   useEffect(() => {
-    if (map && fittedFor.current !== map.tripId) fit();
+    if (map && fittedFor.current !== map.tripId) {
+      if (navigating && loaded.current) { fittedFor.current = map.tripId; follow(); } else fit();
+    }
   }, [map?.tripId, mapLegs.length, stops.length]); // chỉ khi đổi chuyến / có dữ liệu mới, không theo mỗi lần làm mới
 
   const solid = ['==', ['get', 'mode'], 'ROAD'] as const;
   const dashed = ['!=', ['get', 'mode'], 'ROAD'] as const;
 
   return (
-    <BaseMap ref={ref} initialViewState={DEFAULT_VIEW} onLoad={event => { applyDriverMapTheme(event.target, colors); fit(); }} onMoveEnd={updateFlips}>
+    <BaseMap
+      ref={ref} initialViewState={DEFAULT_VIEW} maxPitch={60}
+      onLoad={event => { applyDriverMapTheme(event.target, colors); loaded.current = true; if (navigating) { fittedFor.current = map?.tripId ?? null; follow(); } else fit(); }}
+      onMoveEnd={updateFlips}
+      // Chỉ thao tác của người dùng (có originalEvent) mới ngừng bám xe; easeTo của chính bản đồ thì không.
+      onDragStart={event => { if (navigating && (event as { originalEvent?: unknown }).originalEvent) setFollowing(false); }}
+      onZoomStart={event => { if (navigating && (event as { originalEvent?: unknown }).originalEvent) setFollowing(false); }}
+    >
       <Source id="driver-legs" type="geojson" data={legs}>
         {/* Quầng teal mờ + viền trắng để tuyến nổi trên nền đất và đường trắng (Figma: quầng #0B3B42 18%). */}
         <Layer id="legs-halo" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': colors.routeHalo, 'line-width': 11, 'line-opacity': 0.18 }} />
@@ -151,9 +198,17 @@ export default function DriverRouteMap({ map, track, running, ownFix }: {
         );
       })}
       {vehicle && (
-        <Marker longitude={vehicle.lng} latitude={vehicle.lat} anchor="center" className="drm-vehicle-marker">
-          <span className={'drm-vehicle' + (vehicle.estimated ? ' is-estimated' : '')} role="img" aria-label={vehicle.label} title={vehicle.label} />
+        <Marker
+          longitude={vehicle.lng} latitude={vehicle.lat} anchor="center" className="drm-vehicle-marker"
+          rotation={navigating ? bearing : 0} rotationAlignment={navigating ? 'map' : 'viewport'} pitchAlignment={navigating ? 'map' : 'viewport'}
+        >
+          <span className={'drm-vehicle' + (navigating ? ' is-nav' : '') + (vehicle.estimated ? ' is-estimated' : '')} role="img" aria-label={vehicle.label} title={vehicle.label} />
         </Marker>
+      )}
+      {navigating && !following && vehicle && (
+        <button type="button" className="drm-recenter" onClick={() => { setFollowing(true); follow(); }}>
+          <span className="drm-recenter-arrow" aria-hidden="true" />Về giữa
+        </button>
       )}
     </BaseMap>
   );
