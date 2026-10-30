@@ -16,6 +16,7 @@ import { useGpsSharing } from './useGpsSharing';
 import { useDraft } from './useDraft';
 import { useDriverNotice } from './DriverNotices';
 import { isTripStart, useLegAction } from './useLegAction';
+import { useWaypointCheckins } from './useWaypointCheckins';
 import { PRE_DEPARTURE_CHECKS, checkInLabel, checkInTitle } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
@@ -117,6 +118,9 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
     ),
   });
   const { action, finished } = legAction;
+  // Điểm nghỉ giữa đường phải check-in lần lượt trước khi tới điểm nhận.
+  const waypoints = useWaypointCheckins(trip, map?.stops, running, onChanged);
+  const viaNext = waypoints.next;
 
   const start = isTripStart(action, seqNo);
 
@@ -149,7 +153,12 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       <TripHeaderCard
         trip={trip} detail={detail} totalKm={map?.totalKm ?? null}
         actions={<>
-          {running && (
+          {running && viaNext && (
+            <Button size="large" className="drv-action drv-btn-checkin" onClick={() => waypoints.open(viaNext)}>
+              Check-in: {viaNext.name}
+            </Button>
+          )}
+          {running && !viaNext && (
             <Tooltip title={action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
               <Button size="large" className="drv-action drv-btn-checkin" disabled={!action} onClick={() => action && legAction.open(action)}>
                 {action ? checkInLabel(action) : 'Check-in chặng'}
@@ -182,18 +191,19 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       <div className="drv-columns">
         <RouteMapCard
           trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()}
-          navigating={navigating} onNavigate={setNavigating}
+          navigating={navigating} onNavigate={setNavigating} nextWaypoint={viaNext?.name ?? null}
         />
         <div className="drv-side">
-          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} mapStops={map?.stops} />
+          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} mapStops={map?.stops} visited={waypoints.visited} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
-          {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} />}
+          {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} nextWaypoint={viaNext?.name ?? null} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
           {running && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
         </div>
       </div>
 
       {legAction.modal}
+      {waypoints.modal}
     </>
   );
 }

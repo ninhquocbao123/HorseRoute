@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import { CareActivityType, type ICareActivity } from '@my-project/shared';
+import AttachmentImage from '../AttachmentImage';
 import { DropIcon, FeedIcon, RestIcon } from '../driver/icons';
 import { activityDetail, careLabel, clock, clockWithDay } from './care-ui';
 
@@ -30,6 +31,9 @@ export default function CareActivityRow({ activity, withHorse = false, withDay =
       <span className="esc-row-main">
         <strong>{label}{withHorse && ` · ${activity.horseName ?? 'Cả đoàn'}`}</strong>
         <small title={activityDetail(activity)}>{activityDetail(activity) || '—'}</small>
+        {activity.photos.length > 0 && (
+          <span className="esc-row-photos">{activity.photos.map(photo => <AttachmentImage key={photo.id} id={photo.id} name={photo.originalName} />)}</span>
+        )}
       </span>
       {activity.correctsActivityId && <span className="esc-tag">Bản đính chính</span>}
       {onEdit && (

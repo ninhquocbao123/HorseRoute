@@ -46,12 +46,13 @@ function Stat({ label, icon, value, sub, tone, clamp, valueTone }: {
  *   nhất của server khi còn LIVE; so với VMAX; GPS cũ → "GPS cũ n phút"; chưa có GPS → "—".
  * - "Đã chạy" = giờ hiện tại − giờ xuất phát thực tế chặng 1; dòng phụ = giờ đến dự kiến của chặng hiện tại − giờ hiện tại.
  */
-export default function LiveStatsCards({ legs, map, ownFix = null }: { legs: ILegTracking[]; map: ITripMap | null; ownFix?: GpsFix | null }) {
+export default function LiveStatsCards({ legs, map, ownFix = null, nextWaypoint = null }: { legs: ILegTracking[]; map: ITripMap | null; ownFix?: GpsFix | null; nextWaypoint?: string | null }) {
   const now = useNow();
   // Đồng hồ riêng 5 giây cho tốc độ trên máy: số đo cũ quá 30 giây thì quay về dữ liệu server.
   const tick = useNow(5_000);
   const phase = tripPhase(legs);
-  const next = nextStopView(phase, map);
+  // Lộ trình có điểm nghỉ giữa đường: "Chặng tiếp" là điểm nghỉ chưa check-in, chưa phải điểm nhận.
+  const next = nextWaypoint ? { name: nextWaypoint, km: null, arrivalAt: null, arrived: false } : nextStopView(phase, map);
   const kmToNext = next?.km ?? null;
   const local = ownFix && ownFix.speedKmh !== null && tick - Date.parse(ownFix.at) < OWN_FIX_FRESH_MS ? ownFix.speedKmh : null;
   const speed = local !== null ? liveSpeed(local, map?.speedLimitKmh ?? null) : speedView(map, now, isStopped(phase));

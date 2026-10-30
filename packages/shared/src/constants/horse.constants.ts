@@ -38,3 +38,10 @@ export const HORSE_REPORT_PHOTO_REQUIRED_STATUSES: HorseConditionStatus[] = (Obj
 
 /** Số ảnh tối đa của một báo cáo sức khỏe. */
 export const HORSE_REPORT_MAX_PHOTOS = 3;
+
+/**
+ * Cờ bắt buộc ảnh (API kiểm tra, web hiện nhãn và chặn gửi):
+ * - CARE_ACTIVITY: ảnh cập nhật cho khách khi ghi nhật ký cho ăn / uống nước / nghỉ chân.
+ * - INCIDENT: ảnh hiện trường khi báo sự cố, để điều phối viên xem và xử lý.
+ */
+export const PHOTO_REQUIRED = { CARE_ACTIVITY: false, INCIDENT: true } as const;

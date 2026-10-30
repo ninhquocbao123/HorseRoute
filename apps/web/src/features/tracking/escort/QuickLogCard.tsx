@@ -2,20 +2,23 @@ import { DateInput } from '../../../components/DateInput';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Select } from 'antd';
 import { isAxiosError } from 'axios';
-import { CareActivityType, type ICareActivity, type ITripHorse } from '@my-project/shared';
+import { CareActivityType, PHOTO_REQUIRED, type ICareActivity, type ITripHorse } from '@my-project/shared';
 import { errorMessage, trackingApi } from '../tracking.api';
 import { toLocalInput, fromLocalInput } from '../tracking.format';
 import { useDraft } from '../driver/useDraft';
 import { useDriverNotice } from '../driver/DriverNotices';
+import PhotoPicker from '../driver/PhotoPicker';
 import { CARE_TYPES, EMPTY_CARE_FORM, WATER_WARN_LITERS, WHOLE_HERD, careLabel, formFromActivity, isUnusualWater, toInput, validateCare, type CareForm } from './care-ui';
 
-type Retry = { form: CareForm; remaining: string[]; total: number; at: Date; error: string };
+type Retry = { form: CareForm; photos: File[]; remaining: string[]; total: number; at: Date; error: string };
 
 /**
  * "Ghi nhận nhanh" (Figma E1): cho ăn / uống nước / nghỉ chân. Ô nhập đổi theo loại và khớp ràng buộc của API.
  * Ô "Ngựa" có mục "Tất cả ngựa (N con)": FEED/WATER ghi từng con (mỗi con một bản ghi, cùng nội dung và giờ; lỗi giữa chừng thì chỉ thử lại phần còn thiếu),
  * nghỉ chân ghi MỘT bản cả đoàn.
  * `editing` = đính chính một hoạt động đã ghi (khóa ngựa và loại; bản mới thay bản cũ, không có xóa).
+ * Ảnh cập nhật cho khách (tối đa 3, bắt buộc hay không theo PHOTO_REQUIRED.CARE_ACTIVITY) chỉ giữ trong bộ nhớ, không vào bản nháp;
+ * "Tất cả ngựa" gửi cùng bộ ảnh cho từng con để khách thấy ảnh ở mỗi ngựa.
  */
 export default function QuickLogCard({ tripId, writable, horses, editing, onCancelEdit, onSaved, onTripChanged }: {
   tripId: string;
@@ -40,6 +43,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
   const [error, setError] = useState('');
   const [locked, setLocked] = useState(false);
   const [retry, setRetry] = useState<Retry | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     if (!editing) return;
@@ -48,11 +52,13 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
     setTried(false);
     setError('');
     setRetry(null);
+    setPhotos([]);
   }, [editing]);
 
   const form = editing ? editForm : draft;
   const update = (patch: Partial<CareForm>) => (editing ? setEditForm(previous => ({ ...previous, ...patch })) : setDraft(previous => ({ ...previous, ...patch })));
   const errors = validateCare(form, performedAt);
+  const photoMissing = PHOTO_REQUIRED.CARE_ACTIVITY && !editing && photos.length === 0;
   const canWrite = writable && !locked;
   const type = form.activityType;
   const horseName = (id: string) => (id === WHOLE_HERD ? 'Tất cả ngựa' : horses.find(horse => horse.id === id)?.name ?? id);
@@ -65,16 +71,17 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
     setEditedAt(null);
     setTried(false);
     setRetry(null);
+    setPhotos([]);
     await onSaved();
   };
 
   /** Ghi lần lượt; trả true khi xong hết. Lỗi giữa chừng: giữ phần còn lại để thử lại, không ghi trùng ngựa đã xong. */
-  const writeAll = async (snapshot: CareForm, targets: string[], at: Date, total: number) => {
+  const writeAll = async (snapshot: CareForm, files: File[], targets: string[], at: Date, total: number) => {
     setBusy(true);
     setError('');
     for (const [index, id] of targets.entries()) {
       try {
-        await trackingApi.createCareActivity(tripId, toInput(snapshot, id === WHOLE_HERD ? null : id, at, editing?.id));
+        await trackingApi.createCareActivity(tripId, toInput(snapshot, id === WHOLE_HERD ? null : id, at, editing?.id), files);
       } catch (e) {
         const message = errorMessage(e);
         setBusy(false);
@@ -88,7 +95,7 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
           }
           setLocked(true);
         }
-        if (targets.length > 1 && index > 0) setRetry({ form: snapshot, remaining: targets.slice(index), total, at, error: message });
+        if (targets.length > 1 && index > 0) setRetry({ form: snapshot, photos: files, remaining: targets.slice(index), total, at, error: message });
         else setError(message);
         if (index > 0) await onSaved();
         return;
@@ -100,18 +107,18 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
 
   const submit = async () => {
     setTried(true);
-    if (!canWrite || busy || Object.keys(errors).length) return;
+    if (!canWrite || busy || Object.keys(errors).length || photoMissing) return;
     const at = fromLocalInput(performedAt)!;
     // Tất cả ngựa: nghỉ chân = một bản ghi cả đoàn; cho ăn / uống nước = từng con.
     const targets = editing || form.horseId !== WHOLE_HERD || type === CareActivityType.REST ? [form.horseId] : horses.map(horse => horse.id);
-    await writeAll(form, targets, at, targets.length);
+    await writeAll(form, photos, targets, at, targets.length);
   };
 
   const retryRest = async () => {
     if (!retry || busy) return;
-    const { form: snapshot, remaining, total, at } = retry;
+    const { form: snapshot, photos: files, remaining, total, at } = retry;
     setRetry(null);
-    await writeAll(snapshot, remaining, at, total);
+    await writeAll(snapshot, files, remaining, at, total);
   };
 
   const horseOptions = [{ value: WHOLE_HERD, label: `Tất cả ngựa (${horses.length} con)` }, ...horses.map(horse => ({ value: horse.id, label: horse.name }))];
@@ -169,6 +176,12 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
           <span>Ghi chú (không bắt buộc)</span>
           <Input aria-label="Ghi chú" maxLength={255} value={form.note} disabled={!canWrite || busy} onChange={event => update({ note: event.target.value })} />
         </label>
+        <div className={'drv-input esc-photos' + (tried && photoMissing ? ' is-invalid' : '')}>
+          <span>Ảnh cập nhật cho khách {PHOTO_REQUIRED.CARE_ACTIVITY ? '(bắt buộc)' : '(không bắt buộc)'}</span>
+          <PhotoPicker files={photos} onChange={setPhotos} onError={setError} disabled={!canWrite || busy} />
+          {editing && editing.photos.length > 0 && photos.length === 0 && <small className="drv-muted">Không chọn ảnh mới thì giữ {editing.photos.length} ảnh cũ.</small>}
+          {tried && photoMissing && <small className="esc-error" role="alert">Thêm ít nhất 1 ảnh cho khách.</small>}
+        </div>
         <label className="drv-input">
           <span>Giờ thực hiện</span>
           <DateInput aria-label="Giờ thực hiện" type="datetime-local" value={performedAt} disabled={!canWrite || busy}

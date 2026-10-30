@@ -9,8 +9,8 @@ const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digi
  * ✓ đã qua · 🚚 đang tới (điểm đến của chặng đang chạy) · ⏸ đang dừng (xe đứng tại điểm này) · → kế tiếp (khi đang dừng) · ○ chưa tới.
  * Các trạng thái chạy/dừng chỉ có khi `running` (chuyến IN_TRANSIT).
  */
-export default function StopTimeline({ legs, horseCount, running = false, mapStops }: { legs: ILegTracking[]; horseCount: number; running?: boolean; mapStops?: ITripMapStop[] }) {
-  const stops = tripStops(legs, horseCount, running, mapStops);
+export default function StopTimeline({ legs, horseCount, running = false, mapStops, visited }: { legs: ILegTracking[]; horseCount: number; running?: boolean; mapStops?: ITripMapStop[]; visited?: Record<string, string> }) {
+  const stops = tripStops(legs, horseCount, running, mapStops, visited);
   return (
     <section className="drv-card drv-stops" aria-labelledby="drv-stops-title">
       <h3 id="drv-stops-title" className="drv-card-title">Các chặng</h3>

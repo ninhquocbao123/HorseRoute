@@ -50,6 +50,10 @@ const STOP_NOTE: Record<string, string> = {
   REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
 };
 
+export const stopNote = (locationType: string) => STOP_NOTE[locationType] ?? 'Điểm dừng';
+/** Khóa một điểm dừng giữa đường của lộ trình mới (cũng là khóa lưu check-in trên máy tài xế). */
+export const viaKey = (stop: ITripMapStop, index: number) => `via-${stop.locationId}-${index}`;
+
 const localDay = (iso: string) => {
   const date = new Date(iso);
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
@@ -59,10 +63,10 @@ const localDay = (iso: string) => {
  * Các chặng thành danh sách điểm dừng: điểm 1 = legs[0].from (giờ xuất phát dự kiến), điểm i = legs[i].to (giờ đến dự kiến).
  * `dayOffset` là số ngày sau ngày khởi hành (hiển thị "+1", "+2"). Ghi chú suy theo mục 2.1: không có dữ liệu "nghỉ đêm".
  */
-export function tripStops(legs: ILegTracking[], horseCount: number, running = false, mapStops: ITripMapStop[] = []): TripStop[] {
+export function tripStops(legs: ILegTracking[], horseCount: number, running = false, mapStops: ITripMapStop[] = [], visited: Record<string, string> = {}): TripStop[] {
   if (!legs.length) return [];
   // Lộ trình mới: một chặng đại diện, các điểm dừng giữa nằm trong route_plan (GET /map trả ở `stops`); chưa có giờ dự kiến riêng.
-  if (legs.length === 1 && mapStops.length > 2) return routePlanStops(legs[0], horseCount, running, mapStops);
+  if (legs.length === 1 && mapStops.length > 2) return routePlanStops(legs[0], horseCount, running, mapStops, visited);
   const phase = running ? tripPhase(legs) : ({ kind: 'none' } as const);
   const stoppedId = phase.kind === 'stopped' ? phase.stop.id : phase.kind === 'between' ? phase.prev?.id ?? null : null;
   const headingId = headingLeg(phase)?.id ?? null;
@@ -86,21 +90,27 @@ export function tripStops(legs: ILegTracking[], horseCount: number, running = fa
   }))];
 }
 
-function routePlanStops(leg: ILegTracking, horseCount: number, running: boolean, mapStops: ITripMapStop[]): TripStop[] {
+function routePlanStops(leg: ILegTracking, horseCount: number, running: boolean, mapStops: ITripMapStop[], visited: Record<string, string>): TripStop[] {
   const started = leg.status !== 'NOT_STARTED';
   const done = leg.status === 'AT_STOP' || leg.status === 'COMPLETED';
+  const moving = running && leg.status === 'MOVING';
   const startDay = localDay(leg.plannedDepartureAt);
   const last = mapStops.length - 1;
+  // Điểm nghỉ đầu tiên chưa check-in là điểm xe đang tới; hết điểm nghỉ thì mới tới điểm nhận.
+  const headingVia = moving ? mapStops.findIndex((stop, index) => index > 0 && index < last && !visited[stop.locationId]) : -1;
   return mapStops.map((stop, index) => {
     const end = index === last;
+    const via = index > 0 && !end;
+    const key = via ? viaKey(stop, index) : '';
+    const at = via ? visited[stop.locationId] ?? null : null;
     return {
-      key: index === 0 ? 'start' : end ? leg.id : `via-${stop.locationId}-${index}`,
+      key: index === 0 ? 'start' : end ? leg.id : key,
       name: stop.name,
-      note: index === 0 ? `Nhận ${horseCount} ngựa` : end ? 'Bàn giao' : STOP_NOTE[stop.locationType] ?? 'Điểm dừng',
-      plannedAt: index === 0 ? leg.plannedDepartureAt : end ? leg.plannedArrivalAt : null,
-      dayOffset: end ? localDay(leg.plannedArrivalAt) - startDay : 0,
-      reached: index === 0 ? started : end && done,
-      current: running && end && leg.status === 'MOVING',
+      note: index === 0 ? `Nhận ${horseCount} ngựa` : end ? 'Bàn giao' : at ? `Đã check-in · ${stopNote(stop.locationType)}` : stopNote(stop.locationType),
+      plannedAt: index === 0 ? leg.plannedDepartureAt : end ? leg.plannedArrivalAt : at,
+      dayOffset: end ? localDay(leg.plannedArrivalAt) - startDay : at ? Math.max(0, localDay(at) - startDay) : 0,
+      reached: index === 0 ? started : end ? done : !!at || done,
+      current: moving && (end ? headingVia < 0 : index === headingVia),
       stopped: running && end && leg.status === 'AT_STOP',
       next: false,
     };

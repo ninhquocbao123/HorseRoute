@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HorseRoute Màn chung Wireframe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: thanh công cụ dính trên cùng; chế độ Bấm thử = khung điện thoại + ghi chú; chế độ Xem tất cả = mỗi màn một hàng biến thể. */
+:root{
+  --page-bg:#eef3f2; --page-fg:#0d2a2e; --page-muted:#546d71; --page-line:#d3e1e1; --page-card:#ffffff; --page-brand:#0b3b42; --page-on-brand:#ffffff; --page-seg:#e1ebea;
+  /* Bên trong khung: màu thương hiệu xanh #0b3b42, vàng #f4b942, trắng (00-context mục 5b); giữ một kiểu ở cả hai chế độ sáng/tối */
+  --w-ink:#0b3b42; --w-ink2:#546d71; --w-ink3:#8aa3a6; --w-line:#d8e6e6; --w-fill:#e7f1f1; --w-fill2:#f6faf9; --w-bg:#ffffff; --w-dark:#0b3b42; --w-brand2:#14606a; --w-on-dark:#ffffff; --w-on-dark2:#b9d3d6; --w-shade:rgba(6,20,22,.5);
+  --acc:#f4b942; --on-acc:#2b1a00;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}}
+:root[data-theme="dark"]{--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}
+html,body{background:var(--page-bg);color:var(--page-fg)}
+body{font-family:var(--font);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--page-card)}
+button{font-family:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid #2f7c87;outline-offset:2px}
+
+/* ---------- Thanh công cụ (ngoài khung) ---------- */
+.tb{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page-card);border-bottom:1px solid var(--page-line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.tb h1{font-size:16px;margin:0;font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tb h1 small{font-weight:500;color:var(--page-muted);font-size:13px}
+.tb .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tb .lab{font-size:12px;color:var(--page-muted);letter-spacing:.02em}
+.seg{display:inline-flex;background:var(--page-seg);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--page-fg);font-size:13px;font-weight:500;padding:6px 10px;border-radius:8px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--page-brand);color:var(--page-on-brand)}
+.tbtn{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:10px;padding:6px 12px;font-size:13px;min-height:38px;cursor:pointer}
+.spacer{flex:1}
+
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+
+/* ---------- Chế độ Bấm thử ---------- */
+.proto{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.device{background:#0c2326;border-radius:52px;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.device .screen{border-radius:40px}
+.device.android{border-radius:28px;padding:10px}
+.device.android .screen{border-radius:18px}
+.fit{position:relative;flex:none}
+.fit>.scaled{transform-origin:0 0;position:absolute;left:0;top:0}
+.panel{flex:1 1 320px;max-width:440px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.pcard{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.pcard h2{margin:0;font-size:18px;text-wrap:balance}
+.pcard h3{margin:0;font-size:13px;font-weight:600;color:var(--page-muted);letter-spacing:.04em;text-transform:uppercase}
+.pcard p,.pcard li{margin:0;font-size:14px;line-height:1.55}
+.pcard ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--page-muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:left}
+.jump button.on{border-color:var(--page-brand);background:var(--page-seg);font-weight:600}
+.jump button .code{color:var(--page-muted);margin-right:6px}
+.hint{font-size:13px;color:var(--page-muted)}
+
+/* ---------- Chế độ Xem tất cả ---------- */
+.grid{display:flex;flex-direction:column;gap:40px}
+.grow-row{display:flex;flex-direction:column;gap:12px}
+.grow-row>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.grow-row>header h2{margin:0;font-size:20px}
+.grow-row>header p{margin:0;color:var(--page-muted);font-size:14px;max-width:70ch}
+.strip{display:flex;gap:20px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.vcell{display:flex;flex-direction:column;gap:8px;flex:none}
+.vcell .vl{font-size:13px;font-weight:600;max-width:390px}
+.vcell .fit{border:1px solid var(--page-line);border-radius:6px;overflow:hidden;cursor:zoom-in}
+
+/* ---------- Khung màn (wireframe) ---------- */
+.screen{width:var(--fw);height:var(--fh);display:flex;flex-direction:column;background:var(--w-bg);color:var(--w-ink);font-family:var(--font);font-size:15px;line-height:1.4;position:relative;overflow:hidden;text-align:left}
+.screen *{box-sizing:border-box}
+.sb{height:47px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font-weight:600;font-size:15px;background:var(--w-bg)}
+.android .sb{height:28px;padding:0 16px;font-size:13px}
+.sbi{display:flex;align-items:center;gap:6px}
+.sbi .bat{width:24px;height:12px;border:1.5px solid var(--w-ink);border-radius:3px;display:flex;padding:1.5px}
+.sbi .bat span{width:70%;background:var(--w-ink);border-radius:1px}
+.sbi .sig{display:flex;align-items:flex-end;gap:2px;height:12px}
+.sbi .sig span{width:3px;background:var(--w-ink);border-radius:1px}
+.hi{height:34px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.hi span{width:134px;height:5px;border-radius:3px;background:var(--w-ink)}
+.android .hi{height:24px} .android .hi span{width:108px;height:4px}
+.hdr{min-height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid var(--w-line);background:var(--w-bg)}
+.hdr .t{flex:1;min-width:0;display:flex;flex-direction:column;padding:0 4px}
+.hdr .t b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .t small{font-size:13px;color:var(--w-ink2)}
+.hdr.big{min-height:64px;padding:0 16px;border-bottom:0}
+.hdr.big .t b{font-size:26px;font-weight:700}
+.ib{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:none;border:0;color:inherit;cursor:pointer;padding:0}
+.body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;background:var(--w-fill2)}
+.body.white{background:var(--w-bg)}
+.bottom{flex:none;display:flex;flex-direction:column;background:var(--w-bg);border-top:1px solid var(--w-line)}
+.bottom .row{display:flex;gap:8px;padding:12px 16px 4px}
+.bottom .note{padding:10px 16px 0;font-size:13px;color:var(--w-ink2)}
+.btn{min-height:56px;border-radius:14px;font-family:var(--font);font-weight:600;font-size:16px;line-height:1.2;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border:1.5px solid var(--w-ink);background:var(--w-bg);color:var(--w-ink);cursor:pointer;text-align:center;text-decoration:none}
+.btn.pri{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.btn.xl{min-height:64px;font-size:17px}
+.btn.grow{flex:1;min-width:0}
+.btn.side{width:116px;flex:none;flex-direction:column;gap:2px;font-size:13px;padding:0 8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn[disabled]{background:var(--w-fill);color:var(--w-ink3);border-color:var(--w-line);cursor:default}
+.card{background:var(--w-bg);border:1px solid var(--w-line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.tap{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--w-line);font-size:13px;font-weight:500;background:var(--w-bg);white-space:nowrap}
+.chip.dark{background:var(--w-dark);color:#fff;border-color:var(--w-dark)}
+.chip.fill{background:var(--w-fill)}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--w-ink2)}
+.muted{color:var(--w-ink2)} .small{font-size:13px}
+.big{font-size:24px;font-weight:700;line-height:1.2;text-wrap:balance}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--w-line);background:var(--w-bg);font-family:var(--font);font-weight:500;font-size:15px;color:var(--w-ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.opt.on{border-color:var(--w-ink);background:var(--w-fill);font-weight:600}
+.bigopt{min-height:72px;width:100%;border-radius:16px;border:1.5px solid var(--w-line);background:var(--w-bg);display:flex;align-items:center;gap:12px;padding:12px 16px;font-family:var(--font);color:var(--w-ink);text-align:left;cursor:pointer}
+.bigopt.on{border:2.5px solid var(--w-ink);background:var(--w-fill)}
+.bigopt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bigopt .tx b{font-size:17px}
+.bigopt .tx span{font-size:13px;color:var(--w-ink2)}
+.ico{width:44px;height:44px;flex:none;border-radius:12px;background:var(--w-fill);display:flex;align-items:center;justify-content:center}
+.sevm{display:flex;gap:3px;align-items:flex-end;height:22px;flex:none}
+.sevm span{width:6px;border-radius:2px;background:var(--w-line)}
+.sevm span.f{background:var(--w-ink)}
+.tabbar{flex:none;display:flex;border-top:1px solid var(--w-line);background:var(--w-bg)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 4px;font-size:11px;color:var(--w-ink3);background:none;border:0;cursor:pointer;font-family:var(--font);min-height:56px}
+.tab.on{color:var(--w-ink);font-weight:600}
+.overlay{position:absolute;inset:0;background:var(--w-shade);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
+.overlay.center{justify-content:center;padding:24px}
+.sheet{background:var(--w-bg);border-radius:20px 20px 0 0;padding:8px 16px 0;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--w-line);align-self:center}
+.dialog{background:var(--w-bg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.sheet h3,.dialog h3{margin:0;font-size:20px;font-weight:700}
+.kvw{display:flex;flex-direction:column;border:1px solid var(--w-line);border-radius:14px}
+.kvw>div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid var(--w-line);align-items:center}
+.kvw>div:first-child{border-top:0}
+.kvw span:first-child{color:var(--w-ink2);font-size:14px}
+.kvw b{font-weight:600;text-align:right}
+.link{background:none;border:0;padding:0;font:inherit;font-weight:600;text-decoration:underline;color:var(--w-ink);cursor:pointer;min-height:44px}
+.box{border:1.5px dashed var(--w-ink3);border-radius:12px;padding:12px;display:flex;gap:10px;font-size:14px;align-items:flex-start}
+.box.err{border:2px solid var(--w-ink);border-style:solid}
+.skel{background:var(--w-fill);border-radius:8px}
+.hatch{background-color:var(--w-fill2);background-image:repeating-linear-gradient(45deg,#cfe0e0 0 1.5px,transparent 1.5px 10px);border:1px solid var(--w-line);border-radius:12px}
+.bar{display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;min-height:44px;background:var(--w-brand2);color:#fff;font-size:13px;font-weight:500;flex:none;border:0;width:100%;font-family:var(--font);text-align:left;cursor:pointer}
+.bar .grow{flex:1;min-width:0}
+.bar.light{background:var(--w-fill);color:var(--w-ink)}
+.card.brand{background:var(--w-dark);border-color:var(--w-dark);color:var(--w-on-dark)}
+.card.brand .lbl,.card.brand .muted{color:var(--w-on-dark2)}
+.card.brand .chip{background:transparent;color:var(--w-on-dark);border-color:rgba(255,255,255,.35)}
+.card.brand .chip.dark{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.card.brand .link{color:var(--w-on-dark)}
+.undo{margin:12px 12px 0;background:var(--w-dark);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;min-height:60px}
+.undo .grow{flex:1;min-width:0;font-size:14px}
+.undo button{min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #fff;background:transparent;color:#fff;font-family:var(--font);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tl{display:flex;flex-direction:column}
+.stop{display:flex;gap:12px}
+.rail{width:20px;flex:none;display:flex;flex-direction:column;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--w-ink3);background:var(--w-bg);margin-top:3px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.dot.done{background:var(--w-ink);border-color:var(--w-ink)}
+.dot.cur{border:5px solid var(--w-ink)}
+.ln{flex:1;width:2px;background:var(--w-line);min-height:20px}
+.ln.done{background:var(--w-ink)}
+.stop .info{flex:1;min-width:0;padding-bottom:16px;display:flex;flex-direction:column;gap:2px}
+.stop .info b{font-size:15px}
+.ev{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.listrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;border-top:1px solid var(--w-line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;font-family:var(--font);font-size:15px;color:var(--w-ink);text-align:left;cursor:pointer}
+.listrow:first-child{border-top:0}
+.listrow .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--w-ink);flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.chk.on{background:var(--w-ink);color:#fff}
+.field{border:1.5px solid var(--w-line);border-radius:12px;min-height:96px;padding:12px;font-size:15px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;background:var(--w-bg)}
+.field.err{border-color:var(--w-ink);border-width:2px}
+.ph{color:var(--w-ink3)}
+.photos{display:flex;gap:8px}
+.photo{width:96px;height:96px;flex:none;display:flex;flex-direction:column;justify-content:flex-end;padding:6px;font-size:11px;color:var(--w-ink2)}
+.addph{width:96px;height:96px;flex:none;border:1.5px dashed var(--w-ink3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;background:var(--w-bg);color:var(--w-ink);cursor:pointer;font-family:var(--font)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.circle{width:72px;height:72px;border-radius:50%;border:2px solid var(--w-ink);display:flex;align-items:center;justify-content:center}
+.circle.fill{background:var(--w-ink);color:#fff}
+.stubtag{font-size:12px;border:1px dashed var(--w-ink3);border-radius:8px;padding:6px 10px;color:var(--w-ink2)}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec>.lbl em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0;color:var(--w-ink3)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper .ib{border:1.5px solid var(--w-ink);width:64px;height:48px;font-size:18px;font-weight:600;font-family:var(--font)}
+.stepper b{flex:1;text-align:center;font-size:22px}
+@media (prefers-reduced-motion:no-preference){.overlay .sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+@media (max-width:760px){.tb{position:static;gap:6px 10px;padding-block:8px}.tb .lab{display:none}.seg button{padding:5px 8px;font-size:12.5px;min-height:30px}.tb h1 small{display:none}}
+
+/* Thanh cuộn kiểu điện thoại: một vạch mảnh, mờ, không khung, không mũi tên */
+.screen *{scrollbar-width:thin;scrollbar-color:rgba(11,59,66,.28) transparent}
+.screen ::-webkit-scrollbar{width:4px;height:4px;background:transparent}
+.screen ::-webkit-scrollbar-track{background:transparent}
+.screen ::-webkit-scrollbar-thumb{background:rgba(11,59,66,.28);border-radius:4px}
+.screen ::-webkit-scrollbar-button{display:none;width:0;height:0}
+.screen ::-webkit-scrollbar-corner{background:transparent}
+html,.strip{scrollbar-width:thin;scrollbar-color:rgba(84,109,113,.45) transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(84,109,113,.45);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+</style>
+</head>
+<body>
+<style>
+.splash{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(160deg,#0b3b42 0%,#14606a 100%);color:#fff;text-align:center;padding:24px}
+.logo-tile{width:88px;height:88px;border-radius:24px;background:var(--acc);color:var(--on-acc);display:flex;align-items:center;justify-content:center}
+.brandhead{background:linear-gradient(160deg,#0b3b42 0%,#14606a 100%);color:#fff;padding:24px 20px 28px;display:flex;flex-direction:column;gap:12px;flex:none}
+.brandhead .logo-tile{width:56px;height:56px;border-radius:16px}
+.brandhead h2{margin:0;font-size:26px;line-height:1.2}
+.brandhead p{margin:0;color:var(--w-on-dark2);font-size:14px}
+.input{border:1.5px solid var(--w-line);border-radius:12px;min-height:56px;padding:8px 12px;display:flex;align-items:center;gap:10px;background:var(--w-bg)}
+.input .f{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.input small{font-size:12px;color:var(--w-ink2)}
+.input.err{border:2px solid var(--w-ink)}
+.input.focus{border:2px solid var(--w-brand2)}
+.loadline{width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.25);overflow:hidden;display:flex}
+.loadline span{width:45%;background:var(--acc);border-radius:2px}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--w-ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;flex:none}
+.nrow{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--w-line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;font-family:var(--font);color:var(--w-ink);cursor:pointer;font-size:15px}
+.nrow:first-child{border-top:0}
+.nrow .ico{width:40px;height:40px}
+.nrow .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.udot{width:10px;height:10px;border-radius:50%;background:var(--acc);flex:none;margin-top:6px}
+.benefit{display:flex;gap:12px;align-items:flex-start}
+.benefit .ico{width:40px;height:40px}
+.chip.gold{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+</style>
+
+<div class="tb" id="toolbar">
+  <h1>HorseRoute · Màn chung <small>Wireframe bấm thử · đợt 4/4</small></h1>
+  <div class="grp"><span class="lab">Chế độ</span><div class="seg" id="segMode"><button data-mode="proto" class="on">Bấm thử</button><button data-mode="grid">Xem tất cả màn</button></div></div>
+  <div class="grp"><span class="lab">Vai trò</span><div class="seg" id="segRole"><button data-role="CUS" class="on">Khách hàng</button><button data-role="DRV">Tài xế</button><button data-role="ESC">Hộ tống</button></div></div>
+  <div class="grp"><span class="lab">Trạng thái</span><div class="seg" id="segState"><button data-st="normal" class="on">Bình thường</button><button data-st="loading">Đang tải</button><button data-st="empty">Trống</button><button data-st="error">Lỗi</button><button data-st="offline">Mất sóng</button></div></div>
+  <div class="grp"><span class="lab">Khung</span><div class="seg" id="segPlat"><button data-plat="ios" class="on">iPhone 390×844</button><button data-plat="android">Android 360×800</button></div></div>
+  <div class="grp" id="grpScale" hidden><span class="lab">Tỉ lệ</span><div class="seg" id="segScale"><button data-sc="0.5">50%</button><button data-sc="1">100%</button></div></div>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnReset">Làm lại từ đầu</button>
+</div>
+<main id="main"></main>
+
+<script>
+(function(){
+'use strict';
+const P = {
+  back:'<path d="m15 18-6-6 6-6"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  wifioff:'<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  upload:'<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  horse:'<path d="M16 3l-1.5 2.2"/><path d="M7 21c.5-3.5 1.6-6 3.5-7.6L8.2 14.5c-1.3.6-2.9.2-3.6-1.1-.6-1-.3-2.3.6-3L12 5.2c2.6-1.9 6.2-1 7.7 1.8.8 1.5 1.3 3.8 1.3 6.3V21"/><circle cx="14" cy="8.5" r=".6" fill="currentColor"/>',
+  route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  clipboard:'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  notebook:'<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.38 5.62a1 1 0 0 0-3-3l-5.01 5.01a2 2 0 0 0-.5.86l-.84 2.89a.5.5 0 0 0 .62.62l2.89-.84a2 2 0 0 0 .86-.5z"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  receipt:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  mail:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye:'<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  monitor:'<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  key:'<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  chat:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  gps:'<line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/>',
+  list:'<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>'
+};
+const ic = (n, s=22, w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const NOW = '07:42';
+
+/* ---------- Dữ liệu theo vai trò ---------- */
+const ROLES = {
+  CUS:{label:'Khách hàng',name:'Nguyễn Minh Anh',init:'MA',email:'minhanh@clbphutho.vn',phone:'0903 123 456',org:'CLB Đua ngựa Phú Thọ',home:'CUS-01',homeName:'Hành trình',file:'Khách hàng',
+    tabs:[['HOME','Hành trình','route'],['HOME2','Đơn hàng','clipboard'],['HOME3','Ngựa','horse'],['COM-10','Tài khoản','user']],
+    benefits:[['receipt','Báo giá mới và hạn đặt cọc'],['route','Xe đến từng điểm dừng, đã giao ngựa'],['file','Báo cáo sức khỏe ngựa từ người hộ tống']],
+    notifs:[['Hôm nay',[[1,'file','Báo cáo sức khỏe mới: Kim Long · Căng thẳng','HR-2610-0012','07:06'],[1,'route','Xe đã đến Điểm nghỉ Trảng Bàng','HR-2610-0012','07:26'],[0,'route','Chuyến đã khởi hành từ Trường đua Phú Thọ','HR-2610-0012','06:04']]],['Hôm qua',[[1,'receipt','Báo giá đã sẵn sàng: 11.340.000 ₫. Đặt cọc trước 31/10 18:00','HR-2610-0015','16:20'],[0,'alert','Đơn cần bổ sung giấy sức khỏe của Hồng Vân','HR-2610-0009','10:02']]]],
+    queue:[['Hồ sơ ngựa','Không lưu khi mất sóng','Khách hàng cần mạng để lưu, không có hàng chờ']]},
+  DRV:{label:'Tài xế',name:'Lê Văn Hùng',init:'LH',email:'hung.le@horseroute.vn',phone:'0912 345 678',org:'Xe tải 4 chuồng · 51C-482.17',home:'DRV-01',homeName:'Chuyến của tôi',file:'Tài xế',
+    tabs:[['HOME','Chuyến','truck'],['HOME2','Sự cố','alert'],['COM-09','Thông báo','bell'],['COM-10','Tài khoản','user']],
+    benefits:[['truck','Chuyến mới được giao và giờ khởi hành'],['alert','Cảnh báo từ điều phối: tắc đường, thời tiết, cửa khẩu'],['check','Điều phối đã tiếp nhận sự cố bạn báo']],
+    notifs:[['Hôm nay',[[1,'alert','Cửa khẩu Mộc Bài ùn tắc, dự kiến chờ 2 giờ','Cảnh báo · Võ Quốc Bảo','07:30'],[1,'check','Điều phối đã tiếp nhận sự cố Hỏng xe','SC-0457','07:45'],[0,'truck','Chuyến HR-2610-0012 đã sẵn sàng khởi hành','05/11 06:00','05:10']]],['Hôm qua',[[0,'truck','Bạn được phân công lái chuyến HR-2611-0003','12/11 05:30','15:40']]]],
+    queue:[['Mốc','Đã đến Điểm nghỉ Trảng Bàng','ghi 07:26'],['Vị trí GPS','46 điểm','từ 07:12'],['Sự cố','Hỏng xe · Nghiêm trọng · 2 ảnh','ghi 07:41']]},
+  ESC:{label:'Người hộ tống',name:'Phạm Thị Thu',init:'PT',email:'thu.pham@horseroute.vn',phone:'0938 222 017',org:'Kỹ thuật viên chăm sóc ngựa',home:'ESC-02',homeName:'Ngựa trên chuyến',file:'Hộ tống',
+    tabs:[['HOME','Ngựa','horse'],['HOME2','Nhật ký','notebook'],['COM-09','Thông báo','bell'],['COM-10','Tài khoản','user']],
+    benefits:[['horse','Chuyến mới bạn được phân công hộ tống'],['eye','Khách đã xem báo cáo sức khỏe bạn gửi'],['alert','Cảnh báo từ điều phối trên đường đi']],
+    notifs:[['Hôm nay',[[1,'eye','Khách đã xem báo cáo của Kim Long','HR-2610-0012','07:20'],[1,'alert','Cửa khẩu Mộc Bài ùn tắc, dự kiến chờ 2 giờ','Cảnh báo · Võ Quốc Bảo','07:30']]],['Hôm qua',[[0,'horse','Bạn được phân công hộ tống chuyến HR-2610-0012','2 ngựa · 05/11 06:00','14:15']]]],
+    queue:[['Chăm sóc','Uống nước 12 L · 2 ngựa','ghi 07:42'],['Báo cáo','Kim Long · Căng thẳng · 1 ảnh','ghi 07:40']]}
+};
+const ACCOUNTS = [['CUS','minhanh@clbphutho.vn'],['DRV','hung.le@horseroute.vn'],['ESC','thu.pham@horseroute.vn'],['MGR','bao.vo@horseroute.vn']];
+
+const NOTES = {
+  'COM-01':{n:'Khởi động',kind:'P0',p:'Kiểm tra phiên đăng nhập, gửi tiếp hàng chờ, chọn bộ tab theo vai trò.',a:'Tự động',d:'Logo',api:'GET /users/me · GET /tracking/driver/trips (tài xế, hộ tống)',b:['Có token hợp lệ thì vào thẳng màn chính của vai trò.','Còn mục chờ gửi thì gửi trước khi tải dữ liệu mới (F-C3).','Chạm vào khung để đi tiếp trong bản thử.']},
+  'COM-02':{n:'Đăng nhập',kind:'P0',p:'Vào app bằng tài khoản đã có.',a:'Đăng nhập',d:'Email, mật khẩu',api:'POST /auth/login',b:['Token lưu trong bộ nhớ bảo mật của máy (expo-secure-store).','Sai thông tin báo tại form, không xóa email đã nhập.','Đăng nhập tài khoản khác khi còn mục chờ gửi thì hỏi trước (F-C2).','Quên mật khẩu và Tạo tài khoản là P1.']},
+  'COM-05':{n:'Vai trò không dùng app',kind:'P0',p:'Quản lý, chuyên viên, điều phối dùng web.',a:'Mở web',d:'Tên, vai trò',api:'Không',b:['Không cho vào app để tránh thiếu chức năng.']},
+  'COM-06':{n:'Giải thích quyền thông báo',kind:'P0',p:'Xin quyền thông báo, nêu lợi ích theo vai trò.',a:'Bật thông báo',d:'3 lợi ích theo vai trò',api:'Lưu device token (G1, backend chưa có)',b:['Hiện một lần sau lần đăng nhập đầu.','Để sau vẫn vào app; nhắc lại trong Tài khoản.']},
+  'COM-07':{n:'Giải thích quyền vị trí nền',kind:'P0 · chỉ tài xế',p:'Xin Luôn cho phép trước khi hệ điều hành hỏi.',a:'Tiếp tục',d:'Lý do, ai xem vị trí, khi nào tắt',api:'Không',b:['Hiện khi tài xế bấm Bắt đầu chuyến lần đầu (xem file Tài xế).']},
+  'COM-09':{n:'Thông báo',kind:'P0 · tab với tài xế và hộ tống, chuông với khách',p:'Xem và mở thông báo.',a:'Chạm thông báo để mở màn liên quan',d:'Nội dung, mã đơn, giờ, đã đọc',api:'GET /notifications · POST /notifications/:id/read',b:['Nhóm theo Hôm nay, Hôm qua.','Chưa đọc có chấm vàng và chữ đậm.','"Đọc tất cả" cần API mới (G8).']},
+  'COM-10':{n:'Tài khoản',kind:'P0 · tab Tài khoản',p:'Hồ sơ, giao diện, đăng xuất.',a:'Đăng xuất',d:'Họ tên, email, số điện thoại, vai trò, giao diện, cỡ chữ',api:'GET /users/me · POST /users/me/avatar',b:['Còn mục chờ gửi thì không cho đăng xuất.','Khách hàng chưa hiện số hỗ trợ, chờ chốt kênh liên hệ (Long 29/10).','Tài xế và hộ tống thấy đường dây nóng 1900 6868.']},
+  'COM-12':{n:'Hàng chờ đồng bộ',kind:'P0 · bottom sheet',p:'Xem những gì chưa gửi và lỗi nếu có.',a:'Gửi lại ngay',d:'Loại mục, nội dung, giờ, lỗi',api:'Các API trong hàng chờ',b:['Gửi lần lượt theo thứ tự tạo; lỗi mạng thử lại sau 5, 15, 60 giây.','Lỗi 4xx hiện cách sửa và nút Bỏ.']}
+};
+const STUBS = {
+  'COM-03':['Tạo tài khoản khách hàng','P1, vẽ sau khi duyệt P0'],
+  'COM-04':['Quên mật khẩu','P1, vẽ sau khi duyệt P0'],
+  'COM-11':['Đổi mật khẩu','P1, vẽ sau khi duyệt P0']
+};
+
+/* ---------- Trạng thái ---------- */
+const fresh = () => ({screen:'COM-01', stack:[], st:'normal', role:'CUS', sheet:null, dialog:null, email:'minhanh@clbphutho.vn', loginErr:false, read:{}, theme:'auto', font:'md', toast:null, otherAcc:false});
+let app = fresh();
+let mode = 'proto', plat = 'ios', gridScale = null, toastTimer = null;
+
+/* ---------- Khối dựng ---------- */
+const DIM = {ios:{w:390,h:844}, android:{w:360,h:800}};
+function sb(c, light){ return `<div class="sb" style="${light?'background:#0b3b42;color:#fff':''}"><span>${NOW}</span><span class="sbi">${c.st==='offline' ? ic('wifioff',16) : `<span class="sig"><span style="height:4px;${light?'background:#fff':''}"></span><span style="height:7px;${light?'background:#fff':''}"></span><span style="height:10px;${light?'background:#fff':''}"></span><span style="height:12px;${light?'background:#fff':''}"></span></span>`}<span class="bat" style="${light?'border-color:#fff':''}"><span style="${light?'background:#fff':''}"></span></span></span></div>`; }
+const hi = dark => `<div class="hi" style="${dark?'background:#14606a':''}"><span style="${dark?'background:#fff':''}"></span></div>`;
+function hdr({back, title, sub, right=''}){ return `<div class="hdr">${back ? `<button class="ib" data-act="back" aria-label="Quay lại">${ic('back',26)}</button>` : ''}<div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${right}</div>`; }
+const bigHdr = (title, right='') => `<div class="hdr big"><div class="t"><b>${title}</b></div>${right}</div>`;
+function tabbar(c, active){ return `<nav class="tabbar">${ROLES[c.role].tabs.map(([code,label,icon]) => `<button class="tab${code===active?' on':''}" data-act="tab" data-arg="${code}">${ic(icon,24)}<span>${label}</span></button>`).join('')}</nav>`; }
+const toast = c => c.toast ? `<div class="undo" role="status"><span class="grow">${c.toast}</span></div>` : '';
+const queueCount = c => c.st === 'offline' ? ROLES[c.role].queue.length : 0;
+function sheetWrap(inner){ return `<div class="overlay"><div class="sheet"><span class="grab"></span>${inner}${hi()}</div></div>`; }
+function skeleton(){ return `<div class="body white">${[1,2,3,4,5].map(() => `<div class="row" style="gap:12px"><div class="skel" style="width:40px;height:40px;border-radius:12px"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skel" style="height:14px;width:80%"></div><div class="skel" style="height:12px;width:40%"></div></div></div>`).join('')}</div>`; }
+
+/* ---------- Màn ---------- */
+const R = {};
+R['COM-01'] = c => {
+  const msg = c.st === 'offline' ? 'Mất sóng · mở bằng dữ liệu đã lưu' : c.st === 'error' ? '' : c.st === 'loading' ? 'Đang gửi 3 mục chờ từ lần trước' : 'Đang kiểm tra phiên đăng nhập';
+  const err = c.st === 'error' ? `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;max-width:280px"><span style="font-weight:600">Cần kết nối mạng để đăng nhập lần đầu</span><span class="small" style="color:var(--w-on-dark2)">Bật dữ liệu di động hoặc Wi-Fi rồi thử lại.</span><button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button></div>` : `<div class="loadline"><span></span></div><span class="small" style="color:var(--w-on-dark2)">${msg}</span>`;
+  return sb(c, true) + `<button class="splash tap" data-act="boot" style="border:0;width:100%"><span class="logo-tile">${ic('horse',48,1.8)}</span><b style="font-size:28px;letter-spacing:.01em">HorseRoute</b><span style="color:var(--w-on-dark2)">Vận chuyển ngựa đường bộ và qua biên giới</span><span style="height:40px"></span>${err}</button>` + hi(true);
+};
+R['COM-02'] = c => {
+  const off = c.st === 'offline', err = c.loginErr || c.st === 'error', busy = c.st === 'loading';
+  return sb(c, true) + `<div class="brandhead"><span class="logo-tile">${ic('horse',32,1.8)}</span><h2>Đăng nhập</h2><p>Dùng tài khoản HorseRoute của bạn. Tài xế và người hộ tống nhận tài khoản từ điều phối.</p></div>
+  ${off ? `<div class="bar">${ic('wifioff',18)}<span class="grow">Mất sóng · cần kết nối để đăng nhập</span></div>` : ''}
+  <div class="body white">
+    ${err ? `<div class="box err">${ic('alert',20)}<span>Email hoặc mật khẩu không đúng. Kiểm tra lại, chú ý chữ hoa và chữ thường.</span></div>` : ''}
+    <div class="input focus">${ic('mail',20)}<span class="f"><small>Email</small><span>${c.email}</span></span></div>
+    <div class="input${err?' err':''}">${ic('lock',20)}<span class="f"><small>Mật khẩu</small><span>••••••••••</span></span><button class="ib" data-act="noop" aria-label="Hiện mật khẩu">${ic('eye',20)}</button></div>
+    <button class="link small" data-act="go" data-arg="COM-04" style="align-self:flex-end">Quên mật khẩu?</button>
+    <button class="btn pri xl" data-act="login" ${off||busy?'disabled':''}>${busy?'Đang đăng nhập…':'Đăng nhập'}</button>
+    <div class="row" style="justify-content:center;gap:6px;flex-wrap:wrap"><span class="small muted">Chủ ngựa chưa có tài khoản?</span><button class="link small" data-act="go" data-arg="COM-03">Tạo tài khoản</button></div>
+  </div>` + hi() + (c.otherAcc ? sheetWrap(`<h3>Còn 3 mục chưa gửi</h3><p style="margin:0">Các mục này thuộc tài khoản <b>hung.le@horseroute.vn</b>. Đăng nhập lại tài khoản đó để gửi, hoặc bỏ các mục này.</p><div class="kvw">${ROLES.DRV.queue.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}</div><button class="btn pri xl" data-act="useOld">Đăng nhập lại tài khoản cũ</button><button class="btn" data-act="dropOld">Bỏ 3 mục và tiếp tục</button>`) : '');
+};
+R['COM-05'] = c => sb(c) + `<div class="body white"><div class="empty"><div class="circle">${ic('monitor',32)}</div><span class="big">Tài khoản này dùng trên web</span><p class="muted" style="margin:0;max-width:300px">Võ Quốc Bảo · Điều phối viên. App dành cho khách hàng, tài xế và người hộ tống. Mở HorseRoute trên máy tính để điều phối chuyến.</p><span class="chip fill">horseroute.vn</span></div></div><div class="bottom"><div class="row" style="flex-direction:column"><button class="btn pri xl" data-act="noop">${ic('ext',20)} Mở web</button><button class="btn ghost" data-act="logoutNow">Đăng xuất</button></div>${hi()}</div>`;
+R['COM-06'] = c => { const r = ROLES[c.role]; return sb(c) + `<div class="body white" style="gap:20px;padding-top:32px">
+    <div class="circle" style="border-color:var(--w-ink)">${ic('bell',32)}</div>
+    <span class="big">Bật thông báo để không bỏ lỡ</span>
+    <div style="display:flex;flex-direction:column;gap:16px">${r.benefits.map(([i,t]) => `<div class="benefit"><span class="ico">${ic(i,20)}</span><span style="padding-top:8px">${t}</span></div>`).join('')}</div>
+    <p class="small muted" style="margin:0">Bạn đổi lại được trong Cài đặt của điện thoại.</p>
+  </div><div class="bottom"><div class="row" style="flex-direction:column"><button class="btn pri xl" data-act="enter">Bật thông báo</button><button class="btn ghost" data-act="enter">Để sau</button></div>${hi()}</div>`; };
+R['COM-07'] = c => sb(c) + hdr({back:true,title:'Vị trí khi chạy chuyến'}) + `<div class="body white">
+    <div class="hatch" style="height:160px;display:flex;align-items:center;justify-content:center">${ic('gps',40,1.5)}</div>
+    <span class="big">Cho phép vị trí cả khi tắt màn hình</span>
+    ${['Điều phối thấy xe đang ở đâu để báo khách và xử lý sự cố kịp thời.','Chỉ gửi vị trí khi chuyến đang chạy. Tự tắt khi bạn xác nhận đã giao.','Khách hàng không thấy vị trí chính xác của xe.'].map(t => `<div class="row" style="align-items:flex-start">${ic('check',20)}<span>${t}</span></div>`).join('')}
+    <div class="box">${ic('list',20)}<span>Ở hộp tiếp theo, chọn <b>Luôn cho phép</b>.</span></div>
+  </div><div class="bottom"><div class="row" style="flex-direction:column"><button class="btn pri xl" data-act="back">Tiếp tục</button><button class="btn ghost" data-act="back">Để sau</button></div>${hi()}</div>`;
+R['COM-09'] = c => {
+  const r = ROLES[c.role], isCus = c.role === 'CUS';
+  const head = isCus ? hdr({back:true,title:'Thông báo'}) : bigHdr('Thông báo');
+  const foot = isCus ? hi() : tabbar(c,'COM-09') + hi();
+  if (c.st === 'loading') return sb(c) + head + skeleton() + foot;
+  if (c.st === 'empty') return sb(c) + head + `<div class="body white"><div class="empty"><div class="circle">${ic('bell',32)}</div><b style="font-size:18px">Chưa có thông báo</b><p class="muted small" style="margin:0;max-width:280px">${isCus?'Báo giá, mốc hành trình và báo cáo sức khỏe ngựa sẽ hiện ở đây.':'Chuyến được giao và cảnh báo từ điều phối sẽ hiện ở đây.'}</p></div></div>` + foot;
+  if (c.st === 'error') return sb(c) + head + `<div class="body white"><div class="empty"><div class="circle">${ic('alert',32)}</div><b style="font-size:18px">Không tải được thông báo</b><button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button></div></div>` + foot;
+  const unread = r.notifs.flatMap(g => g[1]).filter((n,k) => n[0] && !c.read[n[2]]).length;
+  return sb(c) + head + (c.st==='offline' ? `<button class="bar" data-act="sheet" data-arg="queue">${ic('wifioff',18)}<span class="grow">Mất sóng · ${queueCount(c)} mục chờ gửi</span>${ic('next',18)}</button>` : '') + `<div class="body white">
+    <div class="row between"><span class="small muted">${unread} chưa đọc</span><button class="link small" data-act="readAll">Đánh dấu đã đọc tất cả</button></div>
+    ${r.notifs.map(([g, list]) => `<div class="sec"><span class="lbl">${g}</span><div>${list.map(n => { const un = n[0] && !c.read[n[2]]; return `<button class="nrow" data-act="openNotif" data-arg="${n[2]}"><span class="ico">${ic(n[1],20)}</span><span class="grow"><span style="font-weight:${un?700:500}">${n[2]}</span><span class="small muted">${n[3]} · ${n[4]}</span></span>${un?'<span class="udot" aria-label="Chưa đọc"></span>':''}</button>`; }).join('')}</div></div>`).join('')}
+  </div>` + `<div style="flex:none">${toast(c)}</div>` + foot + (c.sheet==='queue' ? queueSheet(c) : '');
+};
+R['COM-10'] = c => {
+  const r = ROLES[c.role], crew = c.role !== 'CUS';
+  if (c.st === 'loading') return sb(c) + bigHdr('Tài khoản') + skeleton() + tabbar(c,'COM-10') + hi();
+  const q = queueCount(c);
+  return sb(c) + bigHdr('Tài khoản') + (c.st==='offline' ? `<button class="bar" data-act="sheet" data-arg="queue">${ic('wifioff',18)}<span class="grow">Mất sóng · ${q} mục chờ gửi</span>${ic('next',18)}</button>` : '') + `<div class="body">
+    <div class="card"><div class="row" style="gap:14px"><span class="avatar">${r.init}</span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:18px">${r.name}</b><span class="small muted">${r.label} · ${r.org}</span></div></div>
+      <div class="kvw" style="border:0"><div style="padding:10px 0"><span>Email</span><b>${r.email}</b></div><div style="padding:10px 0"><span>Điện thoại</span><b>${r.phone}</b></div></div></div>
+    ${crew ? `<div class="card"><span class="lbl">Chuyến hiện tại</span><div class="row between"><span>Vai trò của bạn</span><span class="chip dark">${c.role==='DRV'?'Tài xế':'Hộ tống'}</span></div><span class="small muted">Vai trò lấy theo từng chuyến điều phối giao.</span></div>` : ''}
+    <div class="card"><span class="lbl">Giao diện</span><div class="opts">${[['light','Sáng'],['dark','Tối'],['auto','Theo máy']].map(([k,l]) => `<button class="opt${c.theme===k?' on':''}" data-act="theme" data-arg="${k}">${c.theme===k?ic('check',16,3):''}${l}</button>`).join('')}</div>
+      <span class="lbl" style="margin-top:8px">Cỡ chữ</span><div class="opts">${[['md','Vừa'],['lg','Lớn']].map(([k,l]) => `<button class="opt${c.font===k?' on':''}" data-act="font" data-arg="${k}">${c.font===k?ic('check',16,3):''}${l}</button>`).join('')}</div></div>
+    <div class="card" style="padding:4px 16px">
+      <button class="listrow" data-act="go" data-arg="COM-11">${ic('key',22)}<span class="grow"><b>Đổi mật khẩu</b></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="go" data-arg="COM-06">${ic('bell',22)}<span class="grow"><b>Thông báo</b><span class="small muted">Đang bật</span></span>${ic('next',20)}</button>
+      ${crew ? `<a class="listrow" href="tel:19006868" style="text-decoration:none">${ic('phone',22)}<span class="grow"><b>Đường dây nóng</b><span class="small muted">1900 6868 · 24/7</span></span>${ic('next',20)}</a>` : `<div class="listrow" style="cursor:default">${ic('chat',22)}<span class="grow"><b>Hỗ trợ</b><span class="small muted">Kênh liên hệ đang được chốt</span></span></div>`}
+    </div>
+    <button class="btn" data-act="logout">${ic('logout',20)} Đăng xuất</button>
+    <span class="small muted" style="text-align:center">Phiên bản 1.0.0 · bản wireframe</span>
+  </div>` + tabbar(c,'COM-10') + hi() + dialogs(c) + (c.sheet==='queue' ? queueSheet(c) : '');
+};
+function dialogs(c){
+  if (c.dialog === 'logout') return `<div class="overlay center"><div class="dialog"><h3>Đăng xuất?</h3><p class="muted" style="margin:0">Bạn cần đăng nhập lại để dùng app.</p><button class="btn pri" data-act="logoutNow">Đăng xuất</button><button class="btn" data-act="closeDialog">Huỷ</button></div></div>`;
+  if (c.dialog === 'blocked') return `<div class="overlay center"><div class="dialog"><h3>Còn ${queueCount(c)} mục chưa gửi</h3><p class="muted" style="margin:0">Đăng xuất bây giờ sẽ mất các mục này. Kết nối mạng để gửi xong rồi đăng xuất.</p><button class="btn pri" data-act="closeDialog">Đã hiểu</button><button class="btn ghost" data-act="sheet" data-arg="queue">Xem các mục</button></div></div>`;
+  return '';
+}
+function queueSheet(c){
+  const rows = ROLES[c.role].queue;
+  const errRow = c.role !== 'CUS' ? `<div class="box err">${ic('alert',20)}<div style="display:flex;flex-direction:column;gap:6px"><b>1 mục bị máy chủ từ chối</b><span class="small">Mốc "Rời Điểm nghỉ Trảng Bàng": chuyến đã được điều phối cập nhật. Kiểm tra lại mốc.</span><div class="row"><button class="link small" data-act="close">Sửa</button><button class="link small" data-act="close">Bỏ mục này</button></div></div></div>` : '';
+  return sheetWrap(`<h3>Chờ gửi (${rows.length})</h3><div class="kvw">${rows.map(r => `<div><span>${r[0]}</span><span style="text-align:right"><b>${r[1]}</b><br><span class="small muted">${r[2]}</span></span></div>`).join('')}</div>${errRow}<p class="small muted" style="margin:0">Tự gửi theo thứ tự khi có sóng. Lỗi mạng thì thử lại sau 5, 15, 60 giây.</p><button class="btn pri xl" data-act="close">${ic('upload',22)} Gửi lại ngay</button><button class="btn ghost" data-act="close">Đóng</button>`);
+}
+R['HOME'] = c => { const r = ROLES[c.role]; return sb(c) + bigHdr(r.homeName, c.role==='CUS' ? `<button class="ib" data-act="go" data-arg="COM-09" aria-label="Thông báo">${ic('bell',24)}</button>` : '') + `<div class="body white"><div class="empty"><span class="stubtag">${r.home} · xem file ${r.file}</span><b style="font-size:18px">Đã vào app ${r.label.toLowerCase()}</b><p class="small muted" style="margin:0;max-width:280px">Màn chính của vai trò này nằm trong file wireframe ${r.file}. Ở đây chỉ để thử luồng đăng nhập, thông báo và tài khoản.</p></div></div>` + tabbar(c,'HOME') + hi(); };
+R['HOME2'] = R['HOME']; R['HOME3'] = R['HOME'];
+Object.keys(STUBS).forEach(k => R[k] = c => sb(c) + hdr({back:true,title:STUBS[k][0]}) + `<div class="body white"><div class="empty"><span class="stubtag">${k} · ${STUBS[k][1]}</span><b style="font-size:18px">${STUBS[k][0]}</b></div></div>` + hi());
+R['COM-12'] = c => R['COM-09']({...c, st:'offline', sheet:'queue'});
+
+/* ---------- Khung ---------- */
+function screenHTML(code, c, id){ return `<section class="screen ${plat}" id="${id||code}" data-screen="${code}" style="--fw:${DIM[plat].w}px;--fh:${DIM[plat].h}px">${R[code](c)}</section>`; }
+function fit(html, s){ const d = DIM[plat]; return `<div class="fit" style="width:${Math.round(d.w*s)}px;height:${Math.round(d.h*s)}px"><div class="scaled" style="transform:scale(${s})">${html}</div></div>`; }
+function protoScale(){ const d = DIM[plat], pad = plat==='ios'?24:20; return Math.min(1, Math.min(document.documentElement.clientWidth - 32, 900) / (d.w + pad)); }
+
+const GRID = [
+  ['COM-01',[{l:'Kiểm tra phiên'},{l:'Gửi tiếp hàng chờ',st:'loading'},{l:'Mất sóng, dùng dữ liệu lưu',st:'offline'},{l:'Lần đầu, không có mạng',st:'error'}]],
+  ['COM-02',[{l:'Bình thường'},{l:'Sai mật khẩu',st:'error'},{l:'Đang đăng nhập',st:'loading'},{l:'Mất sóng',st:'offline'},{l:'Còn mục chờ của tài khoản trước',otherAcc:true,email:'thu.pham@horseroute.vn'}]],
+  ['COM-06',[{l:'Khách hàng'},{l:'Tài xế',role:'DRV'},{l:'Hộ tống',role:'ESC'}]],
+  ['COM-07',[{l:'Tài xế'}]],
+  ['COM-05',[{l:'Điều phối viên đăng nhập'}]],
+  ['COM-09',[{l:'Khách hàng (mở từ chuông)'},{l:'Tài xế (tab)',role:'DRV'},{l:'Hộ tống (tab)',role:'ESC'},{l:'Chưa có thông báo',st:'empty'},{l:'Đang tải',st:'loading',role:'DRV'}]],
+  ['COM-10',[{l:'Khách hàng'},{l:'Tài xế',role:'DRV'},{l:'Hộ tống, mất sóng',role:'ESC',st:'offline'},{l:'Chặn đăng xuất khi còn mục chờ',role:'DRV',st:'offline',dialog:'blocked'},{l:'Xác nhận đăng xuất',dialog:'logout'}]],
+  ['COM-12',[{l:'Tài xế, có 1 mục bị từ chối',role:'DRV'},{l:'Hộ tống',role:'ESC'}]]
+];
+
+/* ---------- Vẽ trang ---------- */
+const main = document.getElementById('main');
+function render(){
+  document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#segPlat button').forEach(b => b.classList.toggle('on', b.dataset.plat === plat));
+  document.querySelectorAll('#segState button').forEach(b => b.classList.toggle('on', b.dataset.st === app.st));
+  document.querySelectorAll('#segRole button').forEach(b => b.classList.toggle('on', b.dataset.role === app.role));
+  document.getElementById('grpScale').hidden = mode !== 'grid';
+  document.querySelector('#segState').closest('.grp').hidden = mode === 'grid';
+  document.querySelector('#segRole').closest('.grp').hidden = mode === 'grid';
+  if (mode === 'grid') return renderGrid();
+  const code = app.screen, n = NOTES[code], stub = STUBS[code];
+  const s = protoScale(), d = DIM[plat], pad = plat==='ios'?12:10;
+  const dev = `<div class="device ${plat}">${screenHTML(code, app)}</div>`;
+  const devFit = s < 1 ? `<div class="fit" style="width:${Math.round((d.w+pad*2)*s)}px;height:${Math.round((d.h+pad*2)*s)}px"><div class="scaled" style="transform:scale(${s})">${dev}</div></div>` : dev;
+  const info = n ? `<div class="pcard"><h3>${code} · ${n.kind}</h3><h2>${n.n}</h2><p>${n.p}</p><dl class="kv"><dt>Hành động chính</dt><dd>${n.a}</dd><dt>Dữ liệu</dt><dd>${n.d}</dd><dt>API</dt><dd class="code">${n.api}</dd></dl><ul>${n.b.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+    : stub ? `<div class="pcard"><h3>${code}</h3><h2>${stub[0]}</h2><p>${stub[1]}.</p></div>` : `<div class="pcard"><h3>Màn chính của vai trò</h3><h2>${ROLES[app.role].homeName}</h2><p>Xem trong file wireframe ${ROLES[app.role].file}.</p></div>`;
+  const acc = code === 'COM-02' ? `<div class="pcard"><h3>Tài khoản thử</h3><div class="jump">${ACCOUNTS.map(([r,e]) => `<button data-acc="${e}" class="${app.email===e?'on':''}">${e}</button>`).join('')}</div><p class="hint">Chọn email rồi bấm Đăng nhập trong khung. Tài khoản bao.vo là điều phối viên, sẽ được chuyển sang web.</p></div>` : '';
+  const list = ['COM-01','COM-02','COM-06','COM-07','COM-05','COM-09','COM-10','COM-12'];
+  const jump = `<div class="pcard"><h3>Màn đã vẽ (P0)</h3><div class="jump">${list.map(k => `<button data-jump="${k}" class="${app.screen===k?'on':''}"><span class="code">${k}</span>${NOTES[k].n}</button>`).join('')}</div><p class="hint">Chọn Vai trò ở thanh trên để xem Thông báo và Tài khoản của khách hàng, tài xế hay hộ tống.</p></div>`;
+  main.innerHTML = `<div class="proto"><div>${devFit}</div><div class="panel">${info}${acc}${jump}</div></div>`;
+}
+function renderGrid(){
+  const s = gridScale || (document.documentElement.clientWidth >= 1100 ? 1 : 0.5);
+  document.querySelectorAll('#segScale button').forEach(b => b.classList.toggle('on', +b.dataset.sc === s));
+  main.innerHTML = `<div class="grid">${GRID.map(([code, vs]) => { const n = NOTES[code];
+    return `<section class="grow-row"><header><h2>${code} · ${n.n}</h2><p>${n.p} Hành động chính: ${n.a}.</p></header><div class="strip">${vs.map((v,k) => {
+      const c = {...fresh(), ...v, st:v.st||'normal'};
+      return `<div class="vcell"><span class="vl">${v.l}</span><div data-open="${code}" data-role-open="${v.role||'CUS'}">${fit(screenHTML(code, c, k ? `${code}--${k}` : code), s)}</div></div>`;
+    }).join('')}</div></section>`; }).join('')}</div>`;
+}
+
+/* ---------- Hành động ---------- */
+function go(code){ app.stack.push(app.screen); app.screen = code; app.sheet = null; app.dialog = null; }
+function say(msg){ app.toast = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => { app.toast = null; render(); }, 3000); }
+const roleOf = e => (ACCOUNTS.find(a => a[1] === e) || ['CUS'])[0];
+const ACT = {
+  noop(){},
+  go(a){ go(a); },
+  back(){ app.sheet = null; app.dialog = null; app.screen = app.stack.pop() || 'HOME'; },
+  tab(a){ app.stack = []; app.screen = a; app.sheet = null; app.dialog = null; },
+  sheet(a){ app.dialog = null; app.sheet = a; },
+  close(){ app.sheet = null; },
+  closeDialog(){ app.dialog = null; },
+  boot(){ if (app.st === 'error') return; app.stack = []; app.screen = 'COM-02'; },
+  login(){
+    if (app.st === 'error') { app.loginErr = true; return; }
+    const r = roleOf(app.email);
+    if (r === 'MGR') { app.stack = []; app.screen = 'COM-05'; return; }
+    app.role = r; app.stack = []; app.screen = 'COM-06';
+  },
+  useOld(){ app.otherAcc = false; app.email = 'hung.le@horseroute.vn'; },
+  dropOld(){ app.otherAcc = false; },
+  enter(){ app.stack = []; app.screen = 'HOME'; },
+  openNotif(a){ app.read[a] = true; say('Mở màn liên quan (xem file wireframe của vai trò)'); },
+  readAll(){ ROLES[app.role].notifs.forEach(g => g[1].forEach(n => app.read[n[2]] = true)); },
+  theme(a){ app.theme = a; },
+  font(a){ app.font = a; },
+  logout(){ app.dialog = queueCount(app) ? 'blocked' : 'logout'; },
+  logoutNow(){ app.dialog = null; app.stack = []; app.screen = 'COM-02'; }
+};
+document.addEventListener('click', e => {
+  const seg = e.target.closest('[data-mode],[data-plat],[data-st],[data-sc],[data-jump],[data-open],[data-role],[data-acc]');
+  if (seg) {
+    const d = seg.dataset;
+    if (d.mode) mode = d.mode;
+    else if (d.plat) plat = d.plat;
+    else if (d.st) app.st = d.st;
+    else if (d.sc) gridScale = +d.sc;
+    else if (d.role) app.role = d.role;
+    else if (d.acc) { app.email = d.acc; app.loginErr = false; }
+    else if (d.jump) jumpTo(d.jump);
+    else if (d.open) { mode = 'proto'; app.role = d.roleOpen || app.role; jumpTo(d.open); window.scrollTo(0,0); }
+    render(); return;
+  }
+  if (mode !== 'proto') return;
+  const t = e.target.closest('[data-act]');
+  if (!t || t.disabled || !main.contains(t)) return;
+  const fn = ACT[t.dataset.act];
+  if (fn) { e.preventDefault(); fn(t.dataset.arg); render(); }
+});
+function jumpTo(code){
+  app.sheet = null; app.dialog = null;
+  if (code === 'COM-12') { app.stack = []; app.screen = 'COM-09'; if (app.role === 'CUS') app.role = 'DRV'; app.st = 'offline'; app.sheet = 'queue'; return; }
+  if (code === 'COM-07') { app.role = 'DRV'; app.stack = ['HOME']; app.screen = code; return; }
+  if (code === 'COM-09' && app.role === 'CUS') { app.stack = ['HOME']; app.screen = code; return; }
+  app.stack = []; app.screen = code;
+}
+document.getElementById('btnReset').addEventListener('click', () => { const st = app.st; app = fresh(); app.st = st; mode = 'proto'; render(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
+render();
+})();
+</script>
+</body>
+</html>

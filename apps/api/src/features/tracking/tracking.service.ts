@@ -1,5 +1,5 @@
 import {
-  CareActivityType, CrewRole, Role, HorseReportStatus, HORSE_CONDITION_META, HORSE_REPORT_PHOTO_REQUIRED_STATUSES, HORSE_REPORT_MAX_PHOTOS,
+  CareActivityType, CrewRole, Role, HorseReportStatus, HORSE_CONDITION_META, HORSE_REPORT_PHOTO_REQUIRED_STATUSES, HORSE_REPORT_MAX_PHOTOS, PHOTO_REQUIRED,
   type HorseConditionStatus, type IHorseReport,
 } from '@my-project/shared';
 import { User } from '../users/users.model';
@@ -8,6 +8,8 @@ import {
   legIdSchema,
   buildMilestoneSchema,
   buildCompleteLegSchema,
+  buildWaypointCheckinSchema,
+  waypointIdSchema,
   correctLegSchema,
   createHorseLogSchema,
   updateHorseReportSchema,
@@ -16,6 +18,7 @@ import {
   careRangeSchema,
   createIncidentSchema,
   patchIncidentSchema,
+  incidentScopeSchema,
   createAlertSchema,
   positionsBatchSchema,
   trackQuerySchema,
@@ -46,6 +49,9 @@ import {
   IAlert,
   ILogAttachment,
   IOrderTimeline,
+  ICoordinatorIncident,
+  IIncidentResponse,
+  IWaypointCheckin,
   ITimelineLeg,
   ITripTimeline,
   IActiveTrips,
@@ -57,14 +63,18 @@ import {
   ITripPositionBatchResult,
   ITripTrackPoint,
 } from '@my-project/shared';
-import { TrackingTripDetail, LegDetailRow, MilestoneRow } from './tracking.dto';
+import { TrackingTripDetail, LegDetailRow, MilestoneRow, WaypointCheckinRow } from './tracking.dto';
 import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
 import { Logger } from '../../shared/utils/logger.util';
 import { socketService } from '../../shared/socket/socket.service';
 import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
 import { modeForVehicle } from './trackmap.geo';
 
-function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[]): ILegTracking {
+const waypointCheckinView = (c: WaypointCheckinRow): IWaypointCheckin => ({
+  waypointId: c.waypointId, label: c.label, occurredAt: c.occurredAt.toISOString(), recordedByName: c.recordedByName,
+});
+
+function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[], checkins: WaypointCheckinRow[] = []): ILegTracking {
   const legMilestones: ILegMilestone[] = milestones
     .filter(m => m.legId === leg.id)
     .map(m => ({
@@ -94,6 +104,7 @@ function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[]): IL
     updatedAt: leg.updatedAt ? leg.updatedAt.toISOString() : null,
     updatedByName: leg.updatedByName,
     milestones: legMilestones,
+    waypointCheckins: checkins.filter(c => c.legId === leg.id).map(waypointCheckinView),
   };
 }
 
@@ -117,6 +128,28 @@ function normalizeForm(body: unknown) {
 }
 
 /** Ảnh hiện trường: chỉ JPG/PNG (kiểm tra magic bytes), tối đa 5MB mỗi ảnh. */
+/** Form multipart (có ảnh) gửi mọi trường dạng chuỗi: bỏ ô rỗng và đổi lại số cho lượng nước / phút nghỉ. */
+function careFormBody(body: unknown) {
+  const form = normalizeForm(body);
+  if (!form || typeof form !== 'object') return form;
+  const result: Record<string, unknown> = { ...form };
+  for (const field of ['amountLiters', 'durationMinutes']) {
+    if (typeof result[field] === 'string') result[field] = Number(result[field]);
+  }
+  return result;
+}
+
+const hhmmVN = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
+
+function toIncidentResponse(row: import('./tracking.dto').IncidentResponseRow): IIncidentResponse {
+  const waitMinutes = row.waitMinutes === null || row.waitMinutes === undefined ? null : Number(row.waitMinutes);
+  return {
+    id: row.id, kind: row.kind, note: row.note, waitMinutes,
+    expectedAt: waitMinutes ? new Date(row.sentAt.getTime() + waitMinutes * 60_000).toISOString() : null,
+    sentByName: row.sentByName, sentAt: row.sentAt.toISOString(),
+  };
+}
+
 function assertPhotos(files: Upload[]) {
   for (const file of files) {
     if (fileType(file) === 'PDF') throw new BadRequestException('Ảnh đính kèm chỉ nhận JPG hoặc PNG.');
@@ -233,6 +266,7 @@ export class TrackingService {
 
     const allLegs = await this.repository.getLegsForTrips(tripRows.map(t => t.id));
     const allMilestones = await this.repository.getLegMilestones(allLegs.map(l => l.id));
+    const allCheckins = await this.repository.getWaypointCheckins(allLegs.map(l => l.id));
     const summaries: IDriverTripSummary[] = tripRows.map(trip => ({
       id: trip.id,
       orderId: trip.orderId,
@@ -242,7 +276,7 @@ export class TrackingService {
       plannedDepartureAt: trip.plannedDepartureAt ? trip.plannedDepartureAt.toISOString() : null,
       plannedArrivalAt: trip.plannedArrivalAt ? trip.plannedArrivalAt.toISOString() : null,
       crewRole: trip.crewRole,
-      legs: allLegs.filter(l => l.tripId === trip.id).map(l => mapLegWithMilestones(l, allMilestones)),
+      legs: allLegs.filter(l => l.tripId === trip.id).map(l => mapLegWithMilestones(l, allMilestones, allCheckins)),
     }));
 
     return summaries;
@@ -283,6 +317,7 @@ export class TrackingService {
 
     const legIds = legs.map(l => l.id);
     const milestones = await this.repository.getLegMilestones(legIds);
+    const checkins = await this.repository.getWaypointCheckins(legIds);
     // Specialist chỉ đọc chuyên môn: không thấy SĐT của tổ lái, điều phối viên và người nhận.
     const showPhone = account.role !== Role.SPECIALIST;
     const phone = (value: string | null | undefined) => (showPhone && value) || null;
@@ -305,7 +340,7 @@ export class TrackingService {
       vehicles: vehicles.map(v => ({ id: v.id, code: v.code, type: v.type, capacityStalls: Number(v.capacityStalls) })),
       emergencyHotline,
       horses,
-      legs: legs.map(l => mapLegWithMilestones(l, milestones)),
+      legs: legs.map(l => mapLegWithMilestones(l, milestones, checkins)),
     };
   }
 
@@ -521,6 +556,46 @@ export class TrackingService {
         legStatus: nextLegStatus,
         orderStatus: nextOrderStatus,
       };
+    });
+  }
+
+  /** Tài xế check-in một điểm nghỉ giữa đường khi xe đang chạy: lần lượt theo thứ tự route_plan, mỗi điểm một lần. */
+  async recordWaypointCheckin(account: User, rawLegId: string, rawWaypointId: string, body: unknown): Promise<{ legId: string; waypointId: string; occurredAt: string }> {
+    if (account.role !== Role.DRIVER_ESCORT) {
+      throw new ForbiddenException('Chỉ tài xế / người hộ tống được phân công mới có quyền check-in điểm dừng.');
+    }
+    const legId = parse(legIdSchema, rawLegId);
+    const waypointId = parse(waypointIdSchema, rawWaypointId);
+    const input = parse(buildWaypointCheckinSchema(await this.repository.getMaxRetroactiveMinutes()), body);
+
+    return this.repository.transaction(async repo => {
+      const leg = await repo.lockLegForUpdate(legId);
+      if (!leg) throw new NotFoundException('Không tìm thấy chặng.');
+      const assignment = await repo.getDriverAssignment(leg.tripId, String(account.id));
+      if (!assignment) throw new ForbiddenException('Bạn không được phân công chuyến này.');
+      if (assignment.role !== CrewRole.DRIVER) throw new ForbiddenException(DRIVER_ONLY);
+      if (leg.status !== LegStatus.MOVING) {
+        throw new ConflictException(`Chỉ check-in điểm dừng khi xe đang di chuyển (MOVING). Hiện tại: ${leg.status}`);
+      }
+
+      const stops = await repo.getRestStops(leg.tripId);
+      const index = stops.findIndex(stop => stop.id === waypointId);
+      if (index < 0) throw new BadRequestException('Điểm dừng không thuộc lộ trình của chuyến này.');
+      const done = await repo.getWaypointCheckins([legId]);
+      if (done.some(c => c.waypointId === waypointId)) throw new ConflictException('Điểm dừng này đã được check-in.');
+      const doneIds = new Set(done.map(c => c.waypointId));
+      const skipped = stops.slice(0, index).find(stop => !doneIds.has(stop.id));
+      if (skipped) throw new ConflictException(`Cần check-in "${skipped.label}" trước.`);
+      assertNotBefore(input.occurredAt, leg.actualDepartureAt, 'xuất phát');
+      const previous = done[done.length - 1];
+      if (previous) assertNotBefore(input.occurredAt, previous.occurredAt, 'check-in điểm dừng trước');
+
+      const label = stops[index].label;
+      await repo.insertWaypointCheckin(legId, waypointId, label, input.occurredAt, String(account.id));
+      await repo.audit(String(account.id), 'LEG', legId, 'WAYPOINT_CHECKIN', null, JSON.stringify({ waypointId, label, occurredAt: input.occurredAt }), null);
+      await repo.notify(leg.plannedBy, 'LEG_MILESTONE_UPDATED', `Chuyến ${leg.tripId}: Tài xế đã tới điểm dừng ${label}.`, 'TRIP', leg.tripId);
+      await repo.notify(leg.customerId, 'ORDER_LEG_PROGRESS', `Đơn hàng ${leg.orderCode}: xe đã tới điểm dừng ${label}.`, 'ORDER', leg.orderId);
+      return { legId, waypointId, occurredAt: input.occurredAt };
     });
   }
 
@@ -1021,7 +1096,7 @@ export class TrackingService {
 
   // ─── Hoạt động chăm sóc ngựa (cho ăn / uống nước / nghỉ chân) ──────────────────
 
-  private toCareActivity(row: import('./tracking.dto').CareActivityRow): ICareActivity {
+  private toCareActivity(row: import('./tracking.dto').CareActivityRow, photos: import('./tracking.dto').AttachmentRow[] = []): ICareActivity {
     return {
       id: row.id,
       tripId: row.tripId,
@@ -1038,58 +1113,81 @@ export class TrackingService {
       createdByName: row.createdByName,
       createdAt: row.createdAt.toISOString(),
       correctsActivityId: row.correctsActivityId ?? null,
+      photos: photos.filter(photo => photo.careActivityId === row.id).map(toAttachment),
     };
   }
 
-  async createCareActivity(account: User, rawTripId: string, body: unknown): Promise<ICareActivity> {
+  /** Hoạt động chăm sóc kèm ảnh (một truy vấn ảnh cho cả danh sách). */
+  private async careActivitiesWithPhotos(repo: TrackingRepository, rows: import('./tracking.dto').CareActivityRow[]): Promise<ICareActivity[]> {
+    const photos = await repo.getCareActivityAttachments(rows.map(row => row.id));
+    return rows.map(row => this.toCareActivity(row, photos));
+  }
+
+  async createCareActivity(account: User, rawTripId: string, body: unknown, files: Upload[] = []): Promise<ICareActivity> {
     if (account.role !== Role.DRIVER_ESCORT) {
       throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
     }
     const tripId = parse(legIdSchema, rawTripId);
-    const input = parse(buildCareActivitySchema(await this.repository.getMaxRetroactiveMinutes()), body);
+    const input = parse(buildCareActivitySchema(await this.repository.getMaxRetroactiveMinutes()), files.length ? careFormBody(body) : body);
+    assertPhotos(files);
+    if (PHOTO_REQUIRED.CARE_ACTIVITY && !files.length && !input.correctsActivityId) {
+      throw new BadRequestException('Cần ít nhất 1 ảnh để cập nhật nhật ký cho khách.');
+    }
 
-    return this.repository.transaction(async repo => {
-      const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
-      const assignment = await repo.getDriverAssignment(tripId, String(account.id));
-      if (assignment?.role !== CrewRole.ESCORT) throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
-      // Quyết định 6.2: ghi được khi đơn READY (chất ngựa) hoặc IN_TRANSIT; DELIVERED và các trạng thái khác bị chặn.
-      if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
-        throw new ConflictException('Chỉ ghi nhật ký chăm sóc khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT).');
-      }
-      const horseId = input.horseId ?? null;
-      if (horseId && !(await repo.checkHorseBelongsToOrder(horseId, trip.orderId))) {
-        throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
-      }
-      if (input.correctsActivityId) {
-        const original = await repo.findCareActivity(input.correctsActivityId);
-        if (!original || original.tripId !== tripId || original.horseId !== horseId || original.activityType !== input.activityType) {
-          throw new BadRequestException('Bản ghi được đính chính phải thuộc cùng chuyến, cùng ngựa và cùng loại hoạt động.');
+    const saved: StoredFile[] = [];
+    try {
+      for (const file of files) saved.push(await saveFile(file));
+      return await this.repository.transaction(async repo => {
+        const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
+        const assignment = await repo.getDriverAssignment(tripId, String(account.id));
+        if (assignment?.role !== CrewRole.ESCORT) throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
+        // Quyết định 6.2: ghi được khi đơn READY (chất ngựa) hoặc IN_TRANSIT; DELIVERED và các trạng thái khác bị chặn.
+        if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
+          throw new ConflictException('Chỉ ghi nhật ký chăm sóc khi chuyến sẵn sàng khởi hành (READY) hoặc đang vận chuyển (IN_TRANSIT).');
         }
-        if (original.corrected) {
-          throw new ConflictException('Bản ghi này đã được đính chính; hãy đính chính bản mới nhất.');
+        const horseId = input.horseId ?? null;
+        if (horseId && !(await repo.checkHorseBelongsToOrder(horseId, trip.orderId))) {
+          throw new BadRequestException('Ngựa không thuộc đơn hàng của chuyến này.');
         }
-      }
+        if (input.correctsActivityId) {
+          const original = await repo.findCareActivity(input.correctsActivityId);
+          if (!original || original.tripId !== tripId || original.horseId !== horseId || original.activityType !== input.activityType) {
+            throw new BadRequestException('Bản ghi được đính chính phải thuộc cùng chuyến, cùng ngựa và cùng loại hoạt động.');
+          }
+          if (original.corrected) {
+            throw new ConflictException('Bản ghi này đã được đính chính; hãy đính chính bản mới nhất.');
+          }
+        }
 
-      const activityId = await repo.insertCareActivity({
-        tripId,
-        legId: await repo.getCurrentLegId(tripId),
-        horseId,
-        activityType: input.activityType,
-        feedDescription: input.feedDescription ?? null,
-        amountLiters: input.amountLiters ?? null,
-        durationMinutes: input.durationMinutes ?? null,
-        note: input.note || null,
-        performedAt: input.performedAt,
-        createdBy: String(account.id),
-        correctsActivityId: input.correctsActivityId ?? null,
+        const activityId = await repo.insertCareActivity({
+          tripId,
+          legId: await repo.getCurrentLegId(tripId),
+          horseId,
+          activityType: input.activityType,
+          feedDescription: input.feedDescription ?? null,
+          amountLiters: input.amountLiters ?? null,
+          durationMinutes: input.durationMinutes ?? null,
+          note: input.note || null,
+          performedAt: input.performedAt,
+          createdBy: String(account.id),
+          correctsActivityId: input.correctsActivityId ?? null,
+        });
+        for (const file of saved) {
+          await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, null, null, activityId);
+        }
+        // Đính chính không kèm ảnh mới: giữ ảnh của bản gốc.
+        if (!saved.length && input.correctsActivityId) await repo.copyCareActivityAttachments(input.correctsActivityId, activityId);
+        await repo.audit(
+          String(account.id), 'CARE_ACTIVITY', activityId, 'CREATE_CARE_ACTIVITY', null,
+          JSON.stringify({ tripId, horseId, activityType: input.activityType, correctsActivityId: input.correctsActivityId ?? null, photos: saved.length })
+        );
+        const [activity] = await this.careActivitiesWithPhotos(repo, await repo.getCareActivities(tripId, undefined, activityId));
+        return activity;
       });
-      await repo.audit(
-        String(account.id), 'CARE_ACTIVITY', activityId, 'CREATE_CARE_ACTIVITY', null,
-        JSON.stringify({ tripId, horseId, activityType: input.activityType, correctsActivityId: input.correctsActivityId ?? null })
-      );
-      const [row] = await repo.getCareActivities(tripId, undefined, activityId);
-      return this.toCareActivity(row);
-    });
+    } catch (error) {
+      await Promise.all(saved.map(file => removeFile(file.key)));
+      throw error;
+    }
   }
 
   /**
@@ -1101,7 +1199,7 @@ export class TrackingService {
     const header = (await this.repository.findOrderForTimeline(orderId))!;
     const visible = header.tripId !== null && header.planStatus === PlanStatus.APPROVED
       && [OrderStatus.READY, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED].includes(header.orderStatus);
-    const activities = visible ? (await this.repository.getCareActivities(header.tripId!)).map(row => this.toCareActivity(row)) : [];
+    const activities = visible ? await this.careActivitiesWithPhotos(this.repository, await this.repository.getCareActivities(header.tripId!)) : [];
     const lastFeed = visible ? await this.repository.getLastFeedByHorse(header.tripId!) : [];
     return { activities, summary: careSummary(activities, lastFeed) };
   }
@@ -1113,7 +1211,7 @@ export class TrackingService {
     // Customer bị chặn bằng vai trò (403); người ngoài phạm vi chuyến nhận 404.
     await this.authorizeTrip(this.repository, account, tripId, [Role.MANAGER, Role.COORDINATOR, Role.SPECIALIST, Role.DRIVER_ESCORT]);
     const range = query.from && query.to ? { from: new Date(query.from), to: new Date(query.to) } : undefined;
-    const activities = (await this.repository.getCareActivities(tripId, range)).map(row => this.toCareActivity(row));
+    const activities = await this.careActivitiesWithPhotos(this.repository, await this.repository.getCareActivities(tripId, range));
     // Chuyến chạy qua đêm: "lần cho ăn gần nhất" nhìn toàn chuyến, không bị cắt theo from/to.
     return { activities, summary: careSummary(activities, await this.repository.getLastFeedByHorse(tripId)) };
   }
@@ -1125,6 +1223,9 @@ export class TrackingService {
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createIncidentSchema, normalizeForm(body));
     assertPhotos(files);
+    if (PHOTO_REQUIRED.INCIDENT && !files.length) {
+      throw new BadRequestException('Cần ít nhất 1 ảnh hiện trường để điều phối viên xử lý sự cố.');
+    }
     if (input.captions.length > files.length) {
       throw new BadRequestException('Số nhãn ảnh không được nhiều hơn số ảnh.');
     }
@@ -1132,7 +1233,7 @@ export class TrackingService {
     const saved: StoredFile[] = [];
     try {
       for (const file of files) saved.push(await saveFile(file));
-      return await this.repository.transaction(async repo => {
+      const created = await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
         // 5.4: cho báo sự cố cả lúc chuẩn bị khởi hành (chất ngựa lên xe, trước giờ chạy).
         if (trip.orderStatus !== OrderStatus.READY && trip.orderStatus !== OrderStatus.IN_TRANSIT) {
@@ -1165,15 +1266,28 @@ export class TrackingService {
             severity: input.severity, subType, damageTarget: input.damageTarget,
           })
         );
-        await repo.notifyManagersAndCoordinators(
-          tripId,
-          'INCIDENT_REPORTED',
-          `${urgency === IncidentUrgency.HIGH ? '[KHẨN] ' : ''}Chuyến ${tripId} (đơn ${trip.orderCode}): sự cố ${INCIDENT_LABELS[input.incidentType]}.`
-        );
+        // Thông báo gắn với sự cố (related_type INCIDENT) để từ chuông mở thẳng sự cố đó.
+        const content = `${urgency === IncidentUrgency.HIGH ? '[KHẨN] ' : ''}Sự cố ${INCIDENT_LABELS[input.incidentType]} · đơn ${trip.orderCode}: ${input.description.slice(0, 200)}`;
+        const { plannerId, managerIds } = await repo.getIncidentRecipients(tripId);
+        const notices: { userId: string; id: string }[] = [];
+        for (const userId of new Set([plannerId, ...managerIds].filter(Boolean))) {
+          notices.push({ userId, id: await repo.notify(userId, 'INCIDENT_REPORTED', content, 'INCIDENT', incidentId) });
+        }
 
-        const incidents = await this.loadIncidents(repo, tripId);
-        return incidents.find(incident => incident.id === incidentId)!;
+        const [detail] = await this.toIncidents(repo, [(await repo.getIncidentById(incidentId))!]);
+        return { detail, plannerId, notices, content };
       });
+      await this.publish('incident_reported', async () => {
+        if (created.plannerId) this.realtime.emitToUsers([created.plannerId], 'tracking:incident_reported', { incident: created.detail });
+        const createdAt = new Date().toISOString();
+        for (const notice of created.notices) {
+          this.realtime.emitToUsers([notice.userId], 'notification:new', {
+            id: notice.id, content: created.content, createdAt, eventType: 'INCIDENT_REPORTED', relatedType: 'INCIDENT', relatedId: created.detail.id,
+          });
+        }
+      });
+      const { orderId: _o, orderCode: _c, routeLabel: _r, reporterRole: _p, ...incident } = created.detail;
+      return incident;
     } catch (error) {
       await Promise.all(saved.map(file => removeFile(file.key)));
       throw error;
@@ -1186,12 +1300,19 @@ export class TrackingService {
     return this.loadIncidents(this.repository, tripId);
   }
 
-  async updateIncident(account: User, rawIncidentId: string, body: unknown): Promise<IIncident> {
+  /**
+   * Điều phối viên xử lý sự cố (2 bước): ACKNOWLEDGED = "Gửi hướng xử lý" (gửi được nhiều lần, kèm thời gian chờ dự kiến),
+   * CLOSED = "Đã xử lý xong". Mỗi lần ghi một dòng incident_responses; cả tổ lái của chuyến nhận thông báo realtime.
+   */
+  async updateIncident(account: User, rawIncidentId: string, body: unknown): Promise<ICoordinatorIncident> {
     if (account.role !== Role.COORDINATOR) {
       throw new ForbiddenException('Chỉ Điều phối viên phụ trách mới được tiếp nhận hoặc đóng sự cố.');
     }
     const incidentId = parse(legIdSchema, rawIncidentId);
     const input = parse(patchIncidentSchema, body);
+    const note = input.handlingNote!.trim();
+    const waitMinutes = input.status === IncidentStatus.CLOSED ? null : input.waitMinutes ?? null;
+    const closing = input.status === IncidentStatus.CLOSED;
 
     const result = await this.repository.transaction(async repo => {
       const incident = await repo.findIncident(incidentId);
@@ -1201,34 +1322,29 @@ export class TrackingService {
       if (incident.status === IncidentStatus.CLOSED) {
         throw new ConflictException('Sự cố đã đóng, không thể cập nhật.');
       }
-      if (input.status === IncidentStatus.ACKNOWLEDGED && incident.status !== IncidentStatus.NEW) {
-        throw new ConflictException('Sự cố đã được tiếp nhận.');
-      }
 
-      await repo.updateIncidentStatus(incidentId, input.status, String(account.id), input.handlingNote ?? null);
+      await repo.updateIncidentStatus(incidentId, input.status, String(account.id), note);
+      await repo.insertIncidentResponse(incidentId, closing ? 'RESOLVED' : 'RESPONSE', note, waitMinutes, String(account.id));
       await repo.audit(
         String(account.id), 'INCIDENT', incidentId, 'UPDATE_INCIDENT',
         JSON.stringify({ status: incident.status }),
-        JSON.stringify({ status: input.status, handlingNote: input.handlingNote ?? null })
+        JSON.stringify({ status: input.status, handlingNote: note, waitMinutes })
       );
-      await repo.notify(
-        incident.reportedBy,
-        input.status === IncidentStatus.CLOSED ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED',
-        input.status === IncidentStatus.CLOSED
-          ? `Sự cố #${incidentId} đã được đóng. Hướng xử lý: ${input.handlingNote}`
-          : `Điều phối viên đã tiếp nhận sự cố #${incidentId}.`,
-        'TRIP',
-        incident.tripId
-      );
+      const expected = waitMinutes ? ` Dự kiến xử lý xong lúc ${hhmmVN.format(new Date(Date.now() + waitMinutes * 60_000))}.` : '';
+      const content = closing ? `Sự cố #${incidentId} đã xử lý xong: ${note}` : `Điều phối viên phản hồi sự cố #${incidentId}: ${note}.${expected}`;
+      const crew = [...new Set([incident.reportedBy, ...(await repo.getTripCrewIds(incident.tripId))])];
+      for (const userId of crew) await repo.notify(userId, closing ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED', content, 'TRIP', incident.tripId);
 
-      const incidents = await this.loadIncidents(repo, incident.tripId);
-      return { saved: incidents.find(item => item.id === incidentId)!, reportedBy: incident.reportedBy, tripId: incident.tripId };
+      const [saved] = await this.toIncidents(repo, [(await repo.getIncidentById(incidentId))!]);
+      return { saved, crew, tripId: incident.tripId };
     });
     await this.publish('incident_updated', async () => {
-      this.realtime.emitToUsers([result.reportedBy], 'tracking:incident_updated', {
+      const latest = result.saved.responses[result.saved.responses.length - 1];
+      this.realtime.emitToUsers(result.crew, 'tracking:incident_updated', {
         incidentId, tripId: result.tripId, status: result.saved.status, handlingNote: result.saved.handlingNote ?? null,
+        waitMinutes: latest?.waitMinutes ?? null, expectedAt: latest?.expectedAt ?? null,
       });
-      await this.emitNewNotifications([result.reportedBy], input.status === IncidentStatus.CLOSED ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED', result.tripId);
+      await this.emitNewNotifications(result.crew, closing ? 'INCIDENT_CLOSED' : 'INCIDENT_ACKNOWLEDGED', result.tripId);
     });
     return result.saved;
   }
@@ -1277,8 +1393,11 @@ export class TrackingService {
     const attachment = await this.repository.findAttachment(id);
     if (!attachment) throw new NotFoundException('Không tìm thấy tệp đính kèm.');
     if (account.role === Role.CUSTOMER) {
-      // Khách chỉ xem ảnh của báo cáo đã gửi cho đơn của mình.
-      if (!attachment.horseLogId || !(await this.repository.isReportPhotoVisibleToCustomer(attachment.id, String(account.id)))) {
+      // Khách chỉ xem ảnh của báo cáo đã gửi và ảnh nhật ký chăm sóc của đơn mình.
+      const visible = attachment.horseLogId ? await this.repository.isReportPhotoVisibleToCustomer(attachment.id, String(account.id))
+        : attachment.careActivityId ? await this.repository.isCarePhotoVisibleToCustomer(attachment.id, String(account.id))
+        : false;
+      if (!visible) {
         throw new NotFoundException('Không tìm thấy tệp đính kèm.');
       }
       return { buffer: await loadFile(attachment.storagePath), originalName: attachment.originalName, fileType: attachment.fileType };
@@ -1318,6 +1437,7 @@ export class TrackingService {
       && [OrderStatus.READY, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED].includes(header.orderStatus);
     const legRows = visible ? await this.repository.getTripLegs(header.tripId!) : [];
     const milestones = await this.repository.getLegMilestones(legRows.map(l => l.id));
+    const checkins = await this.repository.getWaypointCheckins(legRows.map(l => l.id));
     const now = Date.now();
 
     const legs: ITimelineLeg[] = legRows.map(leg => {
@@ -1333,6 +1453,7 @@ export class TrackingService {
         actualDepartureAt: leg.actualDepartureAt ? leg.actualDepartureAt.toISOString() : null,
         actualArrivalAt: leg.actualArrivalAt ? leg.actualArrivalAt.toISOString() : null,
         milestones: own.map(m => ({ milestoneType: m.milestoneType, occurredAt: m.occurredAt.toISOString(), recordedByName: m.recordedByName })),
+        waypointCheckins: checkins.filter(c => c.legId === leg.id).map(waypointCheckinView),
         latestMilestone: latest ? latest.milestoneType : null,
         latestMilestoneAt: latest ? latest.occurredAt.toISOString() : null,
         lastUpdatedByName: leg.updatedByName,
@@ -1361,6 +1482,7 @@ export class TrackingService {
 
     const legRows = await this.repository.getTripLegs(tripId);
     const milestones = await this.repository.getLegMilestones(legRows.map(l => l.id));
+    const checkins = await this.repository.getWaypointCheckins(legRows.map(l => l.id));
     const now = Date.now();
     const last = latestUpdate(legRows);
 
@@ -1374,7 +1496,7 @@ export class TrackingService {
       plannedArrivalAt: trip.plannedArrivalAt ? trip.plannedArrivalAt.toISOString() : null,
       lastUpdatedAt: last.at,
       lastUpdatedByName: last.byName,
-      legs: legRows.map(leg => ({ ...mapLegWithMilestones(leg, milestones), isOverdue: isLegOverdue(leg, now) })),
+      legs: legRows.map(leg => ({ ...mapLegWithMilestones(leg, milestones, checkins), isOverdue: isLegOverdue(leg, now) })),
       horseLogs: await this.loadHorseLogs(this.repository, tripId, String(account.id)),
       incidents: account.role === Role.SPECIALIST ? [] : await this.loadIncidents(this.repository, tripId),
       alerts: await this.loadAlerts(this.repository, tripId, String(account.id)),
@@ -1466,10 +1588,16 @@ export class TrackingService {
   }
 
   private async loadIncidents(repo: TrackingRepository, tripId: string): Promise<IIncident[]> {
-    const rows = await repo.getTripIncidents(tripId);
-    const attachments = await repo.getIncidentAttachments(rows.map(row => row.id));
+    return (await this.toIncidents(repo, await repo.getTripIncidents(tripId))).map(({ orderId: _o, orderCode: _c, routeLabel: _r, reporterRole: _p, ...incident }) => incident);
+  }
+
+  /** Sự cố kèm ảnh và lịch sử phản hồi (một truy vấn cho mỗi loại, dùng cho cả danh sách). */
+  private async toIncidents(repo: TrackingRepository, rows: import('./tracking.dto').IncidentRow[]): Promise<ICoordinatorIncident[]> {
+    const ids = rows.map(row => row.id);
+    const [attachments, responses] = await Promise.all([repo.getIncidentAttachments(ids), repo.getIncidentResponses(ids)]);
     return rows.map(row => ({
-      ...row,
+      id: row.id, tripId: row.tripId, legId: row.legId, horseId: row.horseId, horseName: row.horseName,
+      incidentType: row.incidentType, description: row.description, urgency: row.urgency,
       // Rows written before the D2 fields existed (and test doubles) may lack them entirely.
       severity: row.severity ?? null,
       subType: row.subType ?? null,
@@ -1477,10 +1605,40 @@ export class TrackingService {
       latitude: row.latitude ?? null,
       longitude: row.longitude ?? null,
       locationText: row.locationText ?? null,
+      status: row.status, reportedBy: row.reportedBy, reportedByName: row.reportedByName,
       reportedAt: row.reportedAt.toISOString(),
+      receivedBy: row.receivedBy ?? null,
+      handlingNote: row.handlingNote ?? null,
       closedAt: row.closedAt ? row.closedAt.toISOString() : null,
       attachments: attachments.filter(a => a.incidentId === row.id).map(toAttachment),
+      responses: responses.filter(r => r.incidentId === row.id).map(toIncidentResponse),
+      orderId: row.orderId ?? '',
+      orderCode: row.orderCode ?? '',
+      routeLabel: [row.fromName, row.toName].filter(Boolean).join(' → '),
+      reporterRole: row.reporterRole ?? null,
     }));
+  }
+
+  /** Trang "Xử lý sự cố": Coordinator thấy sự cố các chuyến mình phụ trách, Manager thấy tất cả. */
+  async getCoordinatorIncidents(account: User, rawQuery: unknown): Promise<ICoordinatorIncident[]> {
+    if (account.role !== Role.COORDINATOR && account.role !== Role.MANAGER) {
+      throw new ForbiddenException('Chỉ Điều phối viên hoặc Quản lý mới xem danh sách sự cố.');
+    }
+    const { scope } = parse(incidentScopeSchema, rawQuery ?? {});
+    const plannerId = account.role === Role.COORDINATOR ? String(account.id) : null;
+    return this.toIncidents(this.repository, await this.repository.getCoordinatorIncidents(plannerId, scope));
+  }
+
+  async getIncident(account: User, rawIncidentId: string): Promise<ICoordinatorIncident> {
+    if (account.role !== Role.COORDINATOR && account.role !== Role.MANAGER) {
+      throw new ForbiddenException('Chỉ Điều phối viên hoặc Quản lý mới xem chi tiết sự cố.');
+    }
+    const incidentId = parse(legIdSchema, rawIncidentId);
+    const row = await this.repository.getIncidentById(incidentId);
+    if (!row) throw new NotFoundException('Không tìm thấy sự cố.');
+    await this.authorizeTrip(this.repository, account, row.tripId, [Role.COORDINATOR, Role.MANAGER]);
+    const [incident] = await this.toIncidents(this.repository, [row]);
+    return incident;
   }
 
   /** `recipientId`: người xem (để ghép thông báo của chính họ); bỏ trống thì `notificationId` là null. */

@@ -21,19 +21,6 @@ export default function IncidentsTab({ incidents, canHandle, onChanged }: {
     || Number(b.urgency === 'HIGH') - Number(a.urgency === 'HIGH')
     || Date.parse(b.reportedAt) - Date.parse(a.reportedAt));
 
-  async function acknowledge(incident: IIncident) {
-    setBusyId(incident.id);
-    setError('');
-    try {
-      await trackingApi.updateIncident(incident.id, { status: 'ACKNOWLEDGED' });
-      await onChanged(`Đã tiếp nhận sự cố #${incident.id}.`);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function close() {
     if (!closing) return;
     if (!note.trim()) return setError('Cần ghi hướng xử lý khi đóng sự cố.');
@@ -80,9 +67,7 @@ export default function IncidentsTab({ incidents, canHandle, onChanged }: {
             )}
             {canHandle && incident.status !== 'CLOSED' && (
               <div className="trk-row-actions">
-                {incident.status === 'NEW' && (
-                  <button type="button" className="trk-secondary" disabled={busyId === incident.id} onClick={() => void acknowledge(incident)}>Tiếp nhận</button>
-                )}
+                <a className="trk-secondary" href={`/coordinator/incidents?incident=${incident.id}`}>Mở trang Xử lý sự cố</a>
                 <button type="button" className="trk-primary" disabled={busyId === incident.id} onClick={() => { setClosing(incident); setNote(''); setError(''); }}>Đóng sự cố</button>
               </div>
             )}

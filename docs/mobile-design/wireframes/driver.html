@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HorseRoute Tài xế Wireframe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: thanh công cụ dính trên cùng; chế độ Bấm thử = khung điện thoại + ghi chú; chế độ Xem tất cả = mỗi màn một hàng biến thể. */
+:root{
+  --page-bg:#eef3f2; --page-fg:#0d2a2e; --page-muted:#546d71; --page-line:#d3e1e1; --page-card:#ffffff; --page-brand:#0b3b42; --page-on-brand:#ffffff; --page-seg:#e1ebea;
+  /* Bên trong khung: màu thương hiệu xanh #0b3b42, vàng #f4b942, trắng (00-context mục 5b); giữ một kiểu ở cả hai chế độ sáng/tối */
+  --w-ink:#0b3b42; --w-ink2:#546d71; --w-ink3:#8aa3a6; --w-line:#d8e6e6; --w-fill:#e7f1f1; --w-fill2:#f6faf9; --w-bg:#ffffff; --w-dark:#0b3b42; --w-brand2:#14606a; --w-on-dark:#ffffff; --w-on-dark2:#b9d3d6; --w-shade:rgba(6,20,22,.5);
+  --acc:#f4b942; --on-acc:#2b1a00;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}}
+:root[data-theme="dark"]{--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}
+html,body{background:var(--page-bg);color:var(--page-fg)}
+body{font-family:var(--font);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--page-card)}
+button{font-family:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid #2f7c87;outline-offset:2px}
+
+/* ---------- Thanh công cụ (ngoài khung) ---------- */
+.tb{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page-card);border-bottom:1px solid var(--page-line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.tb h1{font-size:16px;margin:0;font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tb h1 small{font-weight:500;color:var(--page-muted);font-size:13px}
+.tb .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tb .lab{font-size:12px;color:var(--page-muted);letter-spacing:.02em}
+.seg{display:inline-flex;background:var(--page-seg);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--page-fg);font-size:13px;font-weight:500;padding:6px 10px;border-radius:8px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--page-brand);color:var(--page-on-brand)}
+.tbtn{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:10px;padding:6px 12px;font-size:13px;min-height:38px;cursor:pointer}
+.spacer{flex:1}
+
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+
+/* ---------- Chế độ Bấm thử ---------- */
+.proto{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.device{background:#0c2326;border-radius:52px;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.device .screen{border-radius:40px}
+.device.android{border-radius:28px;padding:10px}
+.device.android .screen{border-radius:18px}
+.fit{position:relative;flex:none}
+.fit>.scaled{transform-origin:0 0;position:absolute;left:0;top:0}
+.panel{flex:1 1 320px;max-width:440px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.pcard{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.pcard h2{margin:0;font-size:18px;text-wrap:balance}
+.pcard h3{margin:0;font-size:13px;font-weight:600;color:var(--page-muted);letter-spacing:.04em;text-transform:uppercase}
+.pcard p,.pcard li{margin:0;font-size:14px;line-height:1.55}
+.pcard ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--page-muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:left}
+.jump button.on{border-color:var(--page-brand);background:var(--page-seg);font-weight:600}
+.jump button .code{color:var(--page-muted);margin-right:6px}
+.hint{font-size:13px;color:var(--page-muted)}
+
+/* ---------- Chế độ Xem tất cả ---------- */
+.grid{display:flex;flex-direction:column;gap:40px}
+.grow-row{display:flex;flex-direction:column;gap:12px}
+.grow-row>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.grow-row>header h2{margin:0;font-size:20px}
+.grow-row>header p{margin:0;color:var(--page-muted);font-size:14px;max-width:70ch}
+.strip{display:flex;gap:20px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.vcell{display:flex;flex-direction:column;gap:8px;flex:none}
+.vcell .vl{font-size:13px;font-weight:600;max-width:390px}
+.vcell .fit{border:1px solid var(--page-line);border-radius:6px;overflow:hidden;cursor:zoom-in}
+
+/* ---------- Khung màn (wireframe) ---------- */
+.screen{width:var(--fw);height:var(--fh);display:flex;flex-direction:column;background:var(--w-bg);color:var(--w-ink);font-family:var(--font);font-size:15px;line-height:1.4;position:relative;overflow:hidden;text-align:left}
+.screen *{box-sizing:border-box}
+.sb{height:47px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font-weight:600;font-size:15px;background:var(--w-bg)}
+.android .sb{height:28px;padding:0 16px;font-size:13px}
+.sbi{display:flex;align-items:center;gap:6px}
+.sbi .bat{width:24px;height:12px;border:1.5px solid var(--w-ink);border-radius:3px;display:flex;padding:1.5px}
+.sbi .bat span{width:70%;background:var(--w-ink);border-radius:1px}
+.sbi .sig{display:flex;align-items:flex-end;gap:2px;height:12px}
+.sbi .sig span{width:3px;background:var(--w-ink);border-radius:1px}
+.hi{height:34px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.hi span{width:134px;height:5px;border-radius:3px;background:var(--w-ink)}
+.android .hi{height:24px} .android .hi span{width:108px;height:4px}
+.hdr{min-height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid var(--w-line);background:var(--w-bg)}
+.hdr .t{flex:1;min-width:0;display:flex;flex-direction:column;padding:0 4px}
+.hdr .t b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .t small{font-size:13px;color:var(--w-ink2)}
+.hdr.big{min-height:64px;padding:0 16px;border-bottom:0}
+.hdr.big .t b{font-size:26px;font-weight:700}
+.ib{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:none;border:0;color:inherit;cursor:pointer;padding:0}
+.body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;background:var(--w-fill2)}
+.body.white{background:var(--w-bg)}
+.bottom{flex:none;display:flex;flex-direction:column;background:var(--w-bg);border-top:1px solid var(--w-line)}
+.bottom .row{display:flex;gap:8px;padding:12px 16px 4px}
+.bottom .note{padding:10px 16px 0;font-size:13px;color:var(--w-ink2)}
+.btn{min-height:56px;border-radius:14px;font-family:var(--font);font-weight:600;font-size:16px;line-height:1.2;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border:1.5px solid var(--w-ink);background:var(--w-bg);color:var(--w-ink);cursor:pointer;text-align:center;text-decoration:none}
+.btn.pri{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.btn.xl{min-height:64px;font-size:17px}
+.btn.grow{flex:1;min-width:0}
+.btn.side{width:116px;flex:none;flex-direction:column;gap:2px;font-size:13px;padding:0 8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn[disabled]{background:var(--w-fill);color:var(--w-ink3);border-color:var(--w-line);cursor:default}
+.card{background:var(--w-bg);border:1px solid var(--w-line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.tap{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--w-line);font-size:13px;font-weight:500;background:var(--w-bg);white-space:nowrap}
+.chip.dark{background:var(--w-dark);color:#fff;border-color:var(--w-dark)}
+.chip.fill{background:var(--w-fill)}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--w-ink2)}
+.muted{color:var(--w-ink2)} .small{font-size:13px}
+.big{font-size:24px;font-weight:700;line-height:1.2;text-wrap:balance}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--w-line);background:var(--w-bg);font-family:var(--font);font-weight:500;font-size:15px;color:var(--w-ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.opt.on{border-color:var(--w-ink);background:var(--w-fill);font-weight:600}
+.bigopt{min-height:72px;width:100%;border-radius:16px;border:1.5px solid var(--w-line);background:var(--w-bg);display:flex;align-items:center;gap:12px;padding:12px 16px;font-family:var(--font);color:var(--w-ink);text-align:left;cursor:pointer}
+.bigopt.on{border:2.5px solid var(--w-ink);background:var(--w-fill)}
+.bigopt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bigopt .tx b{font-size:17px}
+.bigopt .tx span{font-size:13px;color:var(--w-ink2)}
+.ico{width:44px;height:44px;flex:none;border-radius:12px;background:var(--w-fill);display:flex;align-items:center;justify-content:center}
+.sevm{display:flex;gap:3px;align-items:flex-end;height:22px;flex:none}
+.sevm span{width:6px;border-radius:2px;background:var(--w-line)}
+.sevm span.f{background:var(--w-ink)}
+.tabbar{flex:none;display:flex;border-top:1px solid var(--w-line);background:var(--w-bg)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 4px;font-size:11px;color:var(--w-ink3);background:none;border:0;cursor:pointer;font-family:var(--font);min-height:56px}
+.tab.on{color:var(--w-ink);font-weight:600}
+.overlay{position:absolute;inset:0;background:var(--w-shade);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
+.overlay.center{justify-content:center;padding:24px}
+.sheet{background:var(--w-bg);border-radius:20px 20px 0 0;padding:8px 16px 0;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--w-line);align-self:center}
+.dialog{background:var(--w-bg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.sheet h3,.dialog h3{margin:0;font-size:20px;font-weight:700}
+.kvw{display:flex;flex-direction:column;border:1px solid var(--w-line);border-radius:14px}
+.kvw>div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid var(--w-line);align-items:center}
+.kvw>div:first-child{border-top:0}
+.kvw span:first-child{color:var(--w-ink2);font-size:14px}
+.kvw b{font-weight:600;text-align:right}
+.link{background:none;border:0;padding:0;font:inherit;font-weight:600;text-decoration:underline;color:var(--w-ink);cursor:pointer;min-height:44px}
+.box{border:1.5px dashed var(--w-ink3);border-radius:12px;padding:12px;display:flex;gap:10px;font-size:14px;align-items:flex-start}
+.box.err{border:2px solid var(--w-ink);border-style:solid}
+.skel{background:var(--w-fill);border-radius:8px}
+.hatch{background-color:var(--w-fill2);background-image:repeating-linear-gradient(45deg,#cfe0e0 0 1.5px,transparent 1.5px 10px);border:1px solid var(--w-line);border-radius:12px}
+.bar{display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;min-height:44px;background:var(--w-brand2);color:#fff;font-size:13px;font-weight:500;flex:none;border:0;width:100%;font-family:var(--font);text-align:left;cursor:pointer}
+.bar .grow{flex:1;min-width:0}
+.bar.light{background:var(--w-fill);color:var(--w-ink)}
+.card.brand{background:var(--w-dark);border-color:var(--w-dark);color:var(--w-on-dark)}
+.card.brand .lbl,.card.brand .muted{color:var(--w-on-dark2)}
+.card.brand .chip{background:transparent;color:var(--w-on-dark);border-color:rgba(255,255,255,.35)}
+.card.brand .chip.dark{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.card.brand .link{color:var(--w-on-dark)}
+.undo{margin:12px 12px 0;background:var(--w-dark);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;min-height:60px}
+.undo .grow{flex:1;min-width:0;font-size:14px}
+.undo button{min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #fff;background:transparent;color:#fff;font-family:var(--font);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tl{display:flex;flex-direction:column}
+.stop{display:flex;gap:12px}
+.rail{width:20px;flex:none;display:flex;flex-direction:column;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--w-ink3);background:var(--w-bg);margin-top:3px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.dot.done{background:var(--w-ink);border-color:var(--w-ink)}
+.dot.cur{border:5px solid var(--w-ink)}
+.ln{flex:1;width:2px;background:var(--w-line);min-height:20px}
+.ln.done{background:var(--w-ink)}
+.stop .info{flex:1;min-width:0;padding-bottom:16px;display:flex;flex-direction:column;gap:2px}
+.stop .info b{font-size:15px}
+.ev{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.listrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;border-top:1px solid var(--w-line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;font-family:var(--font);font-size:15px;color:var(--w-ink);text-align:left;cursor:pointer}
+.listrow:first-child{border-top:0}
+.listrow .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--w-ink);flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.chk.on{background:var(--w-ink);color:#fff}
+.field{border:1.5px solid var(--w-line);border-radius:12px;min-height:96px;padding:12px;font-size:15px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;background:var(--w-bg)}
+.field.err{border-color:var(--w-ink);border-width:2px}
+.ph{color:var(--w-ink3)}
+.photos{display:flex;gap:8px}
+.photo{width:96px;height:96px;flex:none;display:flex;flex-direction:column;justify-content:flex-end;padding:6px;font-size:11px;color:var(--w-ink2)}
+.addph{width:96px;height:96px;flex:none;border:1.5px dashed var(--w-ink3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;background:var(--w-bg);color:var(--w-ink);cursor:pointer;font-family:var(--font)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.circle{width:72px;height:72px;border-radius:50%;border:2px solid var(--w-ink);display:flex;align-items:center;justify-content:center}
+.circle.fill{background:var(--w-ink);color:#fff}
+.stubtag{font-size:12px;border:1px dashed var(--w-ink3);border-radius:8px;padding:6px 10px;color:var(--w-ink2)}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec>.lbl em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0;color:var(--w-ink3)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper .ib{border:1.5px solid var(--w-ink);width:64px;height:48px;font-size:18px;font-weight:600;font-family:var(--font)}
+.stepper b{flex:1;text-align:center;font-size:22px}
+@media (prefers-reduced-motion:no-preference){.overlay .sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+@media (max-width:760px){.tb{position:static;gap:6px 10px;padding-block:8px}.tb .lab{display:none}.seg button{padding:5px 8px;font-size:12.5px;min-height:30px}.tb h1 small{display:none}}
+
+/* Thanh cuộn kiểu điện thoại: một vạch mảnh, mờ, không khung, không mũi tên */
+.screen *{scrollbar-width:thin;scrollbar-color:rgba(11,59,66,.28) transparent}
+.screen ::-webkit-scrollbar{width:4px;height:4px;background:transparent}
+.screen ::-webkit-scrollbar-track{background:transparent}
+.screen ::-webkit-scrollbar-thumb{background:rgba(11,59,66,.28);border-radius:4px}
+.screen ::-webkit-scrollbar-button{display:none;width:0;height:0}
+.screen ::-webkit-scrollbar-corner{background:transparent}
+html,.strip{scrollbar-width:thin;scrollbar-color:rgba(84,109,113,.45) transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(84,109,113,.45);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+</style>
+</head>
+<body>
+
+<div class="tb" id="toolbar">
+  <h1>HorseRoute · Tài xế <small>Wireframe bấm thử · đợt 1/4</small></h1>
+  <div class="grp"><span class="lab">Chế độ</span><div class="seg" id="segMode"><button data-mode="proto" class="on">Bấm thử</button><button data-mode="grid">Xem tất cả màn</button></div></div>
+  <div class="grp"><span class="lab">Trạng thái</span><div class="seg" id="segState"><button data-st="normal" class="on">Bình thường</button><button data-st="loading">Đang tải</button><button data-st="empty">Trống</button><button data-st="error">Lỗi</button><button data-st="offline">Mất sóng</button></div></div>
+  <div class="grp"><span class="lab">Khung</span><div class="seg" id="segPlat"><button data-plat="ios" class="on">iPhone 390×844</button><button data-plat="android">Android 360×800</button></div></div>
+  <div class="grp" id="grpScale" hidden><span class="lab">Tỉ lệ</span><div class="seg" id="segScale"><button data-sc="0.5">50%</button><button data-sc="1">100%</button></div></div>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnReset">Làm lại từ đầu</button>
+</div>
+<main id="main"></main>
+
+<script>
+(function(){
+'use strict';
+/* ---------- Biểu tượng (nét Lucide, 2px) ---------- */
+const P = {
+  back:'<path d="m15 18-6-6 6-6"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  wifioff:'<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+  more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  gps:'<line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  upload:'<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  traffic:'<rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="7" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="17" r="1.5"/>',
+  cross:'<path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2c0 1.1.9 2 2 2h5v5c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/>',
+  map:'<path d="M14.1 6.3 9.9 4.2a2 2 0 0 0-1.8 0L3.6 6.5A1 1 0 0 0 3 7.4v12.1a.5.5 0 0 0 .7.5l4.4-2.2a2 2 0 0 1 1.8 0l4.2 2.1a2 2 0 0 0 1.8 0l4.5-2.3a1 1 0 0 0 .6-.9V4.6a.5.5 0 0 0-.7-.5l-4.4 2.2a2 2 0 0 1-1.8 0z"/><path d="M15 5.8v15"/><path d="M9 3.2v15"/>',
+  list:'<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>',
+  horse:'<path d="M5 21v-4.5c0-2.5 1-4.4 2.6-5.6L10 9.2V5.5l1.6 1.3 2.2-2.3 1 1.6c2 .6 3.7 2.2 4.6 4.3l.6 1.6-1.5 1.2-2.3-.8-1.7 1.2V21"/><path d="M13 9.5h.01"/>'
+};
+const ic = (n, s=22, w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Dữ liệu mẫu (01-data-inventory.md mục 12) ---------- */
+const STOPS = [
+  {name:'Trường đua Phú Thọ', type:'Điểm xuất phát · Q.11, TP.HCM', plan:'06:00'},
+  {name:'Điểm nghỉ Trảng Bàng', type:'Điểm dừng nghỉ · 55 km', plan:'07:30'},
+  {name:'Cửa khẩu Mộc Bài', type:'Cửa khẩu · 25 km', plan:'08:30'},
+  {name:'Trạm kiểm dịch Svay Rieng', type:'Trạm kiểm dịch · điểm giao · 48 km', plan:'10:15'}
+];
+// Mỗi mốc: bấm ở bước (index+1) để sang bước kế tiếp
+const EV = [
+  {stop:0, kind:'confirm', ms:'DEPARTED', short:'Xuất phát', btn:'Bắt đầu chuyến', time:'06:04'},
+  {stop:1, kind:'undo', ms:'ARRIVED_AT_STOP', short:'Đã đến', btn:'Đã đến Điểm nghỉ Trảng Bàng', time:'07:26'},
+  {stop:1, kind:'undo', ms:'DEPARTED', short:'Rời', btn:'Rời Điểm nghỉ Trảng Bàng', time:'07:58'},
+  {stop:2, kind:'undo', ms:'ARRIVED_AT_STOP', short:'Đã đến', btn:'Đã đến Cửa khẩu Mộc Bài', time:'08:31'},
+  {stop:2, kind:'confirm', ms:'CUSTOMS_CLEARED', short:'Thông quan', btn:'Đã thông quan', time:'09:12'},
+  {stop:2, kind:'undo', ms:'DEPARTED', short:'Rời', btn:'Rời Cửa khẩu Mộc Bài', time:'09:20'},
+  {stop:3, kind:'undo', ms:'ARRIVED_AT_STOP', short:'Đã đến', btn:'Đã đến Trạm kiểm dịch Svay Rieng', time:'10:24'},
+  {stop:3, kind:'confirm', ms:'DELIVERED', short:'Đã giao', btn:'Xác nhận đã giao', time:'10:40'}
+];
+const CLOCK = ['05:35','05:52','07:05','07:40','08:12','08:50','09:15','09:58','10:30','10:41'];
+// [nhãn, điểm, dòng phụ, chip đúng giờ, đang ở điểm?]
+const NEXT = [
+  ['Khởi hành từ',0,'Kế hoạch 06:00 · còn 25 phút',null,true],
+  ['Khởi hành từ',0,'Kế hoạch 06:00 · đã kiểm tra 5/5 mục',null,true],
+  ['Đang tới',1,'Dự kiến 07:30 · còn 18 km','Đúng giờ',false],
+  ['Đang dừng tại',1,'Đến 07:26 · nghỉ 30 phút theo kế hoạch',null,true],
+  ['Đang tới',2,'Dự kiến 08:30 · còn 9 km','Đúng giờ',false],
+  ['Đang ở',2,'Đến 08:31 · chờ làm thủ tục thông quan',null,true],
+  ['Đã thông quan tại',2,'Thông quan 09:12 · rời cửa khẩu khi sẵn sàng',null,true],
+  ['Đang tới điểm giao',3,'Dự kiến 10:15 · còn 12 km','Trễ 9 phút',false],
+  ['Đang ở điểm giao',3,'Đến 10:24 · giao 2 ngựa cho người nhận',null,true]
+];
+const CHECKS = [
+  {id:'vehicle', label:'Lốp, phanh, đèn đã kiểm tra'},
+  {id:'stall', label:'Khoang ngựa vệ sinh, có lót sàn'},
+  {id:'supplies', label:'Nước 120 L, thức ăn đủ 3 ngày'},
+  {id:'papers', label:'Giấy kiểm dịch mang theo'},
+  {id:'loaded', label:'Ngựa đã lên xe và cố định'}
+];
+const INC_TYPES = [
+  {id:'VEHICLE_BREAKDOWN', label:'Hỏng xe', hint:'Nổ lốp, hỏng máy, hết nhiên liệu', icon:'wrench'},
+  {id:'LONG_TRAFFIC_JAM', label:'Tắc đường lâu', hint:'Tai nạn phía trước, thi công, ùn tắc', icon:'traffic'},
+  {id:'HORSE_MEDICAL', label:'Y tế ngựa', hint:'Chấn thương, bỏ ăn, đau bụng', icon:'cross'}
+];
+const SEVS = [
+  {id:'RED', label:'Nghiêm trọng', hint:'Tai nạn, ngựa bị thương, xe không chạy được', n:3},
+  {id:'ORANGE', label:'Trung bình', hint:'Hỏng nhẹ, ngựa có dấu hiệu lạ', n:2},
+  {id:'YELLOW', label:'Nhẹ', hint:'Kẹt xe, trễ lịch, thời tiết xấu', n:1}
+];
+const SUBS = {
+  VEHICLE_BREAKDOWN:[['TIRE_BURST','Nổ lốp'],['ENGINE_FAILURE','Hỏng máy'],['OUT_OF_FUEL','Hết nhiên liệu'],['OTHER','Khác']],
+  LONG_TRAFFIC_JAM:[['ACCIDENT_AHEAD','Tai nạn phía trước'],['ROAD_WORKS','Thi công / cấm đường'],['RUSH_HOUR','Ùn tắc giờ cao điểm'],['OTHER','Khác']],
+  HORSE_MEDICAL:[['INJURY','Chấn thương'],['OFF_FEED_DEHYDRATION','Bỏ ăn / mất nước'],['COLIC','Đau bụng (colic)'],['OTHER','Khác']]
+};
+const SAMPLES = {
+  VEHICLE_BREAKDOWN:['Nổ lốp sau bên phải, xe đã dừng ở lề','Đèn báo động cơ sáng, xe yếu dần'],
+  LONG_TRAFFIC_JAM:['Tai nạn phía trước, xe đứng yên 30 phút','Cấm đường, phải đi đường vòng'],
+  HORSE_MEDICAL:['Ngựa cào chân, đổ mồ hôi','Ngựa không uống nước từ trạm nghỉ']
+};
+const ALL_CHECKS = {vehicle:true,stall:true,supplies:true,papers:true,loaded:true};
+
+/* ---------- Ghi chú từng màn ---------- */
+const NOTES = {
+  'DRV-01':{n:'Chuyến của tôi',kind:'P0 · tab Chuyến',p:'Chọn chuyến đang chạy hoặc sắp tới.',a:'Chạm thẻ chuyến',d:'Mã đơn, trạng thái đơn, giờ khởi hành, điểm đầu và cuối, số ngựa, vai trò trong chuyến, biển số xe',api:'GET /tracking/driver/trips',b:['Kéo xuống để làm mới.','Lưu danh sách vào SQLite, mở được khi mất sóng.','Chuyến đang chạy luôn ở đầu, chuyến chưa sẵn sàng vẫn mở xem kế hoạch được (thẻ thứ hai).']},
+  'DRV-02':{n:'Chuyến hôm nay',kind:'P0 · màn chính của tài xế',p:'Biết điểm kế tiếp và ghi mốc tại từng điểm dừng.',a:'Một nút lớn 64pt đổi nhãn theo ngữ cảnh (hướng A đã duyệt)',d:'Điểm kế tiếp, giờ kế hoạch, đúng giờ hay trễ, lộ trình điểm dừng, xe, ngựa, hộ tống, chỉ báo GPS và hàng chờ',api:'GET /tracking/trips/:id · POST /legs/:id/milestones · POST /legs/:id/complete · POST /trips/:id/positions',b:['Đã đến và Rời điểm dừng: ghi ngay, hiện Hoàn tác 5 giây (Long chốt 29/10).','Bắt đầu chuyến, Đã thông quan, Đã giao: có hộp xác nhận (DRV-04).','Rung nhẹ khi ghi mốc thành công.','Mất sóng: mốc vào hàng chờ, gắn nhãn Chờ gửi; chạm thanh tối để xem hàng chờ.','Ghi mốc theo điểm dừng trong route_plan, cần backend xác nhận thêm stopIndex.','Nút Báo sự cố luôn ở 1 chạm, góc dưới trái.']},
+  'DRV-03':{n:'Kiểm tra trước chuyến',kind:'P0',p:'Kiểm 5 mục an toàn trước khi khởi hành.',a:'Xong',d:'5 mục PRE_DEPARTURE_CHECKS như web',api:'Chưa có API, lưu trên máy (G6)',b:['Mỗi hàng cao 64pt, chạm cả hàng để tick.','Đã kiểm tra tất cả: 1 chạm thay 5.','Bấm Xong khi còn mục chưa tick thì hỏi lại, không chặn.']},
+  'COM-07':{n:'Giải thích quyền vị trí nền',kind:'P0 · màn chung, dùng ở đây vì nằm trong luồng bắt đầu chuyến',p:'Xin "Luôn cho phép" trước khi hệ điều hành hỏi.',a:'Tiếp tục (mở hộp quyền của hệ điều hành)',d:'Lý do, ai xem được vị trí, khi nào tắt',api:'Không gọi API',b:['Chỉ hiện lần đầu bấm Bắt đầu chuyến.','Chọn Để sau thì chuyến vẫn chạy, GPS chỉ gửi khi app mở và có thanh nhắc.']},
+  'DRV-04':{n:'Xác nhận mốc',kind:'P0 · bottom sheet trên DRV-02',p:'Tránh bấm nhầm ở 3 mốc quan trọng.',a:'Xác nhận (64pt, ngay dưới ngón cái)',d:'Tên mốc, điểm, giờ ghi (sửa được trong 24 giờ theo G3 phương án A)',api:'POST /legs/:id/milestones · POST /legs/:id/complete',b:['Chỉ dùng cho Bắt đầu chuyến, Đã thông quan, Đã giao.','Lỗi 409 hiện nguyên lý do từ máy chủ và nút gọi điều phối.','Mất sóng vẫn ghi được, mốc vào hàng chờ.']},
+  'DRV-06':{n:'Báo sự cố · bước 1',kind:'P0',p:'Chọn loại và mức độ.',a:'Tiếp tục',d:'3 loại, 3 mức (nhãn và vạch mức, không dùng màu làm tín hiệu duy nhất)',api:'Không gọi API',b:['Thẻ lớn 72pt, chạm được khi đeo găng.','Tiếp tục chỉ bật khi đã chọn đủ loại và mức.']},
+  'DRV-07':{n:'Báo sự cố · bước 2',kind:'P0',p:'Điền chi tiết, chụp ảnh, gửi.',a:'Gửi báo cáo',d:'Vị trí lấy từ GPS máy',api:'POST /tracking/trips/:id/incidents (multipart, tối đa 3 ảnh JPG/PNG ≤5 MB)',b:['Câu mẫu theo loại để không phải gõ; có nút đọc giọng nói.','Y tế ngựa: bắt buộc chọn ngựa.','Ảnh HEIC đổi sang JPEG và nén trên máy (G11).','Nháp tự lưu nếu app bị tắt.']},
+  'DRV-08':{n:'Đã gửi / chờ gửi',kind:'P0',p:'Cho tài xế biết sự cố đã tới điều phối hay đang chờ.',a:'Gọi điều phối (khi Nghiêm trọng hoặc mất sóng)',d:'Mã sự cố, giờ, tóm tắt',api:'Kết quả của POST incidents; socket tracking:incident_updated',b:['Mất sóng: lưu SQLite kèm clientRequestId (G2), tự gửi khi có sóng.']},
+  'DRV-13':{n:'Hoàn tất chuyến',kind:'P0 · thêm theo 03-user-flows, Long duyệt 29/10',p:'Kết thúc chuyến rõ ràng sau Xác nhận đã giao.',a:'Về danh sách chuyến',d:'Giờ giao, ngựa, quãng đường, số mốc, số sự cố, GPS đã tắt, mục còn chờ gửi',api:'Kết quả của POST /legs/:id/complete',b:['GPS nền tắt ngay khi xác nhận giao.','Còn mục chờ gửi thì nhắc giữ app mở khi có sóng.']},
+  'COM-12':{n:'Hàng chờ đồng bộ',kind:'P0 · màn chung, bottom sheet',p:'Xem những gì chưa gửi được.',a:'Gửi lại ngay',d:'Loại mục, giờ tạo, lỗi nếu có',api:'Các API trong hàng chờ',b:['Mở bằng thanh tối "Mất sóng" dưới header.','Không cho đăng xuất khi còn mục chờ gửi.']}
+};
+const STUBS = {
+  'DRV-05':['Bản đồ chuyến','P1, vẽ sau khi duyệt P0'],
+  'DRV-09':['Sự cố của chuyến','P1, vẽ sau khi duyệt P0'],
+  'DRV-10':['Ngựa và giao nhận','P1, vẽ sau khi duyệt P0'],
+  'DRV-11':['Lịch sử chuyến','P1, vẽ sau khi duyệt P0'],
+  'COM-09':['Thông báo','Màn chung, vẽ ở đợt Chung'],
+  'COM-10':['Tài khoản','Màn chung, vẽ ở đợt Chung']
+};
+const TABS = [['DRV-01','Chuyến','truck'],['DRV-09','Sự cố','alert'],['COM-09','Thông báo','bell'],['COM-10','Tài khoản','user']];
+
+/* ---------- Trạng thái prototype ---------- */
+const newInc = () => ({type:null,sev:null,sub:null,dmg:null,horse:null,desc:'',photos:0});
+const fresh = () => ({screen:'DRV-01',stack:[],trip:'a',stage:0,checks:{vehicle:true,stall:true,supplies:true,papers:false,loaded:false},gps:null,sheet:null,dialog:null,undo:null,inc:newInc(),incSent:false,editTime:false,st:'normal'});
+let app = fresh();
+let mode = 'proto', plat = 'ios', gridScale = null, undoTimer = null;
+
+/* ---------- Khối dựng chung ---------- */
+const DIM = {ios:{w:390,h:844}, android:{w:360,h:800}};
+function sb(c){
+  const off = c.st === 'offline';
+  return `<div class="sb"><span>${CLOCK[Math.min(c.stage,9)]}</span><span class="sbi">${off ? ic('wifioff',16) : '<span class="sig"><span style="height:4px"></span><span style="height:7px"></span><span style="height:10px"></span><span style="height:12px"></span></span>'}<span class="bat"><span></span></span></span></div>`;
+}
+const hi = () => '<div class="hi"><span></span></div>';
+function hdr({back, close, title, sub, right=''}){
+  const l = back ? `<button class="ib" data-act="back" aria-label="Quay lại">${ic('back',26)}</button>` : close ? `<button class="ib" data-act="back" aria-label="Đóng">${ic('x',24)}</button>` : '';
+  return `<div class="hdr">${l}<div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${right}</div>`;
+}
+function tabbar(active){
+  return `<nav class="tabbar">${TABS.map(([code,label,icon]) => `<button class="tab${code===active?' on':''}" data-act="tab" data-arg="${code}">${ic(icon,24)}<span>${label}</span></button>`).join('')}</nav>`;
+}
+function offlineBar(c, txt){
+  return `<button class="bar" data-act="sheet" data-arg="queue">${ic('wifioff',18)}<span class="grow">${txt || 'Mất sóng · ' + pendingCount(c) + ' mục chờ gửi'}</span>${ic('next',18)}</button>`;
+}
+function pendingCount(c){ return Math.min(Math.max(c.stage-1,0),2) + 1 + (c.incSent ? 1 : 0); }
+function orderStatus(c){ return c.stage >= 9 ? 'Đã giao' : c.stage >= 2 ? 'Đang vận chuyển' : 'Sẵn sàng vận chuyển'; }
+function sevMark(n){ return `<span class="sevm" aria-hidden="true">${[1,2,3].map(i => `<span class="${i<=n?'f':''}" style="height:${8+i*4}px"></span>`).join('')}</span>`; }
+function skeletonBody(){
+  return `<div class="body"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:28px;width:85%"></div><div class="skel" style="height:14px;width:60%"></div></div><div class="card"><div class="skel" style="height:14px;width:70%"></div><div class="skel" style="height:14px;width:55%"></div><div class="skel" style="height:14px;width:65%"></div></div><div class="card"><div class="skel" style="height:120px"></div></div></div>`;
+}
+
+/* ---------- Màn ---------- */
+const R = {};
+
+R['DRV-01'] = c => {
+  const head = `<div class="hdr big"><div class="t"><b>Chuyến của tôi</b><small>${c.st==='offline' ? 'Dữ liệu lưu lúc 05:34' : 'Cập nhật 05:34 · kéo xuống để làm mới'}</small></div></div>`;
+  if (c.st === 'loading') return head + skeletonBody() + tabbar('DRV-01');
+  if (c.st === 'empty') return head + `<div class="body white"><div class="empty"><div class="circle">${ic('truck',32)}</div><b style="font-size:18px">Chưa có chuyến nào được giao</b><p class="muted small" style="margin:0;max-width:280px">Khi điều phối phân công, chuyến sẽ hiện ở đây và bạn nhận được thông báo.</p><button class="btn" data-act="noop">${ic('refresh',20)} Tải lại</button></div></div>` + tabbar('DRV-01');
+  if (c.st === 'error') return head + `<div class="body white"><div class="empty"><div class="circle">${ic('alert',32)}</div><b style="font-size:18px">Không tải được danh sách chuyến</b><p class="muted small" style="margin:0;max-width:280px">Máy chủ không phản hồi. Kiểm tra kết nối rồi thử lại, hoặc gọi điều phối 1900 6868.</p><button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button></div></div>` + tabbar('DRV-01');
+  const cur = c.stage >= 2 && c.stage < 9 ? `<div class="row small" style="font-weight:600">${ic('pin',16)} ${NEXT[c.stage][0]} ${STOPS[NEXT[c.stage][1]].name}</div>` : '';
+  return head + (c.st==='offline' ? offlineBar(c) : '') + `<div class="body">
+    <div class="lbl">Hôm nay</div>
+    <button class="card tap" data-act="openTrip" data-arg="a">
+      <div class="row between"><b style="font-size:17px">HR-2610-0012</b><span class="chip ${c.stage>=2&&c.stage<9?'dark':'fill'}">${orderStatus(c)}</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span>Trường đua Phú Thọ, Q.11</span><span class="muted">đến Trạm kiểm dịch Svay Rieng (Campuchia)</span></div>
+      ${cur}
+      <div class="row small muted" style="flex-wrap:wrap">${ic('clock',16)} Khởi hành 06:00 · 2 ngựa · 3 điểm dừng</div>
+      <div class="row small muted">${ic('truck',16)} Bạn lái · 51C-482.17</div>
+    </button>
+    <div class="lbl">Sắp tới</div>
+    <button class="card tap" data-act="openTrip" data-arg="b">
+      <div class="row between"><b style="font-size:17px">HR-2611-0003</b><span class="chip">Đang chuẩn bị</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span>Trường đua Phú Thọ, Q.11</span><span class="muted">đến Sân bay Tân Sơn Nhất (khu hàng hóa)</span></div>
+      <div class="row small muted">${ic('clock',16)} 12/11 · 05:30 · 1 ngựa</div>
+    </button>
+    <button class="listrow" data-act="go" data-arg="DRV-11" style="background:transparent">${ic('list',22)}<span class="grow">Chuyến đã xong</span>${ic('next',20)}</button>
+  </div>` + tabbar('DRV-01');
+};
+
+function timeline(c){
+  const at = NEXT[Math.min(c.stage,8)];
+  const curIdx = c.stage >= 9 ? 4 : at[1];
+  const rec = EV.slice(0, Math.max(c.stage-1, 0));
+  if (c.stage >= 9) rec.push(EV[7]);
+  const pendFrom = c.st === 'offline' ? Math.max(rec.length - 2, 0) : 99;
+  return `<div class="tl">${STOPS.map((s,i) => {
+    const done = i < curIdx, cur = i === curIdx;
+    const evs = rec.map((e,k) => ({e,k})).filter(x => x.e.stop === i);
+    const tags = evs.map(({e,k}) => `<span class="chip${k>=pendFrom?' dark':''}">${k>=pendFrom ? ic('upload',14)+' Chờ gửi · ' : ''}${e.short} ${e.time}</span>`).join('');
+    const state = cur ? (at[4] ? 'Đang ở đây' : 'Kế tiếp') : '';
+    return `<div class="stop"><div class="rail"><span class="dot ${done?'done':cur?'cur':''}">${done?ic('check',10,4):''}</span>${i<STOPS.length-1?`<span class="ln ${done?'done':''}"></span>`:''}</div>
+      <div class="info"><div class="row between"><b>${s.name}</b><span class="small muted">${s.plan}</span></div><span class="small muted">${s.type}${state?' · <b style="color:var(--w-ink)">'+state+'</b>':''}</span>${tags?`<div class="ev">${tags}</div>`:''}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function mainButton(c){
+  if (c.stage === 0) return `<button class="btn pri xl grow" data-act="main">Kiểm tra trước chuyến</button>`;
+  const e = EV[c.stage-1];
+  return `<button class="btn pri xl grow" data-act="main">${e.btn}</button>`;
+}
+
+R['DRV-02'] = c => {
+  if (c.trip === 'b') return notReady(c);
+  const head = hdr({back:true, title:'HR-2610-0012', sub:orderStatus(c), right:`<button class="ib" data-act="sheet" data-arg="menu" aria-label="Thêm">${ic('more',26)}</button>`});
+  if (c.st === 'loading' && !c.sheet) return sb(c) + head + skeletonBody() + `<div class="bottom"><div class="row"><div class="skel" style="height:64px;flex:1;border-radius:14px"></div></div>${hi()}</div>`;
+  if (c.st === 'error' && !c.sheet) return sb(c) + head + `<div class="body white"><div class="empty"><div class="circle">${ic('alert',32)}</div><b style="font-size:18px">Không tải được chuyến</b><p class="muted small" style="margin:0;max-width:290px">Đang hiện bản lưu lúc 05:34 nếu có. Kiểm tra kết nối rồi thử lại.</p><button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button><button class="btn ghost" data-act="sheet" data-arg="call">${ic('phone',20)} Gọi điều phối</button></div></div>` + hi();
+  const n = NEXT[Math.min(c.stage,8)];
+  let gpsTxt = c.stage < 2 ? 'GPS bật khi bắt đầu chuyến' : c.gps === 'inapp' ? 'GPS chỉ gửi khi app đang mở · Mở Cài đặt' : 'GPS đang chia sẻ · gửi lần cuối 1 phút trước';
+  const strip = c.st === 'offline' ? offlineBar(c, `Mất sóng · ${pendingCount(c)} mục chờ gửi · GPS vẫn ghi trên máy`) : `<div class="bar light">${ic('gps',18)}<span class="grow">${gpsTxt}</span></div>`;
+  const body = `<div class="body">
+    <div class="card brand" style="gap:6px">
+      <span class="lbl">${n[0]}</span>
+      <span class="big">${STOPS[n[1]].name}</span>
+      <div class="row between small" style="flex-wrap:wrap"><span class="muted">${n[2]}</span>${n[3]?`<span class="chip ${n[3].startsWith('Trễ')?'dark':''}">${n[3]}</span>`:''}</div>
+    </div>
+    <div class="card" style="padding:4px 16px">
+      <button class="listrow" data-act="go" data-arg="DRV-10">${ic('horse',22)}<span class="grow"><b>2 ngựa · Sao Mai, Kim Long</b><span class="small muted">Người nhận: Trạm kiểm dịch Svay Rieng</span></span>${ic('next',20)}</button>
+      <div class="listrow" style="cursor:default">${ic('truck',22)}<span class="grow"><b>51C-482.17</b><span class="small muted">Xe tải 4 chuồng · Hộ tống: Phạm Thị Thu</span></span></div>
+      <button class="listrow" data-act="sheet" data-arg="call">${ic('phone',22)}<span class="grow"><b>Gọi điều phối</b><span class="small muted">Võ Quốc Bảo · 1900 6868</span></span>${ic('next',20)}</button>
+    </div>
+    <div class="card"><div class="row between"><span class="lbl">Lộ trình</span><button class="link small" data-act="go" data-arg="DRV-05">Xem bản đồ</button></div>${timeline(c)}</div>
+  </div>`;
+  const undo = c.undo ? `<div class="undo" role="status"><span class="grow">Đã ghi: ${c.undo.short} ${STOPS[c.undo.stop].name} lúc ${c.undo.time}</span><button data-act="undo">${ic('undo',18)} Hoàn tác ${c.undo.left}</button></div>` : '';
+  const bottom = `<div class="bottom">${undo}<div class="row"><button class="btn side xl" data-act="incident">${ic('alert',22)}<span>Báo sự cố</span></button>${mainButton(c)}</div>${hi()}</div>`;
+  return sb(c) + head + strip + body + bottom + overlay(c);
+};
+
+function notReady(c){
+  return sb(c) + hdr({back:true, title:'HR-2611-0003', sub:'Đang chuẩn bị'}) + `<div class="bar light">${ic('clock',18)}<span class="grow">Chuyến chưa sẵn sàng · bạn vẫn xem được kế hoạch</span></div>
+  <div class="body">
+    <div class="card" style="gap:6px"><span class="lbl">Khởi hành từ</span><span class="big">Trường đua Phú Thọ</span><span class="small muted">Kế hoạch 12/11 · 05:30</span></div>
+    <div class="card" style="padding:4px 16px">
+      <div class="listrow" style="cursor:default">${ic('horse',22)}<span class="grow"><b>1 ngựa · Bạch Phong</b><span class="small muted">Arabian · đực · xám</span></span></div>
+      <div class="listrow" style="cursor:default">${ic('truck',22)}<span class="grow"><b>Xe tải 2 chuồng</b><span class="small muted">Biển số do điều phối gán khi chốt kế hoạch</span></span></div>
+    </div>
+    <div class="card"><span class="lbl">Lộ trình</span><div class="tl">
+      <div class="stop"><div class="rail"><span class="dot"></span><span class="ln"></span></div><div class="info"><div class="row between"><b>Trường đua Phú Thọ</b><span class="small muted">05:30</span></div><span class="small muted">Điểm xuất phát</span></div></div>
+      <div class="stop"><div class="rail"><span class="dot"></span></div><div class="info"><div class="row between"><b>Sân bay Tân Sơn Nhất</b><span class="small muted">06:40</span></div><span class="small muted">Sân bay · điểm giao · 9 km</span></div></div>
+    </div></div>
+  </div>
+  <div class="bottom"><div class="note">Bạn sẽ nhận thông báo khi quản lý chuyển chuyến cho tài xế.</div><div class="row"><button class="btn side xl" data-act="incident">${ic('alert',22)}<span>Báo sự cố</span></button><button class="btn pri xl grow" disabled>Chờ quản lý chuyển chuyến</button></div>${hi()}</div>`;
+}
+
+function overlay(c){
+  if (c.sheet === 'confirm') return confirmSheet(c);
+  if (c.sheet === 'menu') return sheetWrap(`<h3>Chuyến HR-2610-0012</h3><div style="display:flex;flex-direction:column">
+      <button class="listrow" data-act="sheet" data-arg="other">${ic('list',22)}<span class="grow"><b>Ghi mốc khác</b><span class="small muted">Khi quên ghi hoặc ghi khác thứ tự</span></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="go" data-arg="DRV-10">${ic('horse',22)}<span class="grow"><b>Ngựa và giao nhận</b></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="go" data-arg="DRV-05">${ic('map',22)}<span class="grow"><b>Bản đồ chuyến</b></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="sheet" data-arg="call">${ic('phone',22)}<span class="grow"><b>Gọi điều phối</b></span>${ic('next',20)}</button>
+    </div><button class="btn" data-act="close">Đóng</button>`);
+  if (c.sheet === 'other') return sheetWrap(`<h3>Ghi mốc khác</h3><p class="small muted" style="margin:0">Chọn loại mốc, bước sau chọn điểm dừng và giờ.</p><div style="display:flex;flex-direction:column">
+      ${['Đã đến điểm dừng','Rời điểm dừng','Đã thông quan','Đã giao ngựa'].map(t => `<button class="listrow" data-act="close"><span class="grow"><b>${t}</b></span>${ic('next',20)}</button>`).join('')}
+    </div><button class="btn" data-act="close">Đóng</button>`);
+  if (c.sheet === 'call') return sheetWrap(`<h3>Gọi điều phối</h3><div class="kvw"><div><span>Điều phối chuyến</span><b>Võ Quốc Bảo</b></div><div><span>Đường dây nóng</span><b style="font-size:22px">1900 6868</b></div></div><a class="btn pri xl" href="tel:19006868">${ic('phone',22)} Gọi 1900 6868</a><button class="btn" data-act="close">Đóng</button>`);
+  if (c.sheet === 'queue') return queueSheet(c);
+  return '';
+}
+function sheetWrap(inner){ return `<div class="overlay"><div class="sheet"><span class="grab"></span>${inner}${hi()}</div></div>`; }
+
+function confirmSheet(c){
+  const e = EV[Math.max(c.stage-1,0)];
+  const T = {
+    DEPARTED:['Bắt đầu chuyến?','Xác nhận bắt đầu', c.gps==='inapp' ? 'GPS chỉ gửi khi app đang mở. Bật "Luôn cho phép" trong Cài đặt để điều phối thấy xe liên tục.' : 'GPS nền bật và gửi vị trí cho điều phối đến khi giao xong.'],
+    CUSTOMS_CLEARED:['Xác nhận đã thông quan?','Xác nhận đã thông quan','Khách hàng thấy mốc này trên hành trình.'],
+    DELIVERED:['Xác nhận đã giao ngựa?','Xác nhận đã giao','Chuyến kết thúc và GPS tắt. Kiểm tra lại: Sao Mai và Kim Long đã giao cho người nhận.']
+  }[e.ms] || ['Xác nhận mốc?','Xác nhận',''];
+  const timeRow = c.editTime
+    ? `<div class="sec"><span class="lbl">Giờ ghi <em>· sửa được trong 24 giờ</em></span><div class="stepper"><button class="ib" data-act="noop" aria-label="Lùi 5 phút">−5</button><b>${e.time}</b><button class="ib" data-act="noop" aria-label="Thêm 5 phút">+5</button></div></div>`
+    : '';
+  const err = c.st === 'error' ? `<div class="box err">${ic('alert',22)}<div style="display:flex;flex-direction:column;gap:6px"><b>Chưa ghi được mốc</b><span>Chuyến chưa đủ điều kiện xuất phát: thiếu giấy kiểm dịch của Kim Long.</span><button class="link" data-act="sheet" data-arg="call" style="align-self:flex-start">Gọi điều phối</button></div></div>` : '';
+  const off = c.st === 'offline' ? `<div class="box">${ic('wifioff',22)}<span>Đang mất sóng. Mốc lưu trên máy và tự gửi khi có sóng.</span></div>` : '';
+  return sheetWrap(`<h3>${T[0]}</h3>
+    <div class="kvw"><div><span>Điểm</span><b>${STOPS[e.stop].name}</b></div><div><span>Giờ ghi</span><span class="row"><b>${e.time} hôm nay</b>${c.editTime?'':'<button class="link small" data-act="editTime">Sửa giờ</button>'}</span></div></div>
+    ${timeRow}${err}${off}
+    <p class="small muted" style="margin:0">${T[2]}</p>
+    <button class="btn pri xl" data-act="confirm">${T[1]}</button>
+    <button class="btn ghost" data-act="close">Huỷ</button>`);
+}
+function queueSheet(c){
+  const rows = [];
+  const rec = EV.slice(0, Math.max(c.stage-1,0));
+  rec.slice(-2).forEach(e => rows.push(['Mốc', `${e.short} ${STOPS[e.stop].name}`, `ghi ${e.time}`]));
+  rows.push(['Vị trí GPS', '46 điểm', 'từ 07:12']);
+  if (c.incSent) rows.push(['Sự cố', 'Hỏng xe · Nghiêm trọng', '2 ảnh']);
+  return sheetWrap(`<h3>Chờ gửi (${rows.length})</h3>
+    <div class="kvw">${rows.map(r => `<div><span>${r[0]}</span><span style="text-align:right"><b>${r[1]}</b><br><span class="small muted">${r[2]}</span></span></div>`).join('')}</div>
+    <p class="small muted" style="margin:0">Tự gửi khi có sóng. Không đăng xuất khi còn mục chờ gửi.</p>
+    <button class="btn pri xl" data-act="close">${ic('upload',22)} Gửi lại ngay</button>
+    <button class="btn ghost" data-act="close">Đóng</button>`);
+}
+
+R['DRV-03'] = c => {
+  const done = CHECKS.filter(k => c.checks[k.id]).length;
+  const dlg = c.dialog === 'checks' ? `<div class="overlay center"><div class="dialog"><h3>Còn ${5-done} mục chưa kiểm tra</h3><p style="margin:0" class="muted">${CHECKS.filter(k=>!c.checks[k.id]).map(k=>k.label).join('; ')}. Vẫn tiếp tục?</p><button class="btn pri" data-act="checksAnyway">Vẫn tiếp tục</button><button class="btn" data-act="closeDialog">Kiểm tra tiếp</button></div></div>` : '';
+  return sb(c) + hdr({back:true, title:'Kiểm tra trước chuyến', sub:`HR-2610-0012 · ${done}/5 mục`}) + `<div class="body white">
+    <div style="display:flex;flex-direction:column">${CHECKS.map(k => `<button class="listrow" style="min-height:64px" data-act="check" data-arg="${k.id}" aria-pressed="${!!c.checks[k.id]}"><span class="chk ${c.checks[k.id]?'on':''}">${c.checks[k.id]?ic('check',18,3):''}</span><span class="grow" style="font-size:16px">${k.label}</span></button>`).join('')}</div>
+    <p class="small muted" style="margin:0">Danh sách lưu trên máy này. Lần sau mở lại chuyến vẫn giữ các mục đã tick.</p>
+  </div>
+  <div class="bottom"><div class="row">${done<5?`<button class="btn grow" data-act="checkAll">Đã kiểm tra tất cả</button>`:''}<button class="btn pri grow" data-act="checksDone">Xong</button></div>${hi()}</div>` + dlg;
+};
+
+R['COM-07'] = c => sb(c) + hdr({back:true, title:'Vị trí khi chạy chuyến'}) + `<div class="body white">
+    <div class="hatch" style="height:160px;display:flex;align-items:center;justify-content:center" aria-label="Hình minh họa">${ic('gps',40,1.5)}</div>
+    <span class="big">Cho phép vị trí cả khi tắt màn hình</span>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="row" style="align-items:flex-start">${ic('check',20)}<span>Điều phối thấy xe đang ở đâu để báo khách và xử lý sự cố kịp thời.</span></div>
+      <div class="row" style="align-items:flex-start">${ic('check',20)}<span>Chỉ gửi vị trí khi chuyến đang chạy. Tự tắt khi bạn xác nhận đã giao.</span></div>
+      <div class="row" style="align-items:flex-start">${ic('check',20)}<span>Khách hàng không thấy vị trí chính xác của xe.</span></div>
+    </div>
+    <div class="box">${ic('list',20)}<span>Ở hộp tiếp theo, chọn <b>Luôn cho phép</b>.</span></div>
+  </div>
+  <div class="bottom"><div class="row" style="flex-direction:column"><button class="btn pri xl" data-act="gpsAllow">Tiếp tục</button><button class="btn ghost" data-act="gpsLater">Để sau</button></div>${hi()}</div>`;
+
+R['DRV-04'] = c => R['DRV-02']({...c, sheet:'confirm'});
+R['COM-12'] = c => R['DRV-02']({...c, sheet:'queue'});
+
+R['DRV-06'] = c => {
+  const i = c.inc, ok = i.type && i.sev;
+  return sb(c) + hdr({close:true, title:'Báo sự cố', sub:'Bước 1/2 · HR-2610-0012'}) + `<div class="body white">
+    <div class="sec"><span class="lbl">Chuyện gì xảy ra?</span>${INC_TYPES.map(t => `<button class="bigopt${i.type===t.id?' on':''}" data-act="incType" data-arg="${t.id}" aria-pressed="${i.type===t.id}"><span class="ico">${ic(t.icon,24)}</span><span class="tx"><b>${t.label}</b><span>${t.hint}</span></span>${i.type===t.id?ic('check',22,3):''}</button>`).join('')}</div>
+    <div class="sec"><span class="lbl">Mức độ</span>${SEVS.map(s => `<button class="bigopt${i.sev===s.id?' on':''}" data-act="incSev" data-arg="${s.id}" aria-pressed="${i.sev===s.id}" style="min-height:64px">${sevMark(s.n)}<span class="tx"><b>${s.label}</b><span>${s.hint}</span></span>${i.sev===s.id?ic('check',22,3):''}</button>`).join('')}</div>
+  </div>
+  <div class="bottom"><div class="row"><button class="btn pri xl grow" data-act="incNext" ${ok?'':'disabled'}>Tiếp tục</button></div>${hi()}</div>`;
+};
+
+R['DRV-07'] = c => {
+  const i = c.inc;
+  const t = INC_TYPES.find(x => x.id === i.type) || INC_TYPES[0];
+  const s = SEVS.find(x => x.id === i.sev) || SEVS[0];
+  const med = t.id === 'HORSE_MEDICAL';
+  const ready = i.desc.length >= 5 && (!med || i.horse);
+  const photos = Array.from({length:i.photos}, (_,k) => `<div class="photo hatch">${['Lốp sau phải','Toàn cảnh xe','Vết hư hại'][k]}</div>`).join('');
+  const err = c.st === 'error';
+  return sb(c) + hdr({back:true, title:'Báo sự cố', sub:'Bước 2/2'}) + (c.st==='offline' ? offlineBar(c, 'Mất sóng · báo cáo sẽ lưu và tự gửi') : '') + `<div class="body white">
+    <div class="row between"><span class="row">${sevMark(s.n)}<b>${t.label} · ${s.label}</b></span><button class="link small" data-act="back">Đổi</button></div>
+    <div class="sec"><span class="lbl">Cụ thể</span><div class="opts">${SUBS[t.id].map(([id,l]) => `<button class="opt${i.sub===id?' on':''}" data-act="incSub" data-arg="${id}">${i.sub===id?ic('check',16,3):''}${l}</button>`).join('')}</div></div>
+    <div class="sec"><span class="lbl">Hư hại</span><div class="opts">${[['VEHICLE','Xe'],['HORSE','Ngựa'],['BOTH','Cả hai']].map(([id,l]) => `<button class="opt${i.dmg===id?' on':''}" data-act="incDmg" data-arg="${id}">${i.dmg===id?ic('check',16,3):''}${l}</button>`).join('')}</div></div>
+    <div class="sec"><span class="lbl">Ngựa liên quan <em>${med?'· bắt buộc':'· nếu có'}</em></span><div class="opts">${['Sao Mai','Kim Long'].map(h => `<button class="opt${i.horse===h?' on':''}" data-act="incHorse" data-arg="${h}">${i.horse===h?ic('check',16,3):''}${h}</button>`).join('')}</div>${med && !i.horse ? '<span class="small" style="font-weight:600">Chọn ngựa để gửi báo cáo y tế.</span>' : ''}</div>
+    <div class="sec"><span class="lbl">Mô tả</span>
+      <div class="field${err&&!i.desc?' err':''}">${i.desc ? `<span>${esc(i.desc)}</span>` : '<span class="ph">Mô tả ngắn chuyện xảy ra (ít nhất 5 ký tự)</span>'}<div class="row between"><span class="small muted">${i.desc.length}/2000</span><button class="ib" data-act="noop" aria-label="Đọc bằng giọng nói" style="border:1.5px solid var(--w-line)">${ic('mic',22)}</button></div></div>
+      <div class="opts">${SAMPLES[t.id].map((x,k) => `<button class="opt small" data-act="incSample" data-arg="${k}" style="min-height:40px;font-size:13px">${x}</button>`).join('')}</div>
+    </div>
+    <div class="sec"><span class="lbl">Ảnh <em>· tối đa 3</em></span><div class="photos">${photos}${i.photos<3?`<button class="addph" data-act="incPhoto">${ic('camera',24)}Chụp ảnh</button>`:''}</div>
+      ${err ? `<div class="box err">${ic('alert',20)}<span>Ảnh 2 lớn hơn 5 MB và không nén được. Chụp lại hoặc bỏ ảnh này.</span></div>` : ''}</div>
+    <div class="row small muted">${ic('pin',18)} QL22, gần Gò Dầu, Tây Ninh · lấy từ GPS</div>
+  </div>
+  <div class="bottom"><div class="row"><button class="btn pri xl grow" data-act="incSubmit" ${ready?'':'disabled'}>Gửi báo cáo</button></div>${hi()}</div>`;
+};
+
+R['DRV-08'] = c => {
+  const i = c.inc; const off = c.st === 'offline';
+  const t = INC_TYPES.find(x => x.id === i.type) || INC_TYPES[0];
+  const s = SEVS.find(x => x.id === i.sev) || SEVS[0];
+  const urgent = s.id === 'RED' || off;
+  return sb(c) + `<div class="body white"><div class="empty" style="justify-content:flex-start;padding-top:48px">
+      <div class="circle ${off?'':'fill'}">${off ? ic('upload',32) : ic('check',34,3)}</div>
+      <span class="big">${off ? 'Đã lưu trên máy' : 'Đã gửi cho điều phối'}</span>
+      <p class="muted" style="margin:0;max-width:300px">${off ? 'Báo cáo sẽ tự gửi khi có sóng. Đừng gỡ app.' : 'Mã sự cố SC-0457 · gửi lúc 07:41. Bạn nhận thông báo khi điều phối tiếp nhận.'}</p>
+    </div>
+    <div class="kvw"><div><span>Sự cố</span><b>${t.label} · ${s.label}</b></div><div><span>Vị trí</span><b>QL22, gần Gò Dầu</b></div><div><span>Ảnh</span><b>${i.photos} ảnh</b></div></div>
+    ${urgent ? `<div class="box err">${ic('alert',22)}<span>${s.id==='RED' ? 'Sự cố nghiêm trọng: gọi điều phối ngay sau khi gửi.' : 'Chưa gửi được: gọi điều phối nếu cần xử lý gấp.'}</span></div>` : ''}
+  </div>
+  <div class="bottom"><div class="row" style="flex-direction:column">${urgent ? `<a class="btn pri xl" href="tel:19006868">${ic('phone',22)} Gọi điều phối 1900 6868</a><button class="btn" data-act="backTrip">Về chuyến</button>` : `<button class="btn pri xl" data-act="backTrip">Về chuyến</button><button class="btn ghost" data-act="sheet" data-arg="call">Gọi điều phối</button>`}</div>${hi()}</div>` + (c.sheet==='call' ? overlay(c) : '');
+};
+
+R['DRV-13'] = c => {
+  const off = c.st === 'offline';
+  return sb({...c, stage:9}) + `<div class="body white"><div class="empty" style="justify-content:flex-start;padding-top:40px;flex:none">
+      <div class="circle fill">${ic('check',34,3)}</div>
+      <span class="big">Đã giao 2 ngựa</span>
+      <p class="muted" style="margin:0">10:40, 05/11/2026 · Trạm kiểm dịch Svay Rieng</p>
+    </div>
+    <div class="kvw">
+      <div><span>Đơn</span><b>HR-2610-0012</b></div>
+      <div><span>Ngựa</span><b>Sao Mai, Kim Long</b></div>
+      <div><span>Quãng đường</span><b>128 km · 4 giờ 36 phút</b></div>
+      <div><span>Mốc đã ghi</span><b>8</b></div>
+      <div><span>Sự cố</span><b>${c.incSent ? '1 · ' + (INC_TYPES.find(x => x.id === c.inc.type) || INC_TYPES[0]).label : 'Không có'}</b></div>
+      <div><span>Vị trí</span><b>Đã tắt chia sẻ</b></div>
+    </div>
+    ${off ? `<div class="box">${ic('upload',22)}<span>Còn ${pendingCount({...c,stage:3})} mục chờ gửi. Giữ app mở khi có sóng, không đăng xuất.</span></div>` : ''}
+  </div>
+  <div class="bottom"><div class="row"><button class="btn pri xl grow" data-act="tab" data-arg="DRV-01">Về danh sách chuyến</button></div>${hi()}</div>`;
+};
+
+function stub(code){
+  return c => {
+    const [name, why] = STUBS[code];
+    const isTab = TABS.some(t => t[0] === code);
+    return sb(c) + (isTab ? `<div class="hdr big"><div class="t"><b>${name}</b></div></div>` : hdr({back:true, title:name})) + `<div class="body white"><div class="empty"><span class="stubtag">${code} · ${why}</span><b style="font-size:18px">${name}</b><p class="small muted" style="margin:0;max-width:260px">Màn này có trong danh sách 02-screens.md nhưng chưa vẽ ở đợt Tài xế P0.</p></div></div>` + (isTab ? tabbar(code) : hi());
+  };
+}
+Object.keys(STUBS).forEach(k => R[k] = stub(k));
+
+/* ---------- Khung ---------- */
+function screenHTML(code, c, id){
+  const inner = R[code](c);
+  const needsTop = !inner.startsWith('<div class="sb"');
+  const withTabs = inner.includes('class="tabbar"');
+  return `<section class="screen ${plat}" id="${id||code}" data-screen="${code}" style="--fw:${DIM[plat].w}px;--fh:${DIM[plat].h}px">${needsTop?sb(c):''}${inner}${withTabs?hi():''}</section>`;
+}
+function fit(html, s){
+  const d = DIM[plat];
+  return `<div class="fit" style="width:${Math.round(d.w*s)}px;height:${Math.round(d.h*s)}px"><div class="scaled" style="transform:scale(${s})">${html}</div></div>`;
+}
+function protoScale(){
+  const d = DIM[plat], pad = plat==='ios'?24:20;
+  const avail = Math.min(document.documentElement.clientWidth - 32, 900);
+  return Math.min(1, avail / (d.w + pad));
+}
+
+/* ---------- Biến thể cho chế độ Xem tất cả ---------- */
+const FILLED = {type:'VEHICLE_BREAKDOWN',sev:'RED',sub:'TIRE_BURST',dmg:'VEHICLE',horse:null,desc:'Nổ lốp sau bên phải, xe đã dừng ở lề',photos:2};
+const GRID = [
+  ['DRV-01',[{l:'Bình thường'},{l:'Đang tải',st:'loading'},{l:'Trống',st:'empty'},{l:'Lỗi',st:'error'},{l:'Mất sóng, chuyến đang chạy',st:'offline',stage:3}]],
+  ['DRV-02',[{l:'Sẵn sàng, chưa kiểm tra',stage:0},{l:'Đã kiểm tra, sẵn sàng bắt đầu',stage:1},{l:'Đang tới điểm dừng',stage:2},{l:'Vừa ghi Đã đến, còn Hoàn tác 5 giây',stage:3,undo:{...EV[1],left:5}},{l:'Tại cửa khẩu, chờ thông quan',stage:5},{l:'Tại điểm giao',stage:8},{l:'Mất sóng, 2 mốc chờ gửi',stage:4,st:'offline'},{l:'Đang tải',st:'loading',stage:2},{l:'Lỗi tải',st:'error',stage:2},{l:'Chuyến chưa sẵn sàng',trip:'b'}]],
+  ['DRV-03',[{l:'Đang kiểm tra 3/5'},{l:'Bấm Xong khi còn mục chưa tick',dialog:'checks'},{l:'Đủ 5/5',checks:ALL_CHECKS}]],
+  ['COM-07',[{l:'Giải thích trước khi hệ điều hành hỏi',stage:1}]],
+  ['DRV-04',[{l:'Bắt đầu chuyến',stage:1},{l:'Đã thông quan, đang sửa giờ',stage:5,editTime:true},{l:'Xác nhận đã giao',stage:8},{l:'Lỗi 409 từ máy chủ',stage:1,st:'error'},{l:'Mất sóng',stage:5,st:'offline'}]],
+  ['DRV-06',[{l:'Chưa chọn',stage:3},{l:'Đã chọn loại và mức',stage:3,inc:{...newInc(),type:'VEHICLE_BREAKDOWN',sev:'RED'}}]],
+  ['DRV-07',[{l:'Đang điền',stage:3,inc:FILLED},{l:'Y tế ngựa, chưa chọn ngựa',stage:3,inc:{...newInc(),type:'HORSE_MEDICAL',sev:'ORANGE',sub:'COLIC',dmg:'HORSE',desc:'Ngựa cào chân, đổ mồ hôi',photos:1}},{l:'Lỗi ảnh',stage:3,st:'error',inc:FILLED},{l:'Mất sóng',stage:3,st:'offline',inc:FILLED}]],
+  ['DRV-08',[{l:'Đã gửi',stage:3,inc:FILLED},{l:'Lưu chờ gửi (mất sóng)',stage:3,st:'offline',inc:FILLED,incSent:true}]],
+  ['DRV-13',[{l:'Hoàn tất',stage:9},{l:'Còn mục chờ gửi',stage:9,st:'offline'}]],
+  ['COM-12',[{l:'Hàng chờ đồng bộ',stage:4,st:'offline',incSent:true}]]
+];
+
+/* ---------- Vẽ trang ---------- */
+const main = document.getElementById('main');
+function render(){
+  document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#segPlat button').forEach(b => b.classList.toggle('on', b.dataset.plat === plat));
+  document.querySelectorAll('#segState button').forEach(b => b.classList.toggle('on', b.dataset.st === app.st));
+  document.getElementById('grpScale').hidden = mode !== 'grid';
+  document.querySelector('#segState').closest('.grp').hidden = mode === 'grid';
+  if (mode === 'grid') return renderGrid();
+  const code = app.screen, n = NOTES[code];
+  const s = protoScale(), d = DIM[plat], pad = plat==='ios'?12:10;
+  const dev = `<div class="device ${plat}">${screenHTML(code, app)}</div>`;
+  const devFit = s < 1 ? `<div class="fit" style="width:${Math.round((d.w+pad*2)*s)}px;height:${Math.round((d.h+pad*2)*s)}px"><div class="scaled" style="transform:scale(${s})">${dev}</div></div>` : dev;
+  const stub = STUBS[code];
+  const info = n ? `<div class="pcard"><h3>${code} · ${n.kind}</h3><h2>${n.n}</h2><p>${n.p}</p>
+      <dl class="kv"><dt>Hành động chính</dt><dd>${n.a}</dd><dt>Dữ liệu</dt><dd>${n.d}</dd><dt>API</dt><dd class="code">${n.api}</dd></dl>
+      <ul>${n.b.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+    : `<div class="pcard"><h3>${code}</h3><h2>${stub[0]}</h2><p>${stub[1]}.</p></div>`;
+  const stageCtl = (code === 'DRV-02' && app.trip === 'a') ? `<div class="pcard"><h3>Nhảy tới bước trong chuyến</h3><div class="jump">${['Chưa kiểm tra','Sẵn sàng','Tới Trảng Bàng','Ở Trảng Bàng','Tới Mộc Bài','Ở cửa khẩu','Đã thông quan','Tới Svay Rieng','Ở điểm giao'].map((l,k) => `<button data-stage="${k}" class="${app.stage===k?'on':''}">${l}</button>`).join('')}</div></div>` : '';
+  const list = ['DRV-01','DRV-02','DRV-03','COM-07','DRV-04','DRV-06','DRV-07','DRV-08','DRV-13','COM-12'];
+  const jump = `<div class="pcard"><h3>Màn đã vẽ (P0)</h3><div class="jump">${list.map(k => `<button data-jump="${k}" class="${app.screen===k?'on':''}"><span class="code">${k}</span>${NOTES[k].n}</button>`).join('')}</div>
+    <p class="hint">Bấm vào nút trong khung để đi theo luồng. Thanh Trạng thái phía trên đổi màn hiện tại sang Đang tải, Trống, Lỗi hoặc Mất sóng.</p></div>`;
+  main.innerHTML = `<div class="proto"><div>${devFit}</div><div class="panel">${info}${stageCtl}${jump}</div></div>`;
+}
+function renderGrid(){
+  const s = gridScale || (document.documentElement.clientWidth >= 1100 ? 1 : 0.5);
+  document.querySelectorAll('#segScale button').forEach(b => b.classList.toggle('on', +b.dataset.sc === s));
+  main.innerHTML = `<div class="grid">${GRID.map(([code, vs]) => {
+    const n = NOTES[code];
+    return `<section class="grow-row"><header><h2>${code} · ${n.n}</h2><p>${n.p} Hành động chính: ${n.a}.</p></header><div class="strip">${vs.map((v,k) => {
+      const c = {...fresh(), ...v, st:v.st||'normal', checks:v.checks||fresh().checks, inc:v.inc||newInc()};
+      return `<div class="vcell"><span class="vl">${v.l}</span><div data-open="${code}" data-v="${k}">${fit(screenHTML(code, c, k ? `${code}--${k}` : code), s)}</div></div>`;
+    }).join('')}</div></section>`;
+  }).join('')}</div>`;
+}
+
+/* ---------- Hành động ---------- */
+function go(code){ app.stack.push(app.screen); app.screen = code; app.sheet = null; app.dialog = null; }
+function stopUndo(){ clearInterval(undoTimer); undoTimer = null; app.undo = null; }
+const ACT = {
+  noop(){},
+  go(a){ go(a); },
+  back(){ app.sheet = null; app.dialog = null; app.screen = app.stack.pop() || 'DRV-01'; },
+  tab(a){ stopUndo(); app.stack = []; app.screen = a; app.sheet = null; if (a==='DRV-01' && app.stage>=9) { app.stage = 0; app.checks = fresh().checks; app.gps = null; app.incSent = false; } },
+  openTrip(a){ app.trip = a; go('DRV-02'); },
+  sheet(a){ app.sheet = a; },
+  close(){ app.sheet = null; app.editTime = false; },
+  editTime(){ app.editTime = true; },
+  main(){
+    if (app.stage === 0) return go('DRV-03');
+    const e = EV[app.stage-1];
+    if (e.kind === 'undo') {
+      stopUndo(); app.stage++; app.undo = {...e, left:5};
+      undoTimer = setInterval(() => { if (!app.undo) return stopUndo(); app.undo.left--; if (app.undo.left <= 0) stopUndo(); render(); }, 1000);
+      return;
+    }
+    if (app.stage === 1 && !app.gps) return go('COM-07');
+    app.sheet = 'confirm';
+  },
+  confirm(){
+    if (app.st === 'error') return;
+    app.sheet = null; app.editTime = false; stopUndo(); app.stage++;
+    if (app.stage >= 9) { app.stack = []; app.screen = 'DRV-13'; }
+  },
+  undo(){ if (app.undo) { app.stage--; } stopUndo(); },
+  check(a){ app.checks[a] = !app.checks[a]; },
+  checkAll(){ app.checks = {...ALL_CHECKS}; },
+  checksDone(){ const all = CHECKS.every(k => app.checks[k.id]); if (!all) { app.dialog = 'checks'; return; } app.stage = Math.max(app.stage,1); ACT.back(); },
+  checksAnyway(){ app.dialog = null; app.stage = Math.max(app.stage,1); ACT.back(); },
+  closeDialog(){ app.dialog = null; },
+  gpsAllow(){ app.gps = 'always'; ACT.back(); app.sheet = 'confirm'; },
+  gpsLater(){ app.gps = 'inapp'; ACT.back(); app.sheet = 'confirm'; },
+  incident(){ stopUndo(); app.inc = newInc(); go('DRV-06'); },
+  incType(a){ app.inc.type = a; app.inc.sub = null; app.inc.desc = ''; },
+  incSev(a){ app.inc.sev = a; },
+  incNext(){ if (app.inc.type && app.inc.sev) go('DRV-07'); },
+  incSub(a){ app.inc.sub = app.inc.sub === a ? null : a; },
+  incDmg(a){ app.inc.dmg = app.inc.dmg === a ? null : a; },
+  incHorse(a){ app.inc.horse = app.inc.horse === a ? null : a; },
+  incSample(a){ app.inc.desc = SAMPLES[app.inc.type][+a]; },
+  incPhoto(){ if (app.inc.photos < 3) app.inc.photos++; },
+  incSubmit(){ app.incSent = true; go('DRV-08'); },
+  backTrip(){ while (app.stack.length && app.screen !== 'DRV-02') app.screen = app.stack.pop(); if (app.screen !== 'DRV-02') app.screen = 'DRV-02'; app.sheet = null; }
+};
+
+document.addEventListener('click', e => {
+  const seg = e.target.closest('[data-mode],[data-plat],[data-st],[data-sc],[data-jump],[data-stage],[data-open]');
+  if (seg) {
+    const d = seg.dataset;
+    if (d.mode) mode = d.mode;
+    else if (d.plat) plat = d.plat;
+    else if (d.st) app.st = d.st;
+    else if (d.sc) gridScale = +d.sc;
+    else if (d.stage) { stopUndo(); app.stage = +d.stage; app.sheet = null; }
+    else if (d.jump) jumpTo(d.jump);
+    else if (d.open) { mode = 'proto'; jumpTo(d.open); window.scrollTo(0,0); }
+    render(); return;
+  }
+  if (mode !== 'proto') return;
+  const t = e.target.closest('[data-act]');
+  if (!t || t.disabled || !main.contains(t)) return;
+  const fn = ACT[t.dataset.act];
+  if (fn) { e.preventDefault(); fn(t.dataset.arg); render(); }
+});
+function jumpTo(code){
+  stopUndo(); app.sheet = null; app.dialog = null; app.trip = 'a';
+  if (code === 'DRV-04') { app.screen = 'DRV-02'; app.stack = ['DRV-01']; if (![1,5,8].includes(app.stage)) app.stage = 1; app.gps = app.gps || 'always'; app.sheet = 'confirm'; return; }
+  if (code === 'COM-12') { app.screen = 'DRV-02'; app.stack = ['DRV-01']; if (app.stage < 2) app.stage = 4; app.st = 'offline'; app.sheet = 'queue'; return; }
+  if (code === 'DRV-07' || code === 'DRV-08') { if (!app.inc.type) app.inc = {...FILLED}; app.stack = ['DRV-01','DRV-02','DRV-06'].concat(code==='DRV-08'?['DRV-07']:[]); app.screen = code; if (code==='DRV-08') app.incSent = true; return; }
+  if (code === 'DRV-13') { app.stage = 9; app.stack = []; app.screen = code; return; }
+  app.stack = code === 'DRV-01' ? [] : ['DRV-01'];
+  if (code === 'DRV-06') app.stack.push('DRV-02');
+  if (code === 'COM-07') app.stack.push('DRV-02');
+  app.screen = code;
+}
+document.getElementById('btnReset').addEventListener('click', () => { stopUndo(); const st = app.st; app = fresh(); app.st = st; mode = 'proto'; render(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
+render();
+})();
+</script>
+</body>
+</html>

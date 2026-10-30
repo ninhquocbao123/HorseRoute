@@ -32,6 +32,9 @@ function CareLog({ care }: { care: ICareActivityList }) {
                 <span className="trk-care-main">
                   <strong>{activity.horseName ?? 'Cả đoàn'}</strong>
                   <small>{activityDetail(activity) || '—'} · {activity.createdByName}</small>
+                  {activity.photos.length > 0 && (
+                    <span className="trk-report-photos trk-care-photos">{activity.photos.map(photo => <AttachmentImage key={photo.id} id={photo.id} name={photo.originalName} />)}</span>
+                  )}
                 </span>
               </li>
             ))}

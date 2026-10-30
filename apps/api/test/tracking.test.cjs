@@ -334,6 +334,7 @@ function tripDetailRepo(overrides = {}) {
     getTripLegs: async () => [],
     getTripHorses: async () => [],
     getLegMilestones: async () => [],
+    getWaypointCheckins: async () => [],
     getTripCrew: async () => [
       { userId: '6', name: 'Tài Xế', phone: '0901', role: 'DRIVER' },
       { userId: '10', name: 'Hộ Tống', phone: null, role: 'ESCORT' },
@@ -409,13 +410,18 @@ function stage2Repo(overrides = {}, calls = {}) {
     insertIncident: async input => { calls.incident = input; return '701'; },
     getTripIncidents: async () => [{ id: '701', tripId: '100', legId: null, horseId: '21', horseName: 'Ngựa', incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', urgency: 'HIGH', status: calls.incidentStatus || 'NEW', reportedBy: '5', reportedByName: 'Tài xế', reportedAt: new Date(), receivedBy: null, handlingNote: null, closedAt: null }],
     getIncidentAttachments: async () => [],
+    getIncidentById: async id => ({ ...(await repo.getTripIncidents('100'))[0], id, orderId: '50', orderCode: 'WDP-1', fromName: 'A', toName: 'B', reporterRole: 'DRIVER' }),
+    getIncidentResponses: async () => calls.responses ?? [],
+    insertIncidentResponse: async (...args) => { (calls.responsesInserted ||= []).push(args); },
+    getIncidentRecipients: async () => ({ plannerId: '3', managerIds: ['2'] }),
+    getTripCrewIds: async () => ['5', '6'],
     findIncident: async () => ({ id: '701', tripId: '100', status: calls.incidentStatus || 'NEW', reportedBy: '5', plannedBy: '3', customerId: '2' }),
     updateIncidentStatus: async (...args) => { calls.incidentUpdate = args; },
     insertAlert: async (...args) => { calls.alert = args; return '801'; },
     getTripAlerts: async () => [{ id: '801', tripId: '100', alertType: 'WEATHER', content: 'Mưa lớn', sentBy: '3', sentByName: 'Điều phối', sentAt: new Date() }],
     notifyManagersAndCoordinators: async (...args) => { calls.notifiedIncident = args; },
     notifyCrewAndManagers: async (...args) => { calls.notifiedAlert = args; },
-    notify: async (...args) => { (calls.notified ||= []).push(args); },
+    notify: async (...args) => { (calls.notified ||= []).push(args); return 'n' + calls.notified.length; },
     audit: async (...args) => { (calls.audits ||= []).push(args); },
     findAttachment: async () => ({ id: '501', originalName: 'a.png', fileType: 'PNG', storagePath: 'x', tripId: '100', horseLogId: null, incidentId: '701' }),
     ...overrides,
@@ -474,27 +480,27 @@ test('Incident: HORSE_MEDICAL needs a horse and is HIGH urgency; managers and co
   const base = { incidentType: 'VEHICLE_BREAKDOWN', description: 'Hỏng bánh xe', severity: 'ORANGE', damageTarget: 'VEHICLE' };
   await assert.rejects(() => new TrackingService(stage2Repo()).createIncident(coordinator, '100', base), e => e.getStatus() === 403);
   await assert.rejects(() => new TrackingService(stage2Repo()).createIncident(driver, '100', { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', severity: 'YELLOW', damageTarget: 'HORSE' }), e => e.getStatus() === 400);
-  await assert.rejects(() => new TrackingService(stage2Repo({ getDriverAssignment: async () => undefined })).createIncident(driver, '100', base), e => e.getStatus() === 404);
-  await assert.rejects(() => new TrackingService(stage2Repo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.DELIVERED, plannedBy: '3' }) })).createIncident(driver, '100', base), e => e.getStatus() === 409);
-  await assert.rejects(() => new TrackingService(stage2Repo({ legBelongsToTrip: async () => false })).createIncident(driver, '100', { ...base, legId: '999' }), e => e.getStatus() === 400);
+  await assert.rejects(() => new TrackingService(stage2Repo({ getDriverAssignment: async () => undefined })).createIncident(driver, '100', base, [photo()]), e => e.getStatus() === 404);
+  await assert.rejects(() => new TrackingService(stage2Repo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.DELIVERED, plannedBy: '3' }) })).createIncident(driver, '100', base, [photo()]), e => e.getStatus() === 409);
+  await assert.rejects(() => new TrackingService(stage2Repo({ legBelongsToTrip: async () => false })).createIncident(driver, '100', { ...base, legId: '999' }, [photo()]), e => e.getStatus() === 400);
 
   // 5.4: chuyến READY (chưa xuất phát) vẫn được báo sự cố.
   const readyCalls = {};
   const readyRepo = stage2Repo({ findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'W', orderStatus: OrderStatus.READY, plannedBy: '3', customerId: '2' }) }, readyCalls);
-  const readyIncident = await new TrackingService(readyRepo).createIncident(driver, '100', base);
+  const readyIncident = await new TrackingService(readyRepo).createIncident(driver, '100', base, [photo()]);
   assert.equal(readyIncident.id, '701');
   assert.equal(readyCalls.incident.urgency, 'NORMAL');
-  assert.ok(readyCalls.notifiedIncident, 'coordinator and managers are notified for a READY trip too');
+  assert.deepEqual(readyCalls.notified.map(n => [n[0], n[1], n[3], n[4]]), [['3', 'INCIDENT_REPORTED', 'INCIDENT', '701'], ['2', 'INCIDENT_REPORTED', 'INCIDENT', '701']], 'coordinator and managers are notified for a READY trip too');
 
   const calls = {};
-  const medical = await new TrackingService(stage2Repo({}, calls)).createIncident(driver, '100', { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', horseId: '21', legId: '', severity: 'YELLOW', damageTarget: 'HORSE' });
+  const medical = await new TrackingService(stage2Repo({}, calls)).createIncident(driver, '100', { incidentType: 'HORSE_MEDICAL', description: 'Đau bụng', horseId: '21', legId: '', severity: 'YELLOW', damageTarget: 'HORSE' }, [photo()]);
   assert.equal(medical.urgency, 'HIGH');
   assert.equal(calls.incident.urgency, 'HIGH', 'HORSE_MEDICAL is HIGH even when severity is YELLOW');
   assert.equal(calls.incident.legId, null, 'blank legId is ignored');
-  assert.match(calls.notifiedIncident[2], /KHẨN/);
+  assert.match(calls.notified[0][2], /KHẨN/);
 
   const normalCalls = {};
-  await new TrackingService(stage2Repo({}, normalCalls)).createIncident(driver, '100', base);
+  await new TrackingService(stage2Repo({}, normalCalls)).createIncident(driver, '100', base, [photo()]);
   assert.equal(normalCalls.incident.urgency, 'NORMAL', 'ORANGE + VEHICLE is NORMAL');
   assert.equal(normalCalls.incident.severity, 'ORANGE');
   assert.equal(normalCalls.incident.damageTarget, 'VEHICLE');
@@ -558,26 +564,53 @@ test('Incident reads: specialist cannot see incidents, specialist can read horse
   assert.deepEqual(linked.map(a => [a.notificationId, a.notificationRead]), [['51', true], [null, null]]);
 });
 
-test('Incident handling: coordinator only, close needs a note, one-way status flow', async () => {
-  const ack = { status: 'ACKNOWLEDGED' };
+test('Incident handling: coordinator only, every update needs a note, responses can repeat until closed', async () => {
+  const ack = { status: 'ACKNOWLEDGED', handlingNote: 'Đã gọi cứu hộ lốp', waitMinutes: 45 };
   const close = { status: 'CLOSED', handlingNote: 'Đã thay bánh xe' };
   await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(driver, '701', ack), e => e.getStatus() === 403);
   await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident({ id: '2', role: Role.MANAGER }, '701', ack), e => e.getStatus() === 403);
   await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(coordinator, '701', { status: 'CLOSED' }), e => e.getStatus() === 400);
+  await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED' }), e => e.getStatus() === 400, 'hướng xử lý bắt buộc');
   await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(coordinator, '701', { status: 'CLOSED', handlingNote: '   ' }), e => e.getStatus() === 400);
+  for (const waitMinutes of [0, 1441, 2.5]) {
+    await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(coordinator, '701', { ...ack, waitMinutes }), e => e.getStatus() === 400, String(waitMinutes));
+  }
   await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident({ id: '99', role: Role.COORDINATOR }, '701', ack), e => e.getStatus() === 404);
   await assert.rejects(() => new TrackingService(stage2Repo({}, { incidentStatus: 'CLOSED' })).updateIncident(coordinator, '701', close), e => e.getStatus() === 409);
-  await assert.rejects(() => new TrackingService(stage2Repo({}, { incidentStatus: 'ACKNOWLEDGED' })).updateIncident(coordinator, '701', ack), e => e.getStatus() === 409);
 
   const calls = {};
   await new TrackingService(stage2Repo({}, calls)).updateIncident(coordinator, '701', ack);
-  assert.deepEqual(calls.incidentUpdate, ['701', 'ACKNOWLEDGED', '3', null]);
-  assert.equal(calls.notified[0][0], '5', 'reporter is notified');
+  assert.deepEqual(calls.incidentUpdate, ['701', 'ACKNOWLEDGED', '3', 'Đã gọi cứu hộ lốp']);
+  assert.deepEqual(calls.responsesInserted, [['701', 'RESPONSE', 'Đã gọi cứu hộ lốp', 45, '3']]);
+  assert.deepEqual(calls.notified.map(n => n[0]), ['5', '6'], 'cả tổ lái nhận phản hồi');
+  assert.match(calls.notified[0][2], /Dự kiến xử lý xong lúc/);
+
+  // Gửi thêm cập nhật khi đang xử lý: không còn 409
+  const again = { incidentStatus: 'ACKNOWLEDGED' };
+  await new TrackingService(stage2Repo({}, again)).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED', handlingNote: 'Cứu hộ tới trễ 15 phút' });
+  assert.equal(again.responsesInserted[0][3], null);
 
   const closeCalls = { incidentStatus: 'ACKNOWLEDGED' };
   await new TrackingService(stage2Repo({}, closeCalls)).updateIncident(coordinator, '701', close);
   assert.deepEqual(closeCalls.incidentUpdate, ['701', 'CLOSED', '3', 'Đã thay bánh xe']);
+  assert.deepEqual(closeCalls.responsesInserted, [['701', 'RESOLVED', 'Đã thay bánh xe', null, '3']]);
   assert.match(closeCalls.notified[0][2], /Đã thay bánh xe/);
+  await assert.rejects(() => new TrackingService(stage2Repo()).updateIncident(coordinator, '701', { ...close, waitMinutes: 30 }), e => e.getStatus() === 400);
+});
+
+test('Coordinator incident list: own trips only, manager sees all, scope validated, detail is trip-scoped', async () => {
+  const calls = {};
+  const repo = stage2Repo({ getCoordinatorIncidents: async (plannerId, scope) => { calls.list = [plannerId, scope]; return [await repo.getIncidentById('701')]; } }, calls);
+  const list = await new TrackingService(repo).getCoordinatorIncidents(coordinator, {});
+  assert.deepEqual(calls.list, ['3', 'open']);
+  assert.equal(list[0].orderCode, 'WDP-1');
+  assert.equal(list[0].routeLabel, 'A → B');
+  await new TrackingService(repo).getCoordinatorIncidents({ id: '2', role: Role.MANAGER }, { scope: 'closed' });
+  assert.deepEqual(calls.list, [null, 'closed']);
+  await assert.rejects(() => new TrackingService(repo).getCoordinatorIncidents(coordinator, { scope: 'all' }), e => e.getStatus() === 400);
+  await assert.rejects(() => new TrackingService(repo).getCoordinatorIncidents(driver, {}), e => e.getStatus() === 403);
+  assert.equal((await new TrackingService(repo).getIncident(coordinator, '701')).id, '701');
+  await assert.rejects(() => new TrackingService(repo).getIncident({ id: '99', role: Role.COORDINATOR }, '701'), e => e.getStatus() === 404);
 });
 
 test('Alert: coordinator who owns the trip only, order must be READY or IN_TRANSIT', async () => {
@@ -622,6 +655,7 @@ function timelineRepo(overrides = {}) {
     findOrderForTimeline: async () => ({ orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, customerId: '2', tripId: '100', planStatus: PlanStatus.APPROVED, plannedDepartureAt: T(1), plannedArrivalAt: T(9) }),
     getTripLegs: async () => [timelineLeg()],
     getLegMilestones: async () => [{ id: '1', legId: '10', milestoneType: MilestoneType.DEPARTED, occurredAt: T(1), recordedBy: '5', recordedByName: 'Tài xế' }],
+    getWaypointCheckins: async () => [],
     findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, planStatus: PlanStatus.APPROVED, plannedDepartureAt: T(1), plannedArrivalAt: T(9), plannedBy: '3', customerId: '2' }),
     ...overrides,
   });
@@ -770,21 +804,34 @@ test('Realtime: alert → tracking:alert + notification:new tới từng crew, s
   assert.deepEqual(realtime.emitted.slice(1).map(e => [e.users, e.event, e.payload.id]), [[['5'], 'notification:new', 'n5'], [['6'], 'notification:new', 'n6']]);
 });
 
-test('Realtime: incident ack/close → tracking:incident_updated chỉ tới người báo', async () => {
+test('Realtime: incident response → tracking:incident_updated tới cả tổ lái, kèm thời gian chờ', async () => {
   const realtime = fakeRealtime();
-  await new TrackingService(realtimeRepo({}), undefined, realtime).updateIncident(coordinator, '701', { status: 'CLOSED', handlingNote: 'Đã thay bánh xe' });
+  const sentAt = new Date('2026-10-26T10:00:00Z');
+  const calls = { responses: [{ id: '1', incidentId: '701', kind: 'RESPONSE', note: 'Đã gọi cứu hộ', waitMinutes: 45, sentByName: 'Điều phối', sentAt }] };
+  await new TrackingService(realtimeRepo(calls), undefined, realtime).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED', handlingNote: 'Đã gọi cứu hộ', waitMinutes: 45 });
   assert.equal(realtime.emitted[0].event, 'tracking:incident_updated');
-  assert.deepEqual(realtime.emitted[0].users, ['5']);
-  assert.deepEqual(realtime.emitted[0].payload, { incidentId: '701', tripId: '100', status: 'NEW', handlingNote: null });
+  assert.deepEqual(realtime.emitted[0].users, ['5', '6']);
+  assert.deepEqual(realtime.emitted[0].payload, { incidentId: '701', tripId: '100', status: 'NEW', handlingNote: null, waitMinutes: 45, expectedAt: '2026-10-26T10:45:00.000Z' });
   assert.equal(realtime.emitted[1].event, 'notification:new');
-  assert.deepEqual(realtime.emitted[1].users, ['5']);
+});
+
+test('Realtime: new incident → tracking:incident_reported tới điều phối viên phụ trách + notification:new cho từng người nhận', async () => {
+  const realtime = fakeRealtime();
+  const body = { incidentType: 'VEHICLE_BREAKDOWN', subType: 'TIRE_BURST', description: 'Nổ lốp sau', severity: 'RED', damageTarget: 'VEHICLE' };
+  await withStorage(() => new TrackingService(realtimeRepo({}), undefined, realtime).createIncident(driver, '100', body, [photo()]));
+  const reported = realtime.emitted.find(e => e.event === 'tracking:incident_reported');
+  assert.deepEqual(reported.users, ['3']);
+  assert.equal(reported.payload.incident.orderCode, 'WDP-1');
+  const notices = realtime.emitted.filter(e => e.event === 'notification:new');
+  assert.deepEqual(notices.map(n => n.users[0]), ['3', '2']);
+  assert.equal(notices[0].payload.relatedType, 'INCIDENT');
 });
 
 test('Realtime: transaction lỗi → không emit; socket/DB lỗi sau commit → request vẫn thành công', async () => {
   const realtime = fakeRealtime();
   const failing = realtimeRepo({}, { transaction: async work => { await work(failing); throw new Error('commit failed'); } });
   await assert.rejects(() => new TrackingService(failing, undefined, realtime).createAlert(coordinator, '100', { alertType: 'WEATHER', content: 'Mưa lớn' }), /commit failed/);
-  await assert.rejects(() => new TrackingService(failing, undefined, realtime).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED' }), /commit failed/);
+  await assert.rejects(() => new TrackingService(failing, undefined, realtime).updateIncident(coordinator, '701', { status: 'ACKNOWLEDGED', handlingNote: 'Đã gọi cứu hộ' }), /commit failed/);
   assert.equal(realtime.emitted.length, 0);
 
   const broken = { emitToUsers: () => { throw new Error('socket down'); } };
@@ -833,7 +880,7 @@ test('Role split: only the trip DRIVER records milestones / completes legs / sen
   // Báo sự cố và đọc nhật ký: cả hai như cũ
   const incident = { severity: 'RED', incidentType: 'HORSE_MEDICAL', subType: 'COLIC', damageTarget: 'HORSE', description: 'Ngựa đau bụng', horseId: '21' };
   for (const account of [driver, escort]) {
-    assert.equal((await new TrackingService(repo()).createIncident(account, '100', incident)).id, '701');
+    assert.equal((await new TrackingService(repo()).createIncident(account, '100', incident, [photo()])).id, '701');
     assert.equal((await new TrackingService(repo()).getTripHorseLogs(account, '100')).length, 1);
   }
   void by;
@@ -857,6 +904,8 @@ function careRepo(overrides = {}, calls = {}) {
     getCurrentLegId: async () => '10',
     insertCareActivity: async input => { calls.inserted = input; const id = String(800 + rows.length); rows.push({ ...input, id }); return id; },
     findCareActivity: async id => calls.original && calls.original.id === id ? calls.original : undefined,
+    getCareActivityAttachments: async () => [],
+    copyCareActivityAttachments: async () => {},
     getCareActivities: async (tripId, range, onlyId) => {
       calls.query = { tripId, range, onlyId };
       if (onlyId) return calls.rowFor ? [calls.rowFor(onlyId)] : [];
@@ -1308,4 +1357,50 @@ test('Horse report correction: customer chain stays one version (audience rule) 
   await assert.rejects(() => sendDraft(original({ corrected: true }), {}, noNotice), status(409));
   assert.equal(noNotice.notified.length, 0, 'bị chặn thì không thông báo');
   await sendDraft(original({ reportStatus: null, corrected: true }), {}, draftCalls()); // gốc là nhật ký cũ: giữ luật cũ
+});
+
+// ─── Ảnh nhật ký chăm sóc + ảnh bắt buộc của sự cố (PHOTO_REQUIRED) ─────────
+test('Care activity photos: optional, multipart numbers parsed, files linked to the activity, correction keeps old photos', async () => {
+  await withStorage(async () => {
+    // Không ảnh vẫn lưu được (PHOTO_REQUIRED.CARE_ACTIVITY = false)
+    const plain = { rowFor: id => careRow({ id }) };
+    await new TrackingService(careRepo({}, plain)).createCareActivity(escort, '100', careBody());
+    assert.equal(plain.attachments, undefined);
+
+    // Multipart: mọi trường là chuỗi; lượng nước đổi lại thành số; ảnh gắn vào đúng hoạt động
+    const calls = { rowFor: id => careRow({ id, activityType: 'WATER', feedDescription: null, amountLiters: '7.5' }) };
+    const repo = careRepo({ getCareActivityAttachments: async ids => ids.map(id => ({ id: '901', originalName: 'ngua.png', fileType: 'PNG', sizeBytes: 40, uploadedAt: new Date(), caption: null, careActivityId: id })) }, calls);
+    const created = await new TrackingService(repo).createCareActivity(escort, '100',
+      { activityType: 'WATER', horseId: '21', amountLiters: '7.5', note: '', performedAt: new Date().toISOString() }, [photo(), photo(PNG, 'b.png')]);
+    assert.equal(calls.inserted.amountLiters, 7.5);
+    assert.equal(calls.attachments.length, 2);
+    assert.equal(calls.attachments[0][8], created.id, 'care_activity_id là tham số cuối');
+    assert.equal(created.photos.length, 1);
+
+    // PDF bị từ chối
+    await assert.rejects(() => new TrackingService(careRepo()).createCareActivity(escort, '100', careBody(), [photo(PDF, 'a.pdf')]), status(400));
+
+    // Đính chính không ảnh mới: chép ảnh bản gốc
+    const copied = [];
+    const fix = { rowFor: id => careRow({ id }), original: { id: '700', tripId: '100', horseId: '21', activityType: 'FEED', corrected: false } };
+    await new TrackingService(careRepo({ copyCareActivityAttachments: async (from, to) => copied.push([from, to]) }, fix))
+      .createCareActivity(escort, '100', careBody({ correctsActivityId: '700' }));
+    assert.deepEqual(copied, [['700', '800']]);
+  });
+});
+
+test('Incident without a scene photo is rejected (PHOTO_REQUIRED.INCIDENT)', async () => {
+  const base = { incidentType: 'VEHICLE_BREAKDOWN', subType: 'TIRE_BURST', description: 'Nổ lốp sau', severity: 'ORANGE', damageTarget: 'VEHICLE' };
+  await assert.rejects(() => new TrackingService(stage2Repo()).createIncident(driver, '100', base), e => e.getStatus() === 400 && /ảnh hiện trường/.test(e.message));
+});
+
+test('Customer can open care-activity photos of their own order only', async () => {
+  const row = { id: '901', originalName: 'a.png', fileType: 'PNG', storagePath: '0c9f1a52-3a11-4d0b-9a55-6b0a1f7a3333', tripId: '100', horseLogId: null, incidentId: null, careActivityId: '800' };
+  const customer = { id: '2', role: Role.CUSTOMER };
+  const fetchAs = visible => new TrackingService(stage2Repo({ findAttachment: async () => row, isCarePhotoVisibleToCustomer: async () => visible })).getAttachmentFile(customer, '901');
+  await withStorage(async dir => {
+    fs.writeFileSync(path.join(dir, row.storagePath), PNG);
+    assert.equal((await fetchAs(true)).fileType, 'PNG');
+    await assert.rejects(() => fetchAs(false), status(404));
+  });
 });

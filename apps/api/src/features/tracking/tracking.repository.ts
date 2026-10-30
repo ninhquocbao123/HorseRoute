@@ -2,7 +2,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { LegStatus, MilestoneType, CrewRole, OrderStatus, PlanStatus } from '@my-project/shared';
 import { checkCrewReadiness } from '../trips/trips.crew';
 import { DEFAULT_MAX_RETROACTIVE_MINUTES } from './tracking.validation';
-import { DriverTripRow, LegDetailRow, MilestoneRow, HorseInTrip, TripCrewRow, TripContactsRow, TripVehicleRow, TripMapLegRow, PositionRow } from './tracking.dto';
+import { DriverTripRow, LegDetailRow, MilestoneRow, WaypointCheckinRow, HorseInTrip, TripCrewRow, TripContactsRow, TripVehicleRow, TripMapLegRow, PositionRow } from './tracking.dto';
 import type { RouteMode } from '@my-project/shared';
 import type { CachedRoute } from './trackmap.routes-provider';
 import type { LngLat } from './trackmap.geo';
@@ -166,6 +166,32 @@ export class TrackingRepository {
       ORDER BY m.occurred_at ASC, m.id ASC`,
       legIds
     );
+  }
+
+  async getWaypointCheckins(legIds: string[]): Promise<WaypointCheckinRow[]> {
+    if (!legIds.length) return [];
+    return this.db.query(
+      `SELECT CAST(w.leg_id AS CHAR) AS legId, w.waypoint_id AS waypointId, w.waypoint_label AS label,
+        w.occurred_at AS occurredAt, u.full_name AS recordedByName
+      FROM leg_waypoint_checkins w JOIN users u ON u.id = w.recorded_by
+      WHERE w.leg_id IN (${legIds.map(() => '?').join(',')})
+      ORDER BY w.occurred_at ASC, w.id ASC`,
+      legIds
+    );
+  }
+
+  async insertWaypointCheckin(legId: string, waypointId: string, label: string, occurredAt: string, recordedBy: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO leg_waypoint_checkins (leg_id, waypoint_id, waypoint_label, occurred_at, recorded_by) VALUES (?, ?, ?, ?, ?)`,
+      [legId, waypointId, label, new Date(occurredAt), recordedBy]
+    );
+  }
+
+  /** Điểm nghỉ giữa đường (REST_STOP) theo thứ tự của route_plan; rỗng với chuyến cũ không có route_plan. */
+  async getRestStops(tripId: string): Promise<{ id: string; label: string }[]> {
+    const [row] = await this.db.query(`SELECT route_plan AS routePlan FROM trips WHERE id = ?`, [tripId]);
+    const plan = decodeRoutePlan(row?.routePlan);
+    return plan ? plan.waypoints.filter(point => point.kind === 'REST_STOP').map(point => ({ id: point.id, label: point.label })) : [];
   }
 
   async getTripHorses(orderId: string): Promise<HorseInTrip[]> {
@@ -532,19 +558,21 @@ export class TrackingRepository {
     tripId: string;
     horseLogId: string | null;
     incidentId: string | null;
+    careActivityId: string | null;
     /** Chỉ có với ảnh của nhật ký ngựa: trạng thái báo cáo và người tạo (ảnh nháp chỉ người tạo xem được). */
     reportStatus?: string | null;
     logCreatedBy?: string | null;
   } | undefined> {
     const [row] = await this.db.query(
       `SELECT CAST(a.id AS CHAR) AS id, a.original_name AS originalName, a.file_type AS fileType,
-        a.storage_path AS storagePath, CAST(COALESCE(l.trip_id, i.trip_id) AS CHAR) AS tripId,
-        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId,
+        a.storage_path AS storagePath, CAST(COALESCE(l.trip_id, i.trip_id, c.trip_id) AS CHAR) AS tripId,
+        CAST(a.horse_log_id AS CHAR) AS horseLogId, CAST(a.incident_id AS CHAR) AS incidentId, CAST(a.care_activity_id AS CHAR) AS careActivityId,
         h.report_status AS reportStatus, CAST(h.created_by AS CHAR) AS logCreatedBy
       FROM attachments a
       LEFT JOIN horse_logs h ON h.id = a.horse_log_id
       LEFT JOIN legs l ON l.id = h.leg_id
       LEFT JOIN incidents i ON i.id = a.incident_id
+      LEFT JOIN horse_care_activities c ON c.id = a.care_activity_id
       WHERE a.id = ?`,
       [id]
     );
@@ -917,9 +945,9 @@ export class TrackingRepository {
     );
   }
 
-  async getTripIncidents(tripId: string): Promise<import('./tracking.dto').IncidentRow[]> {
-    const rows = await this.db.query(
-      `SELECT CAST(i.id AS CHAR) AS id,
+  /** Cột chung của sự cố; kèm mã đơn, tuyến (chặng cũ hoặc route_plan) và vai trò người báo. */
+  private incidentQuery(where: string, order = 'i.reported_at ASC, i.id ASC', limit = '') {
+    return `SELECT CAST(i.id AS CHAR) AS id,
         CAST(i.trip_id AS CHAR) AS tripId,
         CAST(i.leg_id AS CHAR) AS legId,
         CAST(i.horse_id AS CHAR) AS horseId,
@@ -939,18 +967,109 @@ export class TrackingRepository {
         i.reported_at AS reportedAt,
         CAST(i.received_by AS CHAR) AS receivedBy,
         i.handling_note AS handlingNote,
-        i.closed_at AS closedAt
+        i.closed_at AS closedAt,
+        CAST(t.order_id AS CHAR) AS orderId,
+        o.order_code AS orderCode,
+        COALESCE((SELECT f.name FROM legs l JOIN locations f ON f.id = l.from_location_id WHERE l.trip_id = t.id ORDER BY l.seq_no ASC LIMIT 1),
+          JSON_UNQUOTE(JSON_EXTRACT(t.route_plan, '$.waypoints[0].label'))) AS fromName,
+        COALESCE((SELECT d.name FROM legs l JOIN locations d ON d.id = l.to_location_id WHERE l.trip_id = t.id ORDER BY l.seq_no DESC LIMIT 1),
+          JSON_UNQUOTE(JSON_EXTRACT(t.route_plan, '$.waypoints[last].label'))) AS toName,
+        (SELECT ta.role FROM trip_assignments ta WHERE ta.trip_id = i.trip_id AND ta.user_id = i.reported_by LIMIT 1) AS reporterRole
       FROM incidents i
+      JOIN trips t ON t.id = i.trip_id
+      JOIN orders o ON o.id = t.order_id
       LEFT JOIN horses h ON h.id = i.horse_id
       JOIN users u1 ON u1.id = i.reported_by
-      WHERE i.trip_id = ?
-      ORDER BY i.reported_at ASC, i.id ASC`,
-      [tripId]
-    );
+      WHERE ${where}
+      ORDER BY ${order} ${limit}`;
+  }
+
+  private incidentRows(rows: import('./tracking.dto').IncidentRow[]) {
     // DECIMAL comes back as a string (bigNumberStrings); old incidents have no coordinates.
-    return rows.map((row: import('./tracking.dto').IncidentRow) => ({
-      ...row, latitude: coordinate(row.latitude), longitude: coordinate(row.longitude),
-    }));
+    return rows.map(row => ({ ...row, latitude: coordinate(row.latitude), longitude: coordinate(row.longitude) }));
+  }
+
+  async getTripIncidents(tripId: string): Promise<import('./tracking.dto').IncidentRow[]> {
+    return this.incidentRows(await this.db.query(this.incidentQuery('i.trip_id = ?'), [tripId]));
+  }
+
+  /**
+   * Sự cố cho trang "Xử lý sự cố": `plannerId` = chuyến do điều phối viên đó phụ trách (null = Manager, mọi chuyến).
+   * Đang mở: NEW trước, rồi mức độ (đỏ > cam > vàng), mới nhất trước; đã xử lý: đóng gần nhất trước.
+   */
+  async getCoordinatorIncidents(plannerId: string | null, scope: 'open' | 'closed'): Promise<import('./tracking.dto').IncidentRow[]> {
+    const filters = [scope === 'open' ? "i.status <> 'CLOSED'" : "i.status = 'CLOSED'"];
+    const params: unknown[] = [];
+    if (plannerId) { filters.push('t.planned_by = ?'); params.push(plannerId); }
+    const order = scope === 'open'
+      ? "i.status = 'NEW' DESC, FIELD(i.severity, 'RED', 'ORANGE', 'YELLOW') = 0, FIELD(i.severity, 'RED', 'ORANGE', 'YELLOW'), i.reported_at DESC, i.id DESC"
+      : 'i.closed_at DESC, i.id DESC';
+    return this.incidentRows(await this.db.query(this.incidentQuery(filters.join(' AND '), order, 'LIMIT 200'), params));
+  }
+
+  async getIncidentById(incidentId: string): Promise<import('./tracking.dto').IncidentRow | undefined> {
+    const [row] = this.incidentRows(await this.db.query(this.incidentQuery('i.id = ?'), [incidentId]));
+    return row;
+  }
+
+  async getIncidentResponses(incidentIds: string[]): Promise<import('./tracking.dto').IncidentResponseRow[]> {
+    if (!incidentIds.length) return [];
+    return this.db.query(
+      `SELECT CAST(r.id AS CHAR) AS id, CAST(r.incident_id AS CHAR) AS incidentId, r.kind, r.note, r.wait_minutes AS waitMinutes,
+        u.full_name AS sentByName, r.sent_at AS sentAt
+      FROM incident_responses r JOIN users u ON u.id = r.sent_by
+      WHERE r.incident_id IN (${incidentIds.map(() => '?').join(',')})
+      ORDER BY r.sent_at ASC, r.id ASC`,
+      incidentIds
+    );
+  }
+
+  async insertIncidentResponse(incidentId: string, kind: 'RESPONSE' | 'RESOLVED', note: string, waitMinutes: number | null, sentBy: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO incident_responses (incident_id, kind, note, wait_minutes, sent_by, sent_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+      [incidentId, kind, note, waitMinutes, sentBy]
+    );
+  }
+
+  /** Người nhận thông báo sự cố mới: điều phối viên phụ trách chuyến và các Manager đang hoạt động. */
+  async getIncidentRecipients(tripId: string): Promise<{ plannerId: string; managerIds: string[] }> {
+    const [trip] = await this.db.query(`SELECT CAST(planned_by AS CHAR) AS plannerId FROM trips WHERE id = ?`, [tripId]);
+    const managers = await this.db.query(`SELECT CAST(id AS CHAR) AS id FROM users WHERE role = 'MANAGER' AND account_status = 'ACTIVE'`);
+    return { plannerId: trip?.plannerId ?? '', managerIds: managers.map((row: { id: string }) => row.id) };
+  }
+
+  async getCareActivityAttachments(activityIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
+    if (!activityIds.length) return [];
+    return this.db.query(
+      `SELECT CAST(id AS CHAR) AS id, original_name AS originalName, file_type AS fileType, size_bytes AS sizeBytes,
+        uploaded_at AS uploadedAt, caption, NULL AS horseLogId, NULL AS incidentId, CAST(care_activity_id AS CHAR) AS careActivityId
+      FROM attachments
+      WHERE care_activity_id IN (${activityIds.map(() => '?').join(',')})
+      ORDER BY id ASC`,
+      activityIds
+    );
+  }
+
+  /** Bản đính chính không gửi ảnh mới: giữ ảnh của bản gốc (cùng tệp, bản ghi đính kèm mới trỏ tới bản đính chính). */
+  async copyCareActivityAttachments(fromActivityId: string, toActivityId: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO attachments (original_name, file_type, size_bytes, storage_path, uploaded_by, caption, care_activity_id)
+      SELECT original_name, file_type, size_bytes, storage_path, uploaded_by, caption, ? FROM attachments WHERE care_activity_id = ? ORDER BY id`,
+      [toActivityId, fromActivityId]
+    );
+  }
+
+  /** Ảnh nhật ký chăm sóc khách xem được: đơn của khách, kế hoạch đã duyệt, đơn READY / IN_TRANSIT / DELIVERED. */
+  async isCarePhotoVisibleToCustomer(attachmentId: string, customerId: string): Promise<boolean> {
+    const rows = await this.db.query(
+      `SELECT a.id FROM attachments a
+      JOIN horse_care_activities c ON c.id = a.care_activity_id
+      JOIN trips t ON t.id = c.trip_id
+      JOIN orders o ON o.id = t.order_id
+      WHERE a.id = ? AND o.customer_id = ? AND t.plan_status = 'APPROVED' AND o.status IN ('READY', 'IN_TRANSIT', 'DELIVERED') LIMIT 1`,
+      [attachmentId, customerId]
+    );
+    return rows.length > 0;
   }
 
   async getIncidentAttachments(incidentIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
@@ -1059,12 +1178,13 @@ export class TrackingRepository {
     uploadedBy: string,
     horseLogId: string | null = null,
     incidentId: string | null = null,
-    caption: string | null = null
+    caption: string | null = null,
+    careActivityId: string | null = null
   ): Promise<string> {
     const result = await this.db.query(
-      `INSERT INTO attachments (original_name, file_type, size_bytes, storage_path, uploaded_by, horse_log_id, incident_id, caption)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [originalName, fileType, sizeBytes, storagePath, uploadedBy, horseLogId, incidentId, caption]
+      `INSERT INTO attachments (original_name, file_type, size_bytes, storage_path, uploaded_by, horse_log_id, incident_id, caption, care_activity_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [originalName, fileType, sizeBytes, storagePath, uploadedBy, horseLogId, incidentId, caption, careActivityId]
     );
     return String(result.insertId);
   }

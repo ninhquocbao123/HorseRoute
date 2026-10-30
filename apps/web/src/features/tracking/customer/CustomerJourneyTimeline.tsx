@@ -37,8 +37,12 @@ function events(timeline: IOrderTimeline): JourneyEvent[] {
       : end && m.milestoneType === 'ARRIVED_AT_STOP' ? `${leg.toLocationName} · đang chờ bàn giao ngựa` : null;
     return { key: `${leg.seqNo}-${m.milestoneType}-${m.occurredAt}`, at: m.occurredAt, title, detail };
   }));
+  // Điểm nghỉ giữa đường tài xế đã check-in (lộ trình có nhiều điểm dừng).
+  const stops = timeline.legs.flatMap(leg => (leg.waypointCheckins ?? []).map(c => ({
+    key: `wp-${leg.seqNo}-${c.waypointId}`, at: c.occurredAt, title: `Xe đã đến điểm dừng ${c.label}`, detail: 'Điểm nghỉ trên hành trình · xe sẽ tiếp tục sau khi nghỉ',
+  })));
   // Mới nhất trên cùng.
-  return list.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return [...list, ...stops].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
 const STEPS = ['Sẵn sàng khởi hành', 'Đã xuất phát', 'Đang vận chuyển', 'Đã đến điểm nhận', 'Đã giao ngựa'];
@@ -51,7 +55,7 @@ function stepOf(timeline: IOrderTimeline) {
   const departed = timeline.legs.some(leg => leg.milestones.some(m => m.milestoneType === 'DEPARTED'));
   if (!departed) return 0;
   // Đã qua ít nhất một điểm dừng giữa đường (hoặc chặng đầu đã xong) → đang vận chuyển.
-  return timeline.legs.some(leg => leg.status === 'COMPLETED' || leg.milestones.length > 1) ? 2 : 1;
+  return timeline.legs.some(leg => leg.status === 'COMPLETED' || leg.milestones.length > 1 || (leg.waypointCheckins?.length ?? 0) > 0) ? 2 : 1;
 }
 
 /**

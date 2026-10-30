@@ -65,10 +65,13 @@ export function useNotifications(accountId: string) {
   }
 
   /** Có thông báo mới từ socket: thêm vào đầu danh sách (bỏ qua nếu đã có) để badge chuông tăng ngay. */
-  const addNotice = useCallback((notice: { id: string; content: string; createdAt: string; eventType?: string }) => {
+  const addNotice = useCallback((notice: { id: string; content: string; createdAt: string; eventType?: string; relatedType?: string; relatedId?: string }) => {
     setNotifications(items => (items.some(item => item.id === String(notice.id))
       ? items
-      : [{ id: String(notice.id), content: notice.content, is_read: 0, created_at: notice.createdAt, event_type: notice.eventType, related_type: 'TRIP' }, ...items]));
+      : [{
+        id: String(notice.id), content: notice.content, is_read: 0, created_at: notice.createdAt, event_type: notice.eventType,
+        related_type: notice.relatedType ?? 'TRIP', related_id: notice.relatedId,
+      }, ...items]));
   }, []);
 
   useEffect(() => {

@@ -7,7 +7,7 @@ import { getAccessToken } from '../../../lib/auth-storage';
 export const POLL_MS = 60_000;
 
 export type RealtimeAlert = { alertId: string; tripId: string; alertType: string; content: string; sentByName: string; sentAt: string };
-export type RealtimeIncident = { incidentId: string; tripId: string; status: string; handlingNote: string | null };
+export type RealtimeIncident = { incidentId: string; tripId: string; status: string; handlingNote: string | null; waitMinutes?: number | null; expectedAt?: string | null };
 export type RealtimeHorseReportViewed = { reportId: string; viewedAt: string };
 export type RealtimeNotification = { id: string; content: string; createdAt: string; eventType?: string };
 

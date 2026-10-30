@@ -13,13 +13,6 @@
 
 /* Hộp thoại ghi mốc (useLegAction) */
 .drv-alert-actions { display: flex; gap: 8px; }
-.drv-confirm { display: grid; gap: 14px; }
-.drv-confirm p { margin: 0; }
-.drv-confirm-time { display: grid; gap: 4px; padding: 12px 14px; background: #f3f7f5; border-radius: 8px; }
-.drv-confirm-time span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--color-text-muted, #68756e); }
-.drv-confirm-time strong { font-size: 18px; }
-.drv-switch { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; cursor: pointer; }
-.drv-backfill { display: grid; gap: 6px; }
 
 .drv-form-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 
@@ -310,3 +303,34 @@
 .drv-nav-resume:hover { background: #1765cc; }
 .drv-nav-exit:focus-visible, .drv-nav-resume:focus-visible { outline: 3px solid #fbbc04; outline-offset: 2px; }
 .drv-nav-arrow { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid currentColor; }
+
+/* Hộp thoại ghi mốc (CheckInDialog): render ngoài .drs nên khai báo màu riêng, cùng bảng teal/gold của khung tài xế. */
+.drv-dialog { --dlg-navy: #0b3b42; --dlg-navy2: #14606a; --dlg-gold: #f4b942; --dlg-soft: #e7f1f1; --dlg-line: #d8e6e6; --dlg-ink: #0d2a2e; --dlg-muted: #546d71; }
+.drv-dialog .ant-modal-container { box-shadow: 0 24px 60px rgb(11 59 66 / 35%); }
+.drv-dialog-head { display: flex; align-items: center; gap: 16px; padding: 22px 28px; color: #fff; background: linear-gradient(105deg, var(--dlg-navy) 0%, var(--dlg-navy2) 100%); }
+.drv-dialog-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 16px; background: var(--dlg-gold); color: var(--dlg-navy); font-size: 24px; }
+.drv-dialog-head small { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #b2d2d2; }
+.drv-dialog-head h2 { margin: 0; padding-right: 8px; font-size: 22px; font-weight: 800; line-height: 1.25; color: #fff; overflow-wrap: anywhere; }
+.drv-dialog-body { display: grid; gap: 14px; padding: 22px 28px 8px; background: #fff; }
+.drv-dialog-route { display: grid; gap: 6px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--dlg-line); border-left: 6px solid var(--dlg-gold); background: #f6faf9; }
+.drv-dialog-route-label { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--dlg-navy2); }
+.drv-dialog-route strong { font-size: 20px; font-weight: 800; line-height: 1.35; color: var(--dlg-ink); overflow-wrap: anywhere; }
+.drv-dialog-route-detail { font-size: 13px; color: var(--dlg-muted); }
+.drv-dialog-time { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: var(--dlg-soft); color: var(--dlg-navy2); }
+.drv-dialog-time span { font-size: 13px; font-weight: 600; color: var(--dlg-muted); }
+.drv-dialog-time strong { margin-left: auto; font-size: 18px; font-weight: 800; color: var(--dlg-navy); }
+.drv-dialog-backfill { display: grid; gap: 6px; }
+.drv-dialog-backfill small { font-size: 12px; color: var(--dlg-muted); }
+.drv-dialog-backfill .ant-picker { height: 44px; border-radius: 12px; border-width: 1.5px; }
+.drv-dialog-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px 22px; background: #fff; }
+.drv-dialog-backfill-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 0; border-radius: 99px; background: transparent; color: var(--dlg-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.drv-dialog-backfill-toggle:hover:not(:disabled), .drv-dialog-backfill-toggle[aria-pressed=true] { background: var(--dlg-soft); color: var(--dlg-navy2); }
+.drv-dialog-actions { display: flex; gap: 10px; }
+.drv-dialog .drv-dialog-actions .ant-btn { height: 46px; padding: 0 26px; border-radius: 14px; font-size: 15px; font-weight: 700; }
+.drv-dialog .drv-dialog-cancel { border: 1.5px solid var(--dlg-line); color: var(--dlg-ink); }
+.drv-dialog .drv-dialog-ok, .drv-dialog .drv-dialog-ok:not(:disabled):hover { background: var(--dlg-navy); border-color: var(--dlg-navy); color: #fff; }
+.drv-dialog .drv-dialog-ok:not(:disabled):hover { background: var(--dlg-navy2); border-color: var(--dlg-navy2); }
+
+/* Ảnh hiện trường bắt buộc (PHOTO_REQUIRED.INCIDENT) */
+.drv-photo-required { display: grid; gap: 6px; }
+.drs .drv-photo-required.is-invalid .drv-photo-add { border-color: var(--drs-red); color: var(--drs-red-text); }

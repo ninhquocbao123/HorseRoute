@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HorseRoute Hộ tống Wireframe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: thanh công cụ dính trên cùng; chế độ Bấm thử = khung điện thoại + ghi chú; chế độ Xem tất cả = mỗi màn một hàng biến thể. */
+:root{
+  --page-bg:#eef3f2; --page-fg:#0d2a2e; --page-muted:#546d71; --page-line:#d3e1e1; --page-card:#ffffff; --page-brand:#0b3b42; --page-on-brand:#ffffff; --page-seg:#e1ebea;
+  /* Bên trong khung: màu thương hiệu xanh #0b3b42, vàng #f4b942, trắng (00-context mục 5b); giữ một kiểu ở cả hai chế độ sáng/tối */
+  --w-ink:#0b3b42; --w-ink2:#546d71; --w-ink3:#8aa3a6; --w-line:#d8e6e6; --w-fill:#e7f1f1; --w-fill2:#f6faf9; --w-bg:#ffffff; --w-dark:#0b3b42; --w-brand2:#14606a; --w-on-dark:#ffffff; --w-on-dark2:#b9d3d6; --w-shade:rgba(6,20,22,.5);
+  --acc:#f4b942; --on-acc:#2b1a00;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}}
+:root[data-theme="dark"]{--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}
+html,body{background:var(--page-bg);color:var(--page-fg)}
+body{font-family:var(--font);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--page-card)}
+button{font-family:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid #2f7c87;outline-offset:2px}
+
+/* ---------- Thanh công cụ (ngoài khung) ---------- */
+.tb{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page-card);border-bottom:1px solid var(--page-line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.tb h1{font-size:16px;margin:0;font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tb h1 small{font-weight:500;color:var(--page-muted);font-size:13px}
+.tb .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tb .lab{font-size:12px;color:var(--page-muted);letter-spacing:.02em}
+.seg{display:inline-flex;background:var(--page-seg);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--page-fg);font-size:13px;font-weight:500;padding:6px 10px;border-radius:8px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--page-brand);color:var(--page-on-brand)}
+.tbtn{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:10px;padding:6px 12px;font-size:13px;min-height:38px;cursor:pointer}
+.spacer{flex:1}
+
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+
+/* ---------- Chế độ Bấm thử ---------- */
+.proto{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.device{background:#0c2326;border-radius:52px;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.device .screen{border-radius:40px}
+.device.android{border-radius:28px;padding:10px}
+.device.android .screen{border-radius:18px}
+.fit{position:relative;flex:none}
+.fit>.scaled{transform-origin:0 0;position:absolute;left:0;top:0}
+.panel{flex:1 1 320px;max-width:440px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.pcard{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.pcard h2{margin:0;font-size:18px;text-wrap:balance}
+.pcard h3{margin:0;font-size:13px;font-weight:600;color:var(--page-muted);letter-spacing:.04em;text-transform:uppercase}
+.pcard p,.pcard li{margin:0;font-size:14px;line-height:1.55}
+.pcard ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--page-muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:left}
+.jump button.on{border-color:var(--page-brand);background:var(--page-seg);font-weight:600}
+.jump button .code{color:var(--page-muted);margin-right:6px}
+.hint{font-size:13px;color:var(--page-muted)}
+
+/* ---------- Chế độ Xem tất cả ---------- */
+.grid{display:flex;flex-direction:column;gap:40px}
+.grow-row{display:flex;flex-direction:column;gap:12px}
+.grow-row>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.grow-row>header h2{margin:0;font-size:20px}
+.grow-row>header p{margin:0;color:var(--page-muted);font-size:14px;max-width:70ch}
+.strip{display:flex;gap:20px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.vcell{display:flex;flex-direction:column;gap:8px;flex:none}
+.vcell .vl{font-size:13px;font-weight:600;max-width:390px}
+.vcell .fit{border:1px solid var(--page-line);border-radius:6px;overflow:hidden;cursor:zoom-in}
+
+/* ---------- Khung màn (wireframe) ---------- */
+.screen{width:var(--fw);height:var(--fh);display:flex;flex-direction:column;background:var(--w-bg);color:var(--w-ink);font-family:var(--font);font-size:15px;line-height:1.4;position:relative;overflow:hidden;text-align:left}
+.screen *{box-sizing:border-box}
+.sb{height:47px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font-weight:600;font-size:15px;background:var(--w-bg)}
+.android .sb{height:28px;padding:0 16px;font-size:13px}
+.sbi{display:flex;align-items:center;gap:6px}
+.sbi .bat{width:24px;height:12px;border:1.5px solid var(--w-ink);border-radius:3px;display:flex;padding:1.5px}
+.sbi .bat span{width:70%;background:var(--w-ink);border-radius:1px}
+.sbi .sig{display:flex;align-items:flex-end;gap:2px;height:12px}
+.sbi .sig span{width:3px;background:var(--w-ink);border-radius:1px}
+.hi{height:34px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.hi span{width:134px;height:5px;border-radius:3px;background:var(--w-ink)}
+.android .hi{height:24px} .android .hi span{width:108px;height:4px}
+.hdr{min-height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid var(--w-line);background:var(--w-bg)}
+.hdr .t{flex:1;min-width:0;display:flex;flex-direction:column;padding:0 4px}
+.hdr .t b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .t small{font-size:13px;color:var(--w-ink2)}
+.hdr.big{min-height:64px;padding:0 16px;border-bottom:0}
+.hdr.big .t b{font-size:26px;font-weight:700}
+.ib{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:none;border:0;color:inherit;cursor:pointer;padding:0}
+.body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;background:var(--w-fill2)}
+.body.white{background:var(--w-bg)}
+.bottom{flex:none;display:flex;flex-direction:column;background:var(--w-bg);border-top:1px solid var(--w-line)}
+.bottom .row{display:flex;gap:8px;padding:12px 16px 4px}
+.bottom .note{padding:10px 16px 0;font-size:13px;color:var(--w-ink2)}
+.btn{min-height:56px;border-radius:14px;font-family:var(--font);font-weight:600;font-size:16px;line-height:1.2;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border:1.5px solid var(--w-ink);background:var(--w-bg);color:var(--w-ink);cursor:pointer;text-align:center;text-decoration:none}
+.btn.pri{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.btn.xl{min-height:64px;font-size:17px}
+.btn.grow{flex:1;min-width:0}
+.btn.side{width:116px;flex:none;flex-direction:column;gap:2px;font-size:13px;padding:0 8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn[disabled]{background:var(--w-fill);color:var(--w-ink3);border-color:var(--w-line);cursor:default}
+.card{background:var(--w-bg);border:1px solid var(--w-line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.tap{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--w-line);font-size:13px;font-weight:500;background:var(--w-bg);white-space:nowrap}
+.chip.dark{background:var(--w-dark);color:#fff;border-color:var(--w-dark)}
+.chip.fill{background:var(--w-fill)}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--w-ink2)}
+.muted{color:var(--w-ink2)} .small{font-size:13px}
+.big{font-size:24px;font-weight:700;line-height:1.2;text-wrap:balance}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--w-line);background:var(--w-bg);font-family:var(--font);font-weight:500;font-size:15px;color:var(--w-ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.opt.on{border-color:var(--w-ink);background:var(--w-fill);font-weight:600}
+.bigopt{min-height:72px;width:100%;border-radius:16px;border:1.5px solid var(--w-line);background:var(--w-bg);display:flex;align-items:center;gap:12px;padding:12px 16px;font-family:var(--font);color:var(--w-ink);text-align:left;cursor:pointer}
+.bigopt.on{border:2.5px solid var(--w-ink);background:var(--w-fill)}
+.bigopt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bigopt .tx b{font-size:17px}
+.bigopt .tx span{font-size:13px;color:var(--w-ink2)}
+.ico{width:44px;height:44px;flex:none;border-radius:12px;background:var(--w-fill);display:flex;align-items:center;justify-content:center}
+.sevm{display:flex;gap:3px;align-items:flex-end;height:22px;flex:none}
+.sevm span{width:6px;border-radius:2px;background:var(--w-line)}
+.sevm span.f{background:var(--w-ink)}
+.tabbar{flex:none;display:flex;border-top:1px solid var(--w-line);background:var(--w-bg)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 4px;font-size:11px;color:var(--w-ink3);background:none;border:0;cursor:pointer;font-family:var(--font);min-height:56px}
+.tab.on{color:var(--w-ink);font-weight:600}
+.overlay{position:absolute;inset:0;background:var(--w-shade);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
+.overlay.center{justify-content:center;padding:24px}
+.sheet{background:var(--w-bg);border-radius:20px 20px 0 0;padding:8px 16px 0;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--w-line);align-self:center}
+.dialog{background:var(--w-bg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.sheet h3,.dialog h3{margin:0;font-size:20px;font-weight:700}
+.kvw{display:flex;flex-direction:column;border:1px solid var(--w-line);border-radius:14px}
+.kvw>div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid var(--w-line);align-items:center}
+.kvw>div:first-child{border-top:0}
+.kvw span:first-child{color:var(--w-ink2);font-size:14px}
+.kvw b{font-weight:600;text-align:right}
+.link{background:none;border:0;padding:0;font:inherit;font-weight:600;text-decoration:underline;color:var(--w-ink);cursor:pointer;min-height:44px}
+.box{border:1.5px dashed var(--w-ink3);border-radius:12px;padding:12px;display:flex;gap:10px;font-size:14px;align-items:flex-start}
+.box.err{border:2px solid var(--w-ink);border-style:solid}
+.skel{background:var(--w-fill);border-radius:8px}
+.hatch{background-color:var(--w-fill2);background-image:repeating-linear-gradient(45deg,#cfe0e0 0 1.5px,transparent 1.5px 10px);border:1px solid var(--w-line);border-radius:12px}
+.bar{display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;min-height:44px;background:var(--w-brand2);color:#fff;font-size:13px;font-weight:500;flex:none;border:0;width:100%;font-family:var(--font);text-align:left;cursor:pointer}
+.bar .grow{flex:1;min-width:0}
+.bar.light{background:var(--w-fill);color:var(--w-ink)}
+.card.brand{background:var(--w-dark);border-color:var(--w-dark);color:var(--w-on-dark)}
+.card.brand .lbl,.card.brand .muted{color:var(--w-on-dark2)}
+.card.brand .chip{background:transparent;color:var(--w-on-dark);border-color:rgba(255,255,255,.35)}
+.card.brand .chip.dark{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.card.brand .link{color:var(--w-on-dark)}
+.undo{margin:12px 12px 0;background:var(--w-dark);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;min-height:60px}
+.undo .grow{flex:1;min-width:0;font-size:14px}
+.undo button{min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #fff;background:transparent;color:#fff;font-family:var(--font);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tl{display:flex;flex-direction:column}
+.stop{display:flex;gap:12px}
+.rail{width:20px;flex:none;display:flex;flex-direction:column;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--w-ink3);background:var(--w-bg);margin-top:3px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.dot.done{background:var(--w-ink);border-color:var(--w-ink)}
+.dot.cur{border:5px solid var(--w-ink)}
+.ln{flex:1;width:2px;background:var(--w-line);min-height:20px}
+.ln.done{background:var(--w-ink)}
+.stop .info{flex:1;min-width:0;padding-bottom:16px;display:flex;flex-direction:column;gap:2px}
+.stop .info b{font-size:15px}
+.ev{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.listrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;border-top:1px solid var(--w-line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;font-family:var(--font);font-size:15px;color:var(--w-ink);text-align:left;cursor:pointer}
+.listrow:first-child{border-top:0}
+.listrow .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--w-ink);flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.chk.on{background:var(--w-ink);color:#fff}
+.field{border:1.5px solid var(--w-line);border-radius:12px;min-height:96px;padding:12px;font-size:15px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;background:var(--w-bg)}
+.field.err{border-color:var(--w-ink);border-width:2px}
+.ph{color:var(--w-ink3)}
+.photos{display:flex;gap:8px}
+.photo{width:96px;height:96px;flex:none;display:flex;flex-direction:column;justify-content:flex-end;padding:6px;font-size:11px;color:var(--w-ink2)}
+.addph{width:96px;height:96px;flex:none;border:1.5px dashed var(--w-ink3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;background:var(--w-bg);color:var(--w-ink);cursor:pointer;font-family:var(--font)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.circle{width:72px;height:72px;border-radius:50%;border:2px solid var(--w-ink);display:flex;align-items:center;justify-content:center}
+.circle.fill{background:var(--w-ink);color:#fff}
+.stubtag{font-size:12px;border:1px dashed var(--w-ink3);border-radius:8px;padding:6px 10px;color:var(--w-ink2)}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec>.lbl em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0;color:var(--w-ink3)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper .ib{border:1.5px solid var(--w-ink);width:64px;height:48px;font-size:18px;font-weight:600;font-family:var(--font)}
+.stepper b{flex:1;text-align:center;font-size:22px}
+@media (prefers-reduced-motion:no-preference){.overlay .sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+@media (max-width:760px){.tb{position:static;gap:6px 10px;padding-block:8px}.tb .lab{display:none}.seg button{padding:5px 8px;font-size:12.5px;min-height:30px}.tb h1 small{display:none}}
+
+/* Thanh cuộn kiểu điện thoại: một vạch mảnh, mờ, không khung, không mũi tên */
+.screen *{scrollbar-width:thin;scrollbar-color:rgba(11,59,66,.28) transparent}
+.screen ::-webkit-scrollbar{width:4px;height:4px;background:transparent}
+.screen ::-webkit-scrollbar-track{background:transparent}
+.screen ::-webkit-scrollbar-thumb{background:rgba(11,59,66,.28);border-radius:4px}
+.screen ::-webkit-scrollbar-button{display:none;width:0;height:0}
+.screen ::-webkit-scrollbar-corner{background:transparent}
+html,.strip{scrollbar-width:thin;scrollbar-color:rgba(84,109,113,.45) transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(84,109,113,.45);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+</style>
+</head>
+<body>
+
+<div class="tb" id="toolbar">
+  <h1>HorseRoute · Hộ tống <small>Wireframe bấm thử · đợt 2/4</small></h1>
+  <div class="grp"><span class="lab">Chế độ</span><div class="seg" id="segMode"><button data-mode="proto" class="on">Bấm thử</button><button data-mode="grid">Xem tất cả màn</button></div></div>
+  <div class="grp"><span class="lab">Trạng thái</span><div class="seg" id="segState"><button data-st="normal" class="on">Bình thường</button><button data-st="loading">Đang tải</button><button data-st="empty">Trống</button><button data-st="error">Lỗi</button><button data-st="offline">Mất sóng</button></div></div>
+  <div class="grp"><span class="lab">Khung</span><div class="seg" id="segPlat"><button data-plat="ios" class="on">iPhone 390×844</button><button data-plat="android">Android 360×800</button></div></div>
+  <div class="grp" id="grpScale" hidden><span class="lab">Tỉ lệ</span><div class="seg" id="segScale"><button data-sc="0.5">50%</button><button data-sc="1">100%</button></div></div>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnReset">Làm lại từ đầu</button>
+</div>
+<main id="main"></main>
+
+<script>
+(function(){
+'use strict';
+/* ---------- Biểu tượng (nét Lucide, 2px; icon ngựa vẽ riêng cùng nét) ---------- */
+const P = {
+  back:'<path d="m15 18-6-6 6-6"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  wifioff:'<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+  more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  upload:'<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  horse:'<path d="M16 3l-1.5 2.2"/><path d="M7 21c.5-3.5 1.6-6 3.5-7.6L8.2 14.5c-1.3.6-2.9.2-3.6-1.1-.6-1-.3-2.3.6-3L12 5.2c2.6-1.9 6.2-1 7.7 1.8.8 1.5 1.3 3.8 1.3 6.3V21"/><circle cx="14" cy="8.5" r=".6" fill="currentColor"/>',
+  notebook:'<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.38 5.62a1 1 0 0 0-3-3l-5.01 5.01a2 2 0 0 0-.5.86l-.84 2.89a.5.5 0 0 0 .62.62l2.89-.84a2 2 0 0 0 .86-.5z"/>',
+  feed:'<path d="M2 22 16 8"/><path d="M3.47 12.53 5 11l1.53 1.53a3.5 3.5 0 0 1 0 4.94L5 19l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z"/><path d="M7.47 8.53 9 7l1.53 1.53a3.5 3.5 0 0 1 0 4.94L9 15l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z"/><path d="M11.47 4.53 13 3l1.53 1.53a3.5 3.5 0 0 1 0 4.94L13 11l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z"/><path d="M20 2h2v2a4 4 0 0 1-4 4h-2V6a4 4 0 0 1 4-4Z"/>',
+  water:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  rest:'<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
+  thermo:'<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
+  heart:'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  eye:'<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus:'<path d="M5 12h14"/>'
+};
+const ic = (n, s=22, w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------- Dữ liệu mẫu ---------- */
+const COND = {STABLE:['Ổn định','check'], OFF_FEED:['Bỏ ăn','feed'], STRESSED:['Căng thẳng','alert'], CLIMATE_CHANGE:['Khí hậu thay đổi','thermo']};
+const APPETITE = {NORMAL:'Bình thường', REDUCED:'Giảm', REFUSED:'Bỏ ăn'};
+const ACTS = {FEED:['Cho ăn','feed'], WATER:['Uống nước','water'], REST:['Nghỉ chân','rest']};
+const FEEDS = ['3 kg cỏ khô','1 kg yến mạch','2 kg cỏ khô + 1 kg yến mạch'];
+const NOW = '07:42';
+const freshHorses = () => ({
+  'Sao Mai': {breed:'Thoroughbred · cái · nâu · 2021', passport:'VN-TB-0217', cond:'STABLE', condAt:'06:10', feed:['05:30','3 kg cỏ khô'], water:['05:45','10 L'], thirsty:false,
+    log:[{t:'06:10',k:'report',txt:'Báo cáo · Ổn định · 37,9 °C',sub:'Đã gửi · khách đã xem 06:30'},{t:'05:45',k:'WATER',txt:'Uống nước 10 L'},{t:'05:30',k:'FEED',txt:'Cho ăn · 3 kg cỏ khô'}]},
+  'Kim Long': {breed:'Quarter Horse · đực · hạt dẻ · 2019', passport:'VN-QH-0098', cond:'STRESSED', condAt:'07:05', feed:['05:30','3 kg cỏ khô'], water:['03:20','8 L'], thirsty:true,
+    log:[{t:'07:05',k:'report',txt:'Báo cáo · Căng thẳng · 38,6 °C',sub:'Đã gửi · khách đã xem 07:20'},{t:'06:40',k:'draft',txt:'Báo cáo nháp · Ổn định',sub:'Chưa gửi'},{t:'05:30',k:'FEED',txt:'Cho ăn · 3 kg cỏ khô'},{t:'03:20',k:'WATER',txt:'Uống nước 8 L'}]}
+});
+const NAMES = ['Sao Mai','Kim Long'];
+
+const NOTES = {
+  'ESC-01':{n:'Chuyến của tôi',kind:'P0 · chỉ hiện khi có từ 2 chuyến',p:'Chọn chuyến khi được phân công nhiều chuyến.',a:'Chạm thẻ chuyến',d:'Mã đơn, trạng thái, tuyến, giờ, số ngựa, vai trò Hộ tống',api:'GET /tracking/driver/trips (lọc crewRole ESCORT)',b:['Chỉ 1 chuyến thì mở thẳng ESC-02.','Mở lại từ "Đổi chuyến" trên ESC-02.']},
+  'ESC-02':{n:'Ngựa trên chuyến',kind:'P0 · tab Ngựa, màn chính của hộ tống',p:'Toàn cảnh đàn ngựa và việc chăm sóc hôm nay.',a:'Ghi nhanh (nút 56pt ngay trên tab bar, vùng ngón cái)',d:'Mỗi ngựa: tên, giống, tình trạng gần nhất, lần ăn và uống gần nhất; tổng hôm nay; xe đang ở đâu',api:'GET /tracking/trips/:id · /horse-logs · /care-activities (summary)',b:['Hướng B đã duyệt: thẻ gọn + một nút Ghi nhanh chung.','Quá 4 giờ chưa uống thì thẻ hiện nhãn tối "4 giờ chưa uống" (ngưỡng cần xác nhận).','Nút ⋯ trên thẻ mở Báo bất thường và Báo cáo sức khỏe; chạm giữ thẻ cũng mở menu này.','Mất sóng: bản ghi vào hàng chờ, gắn nhãn Chờ gửi.']},
+  'ESC-03':{n:'Ghi nhanh chăm sóc',kind:'P0 · bottom sheet',p:'Ghi cho ăn, uống nước, nghỉ chân trong vài chạm.',a:'Lưu nhật ký',d:'Hoạt động, ngựa (chọn nhiều), khẩu phần / lít / phút, giờ',api:'POST /tracking/trips/:id/care-activities (mỗi ngựa một request)',b:['Mặc định chọn cả đoàn; Nghỉ chân ghi một lần cho cả đoàn.','Giờ mặc định là bây giờ; nhập bù tối đa 120 phút (G3).','Không bắt buộc ảnh (Long xác nhận 29/10).','4 chạm khi giữ lượng mặc định.']},
+  'ESC-04':{n:'Báo cáo sức khỏe',kind:'P0',p:'Ghi tình trạng một ngựa và gửi cho điều phối, có thể gửi khách.',a:'Gửi báo cáo (phụ: Lưu nháp)',d:'Tình trạng, nhiệt độ, nhịp tim, ăn uống, ảnh, ghi chú nội bộ, ghi chú gửi khách',api:'POST /legs/:id/horse-logs · PATCH /horse-logs/:id · POST /horse-logs/:id/send',b:['Mọi báo cáo bắt buộc ít nhất 1 ảnh (Long chốt 29/10, G13).','Tự lưu nháp mỗi lần thay đổi.','Stepper nhiệt độ bước 0,1 °C, có khoảng bình thường để so.','Gửi cho khách mặc định tắt.']},
+  'ESC-05':{n:'Chi tiết ngựa',kind:'P0',p:'Lịch sử một ngựa trên chuyến.',a:'Báo cáo sức khỏe',d:'Thông tin ngựa, báo cáo (nháp, đã gửi, khách đã xem), hoạt động chăm sóc',api:'GET /horse-logs · /care-activities',b:['Khách đã xem cập nhật qua socket tracking:horse_report_viewed.','Chạm nháp để mở lại ESC-04.']},
+  'ESC-07':{n:'Báo bất thường',kind:'P0 · bottom sheet',p:'Báo nhanh khi thấy ngựa có dấu hiệu lạ.',a:'Gửi cho điều phối',d:'Loại bất thường, ảnh bắt buộc, tùy chọn gửi khách',api:'POST /legs/:id/horse-logs (SENT) · Y tế khẩn dùng POST /trips/:id/incidents',b:['4 chạm: menu, chọn loại, chụp, gửi.','Y tế khẩn chuyển sang Báo sự cố (DRV-07 dùng chung) với ngựa đã chọn sẵn.','Điều phối nhận HORSE_REPORT_ALERT ngay khi gửi.']},
+  'COM-12':{n:'Hàng chờ đồng bộ',kind:'P0 · màn chung, bottom sheet',p:'Xem những gì chưa gửi được.',a:'Gửi lại ngay',d:'Loại mục, giờ tạo',api:'Các API trong hàng chờ',b:['Mở bằng thanh tối "Mất sóng".']}
+};
+const STUBS = {
+  'ESC-06':['Nhật ký chuyến','P1, vẽ sau khi duyệt P0'],
+  'ESC-08':['Báo cáo nháp','P1, vẽ sau khi duyệt P0'],
+  'DRV-07':['Báo sự cố · Y tế ngựa','Dùng chung màn DRV-07 của tài xế, xem file Tài xế'],
+  'COM-09':['Thông báo','Màn chung, vẽ ở đợt Chung'],
+  'COM-10':['Tài khoản','Màn chung, vẽ ở đợt Chung']
+};
+const TABS = [['ESC-02','Ngựa','horse'],['ESC-06','Nhật ký','notebook'],['COM-09','Thông báo','bell'],['COM-10','Tài khoản','user']];
+
+/* ---------- Trạng thái prototype ---------- */
+const newQuick = () => ({act:'WATER', horses:[...NAMES], liters:12, feed:FEEDS[0], mins:30, editTime:false});
+const newReport = h => ({horse:h||'Kim Long', cond:'STRESSED', temp:38.4, hr:46, appetite:'REDUCED', photos:0, toCust:false, err:false});
+const newAb = h => ({horse:h||'Kim Long', step:'pick', cond:null, photo:false, toCust:false});
+const fresh = () => ({screen:'ESC-02', stack:[], st:'normal', sheet:null, quick:newQuick(), report:newReport(), ab:newAb(), H:freshHorses(), toast:null, pend:0, menuHorse:'Kim Long', cur:'Kim Long'});
+let app = fresh();
+let mode = 'proto', plat = 'ios', gridScale = null, toastTimer = null;
+
+/* ---------- Khối dựng chung ---------- */
+const DIM = {ios:{w:390,h:844}, android:{w:360,h:800}};
+function sb(c){
+  const off = c.st === 'offline';
+  return `<div class="sb"><span>${NOW}</span><span class="sbi">${off ? ic('wifioff',16) : '<span class="sig"><span style="height:4px"></span><span style="height:7px"></span><span style="height:10px"></span><span style="height:12px"></span></span>'}<span class="bat"><span></span></span></span></div>`;
+}
+const hi = () => '<div class="hi"><span></span></div>';
+function hdr({back, close, title, sub, right=''}){
+  const l = back ? `<button class="ib" data-act="back" aria-label="Quay lại">${ic('back',26)}</button>` : close ? `<button class="ib" data-act="close" aria-label="Đóng">${ic('x',24)}</button>` : '';
+  return `<div class="hdr">${l}<div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${right}</div>`;
+}
+function tabbar(active){
+  return `<nav class="tabbar">${TABS.map(([code,label,icon]) => `<button class="tab${code===active?' on':''}" data-act="tab" data-arg="${code}">${ic(icon,24)}<span>${label}</span></button>`).join('')}</nav>`;
+}
+const pending = c => c.pend + (c.st === 'offline' ? 2 : 0);
+function offlineBar(c, txt){
+  return `<button class="bar" data-act="sheet" data-arg="queue">${ic('wifioff',18)}<span class="grow">${txt || 'Mất sóng · ' + pending(c) + ' mục chờ gửi'}</span>${ic('next',18)}</button>`;
+}
+function condChip(k, dark){ const [l,i] = COND[k]; return `<span class="chip ${dark||k!=='STABLE'?'dark':'fill'}">${ic(i,14,2.5)} ${l}</span>`; }
+function skeletonBody(){
+  return `<div class="body"><div class="card"><div class="skel" style="height:14px;width:50%"></div><div class="skel" style="height:32px;width:90%"></div></div>${[1,2].map(() => `<div class="card"><div class="row"><div class="skel" style="width:56px;height:56px;border-radius:12px"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skel" style="height:16px;width:50%"></div><div class="skel" style="height:12px;width:70%"></div></div></div><div class="skel" style="height:12px;width:80%"></div></div>`).join('')}</div>`;
+}
+function toast(c){ return c.toast ? `<div class="undo" role="status"><span class="grow">${c.toast}</span></div>` : ''; }
+function stepper(act, val, unit, minus='−', plus='+'){
+  return `<div class="stepper"><button class="ib" data-act="${act}" data-arg="-" aria-label="Giảm">${minus}</button><b>${val}<span class="small muted" style="font-weight:500"> ${unit}</span></b><button class="ib" data-act="${act}" data-arg="+" aria-label="Tăng">${plus}</button></div>`;
+}
+const fmt = n => n.toFixed(1).replace('.', ',');
+
+/* ---------- Màn ---------- */
+const R = {};
+
+R['ESC-01'] = c => sb(c) + hdr({back:true, title:'Chuyến của tôi', sub:'Bạn đi hộ tống 2 chuyến'}) + `<div class="body">
+    <div class="lbl">Đang chạy</div>
+    <button class="card tap" data-act="openTrip" data-arg="a">
+      <div class="row between"><b style="font-size:17px">HR-2610-0012</b><span class="chip dark">Đang vận chuyển</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span>Trường đua Phú Thọ, Q.11</span><span class="muted">đến Trạm kiểm dịch Svay Rieng (Campuchia)</span></div>
+      <div class="row small muted">${ic('horse',16)} 2 ngựa · Bạn hộ tống · Tài xế Lê Văn Hùng</div>
+    </button>
+    <div class="lbl">Sắp tới</div>
+    <button class="card tap" data-act="openTrip" data-arg="b">
+      <div class="row between"><b style="font-size:17px">HR-2611-0003</b><span class="chip">Đang chuẩn bị</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span>Trường đua Phú Thọ, Q.11</span><span class="muted">đến Sân bay Tân Sơn Nhất (khu hàng hóa)</span></div>
+      <div class="row small muted">${ic('clock',16)} 12/11 · 05:30 · 1 ngựa</div>
+    </button>
+  </div>` + hi();
+
+function horseCard(c, name){
+  const h = c.H[name];
+  const off = c.st === 'offline';
+  const pendTag = off && h.pend ? `<span class="chip dark">${ic('upload',14)} Chờ gửi</span>` : '';
+  return `<div class="card" style="padding:12px 12px 12px 16px">
+    <div class="row" style="align-items:flex-start">
+      <button class="tap row" data-act="openHorse" data-arg="${name}" style="background:none;border:0;padding:0;flex:1;min-width:0;align-items:flex-start;gap:12px">
+        <span class="hatch" style="width:56px;height:56px;flex:none" aria-label="Ảnh ngựa"></span>
+        <span style="display:flex;flex-direction:column;gap:4px;min-width:0"><b style="font-size:18px">${name}</b><span class="small muted">${h.breed}</span><span class="row" style="flex-wrap:wrap;gap:6px">${condChip(h.cond)}<span class="small muted">lúc ${h.condAt}</span></span></span>
+      </button>
+      <button class="ib" data-act="horseMenu" data-arg="${name}" aria-label="Thêm cho ${name}">${ic('more',24)}</button>
+    </div>
+    <div style="display:flex;flex-direction:column;border-top:1px solid var(--w-line);margin-top:4px">
+      <div class="row between" style="min-height:40px"><span class="row small">${ic('feed',18)} Ăn ${h.feed[0]} · ${h.feed[1]}</span></div>
+      <div class="row between" style="min-height:40px;flex-wrap:wrap"><span class="row small">${ic('water',18)} Uống ${h.water[0]} · ${h.water[1]}</span>${h.thirsty?'<span class="chip dark">4 giờ chưa uống</span>':''}${pendTag}</div>
+    </div>
+  </div>`;
+}
+
+R['ESC-02'] = c => {
+  const head = `<div class="hdr big"><div class="t"><b>Ngựa trên chuyến</b><small>HR-2610-0012 · <button class="link small" data-act="go" data-arg="ESC-01" style="min-height:0">Đổi chuyến</button></small></div></div>`;
+  const quickBtn = `<div class="bottom">${toast(c)}<div class="row" style="padding-bottom:12px"><button class="btn pri grow" data-act="quick">${ic('plus',22,2.5)} Ghi nhanh</button></div></div>`;
+  if (c.st === 'loading') return sb(c) + head + skeletonBody() + tabbar('ESC-02');
+  if (c.st === 'empty') return sb(c) + `<div class="hdr big"><div class="t"><b>Ngựa trên chuyến</b></div></div><div class="body white"><div class="empty"><div class="circle">${ic('horse',32)}</div><b style="font-size:18px">Bạn chưa được phân công chuyến nào</b><p class="muted small" style="margin:0;max-width:280px">Chuyến sẽ hiện ở đây khi điều phối phân công bạn hộ tống, kèm thông báo.</p><button class="btn" data-act="noop">${ic('refresh',20)} Tải lại</button></div></div>` + tabbar('ESC-02');
+  if (c.st === 'error') return sb(c) + head + `<div class="body white"><div class="empty"><div class="circle">${ic('alert',32)}</div><b style="font-size:18px">Không tải được danh sách ngựa</b><p class="muted small" style="margin:0;max-width:280px">Kiểm tra kết nối rồi thử lại. Nếu ngựa có dấu hiệu lạ, gọi điều phối 1900 6868.</p><button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button></div></div>` + tabbar('ESC-02');
+  const H = c.H;
+  const water = 10 + (c.waterAdded||0), meals = 2 + (c.mealsAdded||0), rests = 1 + (c.restsAdded||0);
+  return sb(c) + head + (c.st==='offline' ? offlineBar(c) : `<div class="bar light">${ic('truck',18)}<span class="grow">Xe đang dừng tại Điểm nghỉ Trảng Bàng · rời lúc 08:00</span></div>`) + `<div class="body">
+    <div class="card brand" style="gap:10px"><span class="lbl">Hôm nay, cả đoàn</span>
+      <div class="row" style="gap:0">${[[water+' L','nước'],[meals,'bữa ăn'],[rests,'lần nghỉ']].map(([v,l],k) => `<div style="flex:1;display:flex;flex-direction:column;${k?'border-left:1px solid rgba(255,255,255,.25);padding-left:12px':''}"><b style="font-size:22px">${v}</b><span class="small muted">${l}</span></div>`).join('')}</div>
+    </div>
+    ${NAMES.map(n => horseCard(c, n)).join('')}
+  </div>` + quickBtn + tabbar('ESC-02') + overlay(c);
+};
+
+function overlay(c){
+  if (c.sheet === 'quick') return quickSheet(c);
+  if (c.sheet === 'menu') return sheetWrap(`<h3>${c.menuHorse}</h3><div style="display:flex;flex-direction:column">
+      <button class="listrow" data-act="abStart" data-arg="${c.menuHorse}">${ic('alert',22)}<span class="grow"><b>Báo bất thường</b><span class="small muted">Bỏ ăn, căng thẳng, khí hậu, y tế khẩn</span></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="reportStart" data-arg="${c.menuHorse}">${ic('file',22)}<span class="grow"><b>Báo cáo sức khỏe</b><span class="small muted">Nhiệt độ, nhịp tim, ăn uống, ảnh</span></span>${ic('next',20)}</button>
+      <button class="listrow" data-act="openHorse" data-arg="${c.menuHorse}">${ic('horse',22)}<span class="grow"><b>Xem chi tiết ngựa</b></span>${ic('next',20)}</button>
+    </div><button class="btn" data-act="close">Đóng</button>`);
+  if (c.sheet === 'ab') return abSheet(c);
+  if (c.sheet === 'queue') return sheetWrap(`<h3>Chờ gửi (${pending(c)})</h3><div class="kvw">
+      <div><span>Chăm sóc</span><span style="text-align:right"><b>Uống nước 12 L · 2 ngựa</b><br><span class="small muted">ghi 07:42</span></span></div>
+      <div><span>Báo cáo</span><span style="text-align:right"><b>Kim Long · Căng thẳng</b><br><span class="small muted">1 ảnh · ghi 07:40</span></span></div>
+    </div><p class="small muted" style="margin:0">Tự gửi khi có sóng. Không đăng xuất khi còn mục chờ gửi.</p><button class="btn pri xl" data-act="close">${ic('upload',22)} Gửi lại ngay</button><button class="btn ghost" data-act="close">Đóng</button>`);
+  return '';
+}
+function sheetWrap(inner, tall){ return `<div class="overlay"><div class="sheet" style="${tall?'max-height:92%;overflow-y:auto':''}"><span class="grab"></span>${inner}${hi()}</div></div>`; }
+
+function quickSheet(c){
+  const q = c.quick;
+  const amount = q.act === 'WATER'
+    ? `<div class="sec"><span class="lbl">Mỗi ngựa uống</span>${stepper('qLiters', q.liters, 'lít')}<div class="opts">${[-5,5].map(d => `<button class="opt" data-act="qLiters" data-arg="${d}" style="min-height:40px">${d>0?'+':'−'}5 L</button>`).join('')}</div></div>`
+    : q.act === 'FEED'
+    ? `<div class="sec"><span class="lbl">Khẩu phần</span><div class="opts">${FEEDS.map(f => `<button class="opt${q.feed===f?' on':''}" data-act="qFeed" data-arg="${f}">${q.feed===f?ic('check',16,3):''}${f}</button>`).join('')}<button class="opt" data-act="noop">Khác…</button></div></div>`
+    : `<div class="sec"><span class="lbl">Thời gian nghỉ</span>${stepper('qMins', q.mins, 'phút')}</div>`;
+  const allSel = q.horses.length === NAMES.length;
+  const horses = q.act === 'REST'
+    ? `<div class="sec"><span class="lbl">Ngựa</span><div class="opts"><button class="opt on">${ic('check',16,3)}Cả đoàn (2 ngựa)</button></div></div>`
+    : `<div class="sec"><span class="lbl">Ngựa <em>· chọn một hoặc nhiều</em></span><div class="opts">${NAMES.map(n => `<button class="opt${q.horses.includes(n)?' on':''}" data-act="qHorse" data-arg="${n}">${q.horses.includes(n)?ic('check',16,3):''}${n}</button>`).join('')}<button class="opt" data-act="qAll">${allSel?'Bỏ chọn':'Chọn tất cả'}</button></div></div>`;
+  const time = q.editTime
+    ? `<div class="sec"><span class="lbl">Giờ thực hiện <em>· ghi bù tối đa 2 giờ</em></span>${stepper('noop','07:30','')}</div>`
+    : `<div class="row between"><span class="row small">${ic('clock',18)} Lúc ${NOW} (bây giờ)</span><button class="link small" data-act="qTime">Đổi giờ</button></div>`;
+  const err = c.st === 'error' ? `<div class="box err">${ic('alert',20)}<span>Chưa lưu được: giờ thực hiện cách hiện tại hơn 2 giờ. Chọn giờ gần hơn hoặc báo điều phối hiệu chỉnh.</span></div>` : '';
+  const off = c.st === 'offline' ? `<div class="box">${ic('wifioff',20)}<span>Đang mất sóng. Bản ghi lưu trên máy và tự gửi khi có sóng.</span></div>` : '';
+  const n = q.act === 'REST' ? 1 : q.horses.length;
+  return sheetWrap(`<div class="row between"><h3>Ghi nhanh</h3><button class="ib" data-act="close" aria-label="Đóng">${ic('x',24)}</button></div>
+    <div class="row" style="gap:8px">${Object.entries(ACTS).map(([k,[l,i]]) => `<button class="bigopt${q.act===k?' on':''}" data-act="qAct" data-arg="${k}" style="flex-direction:column;justify-content:center;gap:6px;min-height:84px;padding:8px;text-align:center" aria-pressed="${q.act===k}">${ic(i,26)}<b style="font-size:15px">${l}</b></button>`).join('')}</div>
+    ${horses}${amount}${time}${err}${off}
+    <button class="btn pri xl" data-act="qSave" ${n?'':'disabled'}>${n>1?`Lưu ${n} bản ghi`:'Lưu nhật ký'}</button>`, true);
+}
+
+function abSheet(c){
+  const a = c.ab;
+  if (a.step === 'pick') return sheetWrap(`<div class="row between"><h3>Báo bất thường · ${a.horse}</h3><button class="ib" data-act="close" aria-label="Đóng">${ic('x',24)}</button></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${['OFF_FEED','STRESSED','CLIMATE_CHANGE'].map(k => `<button class="bigopt" data-act="abPick" data-arg="${k}" style="min-height:64px"><span class="ico">${ic(COND[k][1],22)}</span><span class="tx"><b>${COND[k][0]}</b></span>${ic('next',20)}</button>`).join('')}
+      <button class="bigopt" data-act="abMedical" style="min-height:72px;border-width:2.5px;border-color:var(--w-ink)"><span class="ico" style="background:var(--w-ink);color:#fff">${ic('alert',22)}</span><span class="tx"><b>Y tế khẩn</b><span>Chấn thương, đau bụng, ngã trong khoang. Báo như sự cố.</span></span>${ic('next',20)}</button>
+    </div>`);
+  const off = c.st === 'offline';
+  return sheetWrap(`<div class="row between"><h3>${COND[a.cond][0]} · ${a.horse}</h3><button class="ib" data-act="abBack" aria-label="Quay lại">${ic('back',24)}</button></div>
+    <div class="sec"><span class="lbl">Ảnh <em>· bắt buộc</em></span>
+      ${a.photo ? `<div class="hatch" style="height:180px;display:flex;align-items:flex-end;padding:8px"><span class="chip">Ảnh 1 · ${NOW}</span></div>` : `<button class="addph" data-act="abPhoto" style="width:100%;height:180px">${ic('camera',36)}<span style="font-size:16px">Chạm để chụp</span></button>`}
+    </div>
+    <button class="listrow" data-act="abCust" aria-pressed="${a.toCust}"><span class="chk ${a.toCust?'on':''}">${a.toCust?ic('check',18,3):''}</span><span class="grow"><b>Gửi cho khách hàng</b><span class="small muted">Điều phối luôn nhận được</span></span></button>
+    ${off ? `<div class="box">${ic('wifioff',20)}<span>Mất sóng: báo cáo lưu trên máy và tự gửi. Nếu gấp, gọi điều phối 1900 6868.</span></div>` : ''}
+    <button class="btn pri xl" data-act="abSend" ${a.photo?'':'disabled'}>Gửi cho điều phối</button>`);
+}
+
+R['ESC-04'] = c => {
+  const r = c.report;
+  const ok = r.photos > 0;
+  const err = r.err || c.st === 'error';
+  const photos = Array.from({length:r.photos}, (_,k) => `<div class="photo hatch">Ảnh ${k+1}</div>`).join('');
+  return sb(c) + hdr({back:true, title:'Báo cáo sức khỏe', sub:`${r.horse} · tự lưu nháp lúc ${NOW}`}) + (c.st==='offline' ? offlineBar(c, 'Mất sóng · báo cáo sẽ lưu và tự gửi') : '') + `<div class="body white">
+    <div class="sec"><span class="lbl">Tình trạng</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${Object.entries(COND).map(([k,[l,i]]) => `<button class="bigopt${r.cond===k?' on':''}" data-act="rCond" data-arg="${k}" style="min-height:64px;padding:10px 12px;gap:8px" aria-pressed="${r.cond===k}">${ic(i,22)}<span class="tx"><b style="font-size:15px">${l}</b></span></button>`).join('')}</div></div>
+    <div class="sec"><span class="lbl">Nhiệt độ <em>· bình thường 37,5–38,5 °C</em></span>${stepper('rTemp', fmt(r.temp), '°C', '−0,1', '+0,1')}</div>
+    <div class="sec"><span class="lbl">Nhịp tim <em>· lúc nghỉ 28–44 lần/phút</em></span>${stepper('rHr', r.hr, 'lần/phút')}</div>
+    <div class="sec"><span class="lbl">Ăn uống</span><div class="opts">${Object.entries(APPETITE).map(([k,l]) => `<button class="opt${r.appetite===k?' on':''}" data-act="rApp" data-arg="${k}">${r.appetite===k?ic('check',16,3):''}${l}</button>`).join('')}</div></div>
+    <div class="sec"><span class="lbl">Ảnh <em>· bắt buộc ít nhất 1, tối đa 3</em></span><div class="photos">${photos}${r.photos<3?`<button class="addph" data-act="rPhoto">${ic('camera',24)}Chụp ảnh</button>`:''}</div>
+      ${err && !ok ? `<div class="box err">${ic('alert',20)}<span>Cần ít nhất 1 ảnh để gửi báo cáo. Chụp ngựa ở góc thấy rõ dấu hiệu.</span></div>` : ''}</div>
+    <div class="sec"><span class="lbl">Ghi chú nội bộ <em>· chỉ điều phối thấy</em></span><div class="field" style="min-height:72px"><span>Đổ mồ hôi cổ, gõ chân khi xe phanh. Đã cho nghỉ 20 phút.</span></div></div>
+    <button class="listrow" data-act="rCust" aria-pressed="${r.toCust}"><span class="chk ${r.toCust?'on':''}">${r.toCust?ic('check',18,3):''}</span><span class="grow"><b>Gửi cho khách hàng</b><span class="small muted">Khách nhận thông báo và xem được ảnh</span></span></button>
+    ${r.toCust ? `<div class="sec"><span class="lbl">Ghi chú gửi khách</span><div class="field" style="min-height:72px"><span class="ph">Viết ngắn, dễ hiểu cho khách hàng</span></div></div>` : ''}
+  </div>
+  <div class="bottom"><div class="row"><button class="btn" data-act="rDraft" style="width:120px">Lưu nháp</button><button class="btn pri xl grow" data-act="rSend">Gửi báo cáo</button></div>${hi()}</div>`;
+};
+
+R['ESC-05'] = c => {
+  const name = c.cur, h = c.H[name];
+  const kindIcon = {report:'file', draft:'file', FEED:'feed', WATER:'water', REST:'rest'};
+  return sb(c) + hdr({back:true, title:name, sub:'HR-2610-0012'}) + (c.st==='offline' ? offlineBar(c) : '') + `<div class="body">
+    <div class="card"><div class="row" style="gap:14px;align-items:flex-start"><span class="hatch" style="width:72px;height:72px;flex:none" aria-label="Ảnh ngựa"></span>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="small muted">${h.breed}</span><span class="small muted">Hộ chiếu ${h.passport}</span><span class="row" style="flex-wrap:wrap;gap:6px">${condChip(h.cond)}<span class="small muted">lúc ${h.condAt}</span></span></div></div>
+      ${h.thirsty ? `<div class="box">${ic('water',20)}<span>Uống lần cuối ${h.water[0]}, đã hơn 4 giờ.</span></div>` : ''}
+    </div>
+    <div class="card" style="padding:4px 16px"><span class="lbl" style="padding-top:12px">Trên chuyến này</span>
+      ${h.log.map(e => {
+        const isDraft = e.k === 'draft';
+        return `<${isDraft?'button':'div'} class="listrow"${isDraft?` data-act="reportStart" data-arg="${name}"`:' style="cursor:default"'}><span class="small" style="width:44px;flex:none;font-weight:600">${e.t}</span>${ic(kindIcon[e.k]||'file',20)}<span class="grow"><b style="font-weight:${e.k==='report'||isDraft?600:500}">${e.txt}</b>${e.sub?`<span class="small muted row" style="gap:4px">${e.sub.includes('xem')?ic('eye',14):''}${e.sub}</span>`:''}</span>${isDraft?'<span class="chip">Nháp</span>':''}${e.pend?'<span class="chip dark">Chờ gửi</span>':''}</${isDraft?'button':'div'}>`;
+      }).join('')}
+    </div>
+  </div>
+  <div class="bottom">${toast(c)}<div class="row"><button class="btn" data-act="abStart" data-arg="${name}" style="flex:none;white-space:nowrap;padding:0 14px">${ic('alert',20)} Bất thường</button><button class="btn pri xl grow" data-act="reportStart" data-arg="${name}">Báo cáo sức khỏe</button></div>${hi()}</div>` + overlay(c);
+};
+
+R['ESC-03'] = c => R['ESC-02']({...c, sheet:'quick'});
+R['ESC-07'] = c => R['ESC-02']({...c, sheet:'ab'});
+R['COM-12'] = c => R['ESC-02']({...c, sheet:'queue'});
+
+function stub(code){
+  return c => {
+    const [name, why] = STUBS[code];
+    const isTab = TABS.some(t => t[0] === code);
+    return sb(c) + (isTab ? `<div class="hdr big"><div class="t"><b>${name}</b></div></div>` : hdr({back:true, title:name})) + `<div class="body white"><div class="empty"><span class="stubtag">${code} · ${why}</span><b style="font-size:18px">${name}</b><p class="small muted" style="margin:0;max-width:260px">Màn này có trong 02-screens.md nhưng chưa vẽ ở đợt Hộ tống P0.</p></div></div>` + (isTab ? tabbar(code) : hi());
+  };
+}
+Object.keys(STUBS).forEach(k => R[k] = stub(k));
+
+/* ---------- Khung ---------- */
+function screenHTML(code, c, id){
+  const inner = R[code](c);
+  const withTabs = inner.includes('class="tabbar"');
+  return `<section class="screen ${plat}" id="${id||code}" data-screen="${code}" style="--fw:${DIM[plat].w}px;--fh:${DIM[plat].h}px">${inner}${withTabs && !inner.includes('class="overlay"') ? hi() : withTabs ? '' : ''}</section>`;
+}
+function fit(html, s){
+  const d = DIM[plat];
+  return `<div class="fit" style="width:${Math.round(d.w*s)}px;height:${Math.round(d.h*s)}px"><div class="scaled" style="transform:scale(${s})">${html}</div></div>`;
+}
+function protoScale(){
+  const d = DIM[plat], pad = plat==='ios'?24:20;
+  return Math.min(1, Math.min(document.documentElement.clientWidth - 32, 900) / (d.w + pad));
+}
+
+/* ---------- Biến thể cho Xem tất cả ---------- */
+const withPend = () => { const H = freshHorses(); H['Kim Long'].pend = true; H['Sao Mai'].pend = true; return H; };
+const GRID = [
+  ['ESC-02',[{l:'Bình thường'},{l:'Vừa lưu Ghi nhanh',toast:'Đã ghi: Uống nước 12 L · Sao Mai, Kim Long'},{l:'Đang tải',st:'loading'},{l:'Chưa được phân công',st:'empty'},{l:'Lỗi',st:'error'},{l:'Mất sóng, bản ghi chờ gửi',st:'offline',H:withPend()}]],
+  ['ESC-03',[{l:'Uống nước, cả đoàn'},{l:'Cho ăn, 1 ngựa',quick:{...newQuick(),act:'FEED',horses:['Kim Long']}},{l:'Nghỉ chân, đổi giờ',quick:{...newQuick(),act:'REST',editTime:true}},{l:'Lỗi giờ quá xa',st:'error'},{l:'Mất sóng',st:'offline'}]],
+  ['ESC-07',[{l:'Chọn loại bất thường'},{l:'Chưa chụp ảnh',ab:{...newAb(),step:'photo',cond:'OFF_FEED'}},{l:'Đã chụp, sẵn sàng gửi',ab:{...newAb(),step:'photo',cond:'OFF_FEED',photo:true}},{l:'Mất sóng',st:'offline',ab:{...newAb(),step:'photo',cond:'STRESSED',photo:true}}]],
+  ['ESC-04',[{l:'Đang điền, chưa có ảnh'},{l:'Đủ ảnh, gửi cho khách',report:{...newReport(),photos:2,toCust:true}},{l:'Bấm Gửi khi thiếu ảnh',report:{...newReport(),err:true}},{l:'Mất sóng',st:'offline',report:{...newReport(),photos:1}}]],
+  ['ESC-05',[{l:'Kim Long'},{l:'Sao Mai',cur:'Sao Mai'},{l:'Mất sóng',st:'offline'}]],
+  ['ESC-01',[{l:'Có 2 chuyến'}]],
+  ['COM-12',[{l:'Hàng chờ đồng bộ',st:'offline',H:withPend()}]]
+];
+
+/* ---------- Vẽ trang ---------- */
+const main = document.getElementById('main');
+function render(){
+  document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#segPlat button').forEach(b => b.classList.toggle('on', b.dataset.plat === plat));
+  document.querySelectorAll('#segState button').forEach(b => b.classList.toggle('on', b.dataset.st === app.st));
+  document.getElementById('grpScale').hidden = mode !== 'grid';
+  document.querySelector('#segState').closest('.grp').hidden = mode === 'grid';
+  if (mode === 'grid') return renderGrid();
+  const code = app.screen, n = NOTES[code], stub = STUBS[code];
+  const s = protoScale(), d = DIM[plat], pad = plat==='ios'?12:10;
+  const dev = `<div class="device ${plat}">${screenHTML(code, app)}</div>`;
+  const devFit = s < 1 ? `<div class="fit" style="width:${Math.round((d.w+pad*2)*s)}px;height:${Math.round((d.h+pad*2)*s)}px"><div class="scaled" style="transform:scale(${s})">${dev}</div></div>` : dev;
+  const shown = app.sheet === 'quick' ? 'ESC-03' : app.sheet === 'ab' ? 'ESC-07' : app.sheet === 'queue' ? 'COM-12' : code;
+  const nn = NOTES[shown] || n;
+  const info = nn ? `<div class="pcard"><h3>${shown} · ${nn.kind}</h3><h2>${nn.n}</h2><p>${nn.p}</p>
+      <dl class="kv"><dt>Hành động chính</dt><dd>${nn.a}</dd><dt>Dữ liệu</dt><dd>${nn.d}</dd><dt>API</dt><dd class="code">${nn.api}</dd></dl>
+      <ul>${nn.b.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+    : `<div class="pcard"><h3>${code}</h3><h2>${stub[0]}</h2><p>${stub[1]}.</p></div>`;
+  const list = ['ESC-02','ESC-03','ESC-07','ESC-04','ESC-05','ESC-01','COM-12'];
+  const jump = `<div class="pcard"><h3>Màn đã vẽ (P0)</h3><div class="jump">${list.map(k => `<button data-jump="${k}" class="${shown===k?'on':''}"><span class="code">${k}</span>${NOTES[k].n}</button>`).join('')}</div>
+    <p class="hint">Bấm vào nút trong khung để đi theo luồng. Thanh Trạng thái phía trên đổi màn hiện tại sang Đang tải, Trống, Lỗi hoặc Mất sóng.</p></div>`;
+  main.innerHTML = `<div class="proto"><div>${devFit}</div><div class="panel">${info}${jump}</div></div>`;
+}
+function renderGrid(){
+  const s = gridScale || (document.documentElement.clientWidth >= 1100 ? 1 : 0.5);
+  document.querySelectorAll('#segScale button').forEach(b => b.classList.toggle('on', +b.dataset.sc === s));
+  main.innerHTML = `<div class="grid">${GRID.map(([code, vs]) => {
+    const n = NOTES[code];
+    return `<section class="grow-row"><header><h2>${code} · ${n.n}</h2><p>${n.p} Hành động chính: ${n.a}.</p></header><div class="strip">${vs.map((v,k) => {
+      const c = {...fresh(), ...v, st:v.st||'normal'};
+      return `<div class="vcell"><span class="vl">${v.l}</span><div data-open="${code}">${fit(screenHTML(code, c, k ? `${code}--${k}` : code), s)}</div></div>`;
+    }).join('')}</div></section>`;
+  }).join('')}</div>`;
+}
+
+/* ---------- Hành động ---------- */
+function go(code){ app.stack.push(app.screen); app.screen = code; app.sheet = null; }
+function say(msg){ app.toast = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => { app.toast = null; render(); }, 3000); }
+function addLog(name, e){ const h = app.H[name]; if (app.st === 'offline') { e.pend = true; h.pend = true; app.pend++; } h.log.unshift(e); }
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const ACT = {
+  noop(){},
+  go(a){ go(a); },
+  back(){ app.sheet = null; app.screen = app.stack.pop() || 'ESC-02'; },
+  tab(a){ app.stack = []; app.screen = a; app.sheet = null; },
+  openTrip(a){ if (a === 'b') { say('Chuyến HR-2611-0003 chưa bắt đầu. Danh sách ngựa hiện khi chuyến sẵn sàng.'); } app.stack = []; app.screen = 'ESC-02'; },
+  sheet(a){ app.sheet = a; },
+  close(){ app.sheet = null; },
+  openHorse(a){ app.cur = a; go('ESC-05'); },
+  horseMenu(a){ app.menuHorse = a; app.sheet = 'menu'; },
+  quick(){ app.quick = newQuick(); app.sheet = 'quick'; },
+  qAct(a){ app.quick.act = a; },
+  qHorse(a){ const q = app.quick; q.horses = q.horses.includes(a) ? q.horses.filter(x => x !== a) : [...q.horses, a]; },
+  qAll(){ const q = app.quick; q.horses = q.horses.length === NAMES.length ? [] : [...NAMES]; },
+  qLiters(a){ const q = app.quick; q.liters = clamp(q.liters + (a==='+'?1:a==='-'?-1:+a), 1, 200); },
+  qMins(a){ const q = app.quick; q.mins = clamp(q.mins + (a==='+'?5:-5), 5, 720); },
+  qFeed(a){ app.quick.feed = a; },
+  qTime(){ app.quick.editTime = true; },
+  qSave(){
+    if (app.st === 'error') return;
+    const q = app.quick;
+    const names = q.act === 'REST' ? NAMES : q.horses;
+    const txt = q.act === 'WATER' ? `Uống nước ${q.liters} L` : q.act === 'FEED' ? `Cho ăn · ${q.feed}` : `Nghỉ chân ${q.mins} phút`;
+    names.forEach(n => { addLog(n, {t:NOW, k:q.act, txt}); const h = app.H[n];
+      if (q.act === 'WATER') { h.water = [NOW, q.liters+' L']; h.thirsty = false; }
+      if (q.act === 'FEED') h.feed = [NOW, q.feed]; });
+    if (q.act === 'WATER') app.waterAdded = (app.waterAdded||0) + q.liters * names.length;
+    if (q.act === 'FEED') app.mealsAdded = (app.mealsAdded||0) + 1;
+    if (q.act === 'REST') app.restsAdded = (app.restsAdded||0) + 1;
+    app.sheet = null;
+    say(`${app.st==='offline'?'Đã lưu, chờ gửi':'Đã ghi'}: ${txt} · ${q.act==='REST'?'cả đoàn':names.join(', ')}`);
+  },
+  abStart(a){ app.ab = newAb(a); app.menuHorse = a; app.sheet = 'ab'; },
+  abPick(a){ app.ab.cond = a; app.ab.step = 'photo'; },
+  abBack(){ app.ab.step = 'pick'; },
+  abPhoto(){ app.ab.photo = true; },
+  abCust(){ app.ab.toCust = !app.ab.toCust; },
+  abMedical(){ app.sheet = null; go('DRV-07'); },
+  abSend(){
+    const a = app.ab; const h = app.H[a.horse];
+    h.cond = a.cond; h.condAt = NOW;
+    addLog(a.horse, {t:NOW, k:'report', txt:`Báo bất thường · ${COND[a.cond][0]}`, sub: app.st==='offline' ? 'Chờ gửi' : (a.toCust ? 'Đã gửi điều phối và khách' : 'Đã gửi điều phối')});
+    app.sheet = null;
+    say(app.st==='offline' ? 'Đã lưu, sẽ gửi khi có sóng' : `Đã gửi cho điều phối: ${a.horse} · ${COND[a.cond][0]}`);
+  },
+  reportStart(a){ app.report = newReport(a); app.sheet = null; go('ESC-04'); },
+  rCond(a){ app.report.cond = a; },
+  rTemp(a){ app.report.temp = clamp(Math.round((app.report.temp + (a==='+'?0.1:-0.1))*10)/10, 30, 45); },
+  rHr(a){ app.report.hr = clamp(app.report.hr + (a==='+'?1:-1), 10, 200); },
+  rApp(a){ app.report.appetite = a; },
+  rPhoto(){ if (app.report.photos < 3) app.report.photos++; app.report.err = false; },
+  rCust(){ app.report.toCust = !app.report.toCust; },
+  rDraft(){ const r = app.report; addLog(r.horse, {t:NOW, k:'draft', txt:`Báo cáo nháp · ${COND[r.cond][0]}`, sub:'Chưa gửi'}); app.cur = r.horse; ACT.back(); if (app.screen !== 'ESC-05') { app.screen = 'ESC-05'; } say('Đã lưu nháp'); },
+  rSend(){
+    const r = app.report;
+    if (!r.photos) { r.err = true; return; }
+    const h = app.H[r.horse]; h.cond = r.cond; h.condAt = NOW;
+    addLog(r.horse, {t:NOW, k:'report', txt:`Báo cáo · ${COND[r.cond][0]} · ${fmt(r.temp)} °C`, sub: app.st==='offline' ? 'Chờ gửi' : (r.toCust ? 'Đã gửi điều phối và khách' : 'Đã gửi điều phối')});
+    app.cur = r.horse; ACT.back(); if (app.screen !== 'ESC-05') app.screen = 'ESC-05';
+    say(app.st==='offline' ? 'Đã lưu báo cáo, sẽ gửi khi có sóng' : 'Đã gửi báo cáo');
+  }
+};
+
+document.addEventListener('click', e => {
+  const seg = e.target.closest('[data-mode],[data-plat],[data-st],[data-sc],[data-jump],[data-open]');
+  if (seg) {
+    const d = seg.dataset;
+    if (d.mode) mode = d.mode;
+    else if (d.plat) plat = d.plat;
+    else if (d.st) app.st = d.st;
+    else if (d.sc) gridScale = +d.sc;
+    else if (d.jump) jumpTo(d.jump);
+    else if (d.open) { mode = 'proto'; jumpTo(d.open); window.scrollTo(0,0); }
+    render(); return;
+  }
+  if (mode !== 'proto') return;
+  const t = e.target.closest('[data-act]');
+  if (!t || t.disabled || !main.contains(t)) return;
+  const fn = ACT[t.dataset.act];
+  if (fn) { e.preventDefault(); fn(t.dataset.arg); render(); }
+});
+function jumpTo(code){
+  app.sheet = null;
+  if (code === 'ESC-03') { app.stack = []; app.screen = 'ESC-02'; app.quick = newQuick(); app.sheet = 'quick'; return; }
+  if (code === 'ESC-07') { app.stack = []; app.screen = 'ESC-02'; app.ab = newAb('Kim Long'); app.sheet = 'ab'; return; }
+  if (code === 'COM-12') { app.stack = []; app.screen = 'ESC-02'; app.st = 'offline'; app.sheet = 'queue'; return; }
+  if (code === 'ESC-04') { app.stack = ['ESC-02','ESC-05']; app.cur = 'Kim Long'; app.report = newReport('Kim Long'); app.screen = code; return; }
+  if (code === 'ESC-05') { app.stack = ['ESC-02']; app.screen = code; return; }
+  if (code === 'ESC-01') { app.stack = ['ESC-02']; app.screen = code; return; }
+  app.stack = []; app.screen = code;
+}
+document.getElementById('btnReset').addEventListener('click', () => { const st = app.st; app = fresh(); app.st = st; mode = 'proto'; render(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
+render();
+})();
+</script>
+</body>
+</html>

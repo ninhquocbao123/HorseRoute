@@ -184,3 +184,6 @@
 .trk-events li.is-latest strong{font-weight:700}
 .trk-events li.is-latest p{color:#3e6b5f}
 @media (max-width:640px){.trk-journey-steps li{font-size:10px}.trk-events li{grid-template-columns:64px 20px minmax(0,1fr)}.trk-events li::before{left:calc(64px + 8px + 9px)}}
+
+.trk-care-photos{margin-top:6px}
+.trk-care-photos .trk-thumb{width:96px;height:72px}
