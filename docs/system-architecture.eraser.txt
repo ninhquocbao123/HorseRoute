@@ -1,0 +1,59 @@
+// Architecture based on repository review, 2026-10-30.
+// Mobile is being developed separately, as confirmed by the owner.
+// Dotted connections indicate planned paths or deployment gaps.
+colorMode pastel
+styleMode plain
+typeface clean
+
+CLIENT [color: orange] {
+  Web [icon: react, label: "React 18 + Vite\nWebsite"]
+  Mobile [icon: smartphone, label: "Expo / React Native\nIn development"]
+}
+
+SERVER [color: blue] {
+  Nginx [icon: server, label: "Nginx :80\nStatic web + /api reverse proxy"]
+  API [icon: nodejs, label: "Express 5 + TypeScript\nREST /api/v1 + JWT / bcrypt"]
+  Realtime [icon: server, label: "Socket.IO\nSame API process / HTTP server"]
+  Jobs [icon: clock, label: "In-process scheduled tasks\nDocument expiry + GPS retention"]
+}
+
+DATA [color: green] {
+  MySQL [icon: mysql, label: "MySQL 8 + TypeORM\nBusiness data + notifications + GPS"]
+  Redis [icon: redis, label: "Redis 7\nConnected; no queue/cache usage found"]
+  LocalFiles [icon: folder, label: "Local private documents\nDefault storage; no volume in Compose"]
+}
+
+EXTERNAL [color: purple] {
+  Mapbox [icon: map, label: "Mapbox\nMaps / geocoding / directions"]
+  OSM [icon: map, label: "OpenStreetMap\nDefault Leaflet map tiles"]
+  VNPay [icon: credit-card, label: "VNPay Sandbox\nTest payment gateway"]
+  Supabase [icon: database, label: "Supabase Storage\nOptional private document bucket"]
+}
+
+Nginx > Web: Serve built SPA
+Web > Nginx: REST requests
+Mobile --> Nginx: Planned shared REST API
+Nginx > API: /api to api:3000
+Web <> Realtime: Socket.IO client implemented
+Mobile --> Realtime: Planned realtime integration
+Nginx --> Realtime: /socket.io proxy missing in current config
+API - Realtime: Same process
+API - Jobs: Starts timers at boot
+API > MySQL: TypeORM / SQL
+Jobs > MySQL: Expiry and retention updates
+API > Redis: Startup connection only
+API > LocalFiles: Local storage provider
+API > Supabase: Supabase storage provider
+Web > Mapbox: Map rendering / location search
+Web > OSM: Leaflet tiles
+API > Mapbox: Address search / route calculation
+API > Web: Signed VNPay checkout URL
+Web > VNPay: Redirect to checkout
+VNPay > Web: Browser return
+VNPay > Nginx: GET /api/v1/payments/vnpay/ipn
+
+// Compose services: web (Nginx + built SPA), api, mysql, redis.
+// SERVER groups logical components, not four separate containers.
+// Current Compose exposes HTTP port 80; TLS termination is not configured here.
+// LocalFiles and Supabase are alternative upload providers, selected by configuration.
+// No verified Google OAuth, Firebase push, Mux, Resend, BullMQ, or Vercel deployment.

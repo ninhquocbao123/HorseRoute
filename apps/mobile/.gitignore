@@ -1,0 +1,11 @@
+.expo/
+.env.local
+.build-tmp/
+.build-cache/
+dist/
+node_modules/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/build/
+android/**/.cxx/
