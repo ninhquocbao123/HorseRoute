@@ -16,7 +16,8 @@ import { useGpsSharing } from './useGpsSharing';
 import { useDraft } from './useDraft';
 import { useDriverNotice } from './DriverNotices';
 import { isTripStart, useLegAction } from './useLegAction';
-import { PRE_DEPARTURE_CHECKS, checkInTitle } from './driver-ui';
+import { useWaypointCheckins } from './useWaypointCheckins';
+import { PRE_DEPARTURE_CHECKS, checkInLabel, checkInTitle } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
 
@@ -62,7 +63,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
         <section className="drv-card drv-empty">
           <Empty description={<>
             <strong>Bạn chưa có chuyến được phân công</strong>
-            <p>Chuyến sẽ xuất hiện khi kế hoạch được duyệt và điều phối viên phân công đủ tài xế, hộ tống (đơn tự chuyển sang sẵn sàng).</p>
+            <p>Chuyến sẽ xuất hiện khi điều phối viên phân công bạn, Manager duyệt kế hoạch và bấm chuyển chuyến cho tổ tài xế.</p>
           </>} />
           <div className="drv-empty-actions">
             <Button type="primary" icon={<HistoryOutlined />} className="drv-btn-start" onClick={() => onNavigate('history')}>Xem lịch sử giao hàng</Button>
@@ -106,16 +107,20 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
   // GPS chỉ khi chặng đang chạy không phải chặng bay (API cũng trả 409 cho chặng bay).
   const runningLeg = map?.legs.find(item => item.status === 'MOVING' || item.status === 'AT_STOP');
   const gps = useGpsSharing({ tripId: trip.id, userId, eligible: running && !!runningLeg && runningLeg.mode !== 'AIR' });
+  const [navigating, setNavigating] = useNavigationMode(trip.id, running);
 
   // D1b: nút chung "Check-in chặng", hộp thoại ghi rõ hành động cụ thể của chặng hiện tại.
   const legAction = useLegAction(trip, onChanged, {
-    label: next => (isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : running ? 'Check-in chặng' : next.label),
+    label: next => (isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : running ? checkInLabel(next) : next.label),
     title: next => (running && leg ? checkInTitle(next, leg) : isTripStart(next, seqNo) ? 'Bắt đầu chuyến đi' : next.label),
     warning: next => isTripStart(next, seqNo) && remaining > 0 && (
       <Alert type="warning" showIcon title={`Còn ${remaining} mục chưa kiểm tra`} description="Bạn vẫn có thể bắt đầu; hãy rà lại danh sách kiểm tra trước khi xe lăn bánh." />
     ),
   });
   const { action, finished } = legAction;
+  // Điểm nghỉ giữa đường phải check-in lần lượt trước khi tới điểm nhận.
+  const waypoints = useWaypointCheckins(trip, map?.stops, running, onChanged);
+  const viaNext = waypoints.next;
 
   const start = isTripStart(action, seqNo);
 
@@ -148,10 +153,15 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       <TripHeaderCard
         trip={trip} detail={detail} totalKm={map?.totalKm ?? null}
         actions={<>
-          {running && (
+          {running && viaNext && (
+            <Button size="large" className="drv-action drv-btn-checkin" onClick={() => waypoints.open(viaNext)}>
+              Check-in: {viaNext.name}
+            </Button>
+          )}
+          {running && !viaNext && (
             <Tooltip title={action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
               <Button size="large" className="drv-action drv-btn-checkin" disabled={!action} onClick={() => action && legAction.open(action)}>
-                Check-in chặng
+                {action ? checkInLabel(action) : 'Check-in chặng'}
               </Button>
             </Tooltip>
           )}
@@ -179,17 +189,42 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       )}
 
       <div className="drv-columns">
-        <RouteMapCard trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()} />
+        <RouteMapCard
+          trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()}
+          navigating={navigating} onNavigate={setNavigating} nextWaypoint={viaNext?.name ?? null}
+        />
         <div className="drv-side">
-          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} />
+          <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} mapStops={map?.stops} visited={waypoints.visited} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
-          {running && <LiveStatsCards legs={trip.legs} map={map} />}
+          {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} nextWaypoint={viaNext?.name ?? null} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
           {running && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
         </div>
       </div>
 
       {legAction.modal}
+      {waypoints.modal}
     </>
   );
+}
+
+const NAV_KEY = (tripId: string) => `drv:nav-off:${tripId}`;
+
+/**
+ * Chế độ dẫn đường của chuyến đang chạy: mặc định bật; tài xế bấm "Thoát" thì nhớ trong phiên (sessionStorage) để tải lại trang vẫn
+ * xem toàn bản đồ. Vừa bấm "Bắt đầu chuyến đi" (READY → IN_TRANSIT) thì luôn vào lại dẫn đường.
+ */
+function useNavigationMode(tripId: string, running: boolean): [boolean, (on: boolean) => void] {
+  const read = () => { try { return sessionStorage.getItem(NAV_KEY(tripId)) !== '1'; } catch { return true; } };
+  const [on, setOn] = useState(read);
+  const wasRunning = useRef(running);
+  const set = useCallback((next: boolean) => {
+    setOn(next);
+    try { if (next) sessionStorage.removeItem(NAV_KEY(tripId)); else sessionStorage.setItem(NAV_KEY(tripId), '1'); } catch { /* chỉ là tiện ích */ }
+  }, [tripId]);
+  useEffect(() => {
+    if (running && !wasRunning.current) set(true);
+    wasRunning.current = running;
+  }, [running, set]);
+  return [on, set];
 }

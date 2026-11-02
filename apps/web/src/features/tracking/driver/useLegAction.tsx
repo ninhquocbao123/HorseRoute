@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import { Alert, Button, DatePicker, Modal, Switch } from 'antd';
-import dayjs, { type Dayjs } from 'dayjs';
+import { Alert, Button } from 'antd';
 import type { IDriverTripSummary, MilestoneType } from '@my-project/shared';
 import { trackingApi, errorMessage, isNetworkError } from '../tracking.api';
 import { MILESTONE_LABEL, currentLeg, formatDateTime, nextAction, type NextAction } from '../tracking.format';
 import { pendingStore, type PendingMilestone } from './useDraft';
-import { actionColor } from './driver-ui';
+import CheckInDialog from './CheckInDialog';
 
 const COMPLETE = 'COMPLETE';
 
@@ -36,8 +35,6 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
   const leg = currentLeg(trip.legs);
   const action = leg ? nextAction(leg, trip.legs, trip.orderStatus) : null;
   const [confirming, setConfirming] = useState<{ action: NextAction; tapAt: Date } | null>(null);
-  const [customTime, setCustomTime] = useState<Dayjs | null>(null);
-  const [backfill, setBackfill] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -53,8 +50,6 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
     const tapAt = new Date();
     setError('');
     setNotice('');
-    setBackfill(false);
-    setCustomTime(dayjs(tapAt));
     setConfirming({ action: next, tapAt });
   }
 
@@ -90,11 +85,8 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
     }
   }
 
-  function confirm() {
+  function confirm(when: Date) {
     if (!confirming || !leg) return;
-    const when = backfill ? customTime?.toDate() ?? null : confirming.tapAt;
-    if (!when) return setError('Chọn giờ thực tế.');
-    if (when.getTime() > Date.now() + 60_000) return setError('Giờ không được ở tương lai.');
     const type = confirming.action.kind === 'complete' ? COMPLETE : confirming.action.milestone;
     // Giữ lại giờ chốt khi bấm để nút "Gửi lại" dùng đúng giờ đó.
     void send(leg.id, type, when.toISOString());
@@ -112,7 +104,6 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
   }
 
   const finished = trip.legs.length > 0 && trip.legs.every(l => l.status === 'COMPLETED');
-  const shownTime = backfill ? customTime : confirming ? dayjs(confirming.tapAt) : null;
   const pendingHere = pending && !confirming && leg && pending.legId === leg.id ? pending : null;
 
   const pendingAlert = pendingHere && (
@@ -130,41 +121,18 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
   );
 
   const modal = (
-    <Modal
-      open={!!confirming} centered width={520} title={confirming ? options.title?.(confirming.action) ?? labelOf(confirming.action) : undefined} destroyOnHidden
-      mask={{ closable: !busy }} keyboard={!busy} onCancel={() => !busy && setConfirming(null)}
-      footer={[
-        <Button key="cancel" disabled={busy} onClick={() => setConfirming(null)}>Hủy</Button>,
-        <Button key="ok" type="primary" color={confirming ? actionColor(confirming.action) : 'primary'} variant="solid" loading={busy} onClick={confirm}>
-          {error && pending ? 'Gửi lại' : 'Xác nhận'}
-        </Button>,
-      ]}
+    <CheckInDialog
+      open={!!confirming} tapAt={confirming?.tapAt ?? null} busy={busy} error={error}
+      kicker={leg && trip.legs.length > 1 ? `Chặng ${leg.seqNo}/${trip.legs.length}` : undefined}
+      heading={confirming ? options.title?.(confirming.action) ?? labelOf(confirming.action) : ''}
+      routeLabel="Lộ trình chuyến"
+      route={leg ? <>{leg.fromLocationName} → {leg.toLocationName}</> : null}
+      detail={confirming ? (confirming.action.kind === 'complete' ? 'Hoàn thành chặng' : MILESTONE_LABEL[confirming.action.milestone]) : undefined}
+      confirmLabel={error && pending ? 'Gửi lại' : 'Xác nhận'}
+      onCancel={() => setConfirming(null)} onConfirm={confirm}
     >
-      {confirming && leg && (
-        <div className="drv-confirm">
-          <p>{confirming.action.kind === 'complete' ? 'Hoàn thành' : MILESTONE_LABEL[confirming.action.milestone]} chặng {leg.seqNo}: <strong>{leg.fromLocationName} → {leg.toLocationName}</strong>.</p>
-          {options.warning?.(confirming.action)}
-          <div className="drv-confirm-time">
-            <span>Giờ ghi nhận</span>
-            <strong>{shownTime ? formatDateTime(shownTime.toISOString()) : '—'}</strong>
-          </div>
-          <label className="drv-switch">
-            <Switch checked={backfill} onChange={setBackfill} disabled={busy} />
-            <span>Nhập bù giờ đã xảy ra</span>
-          </label>
-          {backfill && (
-            <div className="drv-backfill">
-              <DatePicker
-                showTime={{ format: 'HH:mm' }} format="HH:mm DD/MM/YYYY" value={customTime} onChange={setCustomTime} allowClear={false}
-                disabledDate={date => date.isAfter(dayjs(), 'minute')} aria-label="Giờ thực tế" style={{ width: '100%' }}
-              />
-              <span className="drv-muted">Chỉ nhập bù trong thời gian cho phép; quá hạn cần Điều phối viên hiệu chỉnh.</span>
-            </div>
-          )}
-          {error && <Alert type="error" showIcon title={error} />}
-        </div>
-      )}
-    </Modal>
+      {confirming && options.warning?.(confirming.action)}
+    </CheckInDialog>
   );
 
   return { leg, action, finished, open, labelOf, notice, setNotice, pendingAlert, modal };

@@ -37,3 +37,18 @@
   box-shadow: 0 0 0 2px rgb(11 59 66 / 25%), 0 4px 12px rgb(11 59 66 / 40%); }
 /* Vị trí ước tính: màu nhạt hơn nhưng ĐẶC (không dùng opacity, nếu không chữ của bản đồ lọt qua và lẫn vào marker) */
 .drm-vehicle.is-estimated { background-color: #7fa3a8; border-style: dashed; }
+
+/* Dẫn đường: xe là mũi tên xanh trong vòng trắng (kiểu Google Maps), xoay theo hướng đi; nút "Về giữa" khi người dùng kéo bản đồ. */
+.drm-vehicle.is-nav { width: 52px; height: 52px; border: 0; background: #fff center / 26px no-repeat
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 20 21 12 16.5 4 21z' fill='%231a73e8'/%3E%3C/svg%3E");
+  box-shadow: 0 2px 10px rgb(0 0 0 / 30%); }
+.drm-vehicle.is-nav.is-estimated { background-color: #eef3f4; border: 0; }
+.drm-recenter { position: absolute; left: 16px; bottom: 104px; z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+  border: 0; border-radius: 999px; background: #fff; color: #1a73e8; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px rgb(0 0 0 / 25%); }
+.drm-recenter-arrow { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid currentColor; }
+
+/* Bản đồ nhỏ của khách: điểm dừng và xe tải theo mốc */
+.crm-stop { display: block; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #0c3e47; }
+.crm-stop.is-start { width: 16px; height: 16px; background: #0c3e47; border: 3px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 30%); }
+.crm-stop.is-end { width: 18px; height: 18px; background: #e5ad2c; border: 3px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 30%); }
+.drm-vehicle.crm-truck { width: 32px; height: 32px; background-size: 16px; }

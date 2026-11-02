@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "HorseRoute",
+    "slug": "horseroute-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "vn.horseroute.mobile",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Chọn ảnh ngựa hoặc ảnh sự cố để đính kèm báo cáo.",
+          "cameraPermission": "Chụp ảnh ngựa hoặc sự cố khi bạn tạo báo cáo.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-status-bar"
+    ]
+  }
+}

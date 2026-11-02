@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HorseRoute Khách hàng Wireframe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: thanh công cụ dính trên cùng; chế độ Bấm thử = khung điện thoại + ghi chú; chế độ Xem tất cả = mỗi màn một hàng biến thể. */
+:root{
+  --page-bg:#eef3f2; --page-fg:#0d2a2e; --page-muted:#546d71; --page-line:#d3e1e1; --page-card:#ffffff; --page-brand:#0b3b42; --page-on-brand:#ffffff; --page-seg:#e1ebea;
+  /* Bên trong khung: màu thương hiệu xanh #0b3b42, vàng #f4b942, trắng (00-context mục 5b); giữ một kiểu ở cả hai chế độ sáng/tối */
+  --w-ink:#0b3b42; --w-ink2:#546d71; --w-ink3:#8aa3a6; --w-line:#d8e6e6; --w-fill:#e7f1f1; --w-fill2:#f6faf9; --w-bg:#ffffff; --w-dark:#0b3b42; --w-brand2:#14606a; --w-on-dark:#ffffff; --w-on-dark2:#b9d3d6; --w-shade:rgba(6,20,22,.5);
+  --acc:#f4b942; --on-acc:#2b1a00;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}}
+:root[data-theme="dark"]{--page-bg:#061416;--page-fg:#e8f4f4;--page-muted:#96b4b7;--page-line:#1a3a3e;--page-card:#0c2326;--page-brand:#14606a;--page-on-brand:#ffffff;--page-seg:#0f2b2f;color-scheme:dark}
+html,body{background:var(--page-bg);color:var(--page-fg)}
+body{font-family:var(--font);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--page-card)}
+button{font-family:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid #2f7c87;outline-offset:2px}
+
+/* ---------- Thanh công cụ (ngoài khung) ---------- */
+.tb{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page-card);border-bottom:1px solid var(--page-line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.tb h1{font-size:16px;margin:0;font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tb h1 small{font-weight:500;color:var(--page-muted);font-size:13px}
+.tb .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tb .lab{font-size:12px;color:var(--page-muted);letter-spacing:.02em}
+.seg{display:inline-flex;background:var(--page-seg);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--page-fg);font-size:13px;font-weight:500;padding:6px 10px;border-radius:8px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--page-brand);color:var(--page-on-brand)}
+.tbtn{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:10px;padding:6px 12px;font-size:13px;min-height:38px;cursor:pointer}
+.spacer{flex:1}
+
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+
+/* ---------- Chế độ Bấm thử ---------- */
+.proto{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.device{background:#0c2326;border-radius:52px;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.device .screen{border-radius:40px}
+.device.android{border-radius:28px;padding:10px}
+.device.android .screen{border-radius:18px}
+.fit{position:relative;flex:none}
+.fit>.scaled{transform-origin:0 0;position:absolute;left:0;top:0}
+.panel{flex:1 1 320px;max-width:440px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.pcard{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.pcard h2{margin:0;font-size:18px;text-wrap:balance}
+.pcard h3{margin:0;font-size:13px;font-weight:600;color:var(--page-muted);letter-spacing:.04em;text-transform:uppercase}
+.pcard p,.pcard li{margin:0;font-size:14px;line-height:1.55}
+.pcard ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--page-muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{border:1px solid var(--page-line);background:transparent;color:var(--page-fg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:left}
+.jump button.on{border-color:var(--page-brand);background:var(--page-seg);font-weight:600}
+.jump button .code{color:var(--page-muted);margin-right:6px}
+.hint{font-size:13px;color:var(--page-muted)}
+
+/* ---------- Chế độ Xem tất cả ---------- */
+.grid{display:flex;flex-direction:column;gap:40px}
+.grow-row{display:flex;flex-direction:column;gap:12px}
+.grow-row>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.grow-row>header h2{margin:0;font-size:20px}
+.grow-row>header p{margin:0;color:var(--page-muted);font-size:14px;max-width:70ch}
+.strip{display:flex;gap:20px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.vcell{display:flex;flex-direction:column;gap:8px;flex:none}
+.vcell .vl{font-size:13px;font-weight:600;max-width:390px}
+.vcell .fit{border:1px solid var(--page-line);border-radius:6px;overflow:hidden;cursor:zoom-in}
+
+/* ---------- Khung màn (wireframe) ---------- */
+.screen{width:var(--fw);height:var(--fh);display:flex;flex-direction:column;background:var(--w-bg);color:var(--w-ink);font-family:var(--font);font-size:15px;line-height:1.4;position:relative;overflow:hidden;text-align:left}
+.screen *{box-sizing:border-box}
+.sb{height:47px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font-weight:600;font-size:15px;background:var(--w-bg)}
+.android .sb{height:28px;padding:0 16px;font-size:13px}
+.sbi{display:flex;align-items:center;gap:6px}
+.sbi .bat{width:24px;height:12px;border:1.5px solid var(--w-ink);border-radius:3px;display:flex;padding:1.5px}
+.sbi .bat span{width:70%;background:var(--w-ink);border-radius:1px}
+.sbi .sig{display:flex;align-items:flex-end;gap:2px;height:12px}
+.sbi .sig span{width:3px;background:var(--w-ink);border-radius:1px}
+.hi{height:34px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.hi span{width:134px;height:5px;border-radius:3px;background:var(--w-ink)}
+.android .hi{height:24px} .android .hi span{width:108px;height:4px}
+.hdr{min-height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid var(--w-line);background:var(--w-bg)}
+.hdr .t{flex:1;min-width:0;display:flex;flex-direction:column;padding:0 4px}
+.hdr .t b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .t small{font-size:13px;color:var(--w-ink2)}
+.hdr.big{min-height:64px;padding:0 16px;border-bottom:0}
+.hdr.big .t b{font-size:26px;font-weight:700}
+.ib{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:none;border:0;color:inherit;cursor:pointer;padding:0}
+.body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;background:var(--w-fill2)}
+.body.white{background:var(--w-bg)}
+.bottom{flex:none;display:flex;flex-direction:column;background:var(--w-bg);border-top:1px solid var(--w-line)}
+.bottom .row{display:flex;gap:8px;padding:12px 16px 4px}
+.bottom .note{padding:10px 16px 0;font-size:13px;color:var(--w-ink2)}
+.btn{min-height:56px;border-radius:14px;font-family:var(--font);font-weight:600;font-size:16px;line-height:1.2;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border:1.5px solid var(--w-ink);background:var(--w-bg);color:var(--w-ink);cursor:pointer;text-align:center;text-decoration:none}
+.btn.pri{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.btn.xl{min-height:64px;font-size:17px}
+.btn.grow{flex:1;min-width:0}
+.btn.side{width:116px;flex:none;flex-direction:column;gap:2px;font-size:13px;padding:0 8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn[disabled]{background:var(--w-fill);color:var(--w-ink3);border-color:var(--w-line);cursor:default}
+.card{background:var(--w-bg);border:1px solid var(--w-line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.tap{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--w-line);font-size:13px;font-weight:500;background:var(--w-bg);white-space:nowrap}
+.chip.dark{background:var(--w-dark);color:#fff;border-color:var(--w-dark)}
+.chip.fill{background:var(--w-fill)}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--w-ink2)}
+.muted{color:var(--w-ink2)} .small{font-size:13px}
+.big{font-size:24px;font-weight:700;line-height:1.2;text-wrap:balance}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--w-line);background:var(--w-bg);font-family:var(--font);font-weight:500;font-size:15px;color:var(--w-ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.opt.on{border-color:var(--w-ink);background:var(--w-fill);font-weight:600}
+.bigopt{min-height:72px;width:100%;border-radius:16px;border:1.5px solid var(--w-line);background:var(--w-bg);display:flex;align-items:center;gap:12px;padding:12px 16px;font-family:var(--font);color:var(--w-ink);text-align:left;cursor:pointer}
+.bigopt.on{border:2.5px solid var(--w-ink);background:var(--w-fill)}
+.bigopt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bigopt .tx b{font-size:17px}
+.bigopt .tx span{font-size:13px;color:var(--w-ink2)}
+.ico{width:44px;height:44px;flex:none;border-radius:12px;background:var(--w-fill);display:flex;align-items:center;justify-content:center}
+.sevm{display:flex;gap:3px;align-items:flex-end;height:22px;flex:none}
+.sevm span{width:6px;border-radius:2px;background:var(--w-line)}
+.sevm span.f{background:var(--w-ink)}
+.tabbar{flex:none;display:flex;border-top:1px solid var(--w-line);background:var(--w-bg)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 4px;font-size:11px;color:var(--w-ink3);background:none;border:0;cursor:pointer;font-family:var(--font);min-height:56px}
+.tab.on{color:var(--w-ink);font-weight:600}
+.overlay{position:absolute;inset:0;background:var(--w-shade);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
+.overlay.center{justify-content:center;padding:24px}
+.sheet{background:var(--w-bg);border-radius:20px 20px 0 0;padding:8px 16px 0;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--w-line);align-self:center}
+.dialog{background:var(--w-bg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.sheet h3,.dialog h3{margin:0;font-size:20px;font-weight:700}
+.kvw{display:flex;flex-direction:column;border:1px solid var(--w-line);border-radius:14px}
+.kvw>div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid var(--w-line);align-items:center}
+.kvw>div:first-child{border-top:0}
+.kvw span:first-child{color:var(--w-ink2);font-size:14px}
+.kvw b{font-weight:600;text-align:right}
+.link{background:none;border:0;padding:0;font:inherit;font-weight:600;text-decoration:underline;color:var(--w-ink);cursor:pointer;min-height:44px}
+.box{border:1.5px dashed var(--w-ink3);border-radius:12px;padding:12px;display:flex;gap:10px;font-size:14px;align-items:flex-start}
+.box.err{border:2px solid var(--w-ink);border-style:solid}
+.skel{background:var(--w-fill);border-radius:8px}
+.hatch{background-color:var(--w-fill2);background-image:repeating-linear-gradient(45deg,#cfe0e0 0 1.5px,transparent 1.5px 10px);border:1px solid var(--w-line);border-radius:12px}
+.bar{display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;min-height:44px;background:var(--w-brand2);color:#fff;font-size:13px;font-weight:500;flex:none;border:0;width:100%;font-family:var(--font);text-align:left;cursor:pointer}
+.bar .grow{flex:1;min-width:0}
+.bar.light{background:var(--w-fill);color:var(--w-ink)}
+.card.brand{background:var(--w-dark);border-color:var(--w-dark);color:var(--w-on-dark)}
+.card.brand .lbl,.card.brand .muted{color:var(--w-on-dark2)}
+.card.brand .chip{background:transparent;color:var(--w-on-dark);border-color:rgba(255,255,255,.35)}
+.card.brand .chip.dark{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.card.brand .link{color:var(--w-on-dark)}
+.undo{margin:12px 12px 0;background:var(--w-dark);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;min-height:60px}
+.undo .grow{flex:1;min-width:0;font-size:14px}
+.undo button{min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #fff;background:transparent;color:#fff;font-family:var(--font);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tl{display:flex;flex-direction:column}
+.stop{display:flex;gap:12px}
+.rail{width:20px;flex:none;display:flex;flex-direction:column;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--w-ink3);background:var(--w-bg);margin-top:3px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.dot.done{background:var(--w-ink);border-color:var(--w-ink)}
+.dot.cur{border:5px solid var(--w-ink)}
+.ln{flex:1;width:2px;background:var(--w-line);min-height:20px}
+.ln.done{background:var(--w-ink)}
+.stop .info{flex:1;min-width:0;padding-bottom:16px;display:flex;flex-direction:column;gap:2px}
+.stop .info b{font-size:15px}
+.ev{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.listrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;border-top:1px solid var(--w-line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;font-family:var(--font);font-size:15px;color:var(--w-ink);text-align:left;cursor:pointer}
+.listrow:first-child{border-top:0}
+.listrow .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--w-ink);flex:none;display:flex;align-items:center;justify-content:center;background:var(--w-bg)}
+.chk.on{background:var(--w-ink);color:#fff}
+.field{border:1.5px solid var(--w-line);border-radius:12px;min-height:96px;padding:12px;font-size:15px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;background:var(--w-bg)}
+.field.err{border-color:var(--w-ink);border-width:2px}
+.ph{color:var(--w-ink3)}
+.photos{display:flex;gap:8px}
+.photo{width:96px;height:96px;flex:none;display:flex;flex-direction:column;justify-content:flex-end;padding:6px;font-size:11px;color:var(--w-ink2)}
+.addph{width:96px;height:96px;flex:none;border:1.5px dashed var(--w-ink3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;background:var(--w-bg);color:var(--w-ink);cursor:pointer;font-family:var(--font)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.circle{width:72px;height:72px;border-radius:50%;border:2px solid var(--w-ink);display:flex;align-items:center;justify-content:center}
+.circle.fill{background:var(--w-ink);color:#fff}
+.stubtag{font-size:12px;border:1px dashed var(--w-ink3);border-radius:8px;padding:6px 10px;color:var(--w-ink2)}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec>.lbl em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0;color:var(--w-ink3)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper .ib{border:1.5px solid var(--w-ink);width:64px;height:48px;font-size:18px;font-weight:600;font-family:var(--font)}
+.stepper b{flex:1;text-align:center;font-size:22px}
+@media (prefers-reduced-motion:no-preference){.overlay .sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+@media (max-width:760px){.tb{position:static;gap:6px 10px;padding-block:8px}.tb .lab{display:none}.seg button{padding:5px 8px;font-size:12.5px;min-height:30px}.tb h1 small{display:none}}
+
+/* Thanh cuộn kiểu điện thoại: một vạch mảnh, mờ, không khung, không mũi tên */
+.screen *{scrollbar-width:thin;scrollbar-color:rgba(11,59,66,.28) transparent}
+.screen ::-webkit-scrollbar{width:4px;height:4px;background:transparent}
+.screen ::-webkit-scrollbar-track{background:transparent}
+.screen ::-webkit-scrollbar-thumb{background:rgba(11,59,66,.28);border-radius:4px}
+.screen ::-webkit-scrollbar-button{display:none;width:0;height:0}
+.screen ::-webkit-scrollbar-corner{background:transparent}
+html,.strip{scrollbar-width:thin;scrollbar-color:rgba(84,109,113,.45) transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(84,109,113,.45);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+</style>
+</head>
+<body>
+
+<style>
+.card.grad{background:linear-gradient(135deg,#0b3b42 0%,#14606a 100%);border:0;color:#fff}
+.card.grad .lbl,.card.grad .muted{color:var(--w-on-dark2)}
+.card.grad .chip{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+.card.grad .chip.gold{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.chip.gold{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.chip.line{border:1.5px solid var(--w-ink);color:var(--w-ink);font-weight:600}
+.dots{display:flex;align-items:center;gap:0}
+.dots .d{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.6);flex:none}
+.dots .d.on{background:#fff;border-color:#fff}
+.dots .d.cur{background:var(--acc);border-color:var(--acc);width:14px;height:14px}
+.dots .l{flex:1;height:2px;background:rgba(255,255,255,.35)}
+.dots .l.on{background:#fff}
+.filters{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;background:var(--w-bg);border-bottom:1px solid var(--w-line);flex:none}
+.filters .opt{min-height:40px;white-space:nowrap}
+.prog{display:flex;gap:4px;padding:12px 16px 0;background:var(--w-bg);flex:none}
+.prog span{flex:1;height:4px;border-radius:2px;background:var(--w-line)}
+.prog span.on{background:var(--w-ink)}
+.steps{display:flex;flex-direction:column;gap:0}
+.steps .s{display:flex;align-items:center;gap:10px;min-height:32px;font-size:14px;color:var(--w-ink2)}
+.steps .s .n{width:22px;height:22px;border-radius:50%;border:2px solid var(--w-line);flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--w-bg)}
+.steps .s.done{color:var(--w-ink)} .steps .s.done .n{background:var(--w-ink);border-color:var(--w-ink);color:#fff}
+.steps .s.cur{color:var(--w-ink);font-weight:600} .steps .s.cur .n{border-color:var(--w-ink);border-width:5px}
+.inv{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.inv>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:14px;align-items:baseline}
+.inv>div span:last-child{text-align:right;white-space:nowrap}
+.inv .sep{border-top:1px solid var(--w-line)}
+.inv .tot{font-size:17px;font-weight:700}
+.input{border:1.5px solid var(--w-line);border-radius:12px;min-height:52px;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;background:var(--w-bg)}
+.input small{font-size:12px;color:var(--w-ink2)}
+.input.err{border:2px solid var(--w-ink)}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{border:1px solid var(--w-line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0;background:var(--w-bg)}
+.tile b{font-size:18px}
+.belldot{position:relative}
+.belldot i{position:absolute;top:8px;right:8px;min-width:18px;height:18px;border-radius:9px;background:var(--acc);color:var(--on-acc);font-size:11px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.quote-note{border-left:3px solid var(--w-ink);padding:4px 0 4px 12px;font-size:15px}
+</style>
+
+<div class="tb" id="toolbar">
+  <h1>HorseRoute · Khách hàng <small>Wireframe bấm thử · đợt 3/4</small></h1>
+  <div class="grp"><span class="lab">Chế độ</span><div class="seg" id="segMode"><button data-mode="proto" class="on">Bấm thử</button><button data-mode="grid">Xem tất cả màn</button></div></div>
+  <div class="grp"><span class="lab">Trạng thái</span><div class="seg" id="segState"><button data-st="normal" class="on">Bình thường</button><button data-st="loading">Đang tải</button><button data-st="empty">Trống</button><button data-st="error">Lỗi</button><button data-st="offline">Mất sóng</button></div></div>
+  <div class="grp"><span class="lab">Khung</span><div class="seg" id="segPlat"><button data-plat="ios" class="on">iPhone 390×844</button><button data-plat="android">Android 360×800</button></div></div>
+  <div class="grp" id="grpScale" hidden><span class="lab">Tỉ lệ</span><div class="seg" id="segScale"><button data-sc="0.5">50%</button><button data-sc="1">100%</button></div></div>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnReset">Làm lại từ đầu</button>
+</div>
+<main id="main"></main>
+
+<script>
+(function(){
+'use strict';
+const P = {
+  back:'<path d="m15 18-6-6 6-6"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  wifioff:'<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  clipboard:'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  horse:'<path d="M16 3l-1.5 2.2"/><path d="M7 21c.5-3.5 1.6-6 3.5-7.6L8.2 14.5c-1.3.6-2.9.2-3.6-1.1-.6-1-.3-2.3.6-3L12 5.2c2.6-1.9 6.2-1 7.7 1.8.8 1.5 1.3 3.8 1.3 6.3V21"/><circle cx="14" cy="8.5" r=".6" fill="currentColor"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  water:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  map:'<path d="M14.1 6.3 9.9 4.2a2 2 0 0 0-1.8 0L3.6 6.5A1 1 0 0 0 3 7.4v12.1a.5.5 0 0 0 .7.5l4.4-2.2a2 2 0 0 1 1.8 0l4.2 2.1a2 2 0 0 0 1.8 0l4.5-2.3a1 1 0 0 0 .6-.9V4.6a.5.5 0 0 0-.7-.5l-4.4 2.2a2 2 0 0 1-1.8 0z"/><path d="M15 5.8v15"/><path d="M9 3.2v15"/>',
+  calendar:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  chat:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  receipt:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye:'<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  edit:'<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/>'
+};
+const ic = (n, s=22, w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const NOW = '07:42';
+const money = n => n.toLocaleString('vi-VN').replace(/,/g,'.') + ' ₫';
+
+/* ---------- Dữ liệu mẫu ---------- */
+const Q1 = {items:[['Vận chuyển 128 km · xe tải 4 chuồng',32000000],['Phí cửa khẩu và kiểm dịch',6500000],['Hộ tống chuyên môn 2 ngày',4000000]], adj:['Phụ phí khởi hành trước 6 giờ',2500000], vat:3600000, total:48600000, deposit:14580000, paid:14580000, expires:null, receipts:[['Đặt cọc · Chuyển khoản QR','02/11/2026',14580000]]};
+const Q2 = {items:[['Vận chuyển 42 km · xe tải 2 chuồng',8000000],['Hộ tống chuyên môn 1 ngày',1500000],['Bốc xếp và chuồng tạm',1000000]], adj:null, vat:840000, total:11340000, deposit:3402000, paid:0, expires:'31/10/2026 18:00 · còn 34 giờ', receipts:[]};
+const STEPS = ['Gửi yêu cầu','Duyệt đơn','Báo giá và đặt cọc','Chuẩn bị chuyến','Vận chuyển','Đã giao'];
+const freshOrders = () => ({
+  'HR-2610-0012':{st:'IN_TRANSIT',label:'Đang vận chuyển',horses:['Sao Mai','Kim Long'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Trạm kiểm dịch Svay Rieng (Campuchia)',date:'05/11/2026 · 06:00',km:128,quote:Q1,step:4},
+  'HR-2610-0015':{st:'APPROVED',label:'Chờ đặt cọc',horses:['Ngân Hà','Sao Băng'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Trường đua Đại Nam, Bình Dương',date:'20/11/2026',km:42,quote:{...Q2},step:2},
+  'HR-2610-0009':{st:'NEED_INFO',label:'Cần bổ sung',horses:['Hồng Vân'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Sân bay Tân Sơn Nhất (khu hàng hóa)',date:'25/11/2026',km:9,note:'Giấy chứng nhận sức khỏe của Hồng Vân đã hết hạn ngày 20/10/2026. Tải giấy mới trên web, sau đó gửi lại yêu cầu.',missing:['Giấy chứng nhận sức khỏe · Hồng Vân'],step:1},
+  'HR-2611-0003':{st:'PREPARING',label:'Đang chuẩn bị',horses:['Bạch Phong'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Sân bay Tân Sơn Nhất (khu hàng hóa)',date:'12/11/2026 · 05:30',km:9,step:3},
+  'HR-2609-0031':{st:'DELIVERED',label:'Đã giao',horses:['Kim Long'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Trường đua Đại Nam, Bình Dương',date:'28/09/2026',km:42,delivered:'14:20, 28/09/2026',step:5},
+  'HR-2609-0027':{st:'REJECTED',label:'Từ chối',horses:['Sao Băng'],from:'Trường đua Phú Thọ, Q.11, TP.HCM',to:'Cửa khẩu Mộc Bài',date:'15/09/2026',km:80,note:'Tuyến qua cửa khẩu chưa nhận ngựa dưới 3 tuổi trong tháng 9. Bạn có thể gửi yêu cầu mới với ngày khởi hành từ tháng 10.',step:-1}
+});
+const FILTERS = [['proc','Đang xử lý',['NEED_INFO','PENDING','APPROVED','PREPARING','DRAFT']],['run','Đang chạy',['IN_TRANSIT','READY']],['done','Đã xong',['DELIVERED']],['closed','Đã đóng',['REJECTED','CANCELLED']]];
+const freshHorses = () => ([
+  {name:'Sao Mai',breed:'Thoroughbred',sex:'Cái',color:'Nâu',born:'2021',passport:'VN-TB-0217',chip:'985 141 000 217 553',kg:480,cm:163,feed:'Cỏ khô 8 kg, yến mạch 2 kg mỗi ngày',busy:'HR-2610-0012',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2029'],['Giấy chứng nhận sức khỏe','Hợp lệ đến 30/11/2026']]},
+  {name:'Kim Long',breed:'Quarter Horse',sex:'Đực',color:'Hạt dẻ',born:'2019',passport:'VN-QH-0098',chip:'985 141 000 098 120',kg:520,cm:157,feed:'Cỏ khô 9 kg, yến mạch 1,5 kg',busy:'HR-2610-0012',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2028'],['Giấy chứng nhận sức khỏe','Hợp lệ đến 15/12/2026']]},
+  {name:'Bạch Phong',breed:'Arabian',sex:'Đực',color:'Xám',born:'2018',passport:'VN-AR-0044',chip:'985 141 000 044 871',kg:450,cm:152,feed:'Cỏ khô 7 kg',busy:'HR-2611-0003',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2027']]},
+  {name:'Hồng Vân',breed:'Thoroughbred',sex:'Cái',color:'Hồng mã',born:'2020',passport:'VN-TB-0189',chip:'',kg:470,cm:160,feed:'Cỏ khô 8 kg',warn:'Giấy sức khỏe hết hạn 20/10',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2030'],['Giấy chứng nhận sức khỏe','Hết hạn 20/10/2026']]},
+  {name:'Ngân Hà',breed:'Thoroughbred',sex:'Cái',color:'Đen',born:'2022',passport:'VN-TB-0240',chip:'',kg:455,cm:161,feed:'Cỏ khô 7 kg, yến mạch 2 kg',busy:'HR-2610-0015',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2031']]},
+  {name:'Sao Băng',breed:'Thoroughbred',sex:'Đực',color:'Nâu đỏ',born:'2023',passport:'VN-TB-0262',chip:'',kg:430,cm:158,feed:'Cỏ khô 7 kg',busy:'HR-2610-0015',docs:[['Hộ chiếu ngựa','Hợp lệ đến 2032']]}
+]);
+const age = y => 2026 - +y;
+
+const NOTES = {
+  'CUS-01':{n:'Hành trình',kind:'P0 · tab Hành trình, màn đầu tiên',p:'Thấy chuyến đang chạy và những việc đang chờ khách xử lý.',a:'Chạm thẻ chuyến đang chạy',d:'Mã đơn, trạng thái, ngựa, mốc gần nhất, điểm kế tiếp, giờ dự kiến; việc cần làm: bổ sung, giấy tờ, đặt cọc',api:'GET /orders/customer-workspace · /tracking/orders/:id/timeline',b:['Thẻ chuyến đang chạy là chỗ duy nhất dùng nền chuyển xanh (00-context 5c).','Không chào hỏi, không banner.','Chuông có số chưa đọc mở Thông báo (màn chung).','Mất sóng hiện dữ liệu lưu và giờ cập nhật.']},
+  'CUS-02':{n:'Đơn hàng',kind:'P0 · tab Đơn hàng',p:'Xem mọi đơn theo nhóm trạng thái và tạo yêu cầu mới.',a:'Tạo yêu cầu vận chuyển',d:'Mã đơn, trạng thái, tuyến, ngày khởi hành, số ngựa, tổng báo giá',api:'GET /orders/customer-workspace',b:['Lọc: Đang xử lý, Đang chạy, Đã xong, Đã đóng.','Đơn cần khách làm gì có nhãn việc cần làm ngay trên thẻ.']},
+  'CUS-03':{n:'Chi tiết đơn',kind:'P0',p:'Toàn cảnh một đơn và việc tiếp theo.',a:'Đổi theo trạng thái: Sửa và gửi lại, Xem báo giá, Theo dõi hành trình',d:'Trạng thái và lý do, 6 bước của đơn, tuyến, ngày, ngựa, giấy tờ thiếu, tóm tắt báo giá',api:'GET /orders/:id · /orders/:id/quote · /documents/orders/:id',b:['Lý do cần bổ sung hoặc từ chối hiện nguyên văn ở đầu màn.','Giấy tờ chỉ xem trên app, tải lên trên web (quyết định ở plan).']},
+  'CUS-04':{n:'Báo giá và thanh toán',kind:'P0',p:'Chi phí minh bạch như hóa đơn.',a:'Thanh toán cọc (mở web)',d:'Hạng mục, điều chỉnh và lý do, VAT, tổng, cọc, đã trả, còn lại, hạn báo giá, biên lai',api:'GET /orders/:id/quote · /payments/orders/:id; socket payment:updated',b:['Đặt cọc trên web chính là chấp nhận báo giá (Long chốt 29/10).','Sau khi trả trên web, app tự cập nhật qua socket hoặc push PAYMENT_SUCCESS.','Chưa có cách từ chối báo giá trong app (G9); kênh liên hệ đang chốt.']},
+  'CUS-05':{n:'Theo dõi hành trình',kind:'P0 · hướng B đã duyệt',p:'Biết ngựa đang ở đâu và có khỏe không.',a:'Chạm báo cáo sức khỏe mới',d:'Thẻ trạng thái, bản đồ nhỏ (vị trí ước tính), điểm dừng và mốc có giờ, báo cáo sức khỏe xen đúng thời điểm, tóm tắt chăm sóc',api:'GET /tracking/orders/:id/timeline · /map · /horse-reports; socket join:order',b:['Vị trí luôn ghi rõ là ước tính theo mốc gần nhất (G4).','Không hiện số điều phối viên; khu Liên hệ giữ chỗ chờ chốt kênh (Long 29/10).','Trễ so với kế hoạch hiện dòng cảnh báo.']},
+  'CUS-06':{n:'Báo cáo sức khỏe',kind:'P0',p:'Đọc một báo cáo của người hộ tống.',a:'Tự đánh dấu đã xem khi mở',d:'Ngựa, tình trạng, nhiệt độ, nhịp tim, ăn uống, lời nhắn cho khách, ảnh, người gửi, giờ gửi',api:'GET /tracking/orders/:id/horse-reports · POST /horse-reports/:id/view',b:['Nhiệt độ ngoài khoảng bình thường thì ghi rõ bằng chữ.','Ảnh chạm để phóng to.']},
+  'CUS-08':{n:'Ngựa',kind:'P0 · tab Ngựa',p:'Danh sách hồ sơ ngựa để dùng lại khi đặt.',a:'Thêm ngựa',d:'Ảnh, tên, giống, tuổi, giới tính, đơn đang tham gia, cảnh báo giấy tờ',api:'GET /customer/profiles',b:['Icon tab vẽ riêng (đầu ngựa, nét 2px).','Ngựa đang trên đơn ghi mã đơn để khách biết vì sao không chọn được.']},
+  'CUS-09':{n:'Hồ sơ ngựa',kind:'P0',p:'Chi tiết một ngựa.',a:'Đặt vận chuyển cho ngựa này',d:'Thông tin hồ sơ, giấy tờ đã gắn, đơn đang tham gia',api:'GET /customer/profiles · /files/:id',b:['Ngựa đang bận thì nút đặt bị khóa và ghi mã đơn.']},
+  'CUS-10':{n:'Thêm hoặc sửa hồ sơ ngựa',kind:'P0',p:'Tạo hồ sơ một lần, dùng lại cho mọi đơn.',a:'Lưu hồ sơ',d:'Tên, số hộ chiếu, giống, giới tính, màu lông, ngày sinh, vi mạch, cân nặng, chiều cao, khẩu phần, ghi chú, ảnh',api:'POST/PUT /customer/profiles · POST /profiles/:id/files',b:['Trùng số hộ chiếu trả 409, báo ngay tại ô.','Không lưu khi mất sóng vì cần kiểm tra trùng.']},
+  'CUS-11':{n:'Yêu cầu · 1 Chọn ngựa',kind:'P0 · bước 1/4',p:'Chọn ngựa đã có hồ sơ.',a:'Tiếp tục',d:'Hồ sơ ngựa; ngựa đang bận bị khóa và ghi mã đơn',api:'GET /customer/profiles · POST /orders (nháp, requestId)',b:['Nháp lưu lên máy chủ từ bước này, thoát giữa chừng vẫn làm tiếp được.']},
+  'CUS-12':{n:'Yêu cầu · 2 Tuyến và ngày',kind:'P0 · bước 2/4',p:'Điểm đi, điểm đến, ngày khởi hành.',a:'Tiếp tục',d:'Quãng đường ước tính',api:'GET /customer/route-distance · PUT /orders/:id',b:['Chọn điểm trên bản đồ hoặc gõ địa chỉ (màn chọn địa điểm vẽ ở bước UI chi tiết).']},
+  'CUS-13':{n:'Yêu cầu · 3 Ghi chú',kind:'P0 · bước 3/4',p:'Yêu cầu đặc biệt cho chuyến.',a:'Tiếp tục',d:'Ghi chú tối đa 5000 ký tự',api:'PUT /orders/:id',b:['Gợi ý câu thường gặp để không phải gõ dài.','Thông tin người nhận tạm ghi ở đây (khoảng trống API).']},
+  'CUS-14':{n:'Yêu cầu · 4 Xem lại',kind:'P0 · bước 4/4',p:'Kiểm tra trước khi gửi.',a:'Gửi yêu cầu',d:'Tóm tắt 3 bước, mỗi phần có nút Sửa',api:'POST /orders/:id/submit',b:['Lỗi 422 đưa về đúng bước có lỗi.','Cần có mạng để gửi.']},
+  'CUS-15':{n:'Đã gửi yêu cầu',kind:'P0',p:'Xác nhận và cho biết bước tiếp theo.',a:'Xem đơn',d:'Mã đơn, trạng thái Chờ duyệt, các bước tiếp theo',api:'Kết quả submit',b:['Khách nhận thông báo khi đơn được duyệt hoặc cần bổ sung.']}
+};
+const STUBS = {
+  'CUS-07':['Nhật ký chăm sóc','P1, vẽ sau khi duyệt P0'],
+  'CUS-16':['Giấy tờ của đơn','P1, vẽ sau khi duyệt P0'],
+  'MAP':['Bản đồ hành trình','Phần mở rộng của CUS-05, vẽ ở bước UI chi tiết'],
+  'COM-09':['Thông báo','Màn chung, vẽ ở đợt Chung'],
+  'COM-10':['Tài khoản','Màn chung, vẽ ở đợt Chung']
+};
+const TABS = [['CUS-01','Hành trình','route'],['CUS-02','Đơn hàng','clipboard'],['CUS-08','Ngựa','horse'],['COM-10','Tài khoản','user']];
+
+/* ---------- Trạng thái ---------- */
+const newReq = () => ({horses:['Ngân Hà'], from:'Trường đua Phú Thọ, Q.11, TP.HCM', to:'Trường đua Đại Nam, Thủ Dầu Một, Bình Dương', date:'05/12/2026', note:'', code:null});
+const fresh = () => ({screen:'CUS-01', stack:[], st:'normal', sheet:null, orders:freshOrders(), horses:freshHorses(), order:'HR-2610-0012', horse:'Sao Mai', filter:'proc', req:newReq(), toast:null, newHorse:false, overdue:false, unread:3});
+let app = fresh();
+let mode = 'proto', plat = 'ios', gridScale = null, toastTimer = null;
+
+/* ---------- Khối dựng ---------- */
+const DIM = {ios:{w:390,h:844}, android:{w:360,h:800}};
+function sb(c){ return `<div class="sb"><span>${NOW}</span><span class="sbi">${c.st==='offline' ? ic('wifioff',16) : '<span class="sig"><span style="height:4px"></span><span style="height:7px"></span><span style="height:10px"></span><span style="height:12px"></span></span>'}<span class="bat"><span></span></span></span></div>`; }
+const hi = () => '<div class="hi"><span></span></div>';
+const bell = c => `<button class="ib belldot" data-act="go" data-arg="COM-09" aria-label="Thông báo, ${c.unread} chưa đọc">${ic('bell',24)}${c.unread?`<i>${c.unread}</i>`:''}</button>`;
+function hdr({back, title, sub, right=''}){
+  return `<div class="hdr">${back ? `<button class="ib" data-act="back" aria-label="Quay lại">${ic('back',26)}</button>` : ''}<div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${right}</div>`;
+}
+const bigHdr = (c, title, sub) => `<div class="hdr big"><div class="t"><b>${title}</b>${sub?`<small>${sub}</small>`:''}</div>${bell(c)}</div>`;
+function tabbar(active){ return `<nav class="tabbar">${TABS.map(([code,label,icon]) => `<button class="tab${code===active?' on':''}" data-act="tab" data-arg="${code}">${ic(icon,24)}<span>${label}</span></button>`).join('')}</nav>`; }
+const cacheBar = () => `<div class="bar">${ic('wifioff',18)}<span class="grow">Mất sóng · đang xem dữ liệu lưu lúc 07:35</span></div>`;
+const toast = c => c.toast ? `<div class="undo" role="status"><span class="grow">${c.toast}</span></div>` : '';
+function skeleton(){ return `<div class="body"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:28px;width:85%"></div><div class="skel" style="height:12px;width:60%"></div></div>${[1,2,3].map(() => `<div class="card"><div class="skel" style="height:14px;width:70%"></div><div class="skel" style="height:12px;width:50%"></div></div>`).join('')}</div>`; }
+const emptyBox = (icon, title, text, btn) => `<div class="body white"><div class="empty"><div class="circle">${ic(icon,32)}</div><b style="font-size:18px">${title}</b><p class="muted small" style="margin:0;max-width:290px">${text}</p>${btn||''}</div></div>`;
+const errBox = what => emptyBox('alert', `Không tải được ${what}`, 'Kiểm tra kết nối rồi thử lại.', `<button class="btn pri" data-act="noop">${ic('refresh',20)} Thử lại</button>`);
+function statusChip(o){
+  const action = ['NEED_INFO','APPROVED'].includes(o.st);
+  return `<span class="chip ${o.st==='IN_TRANSIT'?'dark':action?'line':'fill'}">${action?ic('alert',14,2.5)+' ':''}${o.label}</span>`;
+}
+function orderCard(c, code){
+  const o = c.orders[code];
+  const todo = o.st==='NEED_INFO' ? 'Cần bổ sung giấy tờ' : o.st==='APPROVED' ? `Đặt cọc ${money(o.quote.deposit)}` : o.st==='DRAFT' ? 'Nháp · làm tiếp' : '';
+  return `<button class="card tap" data-act="openOrder" data-arg="${code}">
+    <div class="row between"><b style="font-size:16px">${code}</b>${statusChip(o)}</div>
+    <span class="small">${o.from.split(',')[0]} → ${o.to}</span>
+    <span class="row small muted" style="flex-wrap:wrap">${ic('calendar',16)} ${o.date} · ${o.horses.length} ngựa${o.quote?` · ${money(o.quote.total)}`:''}</span>
+    ${todo?`<span class="row small" style="font-weight:600">${ic('next',16,2.5)} ${todo}</span>`:''}
+  </button>`;
+}
+
+/* ---------- Màn ---------- */
+const R = {};
+
+R['CUS-01'] = c => {
+  if (c.st === 'loading') return sb(c) + bigHdr(c,'Hành trình') + skeleton() + tabbar('CUS-01');
+  if (c.st === 'error') return sb(c) + bigHdr(c,'Hành trình') + errBox('hành trình') + tabbar('CUS-01');
+  if (c.st === 'empty') return sb(c) + bigHdr(c,'Hành trình') + emptyBox('route','Chưa có chuyến nào đang chạy','Gửi yêu cầu vận chuyển cho ngựa đã có hồ sơ. Khi chuyến bắt đầu, hành trình hiện ở đây.',`<button class="btn pri" data-act="startReq">${ic('plus',20)} Tạo yêu cầu vận chuyển</button>`) + tabbar('CUS-01');
+  const o = c.orders['HR-2610-0012'];
+  const todos = Object.entries(c.orders).filter(([,x]) => ['NEED_INFO','APPROVED'].includes(x.st));
+  return sb(c) + bigHdr(c,'Hành trình') + (c.st==='offline'?cacheBar():'') + `<div class="body">
+    <button class="card grad tap" data-act="track" style="gap:10px">
+      <div class="row between"><span class="lbl">Đang vận chuyển · HR-2610-0012</span>${ic('next',20)}</div>
+      <span class="big" style="color:#fff">Đang đến Cửa khẩu Mộc Bài</span>
+      <span class="muted small">Dự kiến 08:30 · ${o.horses.join(', ')}</span>
+      <div class="dots" aria-label="Đã qua 2 trên 4 điểm"><span class="d on"></span><span class="l on"></span><span class="d on"></span><span class="l on"></span><span class="d cur"></span><span class="l"></span><span class="d"></span></div>
+      <div class="row between small"><span class="muted">Phú Thọ</span><span class="muted">Svay Rieng</span></div>
+      <span class="chip gold" style="align-self:flex-start">${ic('file',14,2.5)} Báo cáo mới: Kim Long · Căng thẳng</span>
+    </button>
+    ${todos.length ? `<div class="lbl">Cần bạn xử lý (${todos.length})</div><div class="card" style="padding:4px 16px">${todos.map(([code,x]) => `<button class="listrow" data-act="${x.st==='APPROVED'?'openQuote':'openOrder'}" data-arg="${code}">${ic(x.st==='APPROVED'?'receipt':'file',22)}<span class="grow"><b>${x.st==='APPROVED'?`Đặt cọc ${money(x.quote.deposit)}`:'Bổ sung giấy sức khỏe'}</b><span class="small muted">${code} · ${x.st==='APPROVED'?'báo giá hết hạn 31/10 18:00':x.horses.join(', ')}</span></span>${ic('next',20)}</button>`).join('')}</div>` : ''}
+    <div class="lbl">Sắp khởi hành</div>
+    ${orderCard(c,'HR-2611-0003')}
+  </div>` + tabbar('CUS-01');
+};
+
+R['CUS-02'] = c => {
+  const head = bigHdr(c,'Đơn hàng');
+  const f = FILTERS.find(x => x[0] === c.filter);
+  const list = Object.keys(c.orders).filter(k => f[2].includes(c.orders[k].st));
+  const filters = `<div class="filters">${FILTERS.map(([id,l,sts]) => { const n = Object.values(c.orders).filter(o => sts.includes(o.st)).length; return `<button class="opt${c.filter===id?' on':''}" data-act="filter" data-arg="${id}">${l}${n?` · ${n}`:''}</button>`; }).join('')}</div>`;
+  const cta = `<div class="bottom">${toast(c)}<div class="row" style="padding-bottom:12px"><button class="btn pri grow" data-act="startReq">${ic('plus',22,2.5)} Tạo yêu cầu vận chuyển</button></div></div>`;
+  if (c.st === 'loading') return sb(c) + head + filters + skeleton() + tabbar('CUS-02');
+  if (c.st === 'error') return sb(c) + head + errBox('danh sách đơn') + tabbar('CUS-02');
+  if (c.st === 'empty') return sb(c) + head + emptyBox('clipboard','Bạn chưa có đơn nào','Tạo yêu cầu đầu tiên. Bạn cần có hồ sơ ngựa trước, mất khoảng 3 phút.',`<button class="btn pri" data-act="startReq">${ic('plus',20)} Tạo yêu cầu vận chuyển</button>`) + tabbar('CUS-02');
+  return sb(c) + head + filters + (c.st==='offline'?cacheBar():'') + `<div class="body">${list.length ? list.map(k => orderCard(c,k)).join('') : `<p class="muted" style="text-align:center;margin:40px 0">Không có đơn trong nhóm này.</p>`}</div>` + cta + tabbar('CUS-02');
+};
+
+R['CUS-03'] = c => {
+  const code = c.order, o = c.orders[code];
+  if (c.st === 'loading') return sb(c) + hdr({back:true,title:code}) + skeleton() + hi();
+  if (c.st === 'error') return sb(c) + hdr({back:true,title:code}) + errBox('đơn hàng') + hi();
+  const top = o.st==='NEED_INFO' ? `<div class="card" style="border:2px solid var(--w-ink)"><span class="row" style="font-weight:700">${ic('alert',20)} Cần bổ sung</span><p class="quote-note" style="margin:0">${o.note}</p><span class="small muted">Quản lý điều phối · 28/10/2026</span></div>`
+    : o.st==='REJECTED' ? `<div class="card" style="border:2px solid var(--w-ink)"><span class="row" style="font-weight:700">${ic('x',20)} Đơn bị từ chối</span><p class="quote-note" style="margin:0">${o.note}</p></div>`
+    : o.st==='DELIVERED' ? `<div class="card brand"><span class="lbl">Đã giao</span><span class="big">Đã giao ngựa lúc ${o.delivered}</span></div>`
+    : o.st==='PENDING' ? `<div class="card brand"><span class="lbl">Chờ duyệt</span><span style="font-size:17px;font-weight:600">Đơn đang được xem xét. Bạn nhận thông báo khi có kết quả.</span></div>` : '';
+  const steps = o.step >= 0 ? `<div class="card"><span class="lbl">Tiến độ đơn</span><div class="steps">${STEPS.map((s,i) => `<div class="s ${i<o.step?'done':i===o.step?'cur':''}"><span class="n">${i<o.step?ic('check',12,3.5):''}</span>${s}</div>`).join('')}</div></div>` : '';
+  const quote = o.quote ? `<button class="card tap" data-act="openQuote" data-arg="${code}"><div class="row between"><span class="lbl">Báo giá</span>${ic('next',20)}</div><div class="row between"><span>Tổng</span><b style="font-size:18px">${money(o.quote.total)}</b></div><div class="row between small"><span class="muted">${o.quote.paid?'Đã đặt cọc':'Cọc 30% cần trả'}</span><b>${money(o.quote.paid||o.quote.deposit)}</b></div>${o.quote.expires&&!o.quote.paid?`<span class="small row">${ic('clock',16)} Hết hạn ${o.quote.expires}</span>`:''}</button>` : '';
+  const missing = o.missing ? `<div class="card"><span class="lbl">Giấy tờ còn thiếu</span>${o.missing.map(m => `<div class="row">${ic('file',20)}<span class="grow">${m}</span><span class="chip line">Hết hạn</span></div>`).join('')}<span class="small muted">Tải giấy tờ trên web: horseroute.vn/don-hang/${code}</span></div>` : '';
+  const info = `<div class="card" style="padding:4px 16px">
+    <div class="listrow" style="cursor:default">${ic('pin',22)}<span class="grow"><b>${o.from}</b><span class="small muted">đến ${o.to} · khoảng ${o.km} km</span></span></div>
+    <div class="listrow" style="cursor:default">${ic('calendar',22)}<span class="grow"><b>${o.date}</b><span class="small muted">Ngày khởi hành</span></span></div>
+    <div class="listrow" style="cursor:default">${ic('horse',22)}<span class="grow"><b>${o.horses.join(', ')}</b><span class="small muted">${o.horses.length} ngựa</span></span></div>
+  </div>`;
+  const primary = o.st==='NEED_INFO' ? `<button class="btn pri xl grow" data-act="resubmit">Sửa và gửi lại</button>`
+    : o.st==='APPROVED' ? `<button class="btn pri xl grow" data-act="openQuote" data-arg="${code}">Xem báo giá và đặt cọc</button>`
+    : o.st==='IN_TRANSIT' ? `<button class="btn pri xl grow" data-act="track">Theo dõi hành trình</button>`
+    : o.st==='REJECTED' ? `<button class="btn grow" data-act="startReq">Tạo yêu cầu mới</button>`
+    : o.st==='DELIVERED' ? `<button class="btn grow" data-act="openQuote" data-arg="${code}" ${o.quote?'':'disabled'}>Xem biên lai</button>` : '';
+  return sb(c) + hdr({back:true,title:code,sub:o.label}) + (c.st==='offline'?cacheBar():'') + `<div class="body">${top}${missing}${quote}${steps}${info}</div>` + (primary?`<div class="bottom"><div class="row">${primary}</div>${hi()}</div>`:hi()) + overlay(c);
+};
+
+R['CUS-04'] = c => {
+  const code = c.order, o = c.orders[code], q = o.quote || Q2;
+  if (c.st === 'loading') return sb(c) + hdr({back:true,title:'Báo giá',sub:code}) + skeleton() + hi();
+  if (c.st === 'error') return sb(c) + hdr({back:true,title:'Báo giá',sub:code}) + errBox('báo giá') + hi();
+  const sub = q.items.reduce((a,x) => a + x[1], 0) + (q.adj ? q.adj[1] : 0);
+  const left = q.total - q.paid;
+  return sb(c) + hdr({back:true,title:'Báo giá',sub:`${code} · ${o.horses.join(', ')}`}) + (c.st==='offline'?cacheBar():'') + `<div class="body">
+    ${q.paid ? `<div class="card brand"><span class="lbl">Đã đặt cọc</span><span class="big">${money(q.paid)}</span><span class="small muted">Còn lại ${money(left)} thanh toán sau khi giao ngựa</span></div>`
+      : `<div class="card" style="border:2px solid var(--w-ink)"><span class="lbl">Cần đặt cọc 30%</span><span class="big">${money(q.deposit)}</span><span class="row small">${ic('clock',16)} Báo giá hết hạn ${q.expires}</span></div>`}
+    <div class="card"><span class="lbl">Chi tiết</span><div class="inv">
+      ${q.items.map(([l,v]) => `<div><span>${l}</span><span>${money(v)}</span></div>`).join('')}
+      ${q.adj ? `<div><span>${q.adj[0]}<br><span class="small muted">Điều chỉnh của quản lý</span></span><span>+${money(q.adj[1])}</span></div>` : ''}
+      <div class="sep"><span>Tạm tính</span><span>${money(sub)}</span></div>
+      <div><span>VAT 8%</span><span>${money(q.vat)}</span></div>
+      <div class="sep tot"><span>Tổng cộng</span><span>${money(q.total)}</span></div>
+      <div><span>Đặt cọc 30%</span><span>${money(q.deposit)}</span></div>
+      <div><span>Đã thanh toán</span><b>${money(q.paid)}</b></div>
+      <div class="tot"><span>Còn lại</span><span>${money(left)}</span></div>
+    </div></div>
+    ${q.receipts.length ? `<div class="card"><span class="lbl">Biên lai</span>${q.receipts.map(([l,d,v]) => `<div class="row">${ic('receipt',20)}<span class="grow"><b>${l}</b><br><span class="small muted">${d}</span></span><b>${money(v)}</b></div>`).join('')}</div>` : ''}
+    ${q.paid ? '' : `<p class="small muted" style="margin:0">Đặt cọc là chấp nhận báo giá. Thanh toán mở trên trang web HorseRoute, sau khi xong app tự cập nhật.</p>`}
+    <div class="box">${ic('chat',20)}<span>Muốn hỏi lại về giá? Phần liên hệ với HorseRoute sẽ có khi chốt kênh trao đổi.</span></div>
+  </div>` + (q.paid ? hi() : `<div class="bottom">${toast(c)}<div class="row"><button class="btn pri xl grow" data-act="sheet" data-arg="pay" ${c.st==='offline'?'disabled':''}>${ic('ext',20)} Thanh toán cọc ${money(q.deposit)}</button></div>${hi()}</div>`) + overlay(c);
+};
+
+function overlay(c){
+  if (c.sheet === 'pay') { const q = c.orders[c.order].quote;
+    return `<div class="overlay"><div class="sheet"><span class="grab"></span><h3>Thanh toán trên web</h3><p style="margin:0">Trang thanh toán HorseRoute mở trong trình duyệt. Bạn chọn chuyển khoản QR, ví điện tử hoặc thẻ quốc tế.</p><div class="kvw"><div><span>Đơn</span><b>${c.order}</b></div><div><span>Số tiền cọc</span><b>${money(q.deposit)}</b></div></div><p class="small muted" style="margin:0">Trả xong, quay lại app. Báo giá tự chuyển sang Đã đặt cọc.</p><button class="btn pri xl" data-act="payDone">${ic('ext',20)} Mở trang thanh toán</button><button class="btn ghost" data-act="close">Huỷ</button>${hi()}</div></div>`; }
+  return '';
+}
+
+const STOPS = [['Trường đua Phú Thọ','06:00','Xuất phát 06:04'],['Điểm nghỉ Trảng Bàng','07:30','Đến 07:26 · Rời 07:58'],['Cửa khẩu Mộc Bài','08:30',null],['Trạm kiểm dịch Svay Rieng','10:15',null]];
+R['CUS-05'] = c => {
+  const head = hdr({back:true,title:'HR-2610-0012',sub:'Đang vận chuyển · Sao Mai, Kim Long'});
+  if (c.st === 'loading') return sb(c) + head + skeleton() + hi();
+  if (c.st === 'error') return sb(c) + head + errBox('hành trình') + hi();
+  const report = (h, cond, t, isNew) => `<button class="card tap" data-act="report" data-arg="${h}" style="padding:12px;gap:4px;margin:4px 0 12px">${isNew?'<span class="chip gold" style="align-self:flex-start">Mới</span>':''}<div class="row between"><b>${ic('file',18)} Báo cáo sức khỏe · ${h}</b>${ic('next',18)}</div><span class="small muted">${cond} · ${t} · Phạm Thị Thu</span></button>`;
+  const tl = STOPS.map(([n,plan,done],i) => {
+    const isDone = i < 2, cur = i === 2;
+    const extra = i === 0 ? report('Sao Mai','Ổn định','06:10',false) : i === 1 ? report('Kim Long','Căng thẳng · 38,6 °C','07:05',true) : '';
+    return `<div class="stop"><div class="rail"><span class="dot ${isDone?'done':cur?'cur':''}">${isDone?ic('check',10,4):''}</span>${i<3?`<span class="ln ${isDone?'done':''}"></span>`:''}</div><div class="info"><div class="row between"><b>${n}</b><span class="small muted">${plan}</span></div><span class="small muted">${done || (cur ? 'Kế tiếp · dự kiến 08:30' : 'Điểm giao · dự kiến 10:15')}</span>${extra}</div></div>`;
+  }).join('');
+  return sb(c) + head + (c.st==='offline'?cacheBar():'') + `<div class="body">
+    <div class="card grad" style="gap:8px"><span class="lbl">Đang trên đường</span><span class="big" style="color:#fff">Đến Cửa khẩu Mộc Bài</span><div class="row between small" style="flex-wrap:wrap"><span class="muted">Dự kiến 08:30 · còn khoảng 9 km</span><span class="chip ${c.overdue?'gold':''}">${c.overdue?'Trễ 35 phút':'Đúng kế hoạch'}</span></div></div>
+    ${c.overdue ? `<div class="box err">${ic('clock',20)}<span>Chuyến đang trễ 35 phút so với kế hoạch. Điều phối đã được báo.</span></div>` : ''}
+    <button class="hatch tap" data-act="go" data-arg="MAP" style="height:160px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;padding:10px;gap:6px"><span class="chip">${ic('map',14)} Vị trí ước tính theo mốc gần nhất</span><span class="chip dark">Xem bản đồ</span></button>
+    <div class="card"><span class="lbl">Lộ trình</span><div class="tl">${tl}</div></div>
+    <button class="card tap" data-act="go" data-arg="CUS-07" style="padding:12px 16px"><div class="row between"><span class="row">${ic('water',20)} <b>Chăm sóc hôm nay</b></span>${ic('next',20)}</div><span class="small muted">22 L nước · 2 bữa · 1 lần nghỉ</span></button>
+    <div class="box">${ic('chat',20)}<span>Liên hệ với HorseRoute: kênh trao đổi đang được chốt (chat hoặc gọi).</span></div>
+  </div>` + hi();
+};
+
+R['CUS-06'] = c => {
+  const k = c.horse === 'Sao Mai';
+  const d = k ? {cond:'Ổn định',t:'06:10',temp:'37,9',tempNote:'Trong khoảng bình thường',hr:'38',app:'Bình thường',note:'Sao Mai lên xe ngoan, ăn hết phần sáng.'} : {cond:'Căng thẳng',t:'07:05',temp:'38,6',tempNote:'Cao hơn bình thường (37,5–38,5)',hr:'48',app:'Giảm',note:'Kim Long hơi căng khi xe phanh gấp. Đã cho nghỉ 20 phút và uống nước, đang theo dõi thêm.'};
+  if (c.st === 'loading') return sb(c) + hdr({back:true,title:'Báo cáo sức khỏe'}) + skeleton() + hi();
+  if (c.st === 'error') return sb(c) + hdr({back:true,title:'Báo cáo sức khỏe'}) + errBox('báo cáo') + hi();
+  return sb(c) + hdr({back:true,title:'Báo cáo sức khỏe',sub:`${c.horse} · ${d.t} hôm nay`}) + (c.st==='offline'?cacheBar():'') + `<div class="body white">
+    <div class="row" style="gap:12px"><span class="hatch" style="width:56px;height:56px;flex:none"></span><div style="display:flex;flex-direction:column;gap:4px"><b style="font-size:20px">${c.horse}</b><span class="chip ${k?'fill':'dark'}" style="align-self:flex-start">${ic(k?'check':'alert',14,2.5)} ${d.cond}</span></div></div>
+    <div class="tiles"><div class="tile"><span class="small muted">Nhiệt độ</span><b>${d.temp} °C</b></div><div class="tile"><span class="small muted">Nhịp tim</span><b>${d.hr}</b><span class="small muted">lần/phút</span></div><div class="tile"><span class="small muted">Ăn uống</span><b>${d.app}</b></div></div>
+    <span class="small${k?' muted':''}" style="${k?'':'font-weight:600'}">Nhiệt độ: ${d.tempNote}</span>
+    <div class="hatch" style="height:220px;display:flex;align-items:flex-end;padding:8px" aria-label="Ảnh ngựa"><span class="chip">Ảnh 1/1 · chạm để phóng to</span></div>
+    <div class="sec"><span class="lbl">Lời nhắn từ người hộ tống</span><p class="quote-note" style="margin:0">${d.note}</p><span class="small muted">Phạm Thị Thu · người hộ tống</span></div>
+    <span class="row small muted">${ic('eye',16)} Bạn đã xem lúc ${NOW}</span>
+  </div>` + hi();
+};
+
+R['CUS-08'] = c => {
+  const head = bigHdr(c,'Ngựa', `${c.horses.length} hồ sơ`);
+  const cta = `<div class="bottom">${toast(c)}<div class="row" style="padding-bottom:12px"><button class="btn pri grow" data-act="addHorse">${ic('plus',22,2.5)} Thêm ngựa</button></div></div>`;
+  if (c.st === 'loading') return sb(c) + head + skeleton() + tabbar('CUS-08');
+  if (c.st === 'error') return sb(c) + head + errBox('hồ sơ ngựa') + tabbar('CUS-08');
+  if (c.st === 'empty') return sb(c) + bigHdr(c,'Ngựa') + emptyBox('horse','Chưa có hồ sơ ngựa','Tạo hồ sơ một lần, dùng lại cho mọi lần đặt vận chuyển. Chuẩn bị số hộ chiếu ngựa.',`<button class="btn pri" data-act="addHorse">${ic('plus',20)} Thêm ngựa</button>`) + tabbar('CUS-08');
+  return sb(c) + head + (c.st==='offline'?cacheBar():'') + `<div class="body"><div class="card" style="padding:4px 16px">${c.horses.map(h => `<button class="listrow" data-act="openHorse" data-arg="${h.name}" style="min-height:76px"><span class="hatch" style="width:56px;height:56px;flex:none"></span><span class="grow"><b style="font-size:16px">${h.name}</b><span class="small muted">${h.breed} · ${h.sex.toLowerCase()} · ${age(h.born)} tuổi</span>${h.busy?`<span class="small row" style="gap:4px">${ic('route',14)} Đang trên đơn ${h.busy}</span>`:h.warn?`<span class="small row" style="gap:4px;font-weight:600">${ic('alert',14,2.5)} ${h.warn}</span>`:'<span class="small muted">Sẵn sàng đặt</span>'}</span>${ic('next',20)}</button>`).join('')}</div></div>` + cta + tabbar('CUS-08');
+};
+
+R['CUS-09'] = c => {
+  const h = c.horses.find(x => x.name === c.horse) || c.horses[0];
+  const rows = [['Số hộ chiếu',h.passport],['Giống',h.breed],['Giới tính',h.sex],['Màu lông',h.color],['Năm sinh',h.born],['Vi mạch',h.chip||'Chưa có'],['Cân nặng',h.kg+' kg'],['Chiều cao',h.cm+' cm'],['Khẩu phần',h.feed]];
+  return sb(c) + hdr({back:true,title:h.name,right:`<button class="ib" data-act="editHorse" aria-label="Sửa hồ sơ">${ic('edit',22)}</button>`}) + (c.st==='offline'?cacheBar():'') + `<div class="body">
+    <div class="hatch" style="height:200px;flex:none" aria-label="Ảnh ngựa"></div>
+    ${h.busy?`<div class="box">${ic('route',20)}<span>Đang trên đơn <b>${h.busy}</b>. Đặt chuyến mới khi đơn này xong.</span></div>`:''}
+    ${h.warn?`<div class="box err">${ic('alert',20)}<span>${h.warn}. Tải giấy mới trên web trước khi đặt.</span></div>`:''}
+    <div class="card"><span class="lbl">Thông tin</span><div class="kvw" style="border:0">${rows.map(([k,v]) => `<div style="padding:10px 0"><span>${k}</span><b>${v}</b></div>`).join('')}</div></div>
+    <div class="card"><span class="lbl">Giấy tờ</span>${h.docs.map(([k,v]) => `<div class="row">${ic('file',20)}<span class="grow">${k}<br><span class="small ${v.startsWith('Hết')?'':'muted'}" style="${v.startsWith('Hết')?'font-weight:600':''}">${v}</span></span></div>`).join('')}<span class="small muted">Tải và thay giấy tờ trên web.</span></div>
+  </div><div class="bottom"><div class="row">${h.busy?`<button class="btn pri xl grow" disabled>${ic('lock',20)} Đang trên đơn ${h.busy}</button>`:`<button class="btn pri xl grow" data-act="reqHorse" data-arg="${h.name}">Đặt vận chuyển cho ngựa này</button>`}</div>${hi()}</div>`;
+};
+
+R['CUS-10'] = c => {
+  const edit = c.editing; const h = edit ? (c.horses.find(x => x.name === c.horse) || c.horses[0]) : {name:'Phong Vũ',passport:'VN-AR-0331',breed:'Arabian',sex:'Đực',color:'Xám bạc',born:'2021',chip:'',kg:440,cm:150,feed:'Cỏ khô 7 kg, yến mạch 1 kg'};
+  const err = c.st === 'error', off = c.st === 'offline';
+  const f = (label, val, req, isErr) => `<div class="input${isErr?' err':''}"><small>${label}${req?' *':''}</small><span>${val||'<span class="ph">Chưa nhập</span>'}</span></div>${isErr?`<span class="small" style="font-weight:600;margin-top:-8px">Số hộ chiếu này đã có trong hồ sơ khác. Kiểm tra lại số trên hộ chiếu ngựa.</span>`:''}`;
+  return sb(c) + hdr({back:true,title:edit?`Sửa hồ sơ ${h.name}`:'Thêm ngựa'}) + (off?`<div class="bar">${ic('wifioff',18)}<span class="grow">Mất sóng · cần kết nối để lưu hồ sơ</span></div>`:'') + `<div class="body white">
+    <div class="row" style="gap:12px"><button class="addph" data-act="noop" style="width:96px;height:96px">${ic('camera',24)}Ảnh ngựa</button><span class="small muted">Ảnh rõ mặt và thân, JPG hoặc PNG, tối đa 5 MB.</span></div>
+    ${f('Tên ngựa',h.name,true)}${f('Số hộ chiếu',h.passport,true,err)}
+    <div class="row" style="gap:8px">${`<div style="flex:1;min-width:0">${f('Giống',h.breed)}</div><div style="flex:1;min-width:0">${f('Màu lông',h.color)}</div>`}</div>
+    <div class="sec"><span class="lbl">Giới tính</span><div class="opts">${['Đực','Cái','Thiến'].map(s => `<button class="opt${h.sex===s?' on':''}" data-act="noop">${h.sex===s?ic('check',16,3):''}${s}</button>`).join('')}</div></div>
+    <div class="row" style="gap:8px"><div style="flex:1;min-width:0">${f('Năm sinh',h.born)}</div><div style="flex:1;min-width:0">${f('Vi mạch',h.chip)}</div></div>
+    <div class="row" style="gap:8px"><div style="flex:1;min-width:0">${f('Cân nặng (kg)',h.kg)}</div><div style="flex:1;min-width:0">${f('Chiều cao (cm)',h.cm)}</div></div>
+    ${f('Khẩu phần',h.feed)}${f('Ghi chú','')}
+  </div><div class="bottom"><div class="row"><button class="btn pri xl grow" data-act="saveHorse" ${off?'disabled':''}>Lưu hồ sơ</button></div>${hi()}</div>`;
+};
+
+function wizard(c, step, title, body, btn, act){
+  return sb(c) + hdr({back:true,title:'Yêu cầu vận chuyển',sub:`Bước ${step}/4 · ${title}`,right:`<button class="link small" data-act="sheet" data-arg="leave" style="padding:0 12px">Lưu nháp</button>`}) + `<div class="prog">${[1,2,3,4].map(i => `<span class="${i<=step?'on':''}"></span>`).join('')}</div>` + body + `<div class="bottom"><div class="row">${btn}</div>${hi()}</div>` + (c.sheet==='leave' ? `<div class="overlay"><div class="sheet"><span class="grab"></span><h3>Đã lưu nháp</h3><p style="margin:0">Yêu cầu nằm ở Đơn hàng, nhóm Đang xử lý. Mở lại để làm tiếp bất cứ lúc nào.</p><button class="btn pri xl" data-act="leaveReq">Về Đơn hàng</button><button class="btn ghost" data-act="close">Làm tiếp</button>${hi()}</div></div>` : '');
+}
+R['CUS-11'] = c => {
+  const r = c.req;
+  const body = `<div class="body white"><span class="big">Chọn ngựa cần vận chuyển</span><div style="display:flex;flex-direction:column">${c.horses.map(h => {
+    const on = r.horses.includes(h.name), lock = !!h.busy;
+    return `<button class="listrow" ${lock?'disabled style="opacity:.55;cursor:default"':`data-act="reqToggle" data-arg="${h.name}"`} style="min-height:72px" aria-pressed="${on}"><span class="chk ${on?'on':''}">${on?ic('check',18,3):lock?ic('lock',14,2.5):''}</span><span class="hatch" style="width:48px;height:48px;flex:none"></span><span class="grow"><b>${h.name}</b><span class="small muted">${lock?`Đang trên đơn ${h.busy}`:h.warn?h.warn+', cần bổ sung sau':`${h.breed} · ${age(h.born)} tuổi`}</span></span></button>`; }).join('')}</div>
+    <button class="link small" data-act="addHorse" style="align-self:flex-start">${'+ Thêm hồ sơ ngựa mới'}</button></div>`;
+  return wizard(c,1,'Chọn ngựa',body,`<button class="btn pri xl grow" data-act="go" data-arg="CUS-12" ${r.horses.length?'':'disabled'}>Tiếp tục${r.horses.length?` · ${r.horses.length} ngựa`:''}</button>`);
+};
+R['CUS-12'] = c => {
+  const r = c.req;
+  const body = `<div class="body white"><span class="big">Đi đâu, khi nào?</span>
+    <button class="input tap" data-act="noop"><small>Điểm đón *</small><span class="row">${ic('pin',18)} ${r.from}</span></button>
+    <button class="input tap" data-act="noop"><small>Điểm giao *</small><span class="row">${ic('pin',18)} ${r.to}</span></button>
+    <div class="row" style="gap:8px"><div class="input" style="flex:1"><small>Nước đi</small><span>Việt Nam</span></div><div class="input" style="flex:1"><small>Nước đến</small><span>Việt Nam</span></div></div>
+    <button class="input tap" data-act="noop"><small>Ngày khởi hành *</small><span class="row">${ic('calendar',18)} ${r.date}</span></button>
+    <div class="box">${ic('route',20)}<span>Quãng đường khoảng <b>42 km</b>. Giá chính xác có trong báo giá sau khi đơn được duyệt.</span></div>
+  </div>`;
+  return wizard(c,2,'Tuyến và ngày',body,`<button class="btn pri xl grow" data-act="go" data-arg="CUS-13">Tiếp tục</button>`);
+};
+const NOTE_TIPS = ['Ngựa hay say xe, cần dừng nghỉ mỗi 2 giờ','Người nhận: anh Tuấn, 0908 456 789','Cần chuồng tạm qua đêm'];
+R['CUS-13'] = c => {
+  const r = c.req;
+  const body = `<div class="body white"><span class="big">Có yêu cầu gì đặc biệt?</span>
+    <div class="field">${r.note?`<span>${r.note}</span>`:'<span class="ph">Ví dụ: tính khí ngựa, giờ giao mong muốn, người nhận</span>'}<span class="small muted">${r.note.length}/5000</span></div>
+    <div class="opts">${NOTE_TIPS.map((t,i) => `<button class="opt small" data-act="reqNote" data-arg="${i}" style="min-height:40px;font-size:13px">${t}</button>`).join('')}</div>
+    <p class="small muted" style="margin:0">Không bắt buộc. Ghi người nhận ở đây nếu khác bạn.</p></div>`;
+  return wizard(c,3,'Ghi chú',body,`<button class="btn pri xl grow" data-act="go" data-arg="CUS-14">${r.note?'Tiếp tục':'Bỏ qua'}</button>`);
+};
+R['CUS-14'] = c => {
+  const r = c.req, err = c.st === 'error', off = c.st === 'offline';
+  const sec = (title, step, inner) => `<div class="card"><div class="row between"><span class="lbl">${title}</span><button class="link small" data-act="toStep" data-arg="${step}">Sửa</button></div>${inner}</div>`;
+  const body = `<div class="body"><span class="big">Kiểm tra lại</span>
+    ${sec('Ngựa','CUS-11',`<b>${r.horses.join(', ')}</b>`)}
+    ${sec('Tuyến và ngày','CUS-12',`<span>${r.from}</span><span class="muted">đến ${r.to}</span><span class="row small">${ic('calendar',16)} ${r.date} · khoảng 42 km</span>${err?`<div class="box err">${ic('alert',20)}<span>Ngày khởi hành phải sau hôm nay ít nhất 3 ngày.</span></div>`:''}`)}
+    ${sec('Ghi chú','CUS-13',r.note?`<span>${r.note}</span>`:'<span class="muted">Không có</span>')}
+    <p class="small muted" style="margin:0">Sau khi gửi, quản lý duyệt đơn và gửi báo giá. Bạn chưa phải trả tiền ở bước này.</p></div>`;
+  return wizard(c,4,'Xem lại',body,`<button class="btn pri xl grow" data-act="submitReq" ${off?'disabled':''}>${off?'Cần kết nối để gửi':'Gửi yêu cầu'}</button>`);
+};
+R['CUS-15'] = c => {
+  const code = c.req.code || 'HR-2610-0018';
+  return sb(c) + `<div class="body white"><div class="empty" style="justify-content:flex-start;padding-top:48px;flex:none">
+      <div class="circle fill" style="background:var(--w-ink);border-color:var(--w-ink)">${ic('check',34,3)}</div>
+      <span class="big">Đã gửi yêu cầu</span><p class="muted" style="margin:0">${code} · Chờ duyệt</p></div>
+    <div class="card"><span class="lbl">Tiếp theo</span><div class="steps">${['Quản lý duyệt đơn','Bạn nhận báo giá','Đặt cọc trên web để giữ chỗ'].map((s,i) => `<div class="s ${i===0?'cur':''}"><span class="n">${i+1}</span>${s}</div>`).join('')}</div></div>
+    <p class="small muted" style="margin:0;text-align:center">Bạn nhận thông báo ở mỗi bước.</p>
+  </div><div class="bottom"><div class="row" style="flex-direction:column"><button class="btn pri xl" data-act="openOrder" data-arg="${code}">Xem đơn</button><button class="btn ghost" data-act="tab" data-arg="CUS-01">Về Hành trình</button></div>${hi()}</div>`;
+};
+
+function stub(code){
+  return c => { const [name, why] = STUBS[code]; const isTab = TABS.some(t => t[0] === code);
+    return sb(c) + (isTab ? `<div class="hdr big"><div class="t"><b>${name}</b></div></div>` : hdr({back:true,title:name})) + `<div class="body white"><div class="empty"><span class="stubtag">${code==='MAP'?'CUS-05':code} · ${why}</span><b style="font-size:18px">${name}</b><p class="small muted" style="margin:0;max-width:260px">Màn này có trong 02-screens.md nhưng chưa vẽ ở đợt Khách hàng P0.</p></div></div>` + (isTab ? tabbar(code) + hi() : hi()); };
+}
+Object.keys(STUBS).forEach(k => R[k] = stub(k));
+
+/* ---------- Khung ---------- */
+function screenHTML(code, c, id){
+  let inner = R[code](c);
+  if (inner.includes('class="tabbar"') && !inner.endsWith('<div class="hi"><span></span></div>')) inner = inner.replace(/(<nav class="tabbar">[\s\S]*?<\/nav>)/, '$1' + hi());
+  return `<section class="screen ${plat}" id="${id||code}" data-screen="${code}" style="--fw:${DIM[plat].w}px;--fh:${DIM[plat].h}px">${inner}</section>`;
+}
+function fit(html, s){ const d = DIM[plat]; return `<div class="fit" style="width:${Math.round(d.w*s)}px;height:${Math.round(d.h*s)}px"><div class="scaled" style="transform:scale(${s})">${html}</div></div>`; }
+function protoScale(){ const d = DIM[plat], pad = plat==='ios'?24:20; return Math.min(1, Math.min(document.documentElement.clientWidth - 32, 900) / (d.w + pad)); }
+
+const REQ_FULL = {...newReq(), horses:['Ngân Hà','Sao Băng'], note:'Ngân Hà hay say xe, cần dừng nghỉ mỗi 2 giờ'};
+const GRID = [
+  ['CUS-01',[{l:'Bình thường'},{l:'Đang tải',st:'loading'},{l:'Chưa có chuyến',st:'empty'},{l:'Lỗi',st:'error'},{l:'Mất sóng',st:'offline'}]],
+  ['CUS-05',[{l:'Đúng kế hoạch'},{l:'Trễ so với kế hoạch',overdue:true},{l:'Đang tải',st:'loading'},{l:'Lỗi',st:'error'},{l:'Mất sóng',st:'offline'}]],
+  ['CUS-06',[{l:'Căng thẳng',horse:'Kim Long'},{l:'Ổn định',horse:'Sao Mai'}]],
+  ['CUS-02',[{l:'Đang xử lý'},{l:'Đang chạy',filter:'run'},{l:'Đã đóng',filter:'closed'},{l:'Chưa có đơn',st:'empty'},{l:'Mất sóng',st:'offline'}]],
+  ['CUS-03',[{l:'Cần bổ sung',order:'HR-2610-0009'},{l:'Chờ đặt cọc',order:'HR-2610-0015'},{l:'Đang vận chuyển',order:'HR-2610-0012'},{l:'Đã giao',order:'HR-2609-0031'},{l:'Từ chối',order:'HR-2609-0027'},{l:'Lỗi',st:'error'}]],
+  ['CUS-04',[{l:'Chờ đặt cọc',order:'HR-2610-0015'},{l:'Mở trang thanh toán',order:'HR-2610-0015',sheet:'pay'},{l:'Đã đặt cọc, có điều chỉnh',order:'HR-2610-0012'},{l:'Mất sóng',order:'HR-2610-0015',st:'offline'}]],
+  ['CUS-08',[{l:'6 hồ sơ'},{l:'Chưa có hồ sơ',st:'empty'},{l:'Đang tải',st:'loading'}]],
+  ['CUS-09',[{l:'Giấy tờ hết hạn',horse:'Hồng Vân'},{l:'Đang trên đơn',horse:'Sao Mai'}]],
+  ['CUS-10',[{l:'Thêm ngựa'},{l:'Trùng số hộ chiếu (409)',st:'error'},{l:'Mất sóng',st:'offline'}]],
+  ['CUS-11',[{l:'Chọn ngựa',req:{...newReq(),horses:['Ngân Hà','Sao Băng']}},{l:'Lưu nháp khi thoát',sheet:'leave'}]],
+  ['CUS-12',[{l:'Tuyến và ngày'}]],
+  ['CUS-13',[{l:'Chưa ghi'},{l:'Đã chọn gợi ý',req:REQ_FULL}]],
+  ['CUS-14',[{l:'Xem lại',req:REQ_FULL},{l:'Lỗi ngày (422)',req:REQ_FULL,st:'error'},{l:'Mất sóng',req:REQ_FULL,st:'offline'}]],
+  ['CUS-15',[{l:'Đã gửi'}]]
+];
+
+/* ---------- Vẽ trang ---------- */
+const main = document.getElementById('main');
+function render(){
+  document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#segPlat button').forEach(b => b.classList.toggle('on', b.dataset.plat === plat));
+  document.querySelectorAll('#segState button').forEach(b => b.classList.toggle('on', b.dataset.st === app.st));
+  document.getElementById('grpScale').hidden = mode !== 'grid';
+  document.querySelector('#segState').closest('.grp').hidden = mode === 'grid';
+  if (mode === 'grid') return renderGrid();
+  const code = app.screen, n = NOTES[code], stub = STUBS[code];
+  const s = protoScale(), d = DIM[plat], pad = plat==='ios'?12:10;
+  const dev = `<div class="device ${plat}">${screenHTML(code, app)}</div>`;
+  const devFit = s < 1 ? `<div class="fit" style="width:${Math.round((d.w+pad*2)*s)}px;height:${Math.round((d.h+pad*2)*s)}px"><div class="scaled" style="transform:scale(${s})">${dev}</div></div>` : dev;
+  const info = n ? `<div class="pcard"><h3>${code} · ${n.kind}</h3><h2>${n.n}</h2><p>${n.p}</p><dl class="kv"><dt>Hành động chính</dt><dd>${n.a}</dd><dt>Dữ liệu</dt><dd>${n.d}</dd><dt>API</dt><dd class="code">${n.api}</dd></dl><ul>${n.b.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+    : `<div class="pcard"><h3>${code==='MAP'?'CUS-05':code}</h3><h2>${stub[0]}</h2><p>${stub[1]}.</p></div>`;
+  const list = ['CUS-01','CUS-05','CUS-06','CUS-02','CUS-03','CUS-04','CUS-08','CUS-09','CUS-10','CUS-11','CUS-12','CUS-13','CUS-14','CUS-15'];
+  const orderPick = code === 'CUS-03' ? `<div class="pcard"><h3>Xem đơn ở trạng thái khác</h3><div class="jump">${Object.entries(app.orders).map(([k,o]) => `<button data-order="${k}" class="${app.order===k?'on':''}"><span class="code">${k}</span>${o.label}</button>`).join('')}</div></div>` : '';
+  const jump = `<div class="pcard"><h3>Màn đã vẽ (P0)</h3><div class="jump">${list.map(k => `<button data-jump="${k}" class="${app.screen===k?'on':''}"><span class="code">${k}</span>${NOTES[k].n}</button>`).join('')}</div><p class="hint">Bấm vào nút trong khung để đi theo luồng. Thanh Trạng thái phía trên đổi màn hiện tại sang Đang tải, Trống, Lỗi hoặc Mất sóng.</p></div>`;
+  main.innerHTML = `<div class="proto"><div>${devFit}</div><div class="panel">${info}${orderPick}${jump}</div></div>`;
+}
+function renderGrid(){
+  const s = gridScale || (document.documentElement.clientWidth >= 1100 ? 1 : 0.5);
+  document.querySelectorAll('#segScale button').forEach(b => b.classList.toggle('on', +b.dataset.sc === s));
+  main.innerHTML = `<div class="grid">${GRID.map(([code, vs]) => { const n = NOTES[code];
+    return `<section class="grow-row"><header><h2>${code} · ${n.n}</h2><p>${n.p} Hành động chính: ${n.a}.</p></header><div class="strip">${vs.map((v,k) => {
+      const c = {...fresh(), ...v, st:v.st||'normal'};
+      return `<div class="vcell"><span class="vl">${v.l}</span><div data-open="${code}">${fit(screenHTML(code, c, k ? `${code}--${k}` : code), s)}</div></div>`;
+    }).join('')}</div></section>`; }).join('')}</div>`;
+}
+
+/* ---------- Hành động ---------- */
+function go(code){ app.stack.push(app.screen); app.screen = code; app.sheet = null; }
+function say(msg){ app.toast = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => { app.toast = null; render(); }, 3000); }
+const ACT = {
+  noop(){},
+  go(a){ go(a); },
+  back(){ app.sheet = null; app.screen = app.stack.pop() || 'CUS-01'; },
+  tab(a){ app.stack = []; app.screen = a; app.sheet = null; },
+  sheet(a){ app.sheet = a; },
+  close(){ app.sheet = null; },
+  filter(a){ app.filter = a; },
+  track(){ app.order = 'HR-2610-0012'; go('CUS-05'); },
+  openOrder(a){ app.order = a; go('CUS-03'); },
+  openQuote(a){ app.order = a; go('CUS-04'); },
+  report(a){ app.horse = a; go('CUS-06'); },
+  payDone(){ const o = app.orders[app.order]; o.quote = {...o.quote, paid:o.quote.deposit, expires:null, receipts:[['Đặt cọc · Chuyển khoản QR','29/10/2026',o.quote.deposit]]}; o.st = 'PREPARING'; o.label = 'Đang chuẩn bị'; o.step = 3; app.sheet = null; say('Đã nhận tiền cọc. Đơn chuyển sang Đang chuẩn bị.'); },
+  openHorse(a){ app.horse = a; go('CUS-09'); },
+  addHorse(){ app.editing = false; go('CUS-10'); },
+  editHorse(){ app.editing = true; go('CUS-10'); },
+  saveHorse(){
+    if (app.st === 'error') return;
+    if (!app.editing && !app.horses.some(h => h.name === 'Phong Vũ')) app.horses.push({name:'Phong Vũ',breed:'Arabian',sex:'Đực',color:'Xám bạc',born:'2021',passport:'VN-AR-0331',chip:'',kg:440,cm:150,feed:'Cỏ khô 7 kg, yến mạch 1 kg',docs:[]});
+    const name = app.editing ? app.horse : 'Phong Vũ'; ACT.back(); say(`Đã lưu hồ sơ ${name}`);
+  },
+  startReq(){ app.req = newReq(); go('CUS-11'); },
+  reqHorse(a){ app.req = {...newReq(), horses:[a]}; go('CUS-11'); },
+  reqToggle(a){ const r = app.req; r.horses = r.horses.includes(a) ? r.horses.filter(x => x !== a) : [...r.horses, a]; },
+  reqNote(a){ app.req.note = NOTE_TIPS[+a]; },
+  toStep(a){ while (app.stack.length && app.screen !== a) app.screen = app.stack.pop(); },
+  resubmit(){ app.req = {...newReq(), horses:['Hồng Vân'], to:'Sân bay Tân Sơn Nhất (khu hàng hóa)', date:'25/11/2026'}; go('CUS-12'); },
+  leaveReq(){ const code = 'HR-2610-0017'; app.orders[code] = {st:'DRAFT',label:'Nháp',horses:[...app.req.horses],from:app.req.from,to:app.req.to,date:app.req.date,km:42,step:0}; app.stack = []; app.screen = 'CUS-02'; app.filter = 'proc'; app.sheet = null; },
+  submitReq(){
+    if (app.st === 'error') return;
+    const code = 'HR-2610-0018'; const r = app.req; r.code = code;
+    app.orders[code] = {st:'PENDING',label:'Chờ duyệt',horses:[...r.horses],from:r.from,to:r.to,date:r.date,km:42,step:1};
+    app.stack = []; app.screen = 'CUS-15';
+  }
+};
+
+document.addEventListener('click', e => {
+  const seg = e.target.closest('[data-mode],[data-plat],[data-st],[data-sc],[data-jump],[data-open],[data-order]');
+  if (seg) {
+    const d = seg.dataset;
+    if (d.mode) mode = d.mode;
+    else if (d.plat) plat = d.plat;
+    else if (d.st) app.st = d.st;
+    else if (d.sc) gridScale = +d.sc;
+    else if (d.order) app.order = d.order;
+    else if (d.jump) jumpTo(d.jump);
+    else if (d.open) { mode = 'proto'; jumpTo(d.open); window.scrollTo(0,0); }
+    render(); return;
+  }
+  if (mode !== 'proto') return;
+  const t = e.target.closest('[data-act]');
+  if (!t || t.disabled || !main.contains(t)) return;
+  const fn = ACT[t.dataset.act];
+  if (fn) { e.preventDefault(); fn(t.dataset.arg); render(); }
+});
+function jumpTo(code){
+  app.sheet = null;
+  const tabs = {'CUS-01':[], 'CUS-02':[], 'CUS-08':[]};
+  if (code in tabs) { app.stack = []; app.screen = code; return; }
+  if (code === 'CUS-05') { app.stack = ['CUS-01']; app.screen = code; return; }
+  if (code === 'CUS-06') { app.stack = ['CUS-01','CUS-05']; app.horse = 'Kim Long'; app.screen = code; return; }
+  if (code === 'CUS-03') { app.stack = ['CUS-02']; app.order = 'HR-2610-0009'; app.screen = code; return; }
+  if (code === 'CUS-04') { app.stack = ['CUS-02','CUS-03']; app.order = 'HR-2610-0015'; app.screen = code; return; }
+  if (code === 'CUS-09') { app.stack = ['CUS-08']; app.horse = 'Hồng Vân'; app.screen = code; return; }
+  if (code === 'CUS-10') { app.stack = ['CUS-08']; app.editing = false; app.screen = code; return; }
+  const wiz = ['CUS-11','CUS-12','CUS-13','CUS-14'];
+  if (wiz.includes(code)) { app.stack = ['CUS-02'].concat(wiz.slice(0, wiz.indexOf(code))); if (code !== 'CUS-11' && app.req.horses.length < 2) app.req = {...REQ_FULL}; app.screen = code; return; }
+  if (code === 'CUS-15') { app.stack = []; app.req.code = app.req.code || 'HR-2610-0018'; if (!app.orders['HR-2610-0018']) app.orders['HR-2610-0018'] = {st:'PENDING',label:'Chờ duyệt',horses:[...app.req.horses],from:app.req.from,to:app.req.to,date:app.req.date,km:42,step:1}; app.screen = code; return; }
+  app.stack = []; app.screen = code;
+}
+document.getElementById('btnReset').addEventListener('click', () => { const st = app.st; app = fresh(); app.st = st; mode = 'proto'; render(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
+render();
+})();
+</script>
+</body>
+</html>

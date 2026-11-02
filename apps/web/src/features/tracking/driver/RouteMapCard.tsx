@@ -5,7 +5,9 @@ import type { IDriverTripSummary, ITripMap, ITripTrackPoint } from '@my-project/
 import MapView from '../../trackmap/MapView';
 import { DriverRouteMap } from '../../trackmap/lazy-maps';
 import '../../trackmap/trackmap.css';
-import { formatDayTime, formatKm } from './driver-ui';
+import { formatDayTime, formatDuration, formatKm } from './driver-ui';
+import { useNow } from './LiveStatsCards';
+import { nextStopView, tripPhase } from './trip-phase';
 import type { GpsSharing } from './useGpsSharing';
 
 const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -17,7 +19,7 @@ export function missingCoordinateNotes(map: ITripMap | null) {
     .map(stop => `Điểm ${stop.name} chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm`);
 }
 
-export default function RouteMapCard({ trip, map, track, running, gps, failed = false, onRetry, children }: {
+export default function RouteMapCard({ trip, map, track, running, gps, failed = false, onRetry, navigating = false, onNavigate, nextWaypoint = null, children }: {
   trip: IDriverTripSummary;
   map: ITripMap | null;
   track: ITripTrackPoint[];
@@ -27,6 +29,11 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
   /** /map lỗi: giữ bản đồ ở góc nhìn Việt Nam (hoặc dữ liệu lần trước) + thông báo nhỏ có nút Thử lại */
   failed?: boolean;
   onRetry?: () => void;
+  /** Chế độ dẫn đường (chỉ khi chuyến đang chạy): bật/tắt bằng nút "Thoát" đỏ / "Tiếp tục hành trình" xanh trên bản đồ */
+  navigating?: boolean;
+  onNavigate?: (on: boolean) => void;
+  /** Điểm nghỉ kế tiếp chưa check-in (lộ trình mới): banner dẫn đường chỉ về phía điểm này thay vì điểm nhận. */
+  nextWaypoint?: string | null;
   /** Phần dưới bản đồ (D1b: ba thẻ số liệu) */
   children?: ReactNode;
 }) {
@@ -35,16 +42,23 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
     ? [map?.remainingKm != null && `Còn ${formatKm(map.remainingKm)} km`, lastLeg && `ETA ${formatDayTime(lastLeg.plannedArrivalAt)}`].filter(Boolean).join(' · ')
     : map?.totalKm != null ? `${formatKm(map.totalKm)} km` : `${trip.legs.length} chặng`;
 
+  const nav = running && navigating;
   return (
-    <section className="drv-card drv-route-card" aria-labelledby="drv-route-title">
+    <section className={'drv-card drv-route-card' + (nav ? ' is-nav' : '')} aria-labelledby="drv-route-title">
       <div className="drv-card-head">
         <h3 id="drv-route-title" className="drv-card-title">Lộ trình chuyến đi</h3>
         <span>{corner}</span>
       </div>
-      <div className="drv-map-wrap">
+      <div className={'drv-map-wrap' + (nav ? ' is-nav' : '')}>
         <MapView height="var(--drv-map-h)" label="Bản đồ lộ trình chuyến đi" hint="Xem thứ tự điểm dừng ở thẻ “Các chặng”.">
-          <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} />
+          <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} navigating={nav} />
         </MapView>
+        {nav && <NavigationOverlay trip={trip} map={map} nextWaypoint={nextWaypoint} onExit={() => onNavigate?.(false)} />}
+        {running && !navigating && onNavigate && (
+          <button type="button" className="drv-nav-resume" onClick={() => onNavigate(true)}>
+            <span className="drv-nav-arrow" aria-hidden="true" />Tiếp tục hành trình
+          </button>
+        )}
         {failed && (
           <div className="drv-map-error" role="alert">
             <span>Không tải được dữ liệu bản đồ.</span>
@@ -66,6 +80,38 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
       {map?.position?.source === 'ESTIMATED' && map.position.label && <p className="drv-map-estimate">{map.position.label}</p>}
       {children}
     </section>
+  );
+}
+
+/**
+ * Lớp chỉ đường kiểu Google Maps (desktop): banner trên "về phía <điểm kế tiếp>", thanh dưới thời gian còn lại · km · giờ đến
+ * và nút "Thoát" đỏ. Thời gian còn lại tính theo giờ đến dự kiến của kế hoạch (chưa có dẫn đường từng ngã rẽ).
+ */
+function NavigationOverlay({ trip, map, nextWaypoint, onExit }: { trip: IDriverTripSummary; map: ITripMap | null; nextWaypoint: string | null; onExit: () => void }) {
+  const now = useNow(30_000);
+  const next = nextWaypoint ? { name: nextWaypoint, arrived: false } : nextStopView(tripPhase(trip.legs), map);
+  const lastLeg = trip.legs[trip.legs.length - 1];
+  const eta = lastLeg ? Date.parse(lastLeg.plannedArrivalAt) : null;
+  const left = eta === null ? null : eta - now;
+  const km = map?.remainingKm ?? null;
+  return (
+    <>
+      <div className="drv-nav-banner" role="status">
+        <span className="drv-nav-banner-arrow" aria-hidden="true">↑</span>
+        <span className="drv-nav-banner-text">
+          {next?.arrived ? 'Đã tới' : 'về phía'} <strong>{next?.name ?? 'điểm nhận'}</strong>
+        </span>
+      </div>
+      <div className="drv-nav-bar">
+        <div className="drv-nav-eta">
+          <strong className={!next?.arrived && left !== null && left < 0 ? 'is-late' : undefined}>
+            {next?.arrived ? 'Đã tới nơi' : left === null ? '—' : left < 0 ? `Trễ ${formatDuration(-left)}` : formatDuration(left)}
+          </strong>
+          <span>{[km !== null && `${formatKm(km)} km`, eta !== null && time.format(new Date(eta))].filter(Boolean).join(' · ') || '—'}</span>
+        </div>
+        <button type="button" className="drv-nav-exit" onClick={onExit}>Thoát</button>
+      </div>
+    </>
   );
 }
 

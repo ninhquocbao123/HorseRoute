@@ -24,7 +24,7 @@ export const CONDITION_LABEL: Record<string, string> = Object.fromEntries(
   Object.entries(HORSE_CONDITION_META).map(([status, meta]) => [status, meta.label]),
 );
 
-export const INCIDENT_STATUS_LABEL: Record<string, string> = { NEW: 'Mới', ACKNOWLEDGED: 'Đã tiếp nhận', CLOSED: 'Đã đóng' };
+export const INCIDENT_STATUS_LABEL: Record<string, string> = { NEW: 'Mới', ACKNOWLEDGED: 'Đang xử lý', CLOSED: 'Đã xử lý' };
 
 const dateTime = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 

@@ -18,6 +18,10 @@ export class TrackingController {
     res.status(201).json(await this.service.recordMilestone(req.account, String(req.params.legId), req.body));
   };
 
+  recordWaypointCheckin: RequestHandler = async (req, res) => {
+    res.status(201).json(await this.service.recordWaypointCheckin(req.account, String(req.params.legId), String(req.params.waypointId), req.body));
+  };
+
   completeLeg: RequestHandler = async (req, res) => {
     res.json(await this.service.completeIntermediateLeg(req.account, String(req.params.legId), req.body));
   };
@@ -31,7 +35,7 @@ export class TrackingController {
   };
 
   createCareActivity: RequestHandler = async (req, res) => {
-    res.status(201).json(await this.service.createCareActivity(req.account, String(req.params.tripId), req.body));
+    res.status(201).json(await this.service.createCareActivity(req.account, String(req.params.tripId), req.body, uploads(req.files)));
   };
 
   careActivities: RequestHandler = async (req, res) => {
@@ -49,6 +53,14 @@ export class TrackingController {
 
   sendHorseReport: RequestHandler = async (req, res) => {
     res.json(await this.service.sendHorseReport(req.account, String(req.params.id), req.body));
+  };
+
+  customerOrderMap: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCustomerOrderMap(req.account, String(req.params.orderId)));
+  };
+
+  customerCareActivities: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCustomerCareActivities(req.account, String(req.params.orderId)));
   };
 
   customerHorseReports: RequestHandler = async (req, res) => {
@@ -69,6 +81,14 @@ export class TrackingController {
 
   incidents: RequestHandler = async (req, res) => {
     res.json(await this.service.getTripIncidents(req.account, String(req.params.tripId)));
+  };
+
+  coordinatorIncidents: RequestHandler = async (req, res) => {
+    res.json(await this.service.getCoordinatorIncidents(req.account, req.query));
+  };
+
+  incident: RequestHandler = async (req, res) => {
+    res.json(await this.service.getIncident(req.account, String(req.params.id)));
   };
 
   updateIncident: RequestHandler = async (req, res) => {

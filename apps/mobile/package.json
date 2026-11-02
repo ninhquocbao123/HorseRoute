@@ -1,0 +1,44 @@
+{
+  "name": "@horseroute/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "node scripts/start-phone.cjs",
+    "start:dev": "expo start --dev-client",
+    "start:phone": "node scripts/start-phone.cjs",
+    "start:emulator": "node scripts/start-emulator.cjs",
+    "android": "expo run:android",
+    "prebuild": "expo prebuild --platform android",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write src tests index.ts app.json tsconfig.json package.json",
+    "start:go": "expo start --go",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "export:android": "expo export --platform android",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "@expo-google-fonts/be-vietnam-pro": "^0.4.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "^58.0.21",
+    "expo-constants": "~58.0.14",
+    "expo-dev-client": "~58.0.17",
+    "expo-file-system": "~58.0.13",
+    "expo-font": "~58.0.11",
+    "expo-image-manipulator": "~58.0.16",
+    "expo-image-picker": "~58.0.10",
+    "expo-secure-store": "~58.0.2",
+    "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
+    "lucide-react-native": "^0.545.0",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-svg": "15.16.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "prettier": "^3.6.2",
+    "typescript": "~6.0.3"
+  }
+}

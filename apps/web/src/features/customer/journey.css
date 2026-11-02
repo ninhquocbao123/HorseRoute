@@ -10,3 +10,5 @@
 @media(min-width:901px){.customer .cj-booking-grid{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}}.customer .cj-horse-pills button{border-radius:99px}.customer .cj-horse-pills button.selected{background:#0c3e47;color:white;border-color:#0c3e47}.customer-hero{position:relative}.customer-hero:after{content:"● ● ●";position:absolute;bottom:22px;left:50%;transform:translateX(-50%);color:#f4c44a;letter-spacing:5px;font-size:9px}
 
 .customer .customer-filters{grid-template-columns:2fr 1fr 1fr}.customer .customer-filters input{margin:0}@media(max-width:600px){.customer .customer-filters{grid-template-columns:1fr}}
+.customer .customer-trip-map .trackmap,.customer .customer-trip-map .trackmap-fallback{border-radius:10px 10px 0 0}
+.customer .customer-trip-map .customer-trip-map-status{padding-top:0;color:#0c3e47;font-weight:600}

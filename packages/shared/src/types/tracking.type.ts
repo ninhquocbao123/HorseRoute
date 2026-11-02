@@ -33,6 +33,14 @@ export interface ILegMilestone {
   recordedByName: string;
 }
 
+/** Check-in điểm nghỉ giữa đường (leg_waypoint_checkins) của chuyến theo lộ trình mới. */
+export interface IWaypointCheckin {
+  waypointId: string;
+  label: string;
+  occurredAt: string; // ISO UTC
+  recordedByName: string;
+}
+
 // ─── Leg with operational data (legs + leg_milestones) ───────────────────────
 
 export interface ILegTracking {
@@ -54,6 +62,8 @@ export interface ILegTracking {
   updatedAt: string | null;
   updatedByName: string | null;
   milestones: ILegMilestone[];
+  /** Điểm nghỉ giữa đường đã check-in, theo thứ tự thời gian */
+  waypointCheckins: IWaypointCheckin[];
 }
 
 // ─── Horse log entry (horse_logs) ─────────────────────────────────────────────
@@ -149,6 +159,8 @@ export interface ICareActivity {
   createdByName: string;
   createdAt: string;
   correctsActivityId: string | null;
+  /** Ảnh hộ tống gửi kèm (khách xem được) */
+  photos: ILogAttachment[];
 }
 
 export interface ILogAttachment {
@@ -162,6 +174,19 @@ export interface ILogAttachment {
 }
 
 // ─── Incident (incidents + attachments) ──────────────────────────────────────
+
+/** Một lần điều phối viên phản hồi sự cố (incident_responses): hướng xử lý (kèm thời gian chờ) hoặc báo đã xử lý xong. */
+export interface IIncidentResponse {
+  id: string;
+  kind: 'RESPONSE' | 'RESOLVED';
+  note: string;
+  /** Thời gian chờ dự kiến (phút) */
+  waitMinutes: number | null;
+  /** sentAt + waitMinutes; null khi không hẹn giờ */
+  expectedAt: string | null;
+  sentByName: string;
+  sentAt: string;
+}
 
 export interface IIncident {
   id: string;
@@ -188,6 +213,18 @@ export interface IIncident {
   handlingNote: string | null;
   closedAt: string | null;
   attachments: ILogAttachment[];
+  /** Lịch sử xử lý, cũ trước */
+  responses: IIncidentResponse[];
+}
+
+/** Sự cố trong trang "Xử lý sự cố" của điều phối viên (GET /tracking/incidents). */
+export interface ICoordinatorIncident extends IIncident {
+  orderId: string;
+  orderCode: string;
+  /** "Điểm gửi → Điểm nhận" */
+  routeLabel: string;
+  /** Vai trò của người báo trong chuyến */
+  reporterRole: 'DRIVER' | 'ESCORT' | null;
 }
 
 // ─── Alert (alerts) ───────────────────────────────────────────────────────────
@@ -331,6 +368,8 @@ export interface ITimelineLeg {
   actualDepartureAt: string | null;
   actualArrivalAt: string | null;
   milestones: ITimelineMilestone[];
+  /** Điểm nghỉ giữa đường tài xế đã tới */
+  waypointCheckins: IWaypointCheckin[];
   /** Most recent milestone reached, if any */
   latestMilestone: MilestoneType | null;
   latestMilestoneAt: string | null;
