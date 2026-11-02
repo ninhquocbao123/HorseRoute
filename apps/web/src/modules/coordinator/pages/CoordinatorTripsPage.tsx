@@ -1,5 +1,5 @@
-import { EyeOutlined, SearchOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Input, Table, Tag } from "antd";
+import { ArrowRightOutlined, SearchOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Input, Table, Tag, Tooltip } from "antd";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTripsQuery } from "../../trips/hooks/use-trips-query";
@@ -127,12 +127,14 @@ export default function CoordinatorTripsPage() {
               title: "Thao tác",
               width: 88,
               render: (_, r) => (
-                <Button
-                  type="text"
-                  icon={<EyeOutlined />}
-                  aria-label={`Xem ${r.orderCode}`}
-                  onClick={() => navigate(`/coordinator/trips/${r.tripId}`)}
-                />
+                <Tooltip title="Mở chi tiết chuyến">
+                  <Button
+                    type="text"
+                    icon={<ArrowRightOutlined />}
+                    aria-label={`Mở chi tiết chuyến ${r.orderCode}`}
+                    onClick={() => navigate(`/coordinator/trips/${r.tripId}`)}
+                  />
+                </Tooltip>
               ),
             },
           ]}

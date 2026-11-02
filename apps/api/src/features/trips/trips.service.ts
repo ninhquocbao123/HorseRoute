@@ -324,7 +324,10 @@ export class TripsService {
     const items = rows.map(row => ({ id: row.id, tripVehicleId: row.tripVehicleId, userId: row.userId, fullName: row.fullName,
       role: row.role, assignedBy: row.assignedBy, assignedAt: row.assignedAt.toISOString(), crewType: row.crewType, workStatus: row.workStatus }));
     const vehicles = (await this.repository.fleet(id)).map(v => ({...v,crew:items.filter(p => p.tripVehicleId===v.id)}));
-    const readiness = checkCrewReadiness(rows);
+    const readiness = checkCrewReadiness(await Promise.all(rows.map(async row => {
+      const available = await this.repository.crewAvailable(row.userId,id,row.workStatus);
+      return {...row, workStatus: available ? row.workStatus : 'IN_TRIP', reservedHere: available};
+    })));
     for (const vehicle of vehicles) for (const role of ['DRIVER','ESCORT']) {
       const count = vehicle.crew.filter(p => p.role===role).length;
       if (count<1 || count>2) readiness.blockers.push({code:'INELIGIBLE_CREW',message:`Xe ${vehicle.plateNumber}: cần 1–2 ${role==='DRIVER'?'tài xế':'lơ xe'}.`});
@@ -347,7 +350,7 @@ export class TripsService {
     const people = input.vehicles.flatMap(v => v.crew).sort((a,b) => a.userId.length-b.userId.length || a.userId.localeCompare(b.userId));
     for (const person of people) {
       const user = await repo.lockCrewUser(person.userId);
-      if (!user || user.role !== 'DRIVER_ESCORT' || user.accountStatus !== 'ACTIVE' || user.crewType !== person.role || user.workStatus !== 'AVAILABLE') throw new BadRequestException(`Nhân sự ${person.userId} không sẵn sàng hoặc không đúng chuyên môn.`);
+      if (!user || user.role !== 'DRIVER_ESCORT' || user.accountStatus !== 'ACTIVE' || user.crewType !== person.role || !await repo.crewAvailable(person.userId,id,user.workStatus)) throw new BadRequestException(`Nhân sự ${person.userId} không sẵn sàng hoặc không đúng chuyên môn.`);
       if (departure && arrival && await repo.crewOverlaps(id,person.userId,departure,arrival)) throw new ConflictException(`Nhân sự ${person.userId} trùng lịch.`);
     }
   }
@@ -363,6 +366,7 @@ export class TripsService {
     const id = parse(tripIdSchema, rawId), input = parse(tripFleetSchema, body);
     return this.repository.transaction(async repo => {
       const {orderId, trip} = await this.lockEditablePlan(repo,account,id);
+      await repo.lockFleetResources(id,input);
       const before = await new TripsService(repo).assignments(account,id);
       const window = await repo.tripWindow(id);
       // A draft may lack a schedule; submit/approval require and recheck the complete window.
@@ -408,18 +412,19 @@ export class TripsService {
   }
   async planOptions(account: User, id: string): Promise<TripPlanOptions> {
     const trip = await this.accessible(account, id);
-    const [locations, vehicles, currentVehicles, requiredHorseCount] = await Promise.all([
-      this.repository.locations(), this.repository.vehicles(), this.repository.tripVehicleIds(id),
+    const [locations, vehicles, requiredHorseCount] = await Promise.all([
+      this.repository.locations(), this.repository.vehicles(),
       this.repository.normalHorseCount(trip.orderId),
     ]);
     return {
       requiredHorseCount,
       locations: locations.map(l => ({ id: l.id, name: l.name, locationType: l.locationType, country: l.country, timezone: l.timezone, address: l.address,
         latitude: l.latitude === null ? null : Number(l.latitude), longitude: l.longitude === null ? null : Number(l.longitude) })),
-      vehicles: vehicles.map(v => {
-        const blockingReasons = v.status === 'AVAILABLE' || currentVehicles.has(v.id) ? [] : [{ code: `VEHICLE_${v.status}`, message: v.status === 'RESERVED' ? 'Xe đang được giữ cho kế hoạch khác.' : 'Xe đang vận chuyển.' }];
-        return { ...v, selectable: blockingReasons.length ? false : null, scheduleEvaluation: 'NOT_EVALUATED' as const, blockingReasons };
-      }),
+      vehicles: await Promise.all(vehicles.map(async v => {
+        const owners = await this.repository.resourceOwners('vehicle',v.id);
+        const selectable = !owners.some(o=>o.tripId!==id) && (v.status === 'AVAILABLE' || (v.status==='RESERVED' && owners.some(o=>o.tripId===id)));
+        return { ...v, currentTrips: owners, selectable };
+      })),
     };
   }
 }

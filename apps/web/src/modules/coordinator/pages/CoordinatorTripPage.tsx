@@ -1,3 +1,4 @@
+import { allocateCrew, crewQuota, type SelectedCrew } from '../../trips/utils/allocate-crew';
 import TripStatusBar from './TripStatusBar';
 import {
   ArrowLeftOutlined,
@@ -139,17 +140,18 @@ function TripWorkspace({ id }: { id: string }) {
     [crewOpen, setCrewOpen] = useState(false),
     [search, setSearch] = useState("");
   const [pendingFleet, setPendingFleet] = useState<FleetDraft>([]);
-  const [activeCrewVehicleId, setActiveCrewVehicleId] = useState("");
+  const [selectedCrew, setSelectedCrew] = useState<SelectedCrew>([]);
+  const [pendingCrew, setPendingCrew] = useState<SelectedCrew>([]);
   const [vehiclePage, setVehiclePage] = useState(1);
   const [vehiclePageSize, setVehiclePageSize] = useState(12);
-  const [vehicleStatus, setVehicleStatus] = useState("AVAILABLE");
+  const [vehicleStatus, setVehicleStatus] = useState("ALL");
   const [vehicleType, setVehicleType] = useState("ALL");
   const [vehicleCapacity, setVehicleCapacity] = useState<number | null>(null);
   const [crewPages, setCrewPages] = useState({ DRIVER: 1, ESCORT: 1 });
   const [activeCrewRole, setActiveCrewRole] = useState<"DRIVER" | "ESCORT">(
     "DRIVER",
   );
-  const [crewStatus, setCrewStatus] = useState("AVAILABLE");
+  const [crewStatus, setCrewStatus] = useState("ALL");
   const [crewPageSize, setCrewPageSize] = useState(12);
   const dirty = changed || assignmentChanged || routeChanged;
   useEffect(() => {
@@ -178,7 +180,8 @@ function TripWorkspace({ id }: { id: string }) {
       );
   }, [detail.data, changed]);
   useEffect(() => {
-    if (crew.assignments.data && !assignmentChanged)
+    if (crew.assignments.data && !assignmentChanged) {
+      setSelectedCrew(crew.assignments.data.items.map(p=>({userId:p.userId,role:p.role})));
       setFleet(
         (crew.assignments.data.vehicles ?? []).map((vehicle) => ({
           vehicleId: vehicle.vehicleId,
@@ -189,6 +192,7 @@ function TripWorkspace({ id }: { id: string }) {
           })),
         })),
       );
+    }
   }, [crew.assignments.data, assignmentChanged]);
   const editable =
     detail.data?.planStatus === "DRAFT" &&
@@ -234,9 +238,12 @@ function TripWorkspace({ id }: { id: string }) {
       setError(result.error.issues.map((i) => i.message).join(" "));
       return;
     }
+    let arranged = fleet;
     if (assignmentChanged || send) {
+      try { arranged = allocateCrew(fleet,selectedCrew,(crew.assignments.data?.vehicles ?? []).map(v=>({...v,horseCount:v.horseCount ?? 0}))); }
+      catch(e) { setError((e as Error).message); return; }
       const fleetError = validateFleetDraft(
-        fleet,
+        arranged,
         options.data?.requiredHorseCount ?? 0,
         options.data?.vehicles ?? [],
       );
@@ -251,7 +258,7 @@ function TripWorkspace({ id }: { id: string }) {
     try {
       // Lưu phân công trước để lịch tổng được backend kiểm tra trên đúng đội xe/tổ mới nhất.
       if (assignmentChanged) {
-        const savedCrew = await saveTripAssignments(id, { vehicles: fleet });
+        const savedCrew = await saveTripAssignments(id, { vehicles: arranged });
         qc.setQueryData(tripQueryKeys.assignments(account?.id, id), savedCrew);
         setAssignmentChanged(false);
         assignmentSaved = true;
@@ -280,35 +287,11 @@ function TripWorkspace({ id }: { id: string }) {
       setBusy(false);
       void qc.invalidateQueries({ queryKey: ["trips", account?.id, "list"] });
       void detail.refetch();
+      void options.refetch();
+      void crew.options.refetch();
     }
   }
 
-  async function saveCrewOnly() {
-    if (!crewEditable || busy || !assignmentChanged) return;
-    const fleetError = validateFleetDraft(
-      fleet,
-      options.data?.requiredHorseCount ?? 0,
-      options.data?.vehicles ?? [],
-    );
-    if (fleetError) {
-      setError(fleetError);
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const saved = await saveTripAssignments(id, { vehicles: fleet });
-      qc.setQueryData(tripQueryKeys.assignments(account?.id, id), saved);
-      setAssignmentChanged(false);
-      await detail.refetch();
-      void message.success("Đã lưu phân công phương tiện và nhân sự.");
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-      void qc.invalidateQueries({ queryKey: ["trips", account?.id, "list"] });
-    }
-  }
   if (detail.isPending) return <TripStatusBar loading />;
   if (!detail.data)
     return (
@@ -357,13 +340,6 @@ function TripWorkspace({ id }: { id: string }) {
         crewType: assigned.crewType,
         workStatus: assigned.workStatus,
         selectable: false,
-        scheduleEvaluation: "NOT_EVALUATED",
-        blockingReasons: [
-          {
-            code: "PERSISTED_INVALID_ASSIGNMENT",
-            message: "Phân công cũ không còn hợp lệ; cần thay thế.",
-          },
-        ],
       });
   }
   const filteredCrew = knownCrew.filter((person) =>
@@ -374,12 +350,8 @@ function TripWorkspace({ id }: { id: string }) {
       person.crewType === activeCrewRole &&
       (crewStatus === "ALL" || person.workStatus === crewStatus),
   );
-  const activePendingVehicle = pendingFleet.find(
-    (vehicle) => vehicle.vehicleId === activeCrewVehicleId,
-  );
-  const pendingRoster = activePendingVehicle?.crew ?? [];
-  const allPendingCrew = pendingFleet.flatMap((vehicle) => vehicle.crew);
-  const crewSelectionComplete = !validateFleetCrew(pendingFleet);
+  const pendingRoster = pendingCrew;
+  const allPendingCrew = pendingCrew;
   const assignedVehicleCount = fleet.length;
   const allocatedHorseCount = fleet.reduce(
     (total, vehicle) => total + vehicle.horseCount,
@@ -391,14 +363,14 @@ function TripWorkspace({ id }: { id: string }) {
   const assignedVehicleNames = fleet.map((vehicle) =>
     vehicleName(vehicle.vehicleId),
   );
-  const roster = fleet.flatMap((vehicle) => vehicle.crew);
+  const roster = selectedCrew;
   const rosterNames = (role: "DRIVER" | "ESCORT") =>
     roster
       .filter((item) => item.role === role)
       .map((item) => personName(item.userId));
   const driverNames = rosterNames("DRIVER");
   const escortNames = rosterNames("ESCORT");
-  const crewComplete = fleet.length > 0 && !validateFleetCrew(fleet);
+  const crewComplete = !crewQuota(fleet.length,selectedCrew);
   const schedule = legs[0];
   const scheduleDatesMatch = Boolean(
     schedule?.plannedDepartureAt &&
@@ -426,7 +398,7 @@ function TripWorkspace({ id }: { id: string }) {
       ? [
           {
             key: "LOCAL_CREW_INCOMPLETE",
-            text: "Mỗi xe cần 1–2 tài xế và 1–2 lơ xe.",
+            text: crewQuota(fleet.length,selectedCrew),
           },
         ]
       : []),
@@ -612,7 +584,7 @@ function TripWorkspace({ id }: { id: string }) {
                     setSearch("");
                     setVehiclePage(1);
                     setVehiclePageSize(12);
-                    setVehicleStatus("AVAILABLE");
+                    setVehicleStatus("ALL");
                     setVehicleType("ALL");
                     setVehicleCapacity(null);
                     setPendingFleet(
@@ -678,14 +650,13 @@ function TripWorkspace({ id }: { id: string }) {
                     busy ||
                     resourcesLoading ||
                     crew.assignments.isError ||
-                    crew.options.isError ||
-                    !fleet.length
+                    crew.options.isError
                   }
                   onClick={() => {
                     setSearch("");
                     setCrewPages({ DRIVER: 1, ESCORT: 1 });
                     setActiveCrewRole("DRIVER");
-                    setCrewStatus("AVAILABLE");
+                    setCrewStatus("ALL");
                     setCrewPageSize(12);
                     setPendingFleet(
                       fleet.map((vehicle) => ({
@@ -693,7 +664,7 @@ function TripWorkspace({ id }: { id: string }) {
                         crew: vehicle.crew.map((person) => ({ ...person })),
                       })),
                     );
-                    setActiveCrewVehicleId(fleet[0]?.vehicleId ?? "");
+                    setPendingCrew(selectedCrew.map(p=>({...p})));
                     setCrewOpen(true);
                   }}
                 >
@@ -911,21 +882,6 @@ function TripWorkspace({ id }: { id: string }) {
             </Button>
           )}
 
-          {!editable && crewEditable && (
-            <Button
-              icon={<SaveOutlined />}
-              loading={busy}
-              disabled={
-                !assignmentChanged ||
-                crew.assignments.isPending ||
-                crew.assignments.isError
-              }
-              onClick={() => void saveCrewOnly()}
-            >
-              Lưu phân công
-            </Button>
-          )}
-
           {editable && (
             <span
               title={
@@ -982,11 +938,11 @@ function TripWorkspace({ id }: { id: string }) {
               <Button
                 type="primary"
                 disabled={
-                  !!validateVehicleSelection(
+                  !editable || (pendingFleet.length > 0 && !!validateVehicleSelection(
                     pendingFleet,
                     requiredHorseCount,
                     vehicles,
-                  )
+                  ))
                 }
                 onClick={() => {
                   setFleet(pendingFleet);
@@ -1076,10 +1032,7 @@ function TripWorkspace({ id }: { id: string }) {
                   (vehicle) => vehicle.vehicleId === v.id,
                 );
                 const selected = !!selectedVehicle;
-                const currentSaved = fleet.some(
-                  (vehicle) => vehicle.vehicleId === v.id,
-                );
-                const disabled = v.selectable === false && !currentSaved;
+                const disabled = !editable || v.selectable === false;
                 return (
                   <button
                     type="button"
@@ -1170,21 +1123,9 @@ function TripWorkspace({ id }: { id: string }) {
                         </span>
                       )}
                     </span>
-                    {v.blockingReasons.map((reason) => (
-                      <span
-                        className="resource-card-busy"
-                        role="alert"
-                        key={reason.code}
-                      >
-                        {reason.message}
-                      </span>
-                    ))}
-                    {v.scheduleEvaluation === "NOT_EVALUATED" &&
-                      v.selectable !== false && (
-                        <span className="resource-card-busy">
-                          Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu.
-                        </span>
-                      )}
+                    {v.status !== 'AVAILABLE' && v.currentTrips?.map(owner=><span className="resource-card-busy" key={owner.tripId}>
+                      {v.status==='RESERVED'?'Chuyến đang giữ':'Đang vận chuyển chuyến'}: {owner.orderCode} · #{owner.tripId}
+                    </span>)}
                     <span className="resource-card-choice">
                       <span className="resource-card-check">
                         {selected && <CheckOutlined />}
@@ -1231,46 +1172,22 @@ function TripWorkspace({ id }: { id: string }) {
               </Button>
               <Button
                 type="primary"
-                disabled={!crewSelectionComplete}
+                disabled={!crewEditable}
                 onClick={() => {
-                  setFleet(pendingFleet);
+                  setSelectedCrew(pendingCrew);
                   setAssignmentChanged(true);
                   setCrewOpen(false);
                 }}
               >
-                Xác nhận phân công
+                Xác nhận chọn
               </Button>
             </div>
           </div>
         }
       >
         <p className="ap-hint">
-          Chọn 1–2 tài xế và 1–2 lơ xe cho từng xe. Một người chỉ được thuộc một
-          tổ.
+          Chọn nhân sự chung cho chuyến. Khi lưu, mỗi xe được bố trí 1–2 tài xế và 1–2 lơ xe.
         </p>
-        <div
-          className="crew-picker-tabs"
-          role="tablist"
-          aria-label="Chọn xe cần phân công"
-        >
-          {pendingFleet.map((vehicle) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeCrewVehicleId === vehicle.vehicleId}
-              className={
-                activeCrewVehicleId === vehicle.vehicleId ? "is-active" : ""
-              }
-              key={vehicle.vehicleId}
-              onClick={() => {
-                setActiveCrewVehicleId(vehicle.vehicleId);
-                setSearch("");
-              }}
-            >
-              {vehicleName(vehicle.vehicleId)} · {vehicle.horseCount} ngựa
-            </button>
-          ))}
-        </div>
         <div className="crew-picker-summary" aria-live="polite">
           <div>
             <span>Tài xế đã chọn</span>
@@ -1327,6 +1244,8 @@ function TripWorkspace({ id }: { id: string }) {
               value={crewStatus}
               options={[
                 { value: "AVAILABLE", label: "Đang rảnh" },
+                { value: "RESERVED", label: "Đã phân công" },
+                { value: "IN_TRIP", label: "Đang trong chuyến" },
                 { value: "ALL", label: "Tất cả trạng thái" },
               ]}
               onChange={(value) => {
@@ -1355,21 +1274,7 @@ function TripWorkspace({ id }: { id: string }) {
                 const roleMismatch = p.crewType !== activeCrewRole;
                 const unavailable = p.selectable === false;
                 const disabled =
-                  !selected && (used || roleMismatch || unavailable);
-                const reasons = [
-                  ...p.blockingReasons.map((reason) => reason.message),
-                  ...(roleMismatch
-                    ? [
-                        p.crewType
-                          ? `Hồ sơ chỉ cho phép vai trò ${p.crewType === "DRIVER" ? "Tài xế" : "Lơ xe"}.`
-                          : "Chưa có hồ sơ nhân sự.",
-                      ]
-                    : []),
-                  ...(p.scheduleEvaluation === "NOT_EVALUATED" &&
-                  p.selectable !== false
-                    ? ["Chưa kiểm tra lịch nháp; máy chủ sẽ kiểm tra khi lưu."]
-                    : []),
-                ];
+                  !crewEditable || (!selected && (used || roleMismatch || unavailable));
                 return (
                   <button
                     type="button"
@@ -1378,23 +1283,7 @@ function TripWorkspace({ id }: { id: string }) {
                     aria-pressed={selected}
                     className={`resource-card ${selected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
                     onClick={() => {
-                      setPendingFleet((current) =>
-                        current.map((vehicle) => {
-                          if (vehicle.vehicleId !== activeCrewVehicleId)
-                            return vehicle;
-                          return {
-                            ...vehicle,
-                            crew: selected
-                              ? vehicle.crew.filter(
-                                  (person) => person.userId !== p.id,
-                                )
-                              : [
-                                  ...vehicle.crew,
-                                  { userId: p.id, role: activeCrewRole },
-                                ],
-                          };
-                        }),
-                      );
+                      setPendingCrew(current => selected ? current.filter(person=>person.userId!==p.id) : [...current,{userId:p.id,role:activeCrewRole}]);
                     }}
                   >
                     <span className="resource-card-top">
@@ -1408,7 +1297,7 @@ function TripWorkspace({ id }: { id: string }) {
                       >
                         {p.workStatus === "AVAILABLE"
                           ? "Đang rảnh"
-                          : "Không rảnh"}
+                          : p.workStatus === "RESERVED" ? "Đã phân công" : "Đang trong chuyến"}
                       </Tag>
                     </span>
                     <span className="resource-card-heading">
@@ -1421,15 +1310,6 @@ function TripWorkspace({ id }: { id: string }) {
                             : "Chưa có hồ sơ"}
                       </span>
                     </span>
-                    {reasons.map((reason) => (
-                      <span
-                        className="resource-card-busy"
-                        role="alert"
-                        key={reason}
-                      >
-                        {reason}
-                      </span>
-                    ))}
                     <span className="resource-card-choice">
                       <span className="resource-card-check">
                         {selected && <CheckOutlined />}

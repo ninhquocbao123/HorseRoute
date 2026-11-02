@@ -27,6 +27,8 @@ module.exports = async function loadSchema(db) {
     await new SpecialistAssessments1800000010000().up(runner);
     const {EscortHorseCare1800000013000}=require('../src/database/migrations/1800000013000-EscortHorseCare');
     await new EscortHorseCare1800000013000().up(runner);
+    const {CrewReservations1800000091000}=require('../src/database/migrations/1800000091000-CrewReservations');
+    await new CrewReservations1800000091000().up(runner);
   } finally {
     try { await runner.query('SET FOREIGN_KEY_CHECKS=1'); } finally { await runner.release(); }
   }

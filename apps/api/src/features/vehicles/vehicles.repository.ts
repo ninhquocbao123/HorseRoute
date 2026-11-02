@@ -13,7 +13,7 @@ export interface VehicleItem {
 export interface VehicleUse { orderCode: string; tripId: string; orderStatus: string; horseCount: number }
 
 // Cùng định nghĩa "đang dùng" với kiểm tra trùng lịch xe của Flow 3: kế hoạch APPROVED của đơn chưa kết thúc.
-const ACTIVE_USE = `t.plan_status='APPROVED' AND o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT')`;
+const ACTIVE_USE = `o.status NOT IN ('DELIVERED','CANCELLED')`;
 const select = `SELECT CAST(v.id AS CHAR) AS id, v.license_plate AS plateOrCode, v.vehicle_type AS vehicleType,
   v.capacity_stalls AS capacityStalls, v.status,
   ((SELECT COUNT(*) FROM legs l WHERE l.vehicle_id=v.id)+(SELECT COUNT(*) FROM trip_vehicles tv WHERE tv.vehicle_id=v.id)) AS legCount,
