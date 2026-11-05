@@ -12,7 +12,6 @@ import {
   pastClock,
   queueWireFields,
   quoteExpiredForPayment,
-  recipientError,
   shouldStopTracking,
   tripTimeline,
   profilePayload,
@@ -143,13 +142,6 @@ test("milestone just sent keeps the screen moving and never rewinds server state
   const checkin = { kind: "checkin", status: "QUEUED", legId: "l1", waypointId: "s1", body: {} };
   const once = applyPending(trip(leg("MOVING", ["DEPARTED"], [{ waypointId: "s1" }])), [checkin]);
   assert.equal(once.legs[0].waypointCheckins.length, 1);
-});
-test("recipient name needs a phone the server and driver can use", () => {
-  assert.ok(recipientError("Anh Ba", ""));
-  assert.ok(recipientError("", "0912345678"));
-  assert.ok(recipientError("Anh Ba", "123"));
-  assert.equal(recipientError("Anh Ba", "0912 345.678"), null);
-  assert.equal(recipientError("  ", ""), null);
 });
 test("expired quote blocks payment only until the deposit is covered", () => {
   const past = "2026-01-01T00:00:00.000Z";

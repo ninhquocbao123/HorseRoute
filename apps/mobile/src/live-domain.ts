@@ -88,6 +88,18 @@ export const emptyProfile: ProfileInput = {
   documentNote: "",
 };
 /** Đơn còn sửa tiếp được từ nháp trên máy; trạng thái khác nghĩa là nháp đã gửi hoặc đã đóng. */
+/** Ngày theo giờ máy, dạng YYYY-MM-DD mà API nhận. */
+export const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const fromYmd = (value: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+};
+/** Ngày không kèm giờ, kiểu 05/11/2026. */
+export const day = (value: string | null | undefined) => {
+  const d = value ? fromYmd(value.slice(0, 10)) : null;
+  return d ? d.toLocaleDateString("vi-VN") : "Chưa chọn ngày";
+};
 export const canResumeDraft = (status: string) =>
   ["DRAFT", "NEED_INFO"].includes(status);
 /** Máy chủ từ chối báo cáo gửi khách mà không có ghi chú gửi khách. */
@@ -95,17 +107,6 @@ export const customerNoteError = (sendToCustomer: boolean, note: string) =>
   sendToCustomer && !note.trim()
     ? "Nhập ghi chú gửi khách, hoặc tắt Gửi cho khách xem."
     : null;
-/** Máy chủ từ chối đơn có người nhận mà thiếu SĐT; tài xế cũng cần số này khi giao. */
-export function recipientError(name: string, phone: string) {
-  const digits = phone.replace(/[\s.]/g, "");
-  if (digits && !/^\+?\d{9,15}$/.test(digits))
-    return "Số điện thoại người nhận có 9 đến 15 chữ số.";
-  if (digits && !name.trim())
-    return "Nhập tên người nhận đi kèm số điện thoại.";
-  if (name.trim() && !digits)
-    return "Nhập số điện thoại người nhận để tài xế gọi khi giao ngựa, hoặc xóa tên nếu chưa biết.";
-  return null;
-}
 /** Máy chủ chặn thanh toán khi báo giá hết hạn mà chưa đủ tiền cọc; đã cọc đủ thì vẫn trả tiếp được. */
 export function quoteExpiredForPayment(
   quote: {

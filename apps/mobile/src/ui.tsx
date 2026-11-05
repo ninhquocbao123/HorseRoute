@@ -529,6 +529,7 @@ export function StepBar({ step, steps }: { step: number; steps: string[] }) {
                 />
               ) : null}
               <View
+                key={current ? "current" : "idle"}
                 style={{
                   width: size + 8,
                   height: size + 8,
@@ -754,6 +755,7 @@ export function Chip({
         compact
           ? { minHeight: 44, paddingVertical: 8, paddingHorizontal: 14 }
           : null,
+        disabled ? { opacity: 0.45 } : null,
         {
           backgroundColor: selected ? c.chipSelectedBg : c.chipBg,
           borderColor: selected ? c.chipSelectedBg : c.chipBorder,
@@ -1045,15 +1047,18 @@ export function ScreenBody({
   children,
   footer,
   onRefresh,
+  scrollRef,
 }: {
   children: React.ReactNode;
   footer?: React.ReactNode;
   onRefresh?: () => void;
+  scrollRef?: React.RefObject<React.ComponentRef<typeof ScrollView> | null>;
 }) {
   const { colors: c, shadow } = useTheme();
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={s.content}
         refreshControl={

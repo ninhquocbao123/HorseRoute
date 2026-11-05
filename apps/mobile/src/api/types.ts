@@ -92,10 +92,12 @@ export type OrderPayload = {
   desiredDepartureDate: string;
   specialRequirements: string;
   horses: OrderHorse[];
+  booking?: unknown;
 };
 export type OrderDetail = Order & {
   special_requirements: string | null;
   draft: OrderPayload | null;
+  booking_details?: unknown;
   horses: {
     id: string;
     name: string;

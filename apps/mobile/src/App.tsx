@@ -72,7 +72,6 @@ import { OverlayProvider, useOverlay } from "./overlay";
 import { discardForeign, foreignItems, useOnline, useQueue } from "./queue";
 import type { IDriverTripSummary, Navigate, Notice, Page } from "./api/types";
 import {
-  BookingScreen,
   CustomerHome,
   HealthScreen,
   OrderScreen,
@@ -91,6 +90,7 @@ import {
 } from "./screens/CrewScreens";
 import { LocationScreen, QueueScreen } from "./screens/TripScreens";
 import { LoginScreen, ThemeToggle } from "./screens/LoginScreen";
+import { BookingScreen } from "./screens/booking/BookingScreen";
 
 const titles: Record<string, string> = {
   orders: "Đơn hàng",

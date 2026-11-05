@@ -13,6 +13,8 @@ export interface PricingVersion {
   effectiveFrom: string | null; publishedAt: string | null; createdAt: string; updatedAt: string;
   createdByName: string | null; publishedByName: string | null; config: PricingConfig;
 }
+/** Số ngày công tổ lái: mỗi 500 km một ngày, làm tròn lên, tối đa 60 ngày như giới hạn của đơn. */
+export const estimateDurationDays = (distanceKm: number) => Math.min(60, Math.max(1, Math.ceil(distanceKm / 500)));
 export interface EstimateInput {
   distanceKm: number; vehicleClass: VehicleClass; vehicleCapacity?: number; horseCount: number; durationDays: number;
   insurance: InsuranceCode; feed: 'STANDARD' | 'PREMIUM' | 'SPORT'; extraStall: boolean;

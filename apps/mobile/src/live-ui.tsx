@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import {
   Camera,
+  Check,
+  ChevronDown,
   CircleAlert,
   CloudOff,
   ImagePlus,
@@ -22,12 +24,13 @@ import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { File } from "expo-file-system";
 import Svg, { Polyline, Circle } from "react-native-svg";
-import { Banner, Button, Card, Section, Txt, useTheme } from "./ui";
+import { Banner, Button, Card, Field, Section, Txt, useTheme } from "./ui";
 import { useResource, useSession } from "./session";
 import { useOnline } from "./queue";
 import { appendPhoto, keepPicked } from "./photo";
 import { ApiError } from "./api/http";
 import { Sheet } from "./overlay";
+import { normalizeSearch } from "./booking-domain";
 import { Skeleton, type SkeletonVariant } from "./skeleton";
 import { API_URL, WEB_URL } from "./config";
 import { dateTime } from "./live-domain";
@@ -369,6 +372,111 @@ export function PrivateImage({
     </View>
   );
 }
+/** Ô chọn từ danh sách dài (tỉnh, xã): mở sheet có ô tìm không dấu. */
+export function SelectField({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+  disabled = false,
+  error,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: string[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  error?: string;
+}) {
+  const { colors: c } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const query = normalizeSearch(search);
+  const matches = options.filter((o) => normalizeSearch(o).includes(query));
+  const close = () => {
+    setOpen(false);
+    setSearch("");
+  };
+  return (
+    <View style={{ gap: 8 }}>
+      <Txt bold>{label}</Txt>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value || "chưa chọn"}`}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={() => setOpen(true)}
+        style={{
+          minHeight: 56,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderWidth: 1,
+          borderRadius: 12,
+          borderCurve: "continuous",
+          borderColor: error ? c.dangerFg : c.borderInput,
+          backgroundColor: disabled ? c.surfaceMuted : c.surface,
+        }}
+      >
+        <Txt
+          color={value ? c.textPrimary : c.textSecondary}
+          style={{ flex: 1 }}
+        >
+          {value || placeholder}
+        </Txt>
+        <ChevronDown size={20} color={c.textSecondary} />
+      </Pressable>
+      {error ? (
+        <Txt size={15} color={c.dangerFg}>
+          {error}
+        </Txt>
+      ) : null}
+      <Sheet visible={open} onClose={close} title={label}>
+        {options.length > 8 ? (
+          <Field
+            label="Tìm"
+            value={search}
+            placeholder="Gõ không dấu cũng được"
+            autoCorrect={false}
+            onChangeText={setSearch}
+          />
+        ) : null}
+        {matches.map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: option === value }}
+            onPress={() => {
+              onChange(option);
+              close();
+            }}
+            style={{
+              minHeight: 48,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Txt bold={option === value} style={{ flex: 1 }}>
+              {option}
+            </Txt>
+            {option === value ? <Check size={20} color={c.link} /> : null}
+          </Pressable>
+        ))}
+        {!matches.length ? (
+          <Txt size={15} color={c.textSecondary}>
+            Không tìm thấy. Thử từ khóa khác.
+          </Txt>
+        ) : null}
+      </Sheet>
+    </View>
+  );
+}
+
 /** COM-10 Ảnh đại diện: khung tròn, chạm để chụp hoặc chọn ảnh mới. Ảnh được cắt vuông giữa và nén còn 512 px. */
 export function AvatarPicker({
   size = 72,

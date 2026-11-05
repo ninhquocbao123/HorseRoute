@@ -92,11 +92,11 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A["CUS-02 hoặc CUS-09"] -->|"Tạo yêu cầu"| S1["CUS-11 Chọn ngựa"]
-  S1 -->|"Chọn ngựa, Tiếp tục; API: POST /orders nháp với requestId → DRAFT"| S2["CUS-12 Tuyến và ngày"]
+  A["CUS-02 hoặc CUS-09"] -->|"Tạo yêu cầu"| S1["CUS-11 Chuyến đi"]
+  S1 -->|"Nhập hành trình, người gửi, người nhận; Tiếp tục"| S2["CUS-12 Chọn ngựa"]
   S1 -->|"Ngựa đang thuộc đơn khác"| S1x["Ngựa bị khóa, ghi: Đang thuộc đơn HR-..."]
-  S2 -->|"Tiếp tục; API: PUT /orders/:id"| S3["CUS-13 Ghi chú"]
-  S3 -->|"Tiếp tục"| S4["CUS-14 Xem lại"]
+  S2 -->|"Tiếp tục; API: POST /orders nháp với requestId → DRAFT"| S3["CUS-13 Dịch vụ & bảo hiểm"]
+  S3 -->|"Có quãng đường và tổng tiền; Tiếp tục; API: PUT /orders/:id"| S4["CUS-14 Xác nhận & gửi"]
   S4 -->|"Gửi yêu cầu; API: POST /orders/:id/submit → PENDING"| S5["CUS-15 Đã gửi"]
   S4 -->|"422 lỗi trường"| S4x["Quay về bước có lỗi, đánh dấu ô"]
   S5 --> W["Chờ Manager duyệt"]

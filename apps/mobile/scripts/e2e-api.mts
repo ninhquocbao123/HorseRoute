@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
+import { estimateInput, newDraft, orderBody } from "../src/booking-domain.ts";
 import {
   applyPending,
   canResumeDraft,
@@ -231,6 +232,54 @@ await check("[Mục 5] người nhận có tên, không SĐT: API từ chối kh
   notes.push(`Đơn nháp ${created.id} còn lại do ca thử người nhận thiếu SĐT.`);
 });
 
+await check("[File 11] đơn từ form mobile: đủ booking, quản lý thấy đúng giá, duyệt và báo giá được, khách thấy trên danh sách", async () => {
+  const profile = ok(await call("POST", "/customer/profiles", tCus, profilePayload({ ...emptyProfile, name: "Booking", breed: "Arabian", passportNo: `BK-${tag}` })));
+  const list = await profiles();
+  const contact2 = (name: string) => ({ name, phone: "0912 345.678", address: "Trại A", city: "Thành phố Hà Nội", ward: "Phường Ba Đình", identityNumber: "012345678901", country: "VN" });
+  const draft = newDraft(randomUUID(), { fullName: "Khách", phone: "0912345678", address: "1 Lê Lợi" }, [String(profile.id)]);
+  draft.date = departure;
+  draft.booking = { ...draft.booking, sender: contact2("Người Gửi"), recipient: contact2("Người Nhận"), distanceKm: 1496, feed: "SPORT", insurance: "ARABIAN", extraStall: true, waterRounds: 2, termsAccepted: true };
+  const created = ok(await call("POST", "/orders", tCus, { ...orderBody(draft, list), requestId: draft.requestId }));
+  ok(await call("POST", `/orders/${created.id}/submit`, tCus));
+  const [row] = await q("SELECT status, recipient_name, origin_address, booking_details FROM orders WHERE id=?", [created.id]);
+  assert.equal(row.status, "PENDING");
+  assert.equal(row.origin_address, "Trại A, Phường Ba Đình, Thành phố Hà Nội");
+  const saved = typeof row.booking_details === "string" ? JSON.parse(row.booking_details) : row.booking_details;
+  assert.equal(saved.distanceKm, 1496);
+  assert.equal(saved.durationDays, 3);
+  assert.equal(saved.feed, "SPORT");
+  assert.equal(saved.recipient.identityNumber, "012345678901");
+  assert.equal(saved.recipient.phone, "0912345678");
+  const estimate = ok(await call("POST", "/pricing/estimate", tCus, estimateInput(draft, 1, 1496)));
+  const crew = estimate.items.find((i: any) => i.code === "CREW");
+  assert.equal(crew.quantity, 3);
+  assert.ok(estimate.items.some((i: any) => i.code === "INSURANCE"));
+
+  // Khách thấy đơn ở danh sách dùng chung với web.
+  const workspace = ok(await call("GET", "/orders/customer-workspace", tCus));
+  assert.ok(workspace.orders.some((o: any) => String(o.id) === String(created.id)), "Khách không thấy đơn");
+
+  // Quản lý thấy đơn, tính được đúng giá khách đã thấy.
+  const manager = await mkUser("manager", "MANAGER");
+  assert.ok(manager);
+  const tManager = await login(`e2e.manager.${tag}@wdp.test`);
+  const intake = ok(await call("GET", "/manager/intake", tManager));
+  const rows = Array.isArray(intake) ? intake : (intake.orders ?? intake.items ?? []);
+  assert.ok(rows.some((o: any) => String(o.id) === String(created.id)), "Quản lý không thấy đơn");
+  const context = ok(await call("GET", `/manager/orders/${created.id}/context`, tManager));
+  assert.equal(context.estimateError, null);
+  assert.equal(context.estimate.total, estimate.total, "Giá quản lý khác giá khách thấy");
+
+  // Duyệt, lập và duyệt báo giá, khách xem được.
+  ok(await call("POST", `/orders/${created.id}/review`, tManager, { decision: "APPROVED", coordinatorId: coord }));
+  const quote = ok(await call("POST", `/manager/orders/${created.id}/quotes`, tManager, { input: context.input, adjustment: 0, reason: "", vatPercent: 10 }));
+  const [draftQuote] = await q("SELECT revision FROM order_quotes WHERE id=?", [quote.id]);
+  ok(await call("POST", `/manager/quotes/${quote.id}/review`, tManager, { revision: draftQuote.revision, decision: "APPROVED", note: "" }));
+  const seen = ok(await call("GET", `/orders/${created.id}/quote`, tCus));
+  assert.ok(Number(seen.total) > 0);
+  assert.equal(ok(await call("GET", `/orders/${created.id}`, tCus)).status, "APPROVED");
+});
+
 /* ---------------- Tổ lái ---------------- */
 console.log("\n== Tài xế và hộ tống ==");
 await check("[Lỗi 5] chuyến một chặng: bắt đầu, check-in lần lượt, đến nơi, giao ngựa", async () => {
@@ -299,11 +348,14 @@ await check("gửi lại sự cố cùng clientRequestId: một bản ghi, trả
   const id = rid("inc");
   const fields = { incidentType: "LONG_TRAFFIC_JAM", severity: "YELLOW", damageTarget: "VEHICLE", description: "Tắc đường 2 giờ", clientRequestId: id };
   const a = ok(await call("POST", `/tracking/trips/${g2.tripId}/incidents`, tDriver, form(fields)));
+  const notices = () => count("SELECT COUNT(*) n FROM notifications WHERE event_type='INCIDENT_REPORTED' AND related_id=?", [a.id]);
+  const noticesAfterFirst = await notices();
+  assert.ok(noticesAfterFirst >= 1);
   const b = ok(await call("POST", `/tracking/trips/${g2.tripId}/incidents`, tDriver, form(fields)));
   assert.equal(a.id, b.id);
   assert.equal(await count("SELECT COUNT(*) n FROM incidents WHERE trip_id=?", [g2.tripId]), 1);
   assert.equal(await count("SELECT COUNT(*) n FROM attachments WHERE incident_id=?", [a.id]), 1);
-  assert.equal(await count("SELECT COUNT(*) n FROM notifications WHERE event_type='INCIDENT_REPORTED' AND related_id=?", [a.id]), 1);
+  assert.equal(await notices(), noticesAfterFirst);
 });
 await check("gửi lại báo cáo sức khỏe: một bản ghi", async () => {
   const fields = { horseId: g2.horse, conditionStatus: "STABLE", loggedAt: minutesAgo(1), reportStatus: "SENT", sendToCustomer: "true", customerNote: "Ổn", clientRequestId: rid("log") };

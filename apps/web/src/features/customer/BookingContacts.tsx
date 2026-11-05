@@ -3,9 +3,9 @@ import { Button, Select } from 'antd';
 import { SwapOutlined, CalendarOutlined, EnvironmentOutlined, HomeOutlined, UserOutlined } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 import './booking-contacts.css';
-import vietnamLocations from './vietnam-locations.json';
-import chinaLocations from './china-locations.json';
-import thailandLocations from './thailand-locations.json';
+import vietnamLocations from '../../../../../packages/shared/src/data/vietnam-locations.json';
+import chinaLocations from '../../../../../packages/shared/src/data/china-locations.json';
+import thailandLocations from '../../../../../packages/shared/src/data/thailand-locations.json';
 import CountryFlag from './CountryFlag';
 const locations:Record<string,{name:string;wards:string[]}[]>={VN:vietnamLocations,CN:chinaLocations,TH:thailandLocations};
 

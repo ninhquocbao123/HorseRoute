@@ -70,10 +70,10 @@ Thông báo mở từ chuông trên header (có số chưa đọc), không chi�
 | CUS-08 | Ngựa | Danh sách hồ sơ ngựa | Thêm ngựa | ảnh, name, breed, tuổi, sex, đơn đang tham gia | | `/customer/profiles` | màn tab | cache | P0 |
 | CUS-09 | Hồ sơ ngựa | Chi tiết 1 ngựa | Đặt vận chuyển cho ngựa này | toàn bộ profile, ảnh, giấy tờ đã gắn | | `/customer/profiles`, `/files/:id` | màn đẩy | cache | P0 |
 | CUS-10 | Thêm/sửa hồ sơ ngựa | | Lưu hồ sơ | | name, passportNo, breed, birthDate, sex, coatColor, microchip, weightKg, heightCm, feed, note, ảnh | `POST/PUT /customer/profiles`, `/files` | màn đẩy | không | P0 |
-| CUS-11 | Yêu cầu · 1 Chọn ngựa | | Tiếp tục | hồ sơ ngựa (ngựa đang bận bị khóa, nêu đơn) | chọn ≥1 | `/customer/profiles` | màn đẩy (stepper 4 bước) | không | P0 |
-| CUS-12 | Yêu cầu · 2 Tuyến và ngày | | Tiếp tục | km ước tính | điểm đi, nước đi, điểm đến, nước đến, ngày khởi hành | `/customer/route-distance` | màn đẩy | không | P0 |
-| CUS-13 | Yêu cầu · 3 Ghi chú | | Tiếp tục | | yêu cầu đặc biệt (≤5000) | | màn đẩy | không | P0 |
-| CUS-14 | Yêu cầu · 4 Xem lại | Kiểm tra trước khi gửi | Gửi yêu cầu | tóm tắt 3 bước | | `POST /orders` (requestId) → `/submit` | màn đẩy | không | P0 |
+| CUS-11 | Yêu cầu · 1 Chuyến đi | Hành trình, người gửi, người nhận | Tiếp tục | loại chuyến (trong nước hoặc quốc tế), ngày đi | người gửi và người nhận: họ tên, SĐT, tỉnh, xã, địa chỉ, CCCD/MST/hộ chiếu | `/customer/route-distance` | màn đẩy (stepper 4 bước) | không | P0 |
+| CUS-12 | Yêu cầu · 2 Chọn ngựa | | Tiếp tục | hồ sơ ngựa kèm trạng thái giấy tờ (ngựa đang bận bị khóa, nêu đơn) | khung giờ đón, hạng xe, chọn ≥1 ngựa | `/customer/profiles`, `/customer/document-types` | màn đẩy | không | P0 |
+| CUS-13 | Yêu cầu · 3 Dịch vụ & bảo hiểm | | Tiếp tục | thanh tổng tiền, sheet từng khoản | khoang, thức ăn, cữ nước, bảo hiểm, yêu cầu thêm (≤5000) | `/pricing/current`, `/pricing/estimate` | màn đẩy | không | P0 |
+| CUS-14 | Yêu cầu · 4 Xác nhận & gửi | Kiểm tra trước khi gửi | Gửi đơn chờ duyệt | tóm tắt có nút Sửa từng nhóm, chi phí, cọc dự kiến, điều khoản | đồng ý điều khoản | `POST /orders` (requestId) → `/submit` | màn đẩy | không | P0 |
 | CUS-15 | Đã gửi yêu cầu | Xác nhận | Xem đơn | order_code, "Chờ duyệt", bước tiếp theo | | | màn đầy đủ | | P0 |
 | CUS-16 | Giấy tờ của đơn | Trạng thái giấy tờ theo ngựa | Tải giấy tờ trên web | loại giấy, status, expiry_date, invalid_reason | | `/documents/orders/:id` | màn đẩy | cache | P1 |
 
