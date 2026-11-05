@@ -4,7 +4,7 @@ Ngày 05/11/2026. App: `apps/mobile`. Đợt 1 nằm trong commit `a04dff6`, nh�
 
 ## 1. Kết luận
 
-**Toàn bộ lỗi đã biết ở mục 5 đã được sửa, nhưng mobile chưa hoàn thiện hết.** Vẫn còn màn thiếu so với thiết kế (mục 7), phần chưa test (mục 8) và một việc bắt buộc trước khi dùng: **chạy migration mới trên DB chung** (mục 6).
+**Toàn bộ lỗi đã biết ở mục 5 đã được sửa, nhưng mobile chưa hoàn thiện hết.** Vẫn còn màn thiếu so với thiết kế (mục 7), phần chưa test (mục 8). Migration mới đã chạy trên DB chung; còn phải triển khai API trước bản mobile mới (mục 6).
 
 Plan mở rộng cho Manager, Specialist, Coordinator, Admin ở [08-staff-roles-plan.md](08-staff-roles-plan.md) đã bỏ, không thực hiện.
 
@@ -92,7 +92,7 @@ Còn một điểm nhỏ chưa sửa: thẻ "Đặt cọc cho …" ở trang ch�
 
 ## 6. Việc bắt buộc khi triển khai
 
-1. **Chạy migration `1800000092000-ClientRequestIds` trên DB chung trước khi chạy API mới.** API mới ghi cột `client_request_id`, nên nếu thiếu migration thì mọi lần tạo sự cố, nhật ký ngựa và ghi chăm sóc đều lỗi, kể cả từ web. Migration chưa chạy trên DB chung.
+1. Migration `1800000092000-ClientRequestIds` **đã chạy trên DB chung `wdp` ngày 05/11/2026**. API mới ghi cột `client_request_id`, nên mọi DB khác (máy cá nhân, môi trường mới) phải chạy migration này trước khi chạy API mới; nếu thiếu thì mọi lần tạo sự cố, nhật ký ngựa và ghi chăm sóc đều lỗi, kể cả từ web. Code cũ vẫn chạy được với DB đã migrate vì cột cho phép NULL.
 2. Triển khai API trước bản mobile mới. API cũ từ chối `clientRequestId` và `queuedAt` vì trường lạ.
 3. `queuedAt` do máy gửi lên nên tài xế có thể dùng API trực tiếp để ghi bù tới 24 giờ. Đây là hệ quả của phương án A đã chốt. Giờ vẫn phải đúng thứ tự mốc, và mọi thao tác đều ghi audit.
 
@@ -118,7 +118,7 @@ Còn một điểm nhỏ chưa sửa: thẻ "Đặt cọc cho …" ở trang ch�
 
 ## 10. Đề xuất thứ tự tiếp theo
 
-1. Chạy migration trên DB chung, rồi triển khai API.
+1. Push nhánh `long` và triển khai API (migration trên DB chung đã xong).
 2. Làm bản dev build để kiểm chứng GPS nền.
 3. Các màn còn thiếu và push.
 4. Chạy trọn luồng liên role trên máy Android thật.
