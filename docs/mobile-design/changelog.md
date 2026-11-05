@@ -103,3 +103,12 @@ Các chỗ code lệch so với luồng đã chốt, đã sửa:
 | F-C2 | Phiên hết hạn: hàng chờ giữ nguyên, gửi tiếp khi đăng nhập lại. Đăng nhập tài khoản khác khi còn mục chưa gửi: hỏi đăng nhập lại tài khoản trước hay bỏ các mục. | `queue.ts`, `auth.tsx`, `login.tsx` |
 | F-K1 | Hồ sơ ngựa có ảnh (JPG/PNG ≤ 5 MB). Ảnh lỗi thì hồ sơ vẫn lưu, nút đổi thành "Tải lại ảnh". Danh sách ngựa hiện ảnh. | `horse/[id].tsx`, `horses.tsx` |
 | F-K2 | Đơn nháp lưu lên máy chủ sau mỗi bước, thoát giữa chừng làm tiếp từ Đơn hàng. Lỗi trường từ máy chủ đưa về đúng bước có ô lỗi. | `request/index.tsx` |
+
+## Theo yêu cầu của Long (05/11/2026)
+
+| Mã | Thay đổi | Tệp |
+| --- | --- | --- |
+| U-01 | Tab đang chọn phủ kín nền vàng `accent`, icon và chữ `onAccent`. Ngoại lệ có chủ đích với quy tắc "một màu nhấn cho mỗi màn hành động" ở 00-context. | `src/App.tsx` |
+| U-02 | COM-10: khung hồ sơ có ảnh đại diện tròn, tên và vai trò nằm bên phải; email, SĐT, nơi ở ở dưới. Chạm ảnh để chụp hoặc chọn từ thư viện; ảnh cắt vuông giữa, 512 px, lưu qua `/users/me/avatar`. | `src/App.tsx`, `src/live-ui.tsx` |
+| U-03 | Đăng xuất dùng nút `danger`: chữ và viền đỏ, nền không đổi. | `src/App.tsx` |
+| U-04 | Giao diện: nhãn bên trái, nút gạt sáng/tối dùng chung với trang đăng nhập sát bên phải. Bỏ lựa chọn "Theo máy"; ai chưa từng chọn vẫn theo máy đến lần gạt đầu tiên. | `src/App.tsx`, `src/screens/LoginScreen.tsx` |

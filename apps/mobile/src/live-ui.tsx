@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Linking, Pressable, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  View,
+} from "react-native";
 import {
   Camera,
   CircleAlert,
@@ -17,9 +23,11 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { File } from "expo-file-system";
 import Svg, { Polyline, Circle } from "react-native-svg";
 import { Banner, Button, Card, Section, Txt, useTheme } from "./ui";
-import { useSession } from "./session";
+import { useResource, useSession } from "./session";
 import { useOnline } from "./queue";
-import { keepPicked } from "./photo";
+import { appendPhoto, keepPicked } from "./photo";
+import { ApiError } from "./api/http";
+import { Sheet } from "./overlay";
 import { Skeleton, type SkeletonVariant } from "./skeleton";
 import { API_URL, WEB_URL } from "./config";
 import { dateTime } from "./live-domain";
@@ -361,6 +369,169 @@ export function PrivateImage({
     </View>
   );
 }
+/** COM-10 Ảnh đại diện: khung tròn, chạm để chụp hoặc chọn ảnh mới. Ảnh được cắt vuông giữa và nén còn 512 px. */
+export function AvatarPicker({
+  size = 72,
+  onError,
+}: {
+  size?: number;
+  onError: (message: string) => void;
+}) {
+  const { colors: c } = useTheme();
+  const { request } = useSession();
+  const avatar = useResource<{ image: string | null }>("/users/me/avatar");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const image = saved ?? avatar.data?.image ?? null;
+  const pick = async (camera: boolean) => {
+    setChoosing(false);
+    onError("");
+    setBusy(true);
+    try {
+      // iOS không mở được bộ chọn ảnh khi sheet còn đang đóng.
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (
+        camera &&
+        !(await ImagePicker.requestCameraPermissionsAsync()).granted
+      ) {
+        onError(
+          "Chưa có quyền camera. Chọn ảnh từ thư viện, hoặc mở Cài đặt để cho phép camera.",
+        );
+        return;
+      }
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ["images"],
+        quality: 0.8,
+      };
+      const result = camera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      // Tự cắt vuông giữa ảnh: màn cắt có sẵn (allowsEditing) lỗi khi chụp bằng camera trên Android.
+      const side = Math.min(asset.width, asset.height);
+      const photo = await manipulateAsync(
+        asset.uri,
+        [
+          {
+            crop: {
+              originX: Math.floor((asset.width - side) / 2),
+              originY: Math.floor((asset.height - side) / 2),
+              width: side,
+              height: side,
+            },
+          },
+          { resize: { width: 512 } },
+        ],
+        { compress: 0.8, format: SaveFormat.JPEG },
+      );
+      const body = new FormData();
+      appendPhoto(body, photo.uri, "avatar");
+      const uploaded = await request<{ image: string }>("/users/me/avatar", {
+        method: "POST",
+        body,
+      });
+      setSaved(uploaded.image);
+    } catch (e) {
+      onError(
+        e instanceof ApiError
+          ? e.message
+          : "Không đổi được ảnh đại diện. Thử lại hoặc chọn ảnh khác.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={image ? "Đổi ảnh đại diện" : "Thêm ảnh đại diện"}
+        disabled={busy}
+        onPress={() => setChoosing(true)}
+        style={{ width: size, height: size }}
+      >
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: 1,
+            borderColor: c.borderInput,
+            backgroundColor: c.surfaceMuted,
+            overflow: "hidden",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {image ? (
+            <Image
+              source={{ uri: image }}
+              accessibilityIgnoresInvertColors
+              style={{ width: size, height: size }}
+            />
+          ) : busy ? null : (
+            <Camera size={24} color={c.link} />
+          )}
+          {busy ? (
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ActivityIndicator color={c.link} />
+            </View>
+          ) : null}
+        </View>
+        {image && !busy ? (
+          <View
+            style={{
+              position: "absolute",
+              right: -2,
+              bottom: -2,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: c.surface,
+              backgroundColor: c.surfaceBrand,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Camera size={12} color={c.onBrand} />
+          </View>
+        ) : null}
+      </Pressable>
+      <Sheet
+        visible={choosing}
+        onClose={() => setChoosing(false)}
+        title="Ảnh đại diện"
+      >
+        <Button
+          title="Chụp ảnh"
+          kind="secondary"
+          icon={Camera}
+          onPress={() => void pick(true)}
+        />
+        <Button
+          title="Chọn từ thư viện"
+          kind="secondary"
+          icon={ImagePlus}
+          onPress={() => void pick(false)}
+        />
+      </Sheet>
+    </>
+  );
+}
+
 /**
  * Ô ảnh: chụp hoặc chọn từ thư viện, nén về cạnh dài 1600, tối đa `max` ảnh.
  * R-01: camera bị từ chối thì vẫn chọn được ảnh từ thư viện, có nút mở Cài đặt.

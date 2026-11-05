@@ -257,16 +257,15 @@ function LogoBadge() {
   );
 }
 
-/** Công tắc sáng/tối ở góc phải trên. */
-function ThemeToggle({
-  p,
+/** Công tắc sáng/tối, dùng chung cho trang đăng nhập và màn Tài khoản. */
+export function ThemeToggle({
   dark,
   onChange,
 }: {
-  p: Palette;
   dark: boolean;
   onChange: (value: Appearance) => void;
 }) {
+  const p = dark ? palettes.dark : palettes.light;
   const item = (value: "light" | "dark", Icon: LucideIcon, label: string) => {
     const on = dark === (value === "dark");
     return (
@@ -537,7 +536,7 @@ export function LoginScreen({
             paddingBottom: insets.bottom + 32,
           }}
         >
-          <ThemeToggle p={p} dark={dark} onChange={changeAppearance} />
+          <ThemeToggle dark={dark} onChange={changeAppearance} />
           <View style={{ marginTop: 24 }}>
             <LogoBadge />
           </View>

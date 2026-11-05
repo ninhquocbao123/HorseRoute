@@ -34,12 +34,13 @@ import {
   ShieldAlert,
   TriangleAlert,
   Truck,
+  Mail,
+  Phone,
   UserRound,
   type LucideIcon,
 } from "lucide-react-native";
 import {
   ThemeContext,
-  Badge,
   Banner,
   Button,
   Card,
@@ -48,7 +49,6 @@ import {
   Header,
   IconButton,
   Row,
-  Section,
   Txt,
   s,
   useTheme,
@@ -59,6 +59,7 @@ import { API_URL } from "./config";
 import { messageOf } from "./api/http";
 import { asId, dateTime } from "./live-domain";
 import {
+  AvatarPicker,
   Empty,
   NotFound,
   ResourceState,
@@ -88,7 +89,7 @@ import {
   TripScreen,
 } from "./screens/CrewScreens";
 import { LocationScreen, QueueScreen } from "./screens/TripScreens";
-import { LoginScreen } from "./screens/LoginScreen";
+import { LoginScreen, ThemeToggle } from "./screens/LoginScreen";
 
 const titles: Record<string, string> = {
   orders: "Đơn hàng",
@@ -316,42 +317,66 @@ function Login({
   );
 }
 function Account({
-  appearance,
   changeAppearance,
   go,
   roleName,
 }: {
-  appearance: Appearance;
   changeAppearance: (value: Appearance) => void;
   go: Navigate;
   roleName: string;
 }) {
   const { user, logout, writing } = useSession();
   const { confirm } = useOverlay();
+  const { colors: c, name: themeName } = useTheme();
   const pending = useQueue();
   const [error, setError] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const info = [
+    { icon: Mail, text: user!.email },
+    { icon: Phone, text: user!.phone || "Chưa có số điện thoại" },
+    { icon: MapPin, text: user!.address || "Chưa có nơi ở" },
+  ];
   return (
     <>
       <Card>
-        <UserRound size={40} />
-        <Txt size={24} bold>
-          {user!.fullName}
-        </Txt>
-        <Badge label={roleName} />
-        <Txt>{user!.email}</Txt>
-        <Txt>{user!.phone || "Chưa có số điện thoại"}</Txt>
-        {user!.address ? <Txt>{user!.address}</Txt> : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <AvatarPicker onError={setAvatarError} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Txt size={17} bold>
+              {user!.fullName}
+            </Txt>
+            <Txt size={15} color={c.textSecondary}>
+              {roleName}
+            </Txt>
+          </View>
+        </View>
+        {avatarError ? (
+          <Txt size={15} color={c.dangerFg}>
+            {avatarError}
+          </Txt>
+        ) : null}
+        <View style={{ gap: 8 }}>
+          {info.map(({ icon: Icon, text }) => (
+            <View
+              key={text}
+              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+            >
+              <Icon size={20} color={c.textSecondary} />
+              <Txt style={{ flex: 1 }}>{text}</Txt>
+            </View>
+          ))}
+        </View>
       </Card>
-      <Section title="Giao diện" />
-      <View style={s.wrap}>
-        {(["light", "dark", "system"] as const).map((value, i) => (
-          <Chip
-            key={value}
-            label={["Sáng", "Tối", "Theo máy"][i]}
-            selected={appearance === value}
-            onPress={() => changeAppearance(value)}
-          />
-        ))}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <Txt bold>Giao diện</Txt>
+        <ThemeToggle dark={themeName === "dark"} onChange={changeAppearance} />
       </View>
       <Row
         title="Đổi mật khẩu"
@@ -379,7 +404,7 @@ function Account({
       {error ? <Banner warning text={error} /> : null}
       <Button
         title="Đăng xuất"
-        kind="secondary"
+        kind="danger"
         disabled={writing}
         icon={LogOut}
         onPress={() =>
@@ -562,10 +587,8 @@ function CountDot({
   );
 }
 function Authenticated({
-  appearance,
   changeAppearance,
 }: {
-  appearance: Appearance;
   changeAppearance: (value: Appearance) => void;
 }) {
   const { user, refresh, writing } = useSession();
@@ -662,7 +685,6 @@ function Authenticated({
   if (screen === "account")
     content = (
       <Account
-        appearance={appearance}
         changeAppearance={changeAppearance}
         go={go}
         roleName={roleName}
@@ -883,30 +905,39 @@ function Authenticated({
                 disabled: writing,
               }}
               onPress={() => go(tab.screen)}
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 72,
-                padding: 6,
-                gap: 4,
-                borderTopWidth: 3,
-                borderTopColor:
-                  tab.screen === screen ? c.accent : "transparent",
-              }}
+              style={{ flex: 1, minHeight: 72, padding: 6 }}
             >
-              <View>
-                <tab.icon
-                  color={tab.screen === screen ? c.tabActive : c.tabInactive}
-                  size={24}
-                />
-                {tab.screen === "notifications" && unread ? (
-                  <CountDot count={unread} />
-                ) : null}
+              {/* Tab đang chọn phủ kín màu vàng, nhìn vào biết ngay đang ở màn nào.
+                  Đổi key để tạo lại view: nếu chỉ đổi nền từ trong suốt, Android không bo góc. */}
+              <View
+                key={tab.screen === screen ? "selected" : "idle"}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  borderRadius: 12,
+                  backgroundColor:
+                    tab.screen === screen ? c.accent : "transparent",
+                }}
+              >
+                <View>
+                  <tab.icon
+                    color={tab.screen === screen ? c.onAccent : c.tabInactive}
+                    size={24}
+                  />
+                  {tab.screen === "notifications" && unread ? (
+                    <CountDot count={unread} />
+                  ) : null}
+                </View>
+                <Txt
+                  size={12}
+                  bold={tab.screen === screen}
+                  color={tab.screen === screen ? c.onAccent : undefined}
+                >
+                  {tab.title}
+                </Txt>
               </View>
-              <Txt size={12} bold={tab.screen === screen}>
-                {tab.title}
-              </Txt>
             </Pressable>
           ))}
         </View>
@@ -1018,7 +1049,6 @@ function Shell() {
           ) : (
             <Authenticated
               key={`${session.user.id}:${session.token}`}
-              appearance={appearance}
               changeAppearance={changeAppearance}
             />
           )}
