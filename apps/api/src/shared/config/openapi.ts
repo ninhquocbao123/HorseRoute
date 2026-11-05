@@ -78,6 +78,7 @@ route('get', '/orders/{id}/review-options', 'Manager: điều phối viên và q
 route('post', '/orders/{id}/submit', 'Customer: gửi duyệt đơn hoàn chỉnh', 'Flow 1 - Orders', { status: 201 });
 route('post', '/orders/{id}/review', 'Manager: duyệt, yêu cầu bổ sung hoặc từ chối', 'Flow 1 - Orders', { body: 'ReviewDto', status: 201 });
 route('get', '/notifications', '100 thông báo mới nhất của mình', 'Notifications');
+route('post', '/notifications/read-all', 'Đánh dấu mọi thông báo của mình đã đọc', 'Notifications');
 route('post', '/notifications/{id}/read', 'Đánh dấu thông báo của mình đã đọc', 'Notifications', { status: 201 });
 route('get', '/documents/orders', 'Danh sách đơn có checklist', 'Flow 2 - Documents', { query: paginationSchema });
 route('get', '/documents/orders/{orderId}', 'Checklist, phiên bản và hồ sơ cơ quan', 'Flow 2 - Documents');

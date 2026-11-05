@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { Circle, Path } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { BeVietnamPro_400Regular } from "@expo-google-fonts/be-vietnam-pro/400Regular";
@@ -556,6 +557,46 @@ function Notifications({ go }: { go: Navigate }) {
   );
 }
 /** Số chưa đọc trên chuông và tab Thông báo. */
+/** Nét bên trong icon, vẽ lại bằng màu nền khi icon được tô đặc để không mất chi tiết. */
+const tabIconDetails = new Map<LucideIcon, string[]>([
+  [TriangleAlert, ["M12 9v4", "M12 17h.01"]],
+  [ClipboardList, ["M12 11h4", "M12 16h4", "M8 11h.01", "M8 16h.01"]],
+  [
+    NotebookPen,
+    [
+      "M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z",
+    ],
+  ],
+]);
+/** Icon của tab: đang chọn thì tô đặc, chưa chọn chỉ có nét. */
+function TabIcon({
+  icon: Icon,
+  selected,
+  color,
+  background,
+}: {
+  icon: LucideIcon;
+  selected: boolean;
+  color: string;
+  background: string;
+}) {
+  if (!selected) return <Icon color={color} size={24} />;
+  // Đường đi của Route là nét hở, tô vào sẽ méo: chỉ tô hai điểm đầu cuối.
+  if (Icon === Route)
+    return (
+      <Icon color={color} size={24}>
+        <Circle cx={6} cy={19} r={3} fill={color} />
+        <Circle cx={18} cy={5} r={3} fill={color} />
+      </Icon>
+    );
+  return (
+    <Icon color={color} fill={color} size={24}>
+      {tabIconDetails.get(Icon)?.map((d) => (
+        <Path key={d} d={d} stroke={background} fill={color} />
+      ))}
+    </Icon>
+  );
+}
 function CountDot({
   count,
   inset = false,
@@ -591,9 +632,9 @@ function Authenticated({
 }: {
   changeAppearance: (value: Appearance) => void;
 }) {
-  const { user, refresh, writing } = useSession();
-  const { colors: c } = useTheme();
-  const { confirm } = useOverlay();
+  const { user, request, write, refresh, writing } = useSession();
+  const { colors: c, shadow } = useTheme();
+  const { confirm, notify } = useOverlay();
   const customer = user!.role === "CUSTOMER";
   const trips = useResource<IDriverTripSummary[]>(
     customer ? null : "/tracking/driver/trips",
@@ -608,6 +649,14 @@ function Authenticated({
   const escort = !customer && selected?.crewRole === "ESCORT";
   const notices = useResource<Notice[]>("/notifications");
   const unread = notices.data?.filter((n) => !n.is_read).length ?? 0;
+  const readAll = async () => {
+    try {
+      await write(() => request("/notifications/read-all", { method: "POST" }));
+      refresh();
+    } catch (e) {
+      notify("Chưa đánh dấu được thông báo", messageOf(e));
+    }
+  };
   const online = useOnline();
   const pending = useQueue();
   const page = pages[pages.length - 1];
@@ -794,7 +843,29 @@ function Authenticated({
             : undefined
         }
         right={
-          customer && screen !== "notifications" ? (
+          screen === "notifications" && unread ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Đọc tất cả ${unread} thông báo`}
+              disabled={writing}
+              hitSlop={8}
+              onPress={() => void readAll()}
+              style={({ pressed }) => ({
+                alignSelf: "flex-end",
+                marginBottom: 4,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.borderInput,
+                opacity: pressed || writing ? 0.6 : 1,
+              })}
+            >
+              <Txt size={12} bold color={c.link}>
+                Đọc tất cả
+              </Txt>
+            </Pressable>
+          ) : customer && screen !== "notifications" ? (
             <View>
               <IconButton
                 icon={Bell}
@@ -886,60 +957,68 @@ function Authenticated({
         )}
       </KeyboardAvoidingView>
       {pages.length === 1 ? (
-        <View
-          style={{
-            flexDirection: "row",
-            backgroundColor: c.surface,
-            borderTopWidth: 1,
-            borderTopColor: c.border,
-          }}
-        >
-          {tabs.map((tab) => (
-            <Pressable
-              key={tab.screen}
-              disabled={writing}
-              accessibilityRole="tab"
-              accessibilityLabel={tab.title}
-              accessibilityState={{
-                selected: tab.screen === screen,
-                disabled: writing,
-              }}
-              onPress={() => go(tab.screen)}
-              style={{ flex: 1, minHeight: 72, padding: 6 }}
-            >
-              {/* Tab đang chọn phủ kín màu vàng, nhìn vào biết ngay đang ở màn nào.
-                  Đổi key để tạo lại view: nếu chỉ đổi nền từ trong suốt, Android không bo góc. */}
-              <View
-                key={tab.screen === screen ? "selected" : "idle"}
-                style={{
-                  flex: 1,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  borderRadius: 12,
-                  backgroundColor:
-                    tab.screen === screen ? c.accent : "transparent",
-                }}
-              >
-                <View>
-                  <tab.icon
-                    color={tab.screen === screen ? c.onAccent : c.tabInactive}
-                    size={24}
-                  />
-                  {tab.screen === "notifications" && unread ? (
-                    <CountDot count={unread} />
-                  ) : null}
-                </View>
-                <Txt
-                  size={12}
-                  bold={tab.screen === screen}
-                  color={tab.screen === screen ? c.onAccent : undefined}
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+          {/* Thanh viên thuốc nổi: tab đang chọn chỉ tô icon và chữ, thêm nền rất nhạt để dễ nhận ra. */}
+          <View
+            style={[
+              {
+                flexDirection: "row",
+                padding: 4,
+                borderRadius: 32,
+                borderWidth: 1,
+                borderColor: c.border,
+                backgroundColor: c.surface,
+              },
+              shadow.md,
+            ]}
+          >
+            {tabs.map((tab) => {
+              const selected = tab.screen === screen;
+              const color = selected ? c.tabActive : c.tabInactive;
+              return (
+                <Pressable
+                  key={tab.screen}
+                  disabled={writing}
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab.title}
+                  accessibilityState={{ selected, disabled: writing }}
+                  onPress={() => go(tab.screen)}
+                  style={{ flex: 1, minHeight: 60 }}
                 >
-                  {tab.title}
-                </Txt>
-              </View>
-            </Pressable>
-          ))}
+                  {/* Đổi key để tạo lại view: nếu chỉ đổi nền từ trong suốt, Android không bo góc. */}
+                  <View
+                    key={selected ? "selected" : "idle"}
+                    style={{
+                      flex: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 2,
+                      paddingVertical: 6,
+                      borderRadius: 28,
+                      backgroundColor: selected
+                        ? c.surfaceMuted
+                        : "transparent",
+                    }}
+                  >
+                    <View>
+                      <TabIcon
+                        icon={tab.icon}
+                        selected={selected}
+                        color={color}
+                        background={c.surfaceMuted}
+                      />
+                      {tab.screen === "notifications" && unread ? (
+                        <CountDot count={unread} />
+                      ) : null}
+                    </View>
+                    <Txt size={12} bold={selected} color={color}>
+                      {tab.title}
+                    </Txt>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : null}
     </>

@@ -3,6 +3,10 @@ import { NotificationsRepository } from './notifications.repository';
 export class NotificationsService {
   constructor(private readonly repo: NotificationsRepository) {}
   list(recipient: string) { return this.repo.list(recipient); }
+  async readAll(recipient: string) {
+    const result = await this.repo.readAll(recipient);
+    return { updated: Number(result.affectedRows ?? 0) };
+  }
   async read(recipient: string, id: string) {
     if (!/^[1-9]\d{0,19}$/.test(id)) throw new NotFoundException();
     const result = await this.repo.read(id, recipient);

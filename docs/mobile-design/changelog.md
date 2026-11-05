@@ -108,7 +108,8 @@ Các chỗ code lệch so với luồng đã chốt, đã sửa:
 
 | Mã | Thay đổi | Tệp |
 | --- | --- | --- |
-| U-01 | Tab đang chọn phủ kín nền vàng `accent`, icon và chữ `onAccent`. Ngoại lệ có chủ đích với quy tắc "một màu nhấn cho mỗi màn hành động" ở 00-context. | `src/App.tsx` |
+| U-01 | Thanh điều hướng dạng viên thuốc nổi. Tab đang chọn: icon tô đặc và chữ đậm màu `tabActive` (sáng: teal `#14606a`; tối: vàng `#f4b942`), thêm nền `surfaceMuted` rất nhạt. Không dùng vàng ở chế độ sáng vì chữ vàng trên nền trắng chỉ đạt 1.8:1. Icon có chi tiết bên trong được vẽ lại bằng màu nền để không mất nét. | `src/App.tsx`, `src/theme.ts` |
 | U-02 | COM-10: khung hồ sơ có ảnh đại diện tròn, tên và vai trò nằm bên phải; email, SĐT, nơi ở ở dưới. Chạm ảnh để chụp hoặc chọn từ thư viện; ảnh cắt vuông giữa, 512 px, lưu qua `/users/me/avatar`. | `src/App.tsx`, `src/live-ui.tsx` |
 | U-03 | Đăng xuất dùng nút `danger`: chữ và viền đỏ, nền không đổi. | `src/App.tsx` |
 | U-04 | Giao diện: nhãn bên trái, nút gạt sáng/tối dùng chung với trang đăng nhập sát bên phải. Bỏ lựa chọn "Theo máy"; ai chưa từng chọn vẫn theo máy đến lần gạt đầu tiên. | `src/App.tsx`, `src/screens/LoginScreen.tsx` |
+| U-05 | Thông báo: nút nhỏ "Đọc tất cả" ở góc phải, ngang hàng tiêu đề, chỉ hiện khi còn thông báo chưa đọc. Thêm API `POST /notifications/read-all`. | `src/App.tsx`, `apps/api/src/features/notifications` |

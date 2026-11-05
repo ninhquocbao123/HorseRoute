@@ -7,6 +7,7 @@ export class NotificationsRepository {
     FROM notifications n LEFT JOIN documents d ON n.related_type='DOCUMENT' AND d.id=n.related_id
     LEFT JOIN horses h ON h.id=d.horse_id
     WHERE n.recipient_id=? ORDER BY n.created_at DESC,n.id DESC LIMIT 100`, [recipient]); }
+  readAll(recipient: string) { return this.db.query('UPDATE notifications SET is_read=1 WHERE recipient_id=? AND is_read=0', [recipient]); }
   read(id: string, recipient: string) { return this.db.query('UPDATE notifications SET is_read=1 WHERE id=? AND recipient_id=?', [id, recipient]); }
 }
 

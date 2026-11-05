@@ -270,7 +270,7 @@ export const lightTheme: Theme = {
     accentSubtle: "#fef9ec",
     link: "#14606a",
     focusRing: "#14606a",
-    tabActive: "#0b3b42",
+    tabActive: "#14606a",
     tabInactive: "#546d71",
     chipSelectedBg: "#0b3b42",
     chipSelectedFg: "#ffffff",
@@ -336,7 +336,7 @@ export const darkTheme: Theme = {
     accentSubtle: "#2a2410",
     link: "#7cc7cf",
     focusRing: "#7cc7cf",
-    tabActive: "#e8f4f4",
+    tabActive: "#f4b942",
     tabInactive: "#a3bfc1",
     /** R-08: nền sáng chữ teal đậm, tương phản cao với chip chưa chọn */
     chipSelectedBg: "#e8f4f4",

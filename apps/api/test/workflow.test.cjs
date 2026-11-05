@@ -71,6 +71,10 @@ test('horse sex only accepts Đực or Cái while remaining optional',()=>{
  assert.equal(orderSchema.safeParse({...base,horses:[{name:'Horse',passportNo:'H1',sex:'Khác'}]}).success,false);
  assert.equal(draftOrderSchema.safeParse({horses:[{sex:'Khác'}]}).success,false);
 });
+test('read-all only touches the unread notifications of the recipient',async()=>{
+ let sql,params;const c=new NotificationsService(new NotificationsRepository({query:async(s,p)=>{sql=s;params=p;return {affectedRows:3};}}));
+ assert.deepEqual(await c.readAll('7'),{updated:3});assert.deepEqual(params,['7']);assert.match(sql,/recipient_id=\? AND is_read=0/);
+});
 test('mark-read always scopes update to recipient',async()=>{
  let params;const c=new NotificationsService(new NotificationsRepository({query:async(sql,p)=>{params=p;return {affectedRows:0};}}));
  await assert.rejects(()=>c.read('2','1'),e=>e.getStatus()===404);assert.deepEqual(params,['1','2']);
