@@ -14,6 +14,7 @@ import {
   Text,
   View,
   TextInput,
+  useWindowDimensions,
   StyleSheet,
   type TextStyle,
   type StyleProp,
@@ -71,8 +72,10 @@ export function Txt({
   bold = false,
   color,
   style,
+  numberOfLines,
 }: {
   children: React.ReactNode;
+  numberOfLines?: number;
   /** Bốn cỡ chữ của design system: 24 tiêu đề, 17 nội dung, 15 phụ, 12 nhãn. */
   size?: 12 | 15 | 17 | 24;
   bold?: boolean;
@@ -82,6 +85,7 @@ export function Txt({
   const { colors: c } = useTheme();
   return (
     <Text
+      numberOfLines={numberOfLines}
       style={[
         {
           fontFamily: bold ? fontFamily.semibold : fontFamily.regular,
@@ -298,10 +302,18 @@ export function StatusBadge({ spec }: { spec: StatusSpec }) {
   const theme = useTheme();
   const colors = toneColors(theme, spec.tone);
   const Icon = specIcons[spec.icon] ?? Clock;
+  // Màn hẹp (iPhone SE, mini) bỏ icon để nhãn hiện đủ trên một dòng.
+  const { width } = useWindowDimensions();
   return (
-    <View style={[s.badge, { backgroundColor: colors.bg }]}>
-      <Icon size={16} color={colors.fg} />
-      <Txt size={12} bold color={colors.fg}>
+    <View style={[s.badge, { backgroundColor: colors.bg, flexShrink: 1 }]}>
+      {width >= 385 ? <Icon size={14} color={colors.fg} /> : null}
+      <Txt
+        size={12}
+        bold
+        color={colors.fg}
+        numberOfLines={1}
+        style={{ flexShrink: 1 }}
+      >
         {spec.label}
       </Txt>
     </View>
@@ -721,11 +733,14 @@ export function Chip({
   selected,
   onPress,
   disabled = false,
+  compact = false,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  /** Thanh lọc của khách hàng: cao 44, chữ 15. Tổ lái giữ 56 vì thao tác khi đeo găng. */
+  compact?: boolean;
 }) {
   const { colors: c } = useTheme();
   return (
@@ -736,6 +751,9 @@ export function Chip({
       onPress={onPress}
       style={[
         s.chip,
+        compact
+          ? { minHeight: 44, paddingVertical: 8, paddingHorizontal: 14 }
+          : null,
         {
           backgroundColor: selected ? c.chipSelectedBg : c.chipBg,
           borderColor: selected ? c.chipSelectedBg : c.chipBorder,
@@ -743,8 +761,62 @@ export function Chip({
       ]}
     >
       {/* Quyết định 30/10: đổi màu nền, không thêm dấu tick, không đổi độ đậm để chip không nhảy. */}
-      <Txt color={selected ? c.chipSelectedFg : c.textPrimary}>{label}</Txt>
+      <Txt
+        size={compact ? 15 : undefined}
+        numberOfLines={compact ? 1 : undefined}
+        color={selected ? c.chipSelectedFg : c.textPrimary}
+      >
+        {label}
+      </Txt>
     </Pressable>
+  );
+}
+/**
+ * Thanh lọc một hàng: mục đầu đứng yên, các mục sau cuộn ngang và tràn tới mép màn hình,
+ * nên mục bị che lòi ra một phần để người dùng biết còn nữa.
+ */
+export function FilterBar({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: string[];
+  selected: number;
+  onSelect: (index: number) => void;
+}) {
+  const [first, ...rest] = options;
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginRight: -16,
+      }}
+    >
+      <Chip
+        compact
+        label={first}
+        selected={selected === 0}
+        onPress={() => onSelect(0)}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+      >
+        {rest.map((name, i) => (
+          <Chip
+            key={name}
+            compact
+            label={name}
+            selected={selected === i + 1}
+            onPress={() => onSelect(i + 1)}
+          />
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 export function Banner({
@@ -888,10 +960,19 @@ export function Timeline({
 }
 export const s = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 16 },
-  card: { padding: 20, borderWidth: 1, borderRadius: 20, gap: 12 },
+  card: {
+    padding: 20,
+    borderWidth: 1,
+    borderRadius: 20,
+    borderCurve: "continuous",
+    gap: 12,
+  },
+  // Nút và chip bo theo tỷ lệ chiều cao thành viên thuốc; đường cong liên tục như iPhone.
   button: {
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    borderCurve: "continuous",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -901,10 +982,11 @@ export const s = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: 4,
+    borderRadius: 999,
+    borderCurve: "continuous",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
   },
   section: {
     flexDirection: "row",
@@ -932,12 +1014,14 @@ export const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
+    borderCurve: "continuous",
     alignItems: "center",
     justifyContent: "center",
   },
   input: {
     borderWidth: 1,
     borderRadius: 12,
+    borderCurve: "continuous",
     padding: 16,
     fontFamily: fontFamily.regular,
     fontSize: 17,
@@ -947,7 +1031,8 @@ export const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: 999,
+    borderCurve: "continuous",
     alignItems: "center",
     justifyContent: "center",
   },

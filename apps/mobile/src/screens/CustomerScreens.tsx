@@ -45,6 +45,7 @@ import {
   Row,
   ScreenBody,
   Section,
+  FilterBar,
   StatusBadge,
   StepBar,
   Txt,
@@ -448,7 +449,7 @@ function OrderCard({ order, go }: { order: Order; go: Navigate }) {
           gap: 8,
         }}
       >
-        <Txt size={15} bold color={c.textSecondary}>
+        <Txt size={12} bold numberOfLines={1} style={{ flexShrink: 0 }}>
           {order.order_code}
         </Txt>
         <StatusBadge spec={statusSpec(order.status)} />
@@ -500,22 +501,16 @@ export function OrdersScreen({ go }: { go: Navigate }) {
         <Button
           title="Tạo yêu cầu vận chuyển"
           icon={Plus}
-          large
           onPress={() => go("booking")}
         />
       }
     >
       <ResourceState resource={resource} what="danh sách đơn">
-        <View style={s.wrap}>
-          {FILTERS.map(([name], i) => (
-            <Chip
-              key={name}
-              label={name}
-              selected={i === filter}
-              onPress={() => setFilter(i)}
-            />
-          ))}
-        </View>
+        <FilterBar
+          options={FILTERS.map(([name]) => name)}
+          selected={filter}
+          onSelect={setFilter}
+        />
         {visible.length ? (
           visible.map((order) => (
             <OrderCard key={order.id} order={order} go={go} />
@@ -737,7 +732,6 @@ export function OrderScreen({
         />
         <Button
           title="Tiếp tục điền"
-          large
           disabled={writing}
           onPress={() => go("booking", { id })}
         />
@@ -745,18 +739,13 @@ export function OrderScreen({
     );
   else if (order.status === "NEED_INFO")
     footer = (
-      <Button
-        title="Sửa và gửi lại"
-        large
-        onPress={() => go("booking", { id })}
-      />
+      <Button title="Sửa và gửi lại" onPress={() => go("booking", { id })} />
     );
   else if (missing.length && uploadable)
     footer = (
       <Button
         title={`Bổ sung ${missing.length} giấy tờ`}
         icon={Upload}
-        large
         onPress={() => go("documents", { id })}
       />
     );
@@ -769,7 +758,6 @@ export function OrderScreen({
             : "Xem lại hành trình"
         }
         icon={Truck}
-        large
         onPress={() => go("tracking", { id })}
       />
     );
@@ -782,7 +770,6 @@ export function OrderScreen({
             : "Xem báo giá và đặt cọc"
         }
         icon={Wallet}
-        large
         onPress={() => go("quote", { id })}
       />
     );
@@ -806,7 +793,7 @@ export function OrderScreen({
           gap: 8,
         }}
       >
-        <Txt size={24} bold>
+        <Txt size={15} bold numberOfLines={1} style={{ flexShrink: 0 }}>
           {order.order_code}
         </Txt>
         <StatusBadge spec={statusSpec(order.status)} />
@@ -1071,7 +1058,6 @@ export function QuoteScreen({ id }: { id: string }) {
                 : `Đặt cọc ${money(quote.deposit)} trên web`
             }
             icon={Wallet}
-            large
             onPress={() => setWeb(true)}
           />
         ) : null
@@ -1605,7 +1591,6 @@ export function ProfilesScreen({ go, id }: { go: Navigate; id?: string }) {
                       ? "Cần số hộ chiếu để đặt vận chuyển"
                       : "Đặt vận chuyển cho ngựa này"
                 }
-                large
                 disabled={!!horse.activeOrderId || !horse.passportNo}
                 onPress={() => go("booking", { horseId: id })}
               />
@@ -1709,7 +1694,6 @@ export function ProfilesScreen({ go, id }: { go: Navigate; id?: string }) {
         <Button
           title="Thêm ngựa"
           icon={Plus}
-          large
           onPress={() => go("horse-form")}
         />
       }
@@ -2474,7 +2458,6 @@ function BookingForm({
         footer={
           <Button
             title="Xem đơn"
-            large
             onPress={() => replace("order", { id: sent.id })}
           />
         }
@@ -2592,7 +2575,6 @@ function BookingForm({
                   ? "Gửi yêu cầu"
                   : "Tiếp tục"
             }
-            large
             disabled={writing}
             onPress={() => void (step === 3 ? submit() : forward())}
           />

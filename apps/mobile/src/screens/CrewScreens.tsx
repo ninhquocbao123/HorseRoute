@@ -123,7 +123,12 @@ export function TripList({
                       gap: 8,
                     }}
                   >
-                    <Txt size={15} bold color={c.textSecondary}>
+                    <Txt
+                      size={12}
+                      bold
+                      numberOfLines={1}
+                      style={{ flexShrink: 0 }}
+                    >
                       {trip.orderCode}
                     </Txt>
                     <StatusBadge
