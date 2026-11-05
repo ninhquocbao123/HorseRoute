@@ -10,8 +10,9 @@ import React, {
 import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "./config";
-import { createApiClient, messageOf } from "./api/http";
+import { API_URL, AUTH_KEY } from "./config";
+import { ApiError, createApiClient, messageOf } from "./api/http";
+import { configureQueue, initQueue, onRejected, onSent } from "./queue";
 import type { IUser } from "./api/types";
 
 type Session = {
@@ -20,7 +21,7 @@ type Session = {
   ready: boolean;
   error: string;
   request: ReturnType<typeof createApiClient>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<IUser>;
   logout: () => Promise<void>;
   retrySession: () => Promise<void>;
   revision: number;
@@ -51,22 +52,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
   const tokenRef = useRef<string | null>(null);
   const generation = useRef(0);
-  const storageKey = useMemo(
-    () => `horseroute.auth.${API_URL.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
-    [],
-  );
+  const storageKey = AUTH_KEY;
+  // Hồ sơ người dùng lưu kèm phiên: mở app khi mất sóng vẫn vào được chuyến (F-C3).
+  const userKey = `${storageKey}.user`;
   const expire = useCallback(() => {
     generation.current++;
     tokenRef.current = null;
     setToken(null);
     setUser(null);
-    setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+    setError(
+      "Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục; những mục chưa gửi vẫn được giữ.",
+    );
+    void SecureStore.deleteItemAsync(userKey).catch(() => {});
     void SecureStore.deleteItemAsync(storageKey).catch(() =>
       setError(
         "Phiên đã hết hạn. Không xóa được phiên trên thiết bị; hãy đăng nhập lại.",
       ),
     );
-  }, [storageKey]);
+  }, [storageKey, userKey]);
   const request = useMemo(
     () =>
       createApiClient({
@@ -88,18 +91,33 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         const account = await request<IUser>("/users/me");
         if (run === generation.current) setUser(account);
+        void SecureStore.setItemAsync(userKey, JSON.stringify(account)).catch(
+          () => {},
+        );
       }
     } catch (e) {
-      if (run === generation.current) setError(messageOf(e));
+      if (run !== generation.current) return;
+      const cached =
+        e instanceof ApiError && e.status === 0
+          ? await SecureStore.getItemAsync(userKey).catch(() => null)
+          : null;
+      if (cached) setUser(JSON.parse(cached) as IUser);
+      else setError(messageOf(e));
     } finally {
       setReady(true);
     }
-  }, [request, storageKey]);
+  }, [request, storageKey, userKey]);
+  useEffect(() => {
+    void initQueue();
+  }, []);
+  useEffect(() => {
+    configureQueue(user ? request : null, user ? String(user.id) : null);
+  }, [user, request]);
   useEffect(() => {
     void retrySession();
     void AsyncStorage.removeItem("horseroute-design-v1").catch(() => {});
   }, [retrySession]);
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<IUser> => {
     const result = await request<{ accessToken: string; user: IUser }>(
       "/auth/login",
       {
@@ -109,14 +127,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       },
     );
     await SecureStore.setItemAsync(storageKey, result.accessToken);
+    void SecureStore.setItemAsync(userKey, JSON.stringify(result.user)).catch(
+      () => {},
+    );
     generation.current++;
     tokenRef.current = result.accessToken;
     setToken(result.accessToken);
     setUser(result.user);
     setError("");
     setRevision(0);
+    return result.user;
   };
   const logout = async () => {
+    await SecureStore.deleteItemAsync(userKey).catch(() => {});
     await SecureStore.deleteItemAsync(storageKey);
     generation.current++;
     tokenRef.current = null;
@@ -126,6 +149,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setRevision(0);
   };
   const refresh = useCallback(() => setRevision((v) => v + 1), []);
+  useEffect(() => {
+    // Mục trong hàng chờ vừa có kết quả: dữ liệu trên màn đã cũ, không đợi nhịp 30 giây.
+    const offSent = onSent(refresh);
+    const offRejected = onRejected(refresh);
+    return () => {
+      offSent();
+      offRejected();
+    };
+  }, [refresh]);
   useEffect(() => {
     if (!user) return;
     const subscription = AppState.addEventListener("change", (state) => {
@@ -165,8 +197,15 @@ export function useSession() {
   if (!session) throw new Error("SessionProvider missing");
   return session;
 }
+const cacheKey = (userId: string, path: string) =>
+  `horseroute.cache.${userId}.${path}`;
+
+/**
+ * Tải dữ liệu theo đường dẫn API. Lần tải thành công được lưu trên máy;
+ * mất sóng thì dùng bản đã lưu và ghi rõ giờ (F-C3).
+ */
 export function useResource<T>(path: string | null) {
-  const { request, revision, token } = useSession();
+  const { request, revision, token, user } = useSession();
   const [attempt, setAttempt] = useState(0);
   const key = `${token}|${path}`;
   const [state, setState] = useState<{
@@ -174,32 +213,54 @@ export function useResource<T>(path: string | null) {
     data?: T;
     error: string;
     loading: boolean;
+    cachedAt?: number;
   }>({ key, error: "", loading: !!path });
   useEffect(() => {
     if (!path) return;
     const controller = new AbortController();
+    const store = user ? cacheKey(String(user.id), path) : null;
     setState((old) => ({
       key,
       data: old.key === key ? old.data : undefined,
+      cachedAt: old.key === key ? old.cachedAt : undefined,
       error: "",
       loading: true,
     }));
     request<T>(path, { signal: controller.signal })
       .then((data) => {
-        if (!controller.signal.aborted)
-          setState({ key, data, loading: false, error: "" });
+        if (controller.signal.aborted) return;
+        setState({ key, data, loading: false, error: "" });
+        if (store)
+          void AsyncStorage.setItem(
+            store,
+            JSON.stringify({ at: Date.now(), data }),
+          ).catch(() => {});
       })
-      .catch((e) => {
-        if (!controller.signal.aborted)
-          setState((old) => ({
-            key,
-            data: old.key === key ? old.data : undefined,
-            error: messageOf(e),
-            loading: false,
-          }));
+      .catch(async (e) => {
+        if (controller.signal.aborted) return;
+        const offline = e instanceof ApiError && e.status === 0;
+        const raw =
+          offline && store
+            ? await AsyncStorage.getItem(store).catch(() => null)
+            : null;
+        const cached = raw
+          ? (JSON.parse(raw) as { at: number; data: T })
+          : null;
+        if (controller.signal.aborted) return;
+        setState((old) => ({
+          key,
+          data:
+            old.key === key && old.data !== undefined ? old.data : cached?.data,
+          cachedAt:
+            old.key === key && old.data !== undefined
+              ? old.cachedAt
+              : cached?.at,
+          error: messageOf(e),
+          loading: false,
+        }));
       });
     return () => controller.abort();
-  }, [path, key, request, revision, attempt]);
+  }, [path, key, request, revision, attempt, user]);
   const current =
     state.key === key ? state : { data: undefined, error: "", loading: !!path };
   return { ...current, reload: () => setAttempt((n) => n + 1) };

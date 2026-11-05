@@ -1,74 +1,277 @@
-import React, { useState } from "react";
-import { ActivityIndicator, Image, Linking, View } from "react-native";
-import { Camera, ImagePlus } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Image, Linking, Pressable, View } from "react-native";
+import {
+  Camera,
+  CircleAlert,
+  CloudOff,
+  ImagePlus,
+  Inbox,
+  RefreshCw,
+  SearchX,
+  WifiOff,
+  X,
+  type LucideIcon,
+} from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { File } from "expo-file-system";
 import Svg, { Polyline, Circle } from "react-native-svg";
 import { Banner, Button, Card, Section, Txt, useTheme } from "./ui";
 import { useSession } from "./session";
+import { useOnline } from "./queue";
+import { Skeleton, type SkeletonVariant } from "./skeleton";
 import { API_URL, WEB_URL } from "./config";
 import { dateTime } from "./live-domain";
 import type { ITripMap } from "./api/types";
+export type StateTone = "neutral" | "error" | "offline";
+
+/**
+ * EmptyState / ErrorState (design system 5.26): icon 28 trong ô 64 bo 20,
+ * tiêu đề, một câu giải thích cỡ 15, tối đa một nút. Không minh họa, không emoji.
+ */
+export function StateView({
+  icon: Icon = Inbox,
+  tone = "neutral",
+  title,
+  detail,
+  action,
+  actionIcon,
+  onAction,
+  compact = false,
+}: {
+  icon?: LucideIcon;
+  tone?: StateTone;
+  title: string;
+  detail?: string;
+  action?: string;
+  actionIcon?: LucideIcon;
+  onAction?: () => void;
+  /** Đặt trong một thẻ/khối có sẵn: ít khoảng đệm hơn. */
+  compact?: boolean;
+}) {
+  const { colors: c } = useTheme();
+  const box =
+    tone === "error"
+      ? { bg: c.dangerBg, fg: c.dangerFg }
+      : tone === "offline"
+        ? { bg: c.surfaceBrand, fg: c.onBrand }
+        : { bg: c.surfaceMuted, fg: c.link };
+  return (
+    <View
+      accessibilityRole={tone === "error" ? "alert" : undefined}
+      style={{
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: compact ? 16 : 40,
+        paddingHorizontal: 24,
+      }}
+    >
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 20,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: box.bg,
+        }}
+      >
+        <Icon size={28} color={box.fg} strokeWidth={2} />
+      </View>
+      <Txt bold style={{ textAlign: "center" }}>
+        {title}
+      </Txt>
+      {detail ? (
+        <Txt
+          size={15}
+          color={c.textSecondary}
+          style={{ textAlign: "center", maxWidth: 300 }}
+        >
+          {detail}
+        </Txt>
+      ) : null}
+      {action && onAction ? (
+        <View style={{ alignSelf: "stretch", marginTop: 4 }}>
+          <Button
+            title={action}
+            kind="secondary"
+            icon={actionIcon ?? RefreshCw}
+            onPress={onAction}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Thanh ngay dưới header khi đang xem dữ liệu cũ (5.24). Chạm để thử lại. */
+export function StaleBar({
+  offline,
+  cachedAt,
+  error,
+  onPress,
+}: {
+  offline: boolean;
+  cachedAt?: number;
+  error: string;
+  onPress: () => void;
+}) {
+  const { colors: c } = useTheme();
+  const time = cachedAt
+    ? dateTime(new Date(cachedAt).toISOString())
+    : undefined;
+  const text = offline
+    ? time
+      ? `Mất sóng · đang xem dữ liệu lưu lúc ${time}`
+      : "Mất sóng · đang xem dữ liệu đã tải trước đó"
+    : `Chưa cập nhật được dữ liệu mới. ${error}`;
+  const fg = offline ? c.onBrand : c.warningFg;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${text}. Chạm để thử lại`}
+      accessibilityHint="Tải lại dữ liệu"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 48,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: offline
+          ? pressed
+            ? c.surfaceBrandAlt
+            : c.surfaceBrand
+          : c.warningBg,
+        opacity: pressed && !offline ? 0.85 : 1,
+      })}
+    >
+      {offline ? (
+        <CloudOff size={18} color={fg} />
+      ) : (
+        <CircleAlert size={18} color={fg} />
+      )}
+      <Txt size={15} color={fg} style={{ flex: 1 }}>
+        {text}
+      </Txt>
+      <RefreshCw size={18} color={fg} />
+    </Pressable>
+  );
+}
+
 export function ResourceState({
   resource,
   empty,
+  skeleton = "list",
+  what = "dữ liệu",
   children,
 }: {
+  /** Hình khối skeleton khớp với nội dung thật của màn. */
+  skeleton?: SkeletonVariant;
+  /** Tên nội dung cho câu lỗi: "Không tải được {what}". */
+  what?: string;
   resource: {
     data?: unknown;
     loading: boolean;
     error: string;
+    cachedAt?: number;
     reload: () => void;
   };
   empty?: string;
   children: React.ReactNode;
 }) {
-  const { colors: c } = useTheme();
-  if (resource.data === undefined)
-    return resource.error ? (
-      <Card>
-        <Banner warning text={resource.error} />
-        <Button title="Thử lại" onPress={resource.reload} />
-      </Card>
+  const online = useOnline();
+  const { data, error, reload } = resource;
+  // Có mạng trở lại thì tự tải lại màn đang lỗi.
+  const wasOnline = useRef(online);
+  useEffect(() => {
+    if (online && !wasOnline.current && error) reload();
+    wasOnline.current = online;
+  }, [online, error, reload]);
+
+  if (data === undefined) {
+    if (!error) return <Skeleton variant={skeleton} />;
+    return !online ? (
+      <StateView
+        tone="offline"
+        icon={WifiOff}
+        title="Mất kết nối mạng"
+        detail={`Máy chưa lưu ${what} để xem khi mất sóng. Bật dữ liệu di động hoặc Wi-Fi, màn sẽ tự tải lại.`}
+        action="Thử lại"
+        onAction={reload}
+      />
     ) : (
-      <View style={{ padding: 40, gap: 16 }}>
-        <ActivityIndicator color={c.link} />
-        <Txt>Đang tải dữ liệu…</Txt>
-      </View>
+      <StateView
+        tone="error"
+        icon={CircleAlert}
+        title={`Không tải được ${what}`}
+        detail={`${error.replace(/[.\s]+$/, "")}. Kéo xuống hoặc bấm Thử lại.`}
+        action="Thử lại"
+        onAction={reload}
+      />
     );
+  }
   return (
     <>
-      {resource.error ? (
-        <Banner
-          warning
-          text={`Chưa cập nhật được dữ liệu mới: ${resource.error}`}
-          onPress={resource.reload}
+      {error ? (
+        <StaleBar
+          offline={!online || !!resource.cachedAt}
+          cachedAt={resource.cachedAt}
+          error={error}
+          onPress={reload}
         />
       ) : null}
       {empty ? (
-        <Card>
-          <Txt size={24} bold>
-            {empty}
-          </Txt>
-          <Button title="Tải lại" kind="secondary" onPress={resource.reload} />
-        </Card>
+        <StateView title={empty} action="Tải lại" onAction={reload} />
       ) : (
         children
       )}
     </>
   );
 }
-export function Empty({ title, detail }: { title: string; detail?: string }) {
+
+/** Trạng thái trống: nói khi nào sẽ có dữ liệu hoặc cách tạo. */
+export function Empty({
+  title,
+  detail,
+  icon,
+  action,
+  actionIcon,
+  onAction,
+}: {
+  title: string;
+  detail?: string;
+  icon?: LucideIcon;
+  action?: string;
+  actionIcon?: LucideIcon;
+  onAction?: () => void;
+}) {
   return (
-    <Card>
-      <Txt size={24} bold>
-        {title}
-      </Txt>
-      {detail ? <Txt>{detail}</Txt> : null}
-    </Card>
+    <StateView
+      icon={icon}
+      title={title}
+      detail={detail}
+      action={action}
+      actionIcon={actionIcon}
+      onAction={onAction}
+    />
   );
 }
+
+/** Không tìm thấy (sai mã, đã bị xóa, không thuộc chuyến). */
+export function NotFound({
+  title,
+  detail,
+}: {
+  title: string;
+  detail?: string;
+}) {
+  return <StateView icon={SearchX} title={title} detail={detail} />;
+}
+export const webUrl = (orderId?: string, documents = false) =>
+  `${WEB_URL}/dashboard?view=${documents ? "documents" : "orders"}${orderId ? `&order=${encodeURIComponent(orderId)}` : ""}`;
 export function WebButton({
   orderId,
   documents = false,
@@ -79,7 +282,7 @@ export function WebButton({
   title?: string;
 }) {
   const [error, setError] = useState("");
-  const url = `${WEB_URL}/dashboard?view=${documents ? "documents" : "orders"}${orderId ? `&order=${encodeURIComponent(orderId)}` : ""}`;
+  const url = webUrl(orderId, documents);
   return (
     <>
       {error ? <Banner warning text={error} /> : null}
@@ -105,12 +308,33 @@ export function WebButton({
 export function PrivateImage({
   path,
   caption,
+  size,
 }: {
   path: string;
   caption?: string;
+  /** Ảnh vuông nhỏ (danh sách ngựa); bỏ trống = ảnh toàn chiều rộng. */
+  size?: number;
 }) {
   const { token } = useSession();
+  const { colors: c } = useTheme();
   const [failed, setFailed] = useState(false);
+  if (size)
+    return failed ? null : (
+      <Image
+        source={{
+          uri: API_URL + path,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }}
+        onError={() => setFailed(true)}
+        accessibilityLabel={caption || "Ảnh"}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 12,
+          backgroundColor: c.surfaceMuted,
+        }}
+      />
+    );
   return failed ? (
     <Banner
       warning
@@ -125,20 +349,39 @@ export function PrivateImage({
         }}
         onError={() => setFailed(true)}
         accessibilityLabel={caption || "Ảnh đính kèm"}
-        style={{ width: "100%", height: 230, borderRadius: 16 }}
+        style={{
+          width: "100%",
+          height: 230,
+          borderRadius: 16,
+          backgroundColor: c.surfaceMuted,
+        }}
       />
       {caption ? <Txt size={12}>{caption}</Txt> : null}
     </View>
   );
 }
+/**
+ * Ô ảnh: chụp hoặc chọn từ thư viện, nén về cạnh dài 1600, tối đa `max` ảnh.
+ * R-01: camera bị từ chối thì vẫn chọn được ảnh từ thư viện, có nút mở Cài đặt.
+ */
 export function PhotoPicker({
-  uri,
+  photos,
   onChange,
+  max = 3,
+  required = false,
+  error: fieldError,
+  label = "Ảnh",
 }: {
-  uri: string;
-  onChange: (uri: string) => void;
+  photos: string[];
+  onChange: (photos: string[]) => void;
+  max?: number;
+  required?: boolean;
+  error?: string;
+  label?: string;
 }) {
+  const { colors: c } = useTheme();
   const [error, setError] = useState("");
+  const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
   const pick = async (camera: boolean) => {
     if (busy) return;
@@ -149,8 +392,9 @@ export function PhotoPicker({
         camera &&
         !(await ImagePicker.requestCameraPermissionsAsync()).granted
       ) {
+        setDenied(true);
         setError(
-          "Chưa có quyền camera. Bạn có thể chọn ảnh từ thư viện hoặc mở Cài đặt.",
+          "Chưa có quyền camera. Chọn ảnh từ thư viện, hoặc mở Cài đặt để cho phép camera.",
         );
         return;
       }
@@ -181,63 +425,107 @@ export function PhotoPicker({
       );
       if (new File(photo.uri).size > 5 * 1024 * 1024)
         throw new Error("Ảnh sau nén vẫn lớn hơn 5 MB. Chọn ảnh khác.");
-      onChange(photo.uri);
+      onChange([...photos, photo.uri].slice(0, max));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không mở được ảnh.");
     } finally {
       setBusy(false);
     }
   };
+  const full = photos.length >= max;
   return (
-    <>
-      <Section title="Ảnh báo cáo" />
-      {uri ? (
-        <Image
-          source={{ uri }}
-          accessibilityLabel="Ảnh sắp gửi"
-          style={{ width: "100%", height: 200, borderRadius: 16 }}
+    <View style={{ gap: 12 }}>
+      <Txt bold>
+        {`${label}${required ? "" : " (không bắt buộc)"} · ${photos.length}/${max}`}
+      </Txt>
+      {photos.length ? (
+        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+          {photos.map((uri, i) => (
+            <View key={uri}>
+              <Image
+                source={{ uri }}
+                accessibilityLabel={`Ảnh ${i + 1}`}
+                style={{ width: 96, height: 96, borderRadius: 12 }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Bỏ ảnh ${i + 1}`}
+                onPress={() => onChange(photos.filter((p) => p !== uri))}
+                style={{
+                  position: "absolute",
+                  top: -8,
+                  right: -8,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: c.surface,
+                  borderWidth: 1,
+                  borderColor: c.border,
+                }}
+              >
+                <X size={18} color={c.textPrimary} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {!full ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Chụp ảnh"
+              kind="secondary"
+              icon={Camera}
+              disabled={busy}
+              onPress={() => void pick(true)}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Thư viện"
+              kind="secondary"
+              icon={ImagePlus}
+              disabled={busy}
+              onPress={() => void pick(false)}
+            />
+          </View>
+        </View>
+      ) : null}
+      {fieldError && !photos.length ? (
+        <Txt size={15} color={c.dangerFg}>
+          {fieldError}
+        </Txt>
+      ) : null}
+      {error ? (
+        <Txt size={15} color={c.dangerFg}>
+          {error}
+        </Txt>
+      ) : null}
+      {denied ? (
+        <Button
+          title="Mở Cài đặt"
+          kind="tertiary"
+          onPress={() => {
+            void Linking.openSettings().catch(() =>
+              setError("Mở Cài đặt → Ứng dụng → HorseRoute → Quyền."),
+            );
+          }}
         />
       ) : null}
-      <Button
-        title="Chụp ảnh"
-        kind="secondary"
-        icon={Camera}
-        disabled={busy}
-        onPress={() => void pick(true)}
-      />
-      <Button
-        title="Chọn ảnh từ thư viện"
-        kind="secondary"
-        icon={ImagePlus}
-        disabled={busy}
-        onPress={() => void pick(false)}
-      />
-      {error ? (
-        <>
-          <Banner warning text={error} />
-          <Button
-            title="Mở Cài đặt quyền"
-            kind="secondary"
-            onPress={() => {
-              void Linking.openSettings().catch(() =>
-                setError("Mở Cài đặt Android → Ứng dụng → HorseRoute → Quyền."),
-              );
-            }}
-          />
-        </>
-      ) : null}
-    </>
+    </View>
   );
 }
-export function appendPhoto(form: FormData, uri: string, field = "photos") {
-  if (uri)
-    form.append(field, {
-      uri,
-      name: `photo-${Date.now()}.jpg`,
-      type: "image/jpeg",
-    } as unknown as Blob);
-}
-export function RouteMap({ map }: { map: ITripMap }) {
+export { appendPhoto } from "./photo";
+export function RouteMap({
+  map,
+  compact = false,
+}: {
+  map: ITripMap;
+  /** Thẻ nhỏ cao 160 (CUS-05): chỉ sơ đồ và nhãn vị trí. */
+  compact?: boolean;
+}) {
   const { colors: c } = useTheme();
   const points = map.legs.flatMap((l) => l.coordinates ?? []);
   const coords = [
@@ -263,13 +551,18 @@ export function RouteMap({ map }: { map: ITripMap }) {
   ];
   return (
     <Card>
-      <Txt bold>Tuyến từ dữ liệu hành trình</Txt>
+      {compact ? null : <Txt bold>Tuyến từ dữ liệu hành trình</Txt>}
       <View
         accessible
         accessibilityLabel={`Sơ đồ ${map.stops.map((s) => s.name).join(" → ")}`}
         style={{ backgroundColor: c.surfaceMuted, borderRadius: 12 }}
       >
-        <Svg width="100%" height={200} viewBox="0 0 330 200">
+        <Svg
+          width="100%"
+          height={compact ? 160 : 200}
+          viewBox="0 0 330 200"
+          preserveAspectRatio="xMidYMid meet"
+        >
           {map.legs.map((l) =>
             l.coordinates ? (
               <Polyline
@@ -306,16 +599,18 @@ export function RouteMap({ map }: { map: ITripMap }) {
           ) : null}
         </Svg>
       </View>
-      <Txt size={12}>Sơ đồ tọa độ, không phải bản đồ dẫn đường.</Txt>
-      <Txt>
+      {compact ? null : (
+        <Txt size={12}>Sơ đồ tọa độ, không phải bản đồ dẫn đường.</Txt>
+      )}
+      <Txt size={compact ? 12 : 17}>
         {map.position
           ? `${map.position.source === "GPS" ? "Vị trí GPS" : "Vị trí ước tính theo mốc"} · ${dateTime(map.position.asOf)}`
           : "Chưa có vị trí xe"}
       </Txt>
-      {map.remainingKm !== null ? (
+      {map.remainingKm !== null && !compact ? (
         <Txt>Còn {map.remainingKm.toLocaleString("vi-VN")} km</Txt>
       ) : null}
-      {map.warnings.map((warning, index) => (
+      {(compact ? [] : map.warnings).map((warning, index) => (
         <Banner key={index} text={warning} warning />
       ))}
     </Card>

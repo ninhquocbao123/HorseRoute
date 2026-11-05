@@ -5,6 +5,7 @@ export const coordinatorPaths = {
   operations: "/coordinator/operations",
   fleet: "/coordinator/fleet",
   notifications: "/coordinator/notifications",
+  incidents: "/coordinator/incidents",
   account: "/coordinator/account",
 } as const;
 

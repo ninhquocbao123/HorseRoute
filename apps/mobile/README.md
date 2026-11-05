@@ -46,7 +46,11 @@ Nếu app mở nhưng không đăng nhập được, trên trình duyệt điệ
 
 Đăng nhập và SecureStore, đơn/hồ sơ/yêu cầu vận chuyển, theo dõi và báo giá, chuyến được phân công, mốc/điểm nghỉ, báo cáo sức khỏe và ảnh, chăm sóc, sự cố, thông báo. Nháp/checklist lưu theo tài khoản. Nghiệp vụ cần mạng; mất phản hồi thì kiểm tra máy chủ trước khi gửi lại. Thanh toán/giấy tờ mở web và cần đăng nhập riêng.
 
-Chưa có GPS nền, FCM, hàng đợi đồng bộ offline hay bản đồ dẫn đường. Chưa bao phủ mọi màn trong tài liệu thiết kế.
+Thao tác ghi của tài xế và hộ tống (mốc, điểm dừng, chăm sóc, báo cáo sức khỏe, sự cố) đi qua hàng chờ trên máy: Hoàn tác 5 giây, mất sóng thì giữ lại và tự gửi khi có sóng, phiên hết hạn thì gửi tiếp khi đăng nhập lại đúng tài khoản. Xem ở Tài khoản → Hàng chờ gửi. Màn tài xế có một nút lớn cho bước tiếp theo; đến/rời điểm dừng là 1 chạm, xuất phát, thông quan và giao ngựa có hộp xác nhận. GPS gửi vị trí trong lúc chuyến chạy; "Chỉ đường" mở Google Maps.
+
+GPS nền (khi tắt màn hình) cần development build (`npm run android`); Expo Go chỉ gửi được khi app đang mở. Chưa có FCM. Chưa bao phủ mọi màn trong tài liệu thiết kế.
+
+Sau khi pull bản này, chạy lại `npm install` (thêm datetimepicker, netinfo, expo-location, expo-task-manager, expo-keep-awake, expo-haptics) và `npm run prebuild` trước khi build Android Studio.
 
 ## Kiểm tra
 

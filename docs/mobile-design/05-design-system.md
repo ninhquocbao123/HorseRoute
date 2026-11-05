@@ -35,7 +35,7 @@ Code không dùng thang trực tiếp. Thang chỉ để dựng token vai trò �
 | Token | Sáng | Tối | Dùng cho |
 | --- | --- | --- | --- |
 | `bg` | `#f6faf9` | `#061416` |  |
-| `surface` | `#ffffff` | `#0c2326` |  |
+| `surface` | `#ffffff` | `#102b2f` | R-25: tách nền rõ hơn |
 | `surfaceMuted` | `#e7f1f1` | `#08191b` |  |
 | `surfaceElevated` | `#ffffff` | `#133034` |  |
 | `surfaceBrand` | `#0b3b42` | `#104d56` |  |
@@ -43,9 +43,9 @@ Code không dùng thang trực tiếp. Thang chỉ để dựng token vai trò �
 | `onBrand` | `#ffffff` | `#ffffff` |  |
 | `onBrandMuted` | `#b9d3d6` | `#b9d3d6` |  |
 | `textPrimary` | `#0d2a2e` | `#e8f4f4` |  |
-| `textSecondary` | `#546d71` | `#96b4b7` |  |
+| `textSecondary` | `#546d71` | `#a3bfc1` |  |
 | `textDisabled` | `#94a8a9` | `#55716f` |  |
-| `border` | `#d8e6e6` | `#1a3a3e` |  |
+| `border` | `#d8e6e6` | `#2a5055` | R-25: ≥ 1,5:1 trên thẻ |
 | `borderInput` | `#738a8d` | `#56777a` |  |
 | `borderStrong` | `#0b3b42` | `#96b4b7` |  |
 | `accent` | `#f4b942` | `#f4b942` |  |
@@ -77,7 +77,10 @@ Phân bổ 60-30-10 giữ như 00-context: nền sáng 60%, teal 30% (header đ�
 
 Dark mode:
 
-- Nền #061416, thẻ #0c2326 lấy từ web. Lớp nổi (sheet, dialog) là `surfaceElevated` #133034, sáng hơn thẻ một bậc. Không dùng bóng.
+- Nền #061416, thẻ #102b2f (sửa từ #0c2326 của web theo R-25, vì 1,15:1 làm thẻ hòa vào nền ngoài trời). Lớp nổi (sheet, dialog) là `surfaceElevated` #163539, sáng hơn thẻ một bậc. Không dùng bóng.
+- Chip đang chọn có token riêng (R-08): sáng `chipSelectedBg` #0b3b42 / chữ #ffffff; tối `chipSelectedBg` #e8f4f4 / chữ #0b3b42. Chip chưa chọn có viền `chipBorder` ở cả hai trạng thái nên không đổi kích thước.
+- Số đếm và nhãn "Mới" dùng `countBg` (teal), không dùng vàng (R-20).
+- Placeholder dùng `placeholder` = textSecondary (R-22).
 - Thẻ brand chuyển sang teal 800 #104d56 để vẫn tách khỏi nền tối.
 - Vàng giữ nguyên #f4b942 cho nút. Chữ vàng dùng vàng 400 #f5c76d.
 - Liên kết đổi sang teal sáng #7cc7cf để đạt tương phản trên nền tối.
@@ -196,9 +199,9 @@ Mỗi trạng thái có nhãn, tone và icon cố định (`theme.ts`: `orderSta
 
 | Giá trị | Nhãn | Tone | Icon Lucide |
 | --- | --- | --- | --- |
-| `LOW` | Nhẹ | neutral | `signal-low` |
-| `MEDIUM` | Trung bình | warning | `signal-medium` |
-| `HIGH` | Nghiêm trọng | danger | `signal-high` |
+| `YELLOW` | Nhẹ | neutral | `signal-low` |
+| `ORANGE` | Trung bình | warning | `signal-medium` |
+| `RED` | Nghiêm trọng | danger | `signal-high` |
 
 **Sức khỏe ngựa (`condition_status`)**
 
@@ -249,23 +252,20 @@ Mỗi trạng thái có nhãn, tone và icon cố định (`theme.ts`: `orderSta
 
 Font duy nhất: Be Vietnam Pro, nạp bằng `@expo-google-fonts/be-vietnam-pro` với 4 độ đậm 400, 500, 600, 700. Android cần tên family riêng cho từng độ đậm, nên token dùng `fontFamily` (`BeVietnamPro_600SemiBold`...) thay cho `fontWeight`.
 
+**Sửa theo R-05 (30/10/2026): cả app chỉ có 4 cỡ chữ: 24, 17, 15, 12.** Các token chỉ khác độ đậm. Không còn ngoại lệ theo từng màn.
+
 | Token | Cỡ / dòng | Độ đậm | Letter spacing | Dùng cho |
 | --- | --- | --- | --- | --- |
-| largeTitle | 34 / 42 | 700 | -0.4 | Tiêu đề tab gốc |
-| title1 | 28 / 36 | 700 | -0.3 | Tiêu đề màn con quan trọng |
-| title2 | 22 / 30 | 600 | -0.2 | Tiêu đề khối, màn xin quyền |
-| title3 | 20 / 28 | 600 | -0.1 | Tiêu đề sheet, tuyến trên thẻ |
-| display | 24 / 32 | 700 | -0.2 | Chỉ tài xế: tên điểm kế tiếp (DRV-02) |
-| headline | 17 / 24 | 600 | 0 | Tên dòng, tên ngựa |
+| title | 24 / 32 | 700 | -0.2 | Tiêu đề màn, tên điểm kế tiếp, giờ dự kiến của tài xế (R-06), số đo |
+| headline | 17 / 24 | 600 | 0 | Tiêu đề header, tên dòng, tên ngựa |
 | body | 17 / 26 | 400 | 0 | Nội dung |
-| bodyStrong | 17 / 26 | 600 | 0 | Nội dung nhấn |
-| callout | 16 / 24 | 400 | 0 | Nội dung trong thẻ |
-| subhead | 15 / 22 | 400 | 0 | Mô tả phụ |
-| footnote | 13 / 19 | 400 | 0 | Giờ, mã đơn, trợ giúp, lỗi dưới ô |
-| caption | 12 / 18 | 500 | 0.1 | Nhãn nhỏ, nhãn viết hoa |
-| buttonLarge | 18 / 24 | 600 | 0 | Nút L 56, XL 64 |
-| button | 17 / 22 | 600 | 0 | Nút M 48 |
-| buttonSmall | 15 / 20 | 600 | 0 | Nút S 36 |
+| bodyStrong | 17 / 26 | 600 | 0 | Nội dung nhấn, giờ khởi hành trên thẻ chuyến |
+| button | 17 / 22 | 600 | 0 | Mọi nút (48, 56, 64) |
+| sub | 15 / 22 | 400 | 0 | Mô tả phụ, lỗi và gợi ý dưới ô, khoảng cách còn lại |
+| subStrong | 15 / 22 | 600 | 0 | Nhãn ô nhập, nhãn trong banner |
+| caption | 12 / 18 | 500 | 0.2 | Nhãn nhỏ, nhãn viết hoa, badge, nhãn tab |
+
+Gộp: 13 → 15 (lỗi, giờ, mã đơn), 16 → 17, 18 → 17 trên nút, 20/22/28/34 → 24.
 
 Ghi chú:
 
@@ -273,7 +273,8 @@ Ghi chú:
 - **Chữ hoa.** Nhãn viết hoa (ĐIỂM KẾ TIẾP) dùng caption, letterSpacing 0.06em.
 - **Số.** Tiền, giờ và số đo dùng `fontVariant: ['tabular-nums']`. Tiền ghi `48.600.000 ₫`, thập phân dùng dấu phẩy `38,2 °C`.
 - **Phóng to chữ hệ thống.** Bật `allowFontScaling`, giới hạn `maxFontSizeMultiplier` 1.6 cho body và 1.3 cho nút, tab bar, badge để bố cục không vỡ. Nội dung dài phải xuống dòng, không cắt chữ.
-- **Số cỡ chữ.** Mỗi màn tối đa 4 cỡ.
+- **Số cỡ chữ.** Cả app 4 cỡ (24/17/15/12), nên mỗi màn tự nhiên không quá 4 cỡ.
+- **Số và đơn vị.** Nối bằng khoảng trắng không ngắt (`38,6\u00a0°C`), không gãy dòng giữa số và đơn vị (R-48).
 
 ## 3. Spacing, bo góc, bóng, kích thước
 
@@ -306,12 +307,13 @@ Dark mode không có bóng. Ưu tiên đường kẻ `border` trước bóng (00
 
 **Kích thước:**
 
-- `touchTarget` 44: tối thiểu cho mọi vùng chạm.
-- `touchTargetLarge` 56: tài xế, hộ tống.
-- `driverPrimaryButton` 64: nút chính đáy màn của tài xế.
-- `inputHeight` 52. Ô nhập có nhãn trong ô: 56.
-- `tabBarHeight` 56 + safe area.
-- `headerHeight` 52.
+- `touchTarget` 48: mọi vùng chạm của khách hàng. `chipFilter` 44 là mức thấp nhất trong app (R-27).
+- `touchTargetLarge` 56: mọi phần tử bấm được của tài xế và hộ tống, kể cả nút header, chip, nút Hoàn tác, "Hủy", nút bản đồ (R-03, R-04). Code áp tự động bằng `DensityProvider density="crew"`.
+- `driverPrimaryButton` 64: nút chính đáy màn của tài xế. Nhãn tối đa 2 dòng, nút tự cao lên khi chữ lớn (R-07).
+- `inputHeight` 56, thống nhất với 5.3 (R-28).
+- `tabBarHeight` 64 + safe area.
+- `headerHeight` 56.
+- Khoảng cách giữa hai nút xếp chồng ở đáy màn: 16 (R-45).
 - Icon 16, 20, 24, nét 2 (Lucide). Icon ngựa vẽ riêng cùng nét, viewBox 24.
 
 ## 4. Chuyển động
@@ -437,18 +439,17 @@ Không dùng:
 
 | Variant | Cao | Dùng cho |
 | --- | --- | --- |
-| choice | 44, bo full | Chọn loại sự cố, ngựa |
-| choice L | 56, bo 16, icon 20 | Ghi nhanh của hộ tống |
-| filter | 36, bo full, có số đếm | Lọc danh sách đơn |
+| choice | 48 khách, 56 tài xế và hộ tống, bo full | Chọn loại sự cố, ngựa, mức độ |
+| filter | 44 khách, 56 tài xế và hộ tống, bo full | Lọc danh sách (R-27) |
 
-- Đang chọn: nền surfaceBrand, chữ onBrand. Giữ nguyên độ đậm 500 và không thêm tick, để chip không đổi bề rộng khi chọn (Long góp ý 30/10: chip nhảy làm cả sheet giật). Chọn nhiều thì ghi rõ "chọn một hoặc nhiều" ở nhãn nhóm.
+- Đang chọn: nền `chipSelectedBg`, chữ `chipSelectedFg` (R-08: dark dùng nền sáng #e8f4f4, chữ #0b3b42). Giữ nguyên độ đậm 500 và không thêm tick, để chip không đổi bề rộng khi chọn (Long góp ý 30/10: chip nhảy làm cả sheet giật). Chọn nhiều thì ghi rõ "chọn một hoặc nhiều" ở nhãn nhóm.
 - Đổi nền bằng hiệu ứng màu 150 ms, không animate kích thước.
 - Các state khác: pressed (nền surfaceMuted), disabled (nền surfaceMuted, chữ textDisabled).
 - Props: `label`, `icon?`, `selected`, `onPress`, `size?`, `count?`, `disabled?`.
 
 ### 5.8 Stepper
 
-- Cao 56, nút ± rộng 64, icon 24. Giá trị 22 semibold ở giữa, có đơn vị.
+- Cao 56 với tài xế, hộ tống (48 với khách), nút ± vuông bằng chiều cao. Giá trị 24 đậm ở giữa, đơn vị 17. Trợ năng: `adjustable`, đọc "12 L" (R-43).
 - Chạm vào giá trị để gõ số bằng bàn phím số.
 - Ở giới hạn thì nút tương ứng bị khóa.
 - Props: `value`, `onChange`, `min`, `max`, `step`, `unit`.
@@ -502,8 +503,8 @@ Không lồng thẻ trong thẻ. Trong thẻ phân tách bằng đường kẻ `
 ### 5.14 HorseCard
 
 - Ảnh 56 bo 12. Chưa có ảnh thì dùng icon ngựa trên surfaceMuted.
-- Tên (headline) + badge sức khỏe. Nút ⋯ 44 mở Báo bất thường và Báo cáo sức khỏe.
-- Bản hộ tống: dòng giờ uống, ăn, nghỉ gần nhất. Khi quá ngưỡng có nhãn đậm "4 giờ chưa uống" (nền surfaceBrand, chữ trắng, icon clock).
+- Tên (headline) + badge sức khỏe. Nút chữ "Báo bất thường" 56, viền đỏ (kiểu IncidentButton), thay cho nút ⋯ (R-14). Chạm thẻ mở chi tiết ngựa.
+- Bản hộ tống: dòng giờ uống, ăn, nghỉ gần nhất. Quá 4 giờ chưa uống: badge tone warning (cam) có icon clock, cùng một kiểu ở ESC-02 và ESC-05 (R-26).
 - Bản khách: giống, tuổi, cân nặng, badge giấy tờ, badge đơn đang chạy.
 - States: default, cảnh báo, đang tải (skeleton).
 
@@ -679,3 +680,8 @@ Long chốt theo đề xuất:
 3. Thang teal giữ nguyên như sinh ra (bậc 200–400 hơi xám), vì các bậc này chỉ dùng cho nền và viền.
 4. Dark mode: thẻ brand dùng teal 800 #104d56.
 5. Danger giữ hai sắc: chữ #b42318, khối đặc #dc2626.
+
+## 8. Sửa theo review 07 (30/10/2026)
+
+Long yêu cầu sửa hết 52 mục của 07-review.md và chuyển sang code, không chấm lại. Các thay đổi token ở trên đã áp; bảng đầy đủ từng mục và nơi sửa trong app `RouteHorse_mobile` nằm ở [changelog.md](changelog.md). Token code: `RouteHorse_mobile/src/theme/tokens.ts`, bản sao ở `tokens/theme.ts`.
+

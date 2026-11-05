@@ -18,6 +18,7 @@ const CoordinatorAccountPage = lazy(() => import('../../modules/coordinator/page
 const CoordinatorTripsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorTripsPage'));
 const CoordinatorTripPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorTripPage'));
 const CoordinatorNotificationsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorNotificationsPage'));
+const CoordinatorIncidentsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorIncidentsPage'));
 
 export default function AppRouter() {
   return (
@@ -38,6 +39,7 @@ export default function AppRouter() {
             <Route path="monitoring" element={<Navigate to="/coordinator/trips" replace />} />
             <Route path="fleet" element={<Navigate to="/coordinator/trips" replace />} />
             <Route path="notifications" element={<CoordinatorNotificationsPage />} />
+            <Route path="incidents" element={<CoordinatorIncidentsPage />} />
             <Route path="account" element={<CoordinatorAccountPage />} />
           </Route>
         </Route>

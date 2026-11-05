@@ -5,12 +5,9 @@ import type { IDriverTripSummary, ITripMap, ITripTrackPoint } from '@my-project/
 import MapView from '../../trackmap/MapView';
 import { DriverRouteMap } from '../../trackmap/lazy-maps';
 import '../../trackmap/trackmap.css';
-import { formatDayTime, formatDuration, formatKm } from './driver-ui';
-import { useNow } from './LiveStatsCards';
+import { formatDayTime, formatKm } from './driver-ui';
 import { nextStopView, tripPhase } from './trip-phase';
 import type { GpsSharing } from './useGpsSharing';
-
-const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 /** Thẻ "Lộ trình chuyến đi" (Figma D1/D1b): bản đồ thật, badge chia sẻ GPS, công tắc và cảnh báo tuyến ước lượng. */
 /** Điểm chưa có tọa độ: nhắc người ghim vị trí (Specialist, màn Địa điểm) thay vì để bản đồ trống không giải thích. */
@@ -84,16 +81,10 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
 }
 
 /**
- * Lớp chỉ đường kiểu Google Maps (desktop): banner trên "về phía <điểm kế tiếp>", thanh dưới thời gian còn lại · km · giờ đến
- * và nút "Thoát" đỏ. Thời gian còn lại tính theo giờ đến dự kiến của kế hoạch (chưa có dẫn đường từng ngã rẽ).
+ * Lớp chỉ đường: banner về phía điểm kế tiếp và nút "Thoát" nổi trên bản đồ.
  */
 function NavigationOverlay({ trip, map, nextWaypoint, onExit }: { trip: IDriverTripSummary; map: ITripMap | null; nextWaypoint: string | null; onExit: () => void }) {
-  const now = useNow(30_000);
   const next = nextWaypoint ? { name: nextWaypoint, arrived: false } : nextStopView(tripPhase(trip.legs), map);
-  const lastLeg = trip.legs[trip.legs.length - 1];
-  const eta = lastLeg ? Date.parse(lastLeg.plannedArrivalAt) : null;
-  const left = eta === null ? null : eta - now;
-  const km = map?.remainingKm ?? null;
   return (
     <>
       <div className="drv-nav-banner" role="status">
@@ -102,15 +93,7 @@ function NavigationOverlay({ trip, map, nextWaypoint, onExit }: { trip: IDriverT
           {next?.arrived ? 'Đã tới' : 'về phía'} <strong>{next?.name ?? 'điểm nhận'}</strong>
         </span>
       </div>
-      <div className="drv-nav-bar">
-        <div className="drv-nav-eta">
-          <strong className={!next?.arrived && left !== null && left < 0 ? 'is-late' : undefined}>
-            {next?.arrived ? 'Đã tới nơi' : left === null ? '—' : left < 0 ? `Trễ ${formatDuration(-left)}` : formatDuration(left)}
-          </strong>
-          <span>{[km !== null && `${formatKm(km)} km`, eta !== null && time.format(new Date(eta))].filter(Boolean).join(' · ') || '—'}</span>
-        </div>
-        <button type="button" className="drv-nav-exit" onClick={onExit}>Thoát</button>
-      </div>
+      <button type="button" className="drv-nav-exit" onClick={onExit}>Thoát</button>
     </>
   );
 }

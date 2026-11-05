@@ -5,6 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "vn.horseroute.mobile",
+      "supportsTablet": false
+    },
     "android": {
       "package": "vn.horseroute.mobile",
       "predictiveBackGestureEnabled": false
@@ -20,6 +24,17 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "HorseRoute gửi vị trí xe cho điều phối trong lúc chuyến đang chạy, kể cả khi tắt màn hình. Giao xong là tự tắt.",
+          "locationWhenInUsePermission": "HorseRoute dùng vị trí để ghi chỗ xảy ra sự cố và gửi vị trí xe khi chuyến đang chạy.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "@react-native-community/datetimepicker",
       "expo-status-bar"
     ]
   }

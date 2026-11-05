@@ -10,3 +10,5 @@ export const API_URL = (
 export const WEB_URL = (
   process.env.EXPO_PUBLIC_WEB_URL || `http://${host}:5173`
 ).replace(/\/+$/, "");
+/** Khóa SecureStore của phiên đăng nhập, dùng chung cho tác vụ GPS nền. */
+export const AUTH_KEY = `horseroute.auth.${API_URL.replace(/[^a-zA-Z0-9._-]/g, "_")}`;

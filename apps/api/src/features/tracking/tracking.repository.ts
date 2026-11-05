@@ -608,7 +608,16 @@ export class TrackingRepository {
     const blockers: { code: string; message: string; legId?: string; userId?: string; horseId?: string }[] = [];
     const crew = await this.db.query(
       `SELECT CAST(a.trip_vehicle_id AS CHAR) AS tripVehicleId, CAST(a.user_id AS CHAR) AS userId, a.role, u.role AS accountRole, u.account_status AS accountStatus,
-        cp.crew_type AS crewType, cp.work_status AS workStatus
+        cp.crew_type AS crewType,
+        CASE
+          WHEN EXISTS (
+            SELECT 1 FROM trip_assignments other
+            JOIN trips t ON t.id = other.trip_id JOIN orders o ON o.id = t.order_id
+            WHERE other.user_id = a.user_id AND other.trip_id <> a.trip_id AND o.status = 'IN_TRANSIT'
+          ) THEN 'IN_TRIP'
+          WHEN cp.work_status = 'RESERVED' THEN 'AVAILABLE'
+          ELSE cp.work_status
+        END AS workStatus
       FROM trip_assignments a JOIN users u ON u.id = a.user_id
       LEFT JOIN crew_profiles cp ON cp.user_id = a.user_id WHERE a.trip_id = ?`,
       [tripId]

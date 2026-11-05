@@ -9,27 +9,38 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
-import { Avatar, Button, ConfigProvider, Drawer, Grid, Layout, Menu, Modal, Tooltip, Typography } from 'antd';
+import { Avatar, Badge, Button, ConfigProvider, Drawer, Grid, Layout, Menu, Modal, Tooltip, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
 import { coordinatorPaths } from '../routes/coordinator.paths';
 import { coordinatorTheme } from '../theme/coordinator.theme';
+import { IncidentCenterProvider, useIncidentCenter } from '../incidents/IncidentCenter';
+import CoordinatorBell from '../incidents/CoordinatorBell';
 import '../styles/coordinator.css';
 import '../styles/reference.css';
 import '../styles/assignment-picker.css';
 
 const { Header, Sider, Content } = Layout;
 
+/** Nhãn menu "Xử lý sự cố" kèm badge đỏ số sự cố đang mở (mới + đang xử lý). */
+function IncidentsMenuLabel() {
+  const { openCount } = useIncidentCenter();
+  return <span className="coord-menu-label">Xử lý sự cố<Badge count={openCount} size="small" /></span>;
+}
+
 const menuItems: MenuProps['items'] = [
   { key: coordinatorPaths.dashboard, icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: coordinatorPaths.trips, icon: <CarOutlined />, label: 'Chuyến vận chuyển' },
+  { key: coordinatorPaths.incidents, icon: <WarningOutlined />, label: <IncidentsMenuLabel /> },
   { key: coordinatorPaths.notifications, icon: <BellOutlined />, label: 'Thông báo' },
 ];
 
 const pageTitles: Record<string, { title: string; subtitle?: string }> = {
+  [coordinatorPaths.incidents]: { title: 'Xử lý sự cố', subtitle: 'Sự cố tài xế / hộ tống gửi lên: tiếp nhận, gửi hướng xử lý và theo dõi tới khi xong' },
   [coordinatorPaths.dashboard]: { title: 'Không gian điều phối' },
   [coordinatorPaths.trips]: { title: 'Danh sách chuyến' },
   [coordinatorPaths.notifications]: { title: 'Trung tâm thông báo', subtitle: 'Cập nhật kế hoạch, phương tiện và công việc điều phối' },
@@ -109,6 +120,7 @@ export default function CoordinatorLayout() {
   return (
     <ConfigProvider theme={coordinatorTheme} getPopupContainer={trigger => trigger?.closest('.coordinator-scope') as HTMLElement || document.body}>
       <div className="coordinator-scope coordinator-app">
+        <IncidentCenterProvider accountId={String(account?.id ?? '')}>
         <Layout className="coordinator-shell">
           {isDesktop && (
             <Sider width={296} collapsedWidth={88} collapsed={collapsed} trigger={null} className="coordinator-sider">
@@ -132,13 +144,14 @@ export default function CoordinatorLayout() {
               </div>
               <div className="coordinator-header__tools">
                 <Tooltip title="Tài khoản"><Button icon={<UserOutlined />} onClick={() => go(coordinatorPaths.account)} aria-label="Tài khoản" /></Tooltip>
-                <Tooltip title="Thông báo"><Button icon={<BellOutlined />} onClick={() => go(coordinatorPaths.notifications)} aria-label="Thông báo" /></Tooltip>
+                <CoordinatorBell />
                 <Button icon={<CalendarOutlined />} className="coordinator-date-button">{formatCurrentDate()}</Button>
               </div>
             </Header>
             <Content className="coordinator-content"><Outlet context={{setDirty,go}} /></Content>
           </Layout>
         </Layout>
+        </IncidentCenterProvider>
         <Modal
           open={blocker.state === 'blocked'} title="Bạn có thay đổi chưa lưu"
           okText="Rời trang" cancelText="Ở lại"

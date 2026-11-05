@@ -34,7 +34,7 @@ type Options = {
 export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<void> | void, options: Options = {}) {
   const leg = currentLeg(trip.legs);
   const action = leg ? nextAction(leg, trip.legs, trip.orderStatus) : null;
-  const [confirming, setConfirming] = useState<{ action: NextAction; tapAt: Date } | null>(null);
+  const [confirming, setConfirming] = useState<{ action: NextAction; tapAt: Date; legId: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -44,13 +44,23 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
     setPending(leg ? pendingStore.get(leg.id) : null);
   }, [leg?.id]);
 
+  useEffect(() => {
+    if (!confirming || !error) return;
+    const sameAction = action?.kind === confirming.action.kind
+      && (action?.kind !== 'milestone' || (confirming.action.kind === 'milestone' && action.milestone === confirming.action.milestone));
+    if (leg?.id !== confirming.legId || !sameAction) {
+      setConfirming(null);
+      setNotice('Trạng thái chặng đã thay đổi, đã tải lại.');
+    }
+  }, [leg?.id, action, confirming, error]);
+
   const labelOf = (next: NextAction) => options.label?.(next) ?? next.label;
 
   function open(next: NextAction) {
     const tapAt = new Date();
     setError('');
     setNotice('');
-    setConfirming({ action: next, tapAt });
+    if (leg) setConfirming({ action: next, tapAt, legId: leg.id });
   }
 
   async function send(legId: string, type: string, occurredAt: string) {
@@ -74,9 +84,14 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
       } else if (isAxiosError(e) && e.response?.status === 409) {
         pendingStore.clear(legId);
         setPending(null);
-        setConfirming(null);
-        setNotice('Trạng thái chặng đã thay đổi, đã tải lại.');
-        await onChanged();
+        // 409 also covers departure prerequisites, not only stale leg state.
+        // Keep the server's reason visible in the dialog after refreshing.
+        setError(errorMessage(e));
+        try {
+          await onChanged();
+        } catch {
+          // A refresh failure must not hide the original rejection reason.
+        }
       } else {
         setError(errorMessage(e));
       }

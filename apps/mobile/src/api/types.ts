@@ -48,12 +48,16 @@ export type Profile = {
 export type ProfileInput = Omit<
   Profile,
   | "id"
+  | "birthDate"
   | "files"
   | "documents"
   | "activeOrderId"
   | "activeOrderCode"
   | "revision"
-> & { revision?: number };
+> & {
+  birthDate?: string;
+  revision?: number;
+};
 export type Order = {
   id: string;
   order_code: string;
@@ -107,6 +111,7 @@ export type OrderDetail = Order & {
     document_name: string;
     horse_name: string;
     status: string;
+    invalid_reason?: string | null;
   }[];
 };
 export type Workspace = {
@@ -164,5 +169,8 @@ export type Page = {
   orderId?: string;
   tripId?: string;
   horseId?: string;
+  /** Mở form sự cố với loại chọn sẵn (Y tế ngựa từ ESC-07). */
+  incidentType?: string;
 };
+/** screen "back" quay về màn trước. */
 export type Navigate = (screen: string, params?: Omit<Page, "screen">) => void;

@@ -1,15 +1,19 @@
 export class ApiError extends Error {
   status: number;
   fields: Record<string, string>;
+  /** Lỗi gốc khi không gọi được máy chủ, hiện trong Hàng chờ gửi để biết vì sao chưa gửi được. */
+  detail?: string;
   constructor(
     message: string,
     status: number,
     fields: Record<string, string> = {},
+    detail?: string,
   ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fields = fields;
+    this.detail = detail;
   }
 }
 export type RequestOptions = {
@@ -17,6 +21,8 @@ export type RequestOptions = {
   body?: unknown;
   signal?: AbortSignal;
   anonymous?: boolean;
+  /** Mặc định 20 giây; gửi file mặc định 90 giây vì máy chủ còn đẩy file lên kho lưu trữ. */
+  timeoutMs?: number;
 };
 export function createApiClient(options: {
   baseUrl: string;
@@ -37,9 +43,16 @@ export function createApiClient(options: {
     const abort = () => controller.abort();
     input.signal?.addEventListener("abort", abort, { once: true });
     if (input.signal?.aborted) controller.abort();
-    const timer = setTimeout(abort, options.timeoutMs ?? 20000);
     const multipart =
       typeof FormData !== "undefined" && input.body instanceof FormData;
+    let timedOut = false;
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        abort();
+      },
+      input.timeoutMs ?? (multipart ? 90000 : (options.timeoutMs ?? 20000)),
+    );
     try {
       const response = await (options.fetcher ?? fetch)(baseUrl + path, {
         method: input.method ?? "GET",
@@ -94,10 +107,14 @@ export function createApiClient(options: {
       throw new ApiError(
         path === "/auth/login"
           ? "Không kết nối được máy chủ đăng nhập. Kiểm tra địa chỉ máy chủ và kết nối mạng với máy tính rồi thử lại."
-          : input.method && input.method !== "GET"
-          ? "Không nhận được xác nhận từ máy chủ. Hãy tải lại danh sách để kiểm tra trước khi gửi lại, tránh tạo trùng dữ liệu."
-          : "Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ API rồi thử lại.",
+          : timedOut && input.method && input.method !== "GET"
+            ? "Máy chủ phản hồi quá lâu. Yêu cầu có thể đã được ghi; tải lại để kiểm tra trước khi gửi lại."
+            : input.method && input.method !== "GET"
+              ? "Không nhận được xác nhận từ máy chủ. Hãy tải lại danh sách để kiểm tra trước khi gửi lại, tránh tạo trùng dữ liệu."
+              : "Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ API rồi thử lại.",
         0,
+        {},
+        error instanceof Error ? error.message : String(error),
       );
     } finally {
       clearTimeout(timer);
