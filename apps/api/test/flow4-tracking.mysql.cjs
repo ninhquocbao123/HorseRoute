@@ -48,21 +48,23 @@ async function main() {
     (6,'driver@t.local','!','Tài Xế','DRIVER_ESCORT','ACTIVE','0900000006'),(7,'specialist@t.local','!','Chuyên Viên','SPECIALIST','ACTIVE',NULL),
     (8,'customer2@t.local','!','Khách Hai','CUSTOMER','ACTIVE',NULL),(9,'driver2@t.local','!','Tài Xế Hai','DRIVER_ESCORT','ACTIVE',NULL),
     (10,'escort@t.local','!','Hộ Tống','DRIVER_ESCORT','ACTIVE',NULL)`);
+  await q(`INSERT INTO crew_profiles(user_id,crew_type) VALUES (6,'DRIVER'),(9,'DRIVER'),(10,'ESCORT')`);
   await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status,recipient_name,recipient_phone) VALUES
     (50,'WDP-F4-50',1,'A','VN','B','SG','2026-10-20','READY','Người Nhận SG','+6560000050'),(51,'WDP-F4-51',8,'A','VN','B','SG','2026-10-20','READY',NULL,NULL)`);
   await q(`INSERT INTO horses(id,order_id,owner_id,name,passport_no) VALUES (21,50,1,'Bạch Mã','T-21'),(22,50,1,'Hắc Mã','T-22'),(23,51,8,'Xích Thố','T-23')`);
   await q(`INSERT INTO locations(id,name,location_type,country,timezone,latitude,longitude) VALUES
     (1,'Kho HCM','REST_STOP','VN','Asia/Ho_Chi_Minh',10.850000,106.600000),(2,'Cửa khẩu','BORDER','VN','Asia/Ho_Chi_Minh',11.076000,106.158000),
     (3,'Sân bay đích','AIRPORT','SG','Asia/Singapore',1.364400,103.991500)`);
-  await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (5,'TRUCK',4,'XE-01',1)`);
+  await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES (5,'HEAVY',4,'XE-01','AVAILABLE'),(6,'HEAVY',4,'XE-02','AVAILABLE')`);
   await q(`INSERT INTO trips(id,order_id,plan_status,planned_departure_at,planned_arrival_at,planned_by) VALUES
     (100,50,'APPROVED',UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() + INTERVAL 3 HOUR,3),(101,51,'APPROVED',UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() + INTERVAL 3 HOUR,4)`);
   await q(`INSERT INTO legs(id,trip_id,seq_no,from_location_id,to_location_id,vehicle_id,planned_departure_at,planned_arrival_at) VALUES
     (10,100,1,1,2,5,UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() - INTERVAL 1 HOUR),
     (11,100,2,2,3,5,UTC_TIMESTAMP() - INTERVAL 1 HOUR,UTC_TIMESTAMP() + INTERVAL 2 HOUR),
     (12,101,1,1,3,5,UTC_TIMESTAMP() - INTERVAL 3 HOUR,UTC_TIMESTAMP() + INTERVAL 2 HOUR)`);
-  await q(`INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES
-    (100,6,'DRIVER',3,UTC_TIMESTAMP()),(100,10,'ESCORT',3,UTC_TIMESTAMP()),(101,9,'DRIVER',4,UTC_TIMESTAMP())`);
+  await q(`INSERT INTO trip_vehicles(id,trip_id,vehicle_id,horse_count) VALUES (500,100,5,2),(501,101,6,1)`);
+  await q(`INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at,trip_vehicle_id) VALUES
+    (100,6,'DRIVER',3,UTC_TIMESTAMP(),500),(100,10,'ESCORT',3,UTC_TIMESTAMP(),500),(101,9,'DRIVER',4,UTC_TIMESTAMP(),501)`);
 
   const tokens = new TokenService('flow4-integration-secret-at-least-thirty-two-characters');
   server = createApp({ services: createServices(db, tokens), tokens, corsOrigin: 'http://localhost:5173', requestLimit: 5000 }).listen(0, '127.0.0.1');
@@ -139,7 +141,7 @@ async function main() {
     assert.equal(own.legs[1].toLocationType, 'AIRPORT');
     const driverView = await expectStatus(200, 'GET', '/trips/100', { as: ids.driver });
     assert.deepEqual(driverView.crew.map(c => [c.userId, c.role, c.phone]), [['6', 'DRIVER', '0900000006'], ['10', 'ESCORT', null]]);
-    assert.deepEqual(driverView.vehicles, [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: 4 }]);
+    assert.deepEqual(driverView.vehicles, [{ id: '5', code: 'XE-01', type: 'HEAVY', capacityStalls: 4 }]);
     assert.deepEqual(driverView.coordinator, { name: 'Điều Phối A', phone: '0900000003' });
     assert.deepEqual(driverView.customer, { name: 'Khách Một' });
     assert.deepEqual(driverView.recipient, { name: 'Người Nhận SG', phone: '+6560000050' });
@@ -424,7 +426,7 @@ async function main() {
     await failOn('notifications');
     try {
       const res = await depart(minutesAgo(60));
-      assert.equal(res.status, 500);
+      assert.equal(res.status, 500, JSON.stringify(res.data));
     } finally { await clearTrigger(); }
     assert.deepEqual(await snapshot(), before);
   });
@@ -441,8 +443,8 @@ async function main() {
         assert.equal(r.data.blockers, undefined);
       } finally { await q(restore); }
     };
-    await blockedWith(/xe không còn hoạt động/, 'UPDATE vehicles SET is_active=0 WHERE id=5', 'UPDATE vehicles SET is_active=1 WHERE id=5');
-    await blockedWith(/Xe không đủ chỗ/, 'UPDATE vehicles SET capacity_stalls=1 WHERE id=5', 'UPDATE vehicles SET capacity_stalls=4 WHERE id=5');
+    await blockedWith(/Xe không sẵn sàng xuất phát/, "UPDATE vehicles SET status='IN_TRANSIT' WHERE id=5", "UPDATE vehicles SET status='AVAILABLE' WHERE id=5");
+    await blockedWith(/vượt sức chứa/, 'UPDATE vehicles SET capacity_stalls=1 WHERE id=5', 'UPDATE vehicles SET capacity_stalls=4 WHERE id=5');
     await blockedWith(/ngựa đang bị đánh dấu/, "UPDATE horses SET order_status='FLAGGED' WHERE id=22", "UPDATE horses SET order_status='NORMAL' WHERE id=22");
     await blockedWith(/Chưa có người hộ tống hợp lệ/, "UPDATE users SET account_status='LOCKED' WHERE id=10", "UPDATE users SET account_status='ACTIVE' WHERE id=10");
     assert.deepEqual(await snapshot(), before, 'a blocked departure changes nothing');

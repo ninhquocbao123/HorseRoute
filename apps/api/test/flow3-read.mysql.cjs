@@ -29,7 +29,7 @@ async function main() {
     await db.query('INSERT INTO trips(id,order_id,planned_by) VALUES (?,?,?)', [id, id, id.endsWith('4') ? '4' : '3']);
   }
   await db.query("INSERT INTO locations(id,name,location_type,country,timezone) VALUES (9007199254740993,'B','REST_STOP','VN','Asia/Ho_Chi_Minh'),(9007199254740994,'A','AIRPORT','SG','Asia/Singapore')");
-  await db.query("INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (9007199254740993,'TRUCK',4,'B-ACTIVE',1),(9007199254740994,'TRUCK',2,'A-INACTIVE',0),(9007199254740995,'CRATE',1,'A-ACTIVE',1)");
+  await db.query("INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES (9007199254740993,'HEAVY',4,'B-AVAILABLE','AVAILABLE'),(9007199254740994,'MEDIUM',2,'A-RESERVED','RESERVED'),(9007199254740995,'LIGHT',1,'A-AVAILABLE','AVAILABLE')");
   // Insert seq 2 first so the test does not accidentally rely on primary-key order.
   await db.query(`INSERT INTO legs(id,trip_id,seq_no,from_location_id,to_location_id,vehicle_id,planned_departure_at,planned_arrival_at) VALUES
     (9007199254740993,9007199254740993,2,9007199254740994,9007199254740993,NULL,'2026-10-20 04:00:00','2026-10-20 05:00:00'),
@@ -69,19 +69,18 @@ async function main() {
     assert.equal(trip.plannedDepartureAt, '2026-10-20T01:00:00.000Z');
     assert.deepEqual(trip.legs.map(l => l.seqNo), [1, 2]);
     assert.equal(trip.legs[0].id, '9007199254740994'); assert.equal(trip.legs[0].fromLocationId, '9007199254740993');
-    assert.equal(trip.legs[0].vehicleId, '9007199254740994'); assert.equal(trip.legs[0].vehicleActive, false);
+    assert.equal(trip.legs[0].vehicleId, '9007199254740994'); assert.equal(trip.legs[0].vehicleStatus, 'RESERVED');
     assert.equal(trip.legs[0].plannedDepartureAt, '2026-10-20T01:00:00.000Z');
-    for (const key of ['vehicleId', 'vehicleCode', 'vehicleActive']) assert.equal(trip.legs[1][key], null);
+    for (const key of ['vehicleId', 'vehicleCode', 'vehicleStatus']) assert.equal(trip.legs[1][key], null);
     assert.equal(trip.approvedBy, null); assert.equal('actualDepartureAt' in trip.legs[0], false);
   });
-  await check('Options come from SQL, sorted and active-only; database changes appear immediately', async () => {
+  await check('Options come from SQL, sorted, active-only locations, vehicles of every status; database changes appear immediately', async () => {
     const suffix = '/9007199254740993/plan-options', opts = await read(suffix);
     assert.deepEqual(opts.locations.map(l => l.name), ['A', 'B']);
-    assert.deepEqual(opts.vehicles.map(v => v.plateOrCode), ['A-ACTIVE', 'B-ACTIVE']);
-    assert.ok(opts.vehicles.every(v => v.isActive === true)); assert.equal(opts.vehicles[1].id, '9007199254740993');
-    await db.query("UPDATE vehicles SET is_active=0 WHERE id=9007199254740993");
-    assert.equal((await read(suffix)).vehicles.length, 1);
-    await db.query('UPDATE vehicles SET is_active=0'); assert.deepEqual((await read(suffix)).vehicles, []);
+    assert.deepEqual(opts.vehicles.map(v => v.plateOrCode), ['A-AVAILABLE', 'A-RESERVED', 'B-AVAILABLE']);
+    assert.deepEqual(opts.vehicles.map(v => v.status), ['AVAILABLE', 'RESERVED', 'AVAILABLE']); assert.equal(opts.vehicles[2].id, '9007199254740993');
+    await db.query("UPDATE vehicles SET status='IN_TRANSIT' WHERE id=9007199254740993");
+    assert.equal((await read(suffix)).vehicles[2].status, 'IN_TRANSIT');
   });
   await check('Invalid ID and query return 400 with requestId', async () => {
     for (const suffix of ['/0', '/abc', '/18446744073709551616', '?limit=101', '?plannedBy=4', '?page=9007199254740992']) {
