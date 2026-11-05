@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Platform,
@@ -872,7 +878,7 @@ export function Timeline({
             </Txt>
             <Txt bold color={index === active ? c.link : c.textSecondary}>
               {stop.time}
-              {index < active ? " · Đã hoàn thành" : " · Dự kiến"}
+              {index < active ? " · Đã hoàn thành" : ""}
             </Txt>
           </View>
         </View>
@@ -1020,6 +1026,18 @@ export function DateField({
 }) {
   const { colors: c } = useTheme();
   const [open, setOpen] = useState(false);
+  // Android: thư viện mở lại hộp thoại mỗi khi onChange hoặc value đổi, làm mất giờ đang chọn
+  // lúc màn phía sau tải lại. Giữ cả hai ổn định trong suốt thời gian hộp đang mở.
+  const latestOnChange = useRef(onChange);
+  latestOnChange.current = onChange;
+  const openedAt = useRef(value ?? new Date());
+  const onAndroidChange = useCallback(
+    (event: { type: string }, date?: Date) => {
+      setOpen(false);
+      if (event.type === "set" && date) latestOnChange.current(date);
+    },
+    [],
+  );
   const text = value
     ? mode === "date"
       ? value.toLocaleDateString("vi-VN", {
@@ -1039,7 +1057,10 @@ export function DateField({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value ? text : "chưa chọn"}`}
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          openedAt.current = value ?? new Date();
+          setOpen(true);
+        }}
         style={[
           s.input,
           {
@@ -1104,15 +1125,12 @@ export function DateField({
         </View>
       ) : open ? (
         <DateTimePicker
-          value={value ?? new Date()}
+          value={openedAt.current}
           mode={mode}
           is24Hour
           minimumDate={minimumDate}
           maximumDate={maximumDate}
-          onChange={(event, date) => {
-            setOpen(false);
-            if (event.type === "set" && date) onChange(date);
-          }}
+          onChange={onAndroidChange}
         />
       ) : null}
     </View>

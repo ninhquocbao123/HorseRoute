@@ -1,4 +1,11 @@
-import { appendPhoto, dropPhotos, hasMissingPhoto, keepPhotos } from "./photo";
+import {
+  appendPhoto,
+  dropPhotos,
+  hasMissingPhoto,
+  keepPhotos,
+  prunePickedPhotos,
+} from "./photo";
+import { isReplayConflict, queueWireFields } from "./live-domain";
 /**
  * Hàng chờ gửi (COM-12). Thao tác ghi của tài xế và hộ tống đi qua đây:
  * - Hoàn tác 5 giây: mục giữ đến notBefore rồi mới gửi; Hoàn tác là bỏ khỏi hàng chờ (API không có xóa mốc).
@@ -6,6 +13,7 @@ import { appendPhoto, dropPhotos, hasMissingPhoto, keepPhotos } from "./photo";
  * - Phiên hết hạn (401): giữ nguyên, gửi tiếp khi đăng nhập lại đúng tài khoản.
  * - 4xx khác: "Bị từ chối" kèm lý do; người dùng sửa giờ hoặc bỏ.
  * - Ảnh đính kèm không còn trên máy: "Bị từ chối" luôn, thử lại cũng không gửi được.
+ * - Gửi lại không tạo bản ghi trùng: mỗi mục có clientRequestId riêng (G2), mốc kèm queuedAt để được ghi bù 24 giờ (G3).
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -86,6 +94,7 @@ export function configureQueue(client: Request | null, userId: string | null) {
 export async function initQueue() {
   if (loaded) return;
   loaded = true;
+  prunePickedPhotos();
   try {
     const raw = await AsyncStorage.getItem(KEY);
     // Mục đang gửi dở khi app bị tắt: quay về chờ gửi.
@@ -178,11 +187,13 @@ export function retry(id?: string) {
   void flush();
 }
 
-/** Sửa giờ của mục bị từ chối (ghi lùi quá 2 giờ, giờ tương lai…) rồi gửi lại. */
+/** Sửa giờ của mục bị từ chối (ghi lùi quá 24 giờ, giờ tương lai…) rồi gửi lại. */
 export function updateTime(id: string, iso: string) {
   const item = items.find((i) => i.id === id);
   if (!item || !item.timeField) return;
   item.body = { ...item.body, [item.timeField]: iso };
+  // Giờ vừa sửa không được muộn hơn giờ vào hàng chờ gửi kèm.
+  item.createdAt = Date.now();
   item.status = "QUEUED";
   item.error = undefined;
   item.lastFailure = undefined;
@@ -209,9 +220,10 @@ export async function discardForeign(userId: string) {
 }
 
 function payload(item: QueueItem): RequestOptions["body"] {
-  if (!item.photos) return item.body;
+  const body = { ...item.body, ...queueWireFields(item) };
+  if (!item.photos) return body;
   const form = new FormData();
-  Object.entries(item.body).forEach(([key, value]) => {
+  Object.entries(body).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "")
       form.append(key, String(value));
   });
@@ -242,7 +254,12 @@ export async function flush() {
       item.attempts += 1;
       emit();
       try {
-        await request(item.path, { method: "POST", body: payload(item) });
+        await request(item.path, { method: "POST", body: payload(item) }).catch(
+          (e) => {
+            if (!isReplayConflict(item, e instanceof ApiError ? e.status : 0))
+              throw e;
+          },
+        );
         items = items.filter((i) => i.id !== item.id);
         if (item.legId) recent.push({ item, sentAt: Date.now() });
         dropPhotos(item.photos);

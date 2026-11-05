@@ -95,6 +95,77 @@ export const customerNoteError = (sendToCustomer: boolean, note: string) =>
   sendToCustomer && !note.trim()
     ? "Nhập ghi chú gửi khách, hoặc tắt Gửi cho khách xem."
     : null;
+/** Máy chủ từ chối đơn có người nhận mà thiếu SĐT; tài xế cũng cần số này khi giao. */
+export function recipientError(name: string, phone: string) {
+  const digits = phone.replace(/[\s.]/g, "");
+  if (digits && !/^\+?\d{9,15}$/.test(digits))
+    return "Số điện thoại người nhận có 9 đến 15 chữ số.";
+  if (digits && !name.trim())
+    return "Nhập tên người nhận đi kèm số điện thoại.";
+  if (name.trim() && !digits)
+    return "Nhập số điện thoại người nhận để tài xế gọi khi giao ngựa, hoặc xóa tên nếu chưa biết.";
+  return null;
+}
+/** Máy chủ chặn thanh toán khi báo giá hết hạn mà chưa đủ tiền cọc; đã cọc đủ thì vẫn trả tiếp được. */
+export function quoteExpiredForPayment(
+  quote: {
+    expires_at?: string | null;
+    paid: string | number;
+    deposit: string | number;
+  },
+  now = Date.now(),
+) {
+  return (
+    !!quote.expires_at &&
+    Date.parse(quote.expires_at) <= now &&
+    Number(quote.paid) < Number(quote.deposit)
+  );
+}
+/** Cửa sổ ghi lùi của mốc và ghi chăm sóc từ hàng chờ (G3 phương án A). */
+export const BACKFILL_MS = 24 * 3600000;
+/**
+ * Lần gần nhất đồng hồ chỉ giờ:phút đã chọn: chọn 23:50 lúc 00:30 nghĩa là 23:50 hôm qua, không phải giờ tương lai.
+ * Luôn tính từ hiện tại nên chọn lại nhiều lần không bị lệch ngày.
+ */
+export function pastClock(hours: number, minutes: number, now = new Date()) {
+  const at = new Date(now);
+  at.setHours(hours, minutes, 0, 0);
+  if (at.getTime() > now.getTime()) at.setDate(at.getDate() - 1);
+  return at;
+}
+type QueueWire = {
+  id: string;
+  kind: string;
+  createdAt: number;
+  timeField: string | null;
+};
+/** Trường thêm khi gửi một mục hàng chờ: chống trùng (G2) và giờ vào hàng chờ để được ghi bù 24 giờ (G3). */
+export function queueWireFields(item: QueueWire) {
+  return {
+    ...(["incident", "care", "horseLog"].includes(item.kind)
+      ? { clientRequestId: item.id }
+      : {}),
+    ...(item.timeField === "occurredAt" || item.timeField === "performedAt"
+      ? { queuedAt: new Date(item.createdAt).toISOString() }
+      : {}),
+  };
+}
+/**
+ * Lần gửi trước mất phản hồi nên không biết máy chủ đã ghi chưa. Mốc đã ghi rồi thì lần này trả 409,
+ * nghĩa là mốc đã đến nơi, không phải bị từ chối. Màn chuyến tải lại đúng trạng thái từ máy chủ.
+ */
+export const isReplayConflict = (
+  item: { kind: string; lastFailure?: string },
+  status: number,
+) =>
+  status === 409 &&
+  !!item.lastFailure &&
+  ["milestone", "checkin", "complete"].includes(item.kind);
+/** Chỉ tắt GPS của đúng chuyến đang gửi: mở một chuyến đã giao không được tắt chuyến đang chạy. */
+export const shouldStopTracking = (
+  trackedTripId: string | null,
+  tripId: string,
+) => !trackedTripId || trackedTripId === tripId;
 export function profilePayload(profile: Profile | ProfileInput): ProfileInput {
   const {
     name,
@@ -322,6 +393,68 @@ function nextRestStop(map: ITripMap, checkins: { waypointId: string }[]) {
     .find((stop) => !checkins.some((c) => c.waypointId === stop.locationId));
 }
 
+/** Lộ trình trên màn tài xế. Chuyến một chặng hiện cả các điểm nghỉ trong kế hoạch tuyến. */
+export function tripTimeline(
+  trip: IDriverTripDetail,
+  map: ITripMap | null | undefined,
+  clock: (iso: string | null | undefined) => string,
+) {
+  const legs = [...trip.legs].sort((a, b) => a.seqNo - b.seqNo);
+  if (!legs.length) return { active: 0, stops: [] };
+  const single = legs.length === 1;
+  const rests =
+    single && map
+      ? map.stops.slice(1, -1).filter((s) => s.locationType === "REST_STOP")
+      : [];
+  const checkins = single ? legs[0].waypointCheckins : [];
+  const checkinAt = (id: string) =>
+    checkins.find((c) => c.waypointId === id)?.occurredAt;
+  const stops = [
+    {
+      name: legs[0].fromLocationName,
+      note: "Điểm xuất phát",
+      time:
+        legs[0].status === "NOT_STARTED"
+          ? `Dự kiến ${clock(legs[0].plannedDepartureAt)}`
+          : `Rời ${clock(legs[0].actualDepartureAt)}`,
+    },
+    ...rests.map((r) => {
+      const at = checkinAt(r.locationId);
+      return {
+        name: r.name,
+        note: "Điểm nghỉ",
+        time: at ? `Đến ${clock(at)}` : "Chưa đến",
+      };
+    }),
+    ...legs.map((l, i) => ({
+      name: l.toLocationName,
+      note:
+        i === legs.length - 1
+          ? "Điểm giao"
+          : l.status === "AT_STOP"
+            ? "Đang dừng"
+            : "Điểm dừng",
+      time:
+        l.status === "COMPLETED" || l.status === "AT_STOP"
+          ? `Đến ${clock(l.actualArrivalAt)}`
+          : `Dự kiến ${clock(l.plannedArrivalAt)}`,
+    })),
+  ];
+  const current = legs.findIndex((l) => l.status !== "COMPLETED");
+  const reached = rests.filter((r) => checkinAt(r.locationId)).length;
+  const active =
+    trip.orderStatus === "DELIVERED"
+      ? stops.length
+      : current < 0
+        ? stops.length - 1
+        : legs[current].status === "NOT_STARTED"
+          ? current
+          : current +
+            1 +
+            (legs[current].status === "MOVING" ? reached : rests.length);
+  return { active, stops };
+}
+
 /** Tên ngắn cho nút: bỏ phần sau dấu phẩy và tiền tố loại điểm. */
 export function shortName(name: string) {
   return name
@@ -416,7 +549,8 @@ export function nextStop(trip: IDriverTripDetail, map?: ITripMap | null) {
     return {
       caption: "ĐANG DỪNG TẠI",
       name: leg.toLocationName,
-      at: leg.plannedDepartureAt,
+      // Giờ rời là giờ xuất phát của chặng kế tiếp; chặng cuối không còn gì để rời.
+      at: legs.find((l) => l.seqNo > leg.seqNo)?.plannedDepartureAt ?? null,
       atLabel: "Kế hoạch rời",
     };
   const rest =

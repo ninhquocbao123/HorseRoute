@@ -57,7 +57,9 @@ import {
 import {
   applyPending,
   asId,
+  BACKFILL_MS,
   customerNoteError,
+  pastClock,
   label,
   nextStop,
   shortName,
@@ -841,20 +843,21 @@ export function QuickLogSheet({
   const [minutes, setMinutes] = useState(30);
   const [when, setWhen] = useState(new Date());
   const [error, setError] = useState("");
+  // Chỉ khởi tạo lúc mở: dữ liệu chuyến tải lại định kỳ không được xóa nội dung đang nhập.
   useEffect(() => {
     if (visible) {
       setSelected(horses.map((h) => String(h.id)));
       setWhen(new Date());
       setError("");
     }
-  }, [visible, horses]);
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
   const all = selected.length === horses.length;
   const save = () => {
     if (type !== "REST" && !selected.length)
       return setError("Chọn ít nhất 1 con ngựa để lưu.");
     if (type === "FEED" && !feed.trim()) return setError("Nhập khẩu phần.");
-    if (Date.now() - when.getTime() > 120 * 60000)
-      return setError("Chỉ ghi lùi tối đa 2 giờ.");
+    if (Date.now() - when.getTime() > BACKFILL_MS)
+      return setError("Chỉ ghi lùi tối đa 24 giờ.");
     const performedAt = (
       when.getTime() > Date.now() ? new Date() : when
     ).toISOString();
@@ -1010,12 +1013,12 @@ export function QuickLogSheet({
         label="Lúc"
         mode="time"
         value={when}
-        onChange={(d) => {
-          const next = new Date(when);
-          next.setHours(d.getHours(), d.getMinutes(), 0, 0);
-          setWhen(next);
-        }}
-        hint="Mặc định là bây giờ. Ghi lùi tối đa 2 giờ."
+        onChange={(d) => setWhen(pastClock(d.getHours(), d.getMinutes()))}
+        hint={
+          when.toDateString() !== new Date().toDateString()
+            ? `Giờ này là của hôm qua, ngày ${when.toLocaleDateString("vi-VN")}.`
+            : "Mặc định là bây giờ. Ghi lùi tối đa 24 giờ."
+        }
       />
       {error ? (
         <Txt size={15} color={c.dangerFg}>
@@ -1050,6 +1053,7 @@ export function AbnormalSheet({
   // F-E3: báo bất thường mặc định chỉ gửi điều phối; hộ tống tự bật nếu muốn khách xem.
   const [toCustomer, setToCustomer] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Chỉ khởi tạo lúc mở: dữ liệu chuyến tải lại định kỳ (kể cả khi quay về từ camera) không được xóa form.
   useEffect(() => {
     if (visible) {
       setHorseId(
@@ -1062,7 +1066,7 @@ export function AbnormalSheet({
       setToCustomer(false);
       setErrors({});
     }
-  }, [visible, initialHorse, trip.horses]);
+  }, [visible, initialHorse]); // eslint-disable-line react-hooks/exhaustive-deps
   const leg = currentLeg(trip);
   const send = () => {
     const e: Record<string, string> = {};

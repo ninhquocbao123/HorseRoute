@@ -7,6 +7,14 @@ import {
   customerNoteError,
   validDate,
   driverAction,
+  isReplayConflict,
+  nextStop,
+  pastClock,
+  queueWireFields,
+  quoteExpiredForPayment,
+  recipientError,
+  shouldStopTracking,
+  tripTimeline,
   profilePayload,
   emptyProfile,
 } from "../src/live-domain.ts";
@@ -135,6 +143,93 @@ test("milestone just sent keeps the screen moving and never rewinds server state
   const checkin = { kind: "checkin", status: "QUEUED", legId: "l1", waypointId: "s1", body: {} };
   const once = applyPending(trip(leg("MOVING", ["DEPARTED"], [{ waypointId: "s1" }])), [checkin]);
   assert.equal(once.legs[0].waypointCheckins.length, 1);
+});
+test("recipient name needs a phone the server and driver can use", () => {
+  assert.ok(recipientError("Anh Ba", ""));
+  assert.ok(recipientError("", "0912345678"));
+  assert.ok(recipientError("Anh Ba", "123"));
+  assert.equal(recipientError("Anh Ba", "0912 345.678"), null);
+  assert.equal(recipientError("  ", ""), null);
+});
+test("expired quote blocks payment only until the deposit is covered", () => {
+  const past = "2026-01-01T00:00:00.000Z";
+  const now = Date.parse("2026-06-01T00:00:00.000Z");
+  assert.equal(quoteExpiredForPayment({ expires_at: past, paid: 0, deposit: 100 }, now), true);
+  assert.equal(quoteExpiredForPayment({ expires_at: past, paid: 100, deposit: 100 }, now), false);
+  assert.equal(quoteExpiredForPayment({ expires_at: "2026-12-01T00:00:00.000Z", paid: 0, deposit: 100 }, now), false);
+  assert.equal(quoteExpiredForPayment({ expires_at: null, paid: 0, deposit: 100 }, now), false);
+});
+test("picking a clock time past midnight means yesterday, never the current time", () => {
+  const now = new Date(2026, 10, 5, 0, 30, 15);
+  const yesterday = pastClock(23, 50, now);
+  assert.equal(yesterday.getDate(), 4);
+  assert.equal(yesterday.getHours(), 23);
+  // Chọn lại sau khi đã lùi ngày thì quay về hôm nay.
+  assert.equal(pastClock(0, 10, now).getDate(), 5);
+  assert.ok(pastClock(0, 30, now).getTime() <= now.getTime());
+  assert.equal(pastClock(0, 30, now).getDate(), 5);
+});
+test("queue sends a stable id for records and queuedAt for backdated events", () => {
+  const createdAt = Date.parse("2026-11-05T01:00:00.000Z");
+  const queuedAt = "2026-11-05T01:00:00.000Z";
+  assert.deepEqual(queueWireFields({ id: "q1", kind: "incident", createdAt, timeField: null }), { clientRequestId: "q1" });
+  assert.deepEqual(queueWireFields({ id: "q1", kind: "care", createdAt, timeField: "performedAt" }), { clientRequestId: "q1", queuedAt });
+  assert.deepEqual(queueWireFields({ id: "q1", kind: "horseLog", createdAt, timeField: "loggedAt" }), { clientRequestId: "q1" });
+  assert.deepEqual(queueWireFields({ id: "q1", kind: "milestone", createdAt, timeField: "occurredAt" }), { queuedAt });
+});
+test("409 after a lost response means the milestone arrived", () => {
+  const lost = { kind: "milestone", lastFailure: "Network request failed" };
+  assert.equal(isReplayConflict(lost, 409), true);
+  assert.equal(isReplayConflict({ ...lost, kind: "checkin" }, 409), true);
+  assert.equal(isReplayConflict({ ...lost, kind: "complete" }, 409), true);
+  // Lần gửi đầu mà 409 là bị từ chối thật.
+  assert.equal(isReplayConflict({ kind: "milestone" }, 409), false);
+  assert.equal(isReplayConflict(lost, 400), false);
+  assert.equal(isReplayConflict({ ...lost, kind: "incident" }, 409), false);
+});
+test("opening a delivered trip does not stop GPS of the trip in progress", () => {
+  assert.equal(shouldStopTracking("running", "delivered"), false);
+  assert.equal(shouldStopTracking("running", "running"), true);
+  assert.equal(shouldStopTracking(null, "delivered"), true);
+});
+test("driver route shows rest stops of a single-leg trip in order", () => {
+  const clock = (iso: string | null | undefined) => iso ?? "--";
+  const map = {
+    stops: [
+      { locationId: "o", name: "Đi", locationType: "ORIGIN" },
+      { locationId: "r1", name: "Nghỉ 1", locationType: "REST_STOP" },
+      { locationId: "r2", name: "Nghỉ 2", locationType: "REST_STOP" },
+      { locationId: "d", name: "Đến", locationType: "DESTINATION" },
+    ],
+  } as any;
+  const trip = (status: string, checkins: object[], orderStatus = "IN_TRANSIT") =>
+    ({
+      orderStatus,
+      legs: [{
+        id: "l", seqNo: 1, status, fromLocationName: "Đi", toLocationName: "Đến",
+        plannedDepartureAt: "pd", plannedArrivalAt: "pa", actualDepartureAt: "ad", actualArrivalAt: "aa",
+        waypointCheckins: checkins, milestones: [],
+      }],
+    }) as any;
+  const moving = tripTimeline(trip("MOVING", [{ waypointId: "r1", occurredAt: "t1" }]), map, clock);
+  assert.deepEqual(moving.stops.map((x) => x.name), ["Đi", "Nghỉ 1", "Nghỉ 2", "Đến"]);
+  assert.equal(moving.stops[1].time, "Đến t1");
+  assert.equal(moving.stops[2].time, "Chưa đến");
+  assert.equal(moving.active, 2);
+  assert.equal(tripTimeline(trip("NOT_STARTED", []), map, clock).active, 0);
+  assert.equal(tripTimeline(trip("AT_STOP", []), map, clock).active, 3);
+  assert.equal(tripTimeline(trip("COMPLETED", [], "DELIVERED"), map, clock).active, 4);
+  // Chưa tải được bản đồ: vẫn hiện hai đầu tuyến.
+  assert.equal(tripTimeline(trip("MOVING", []), null, clock).stops.length, 2);
+  assert.deepEqual(tripTimeline({ legs: [], orderStatus: "READY" } as any, null, clock), { active: 0, stops: [] });
+});
+test("planned leave time at a stop comes from the next leg, none at the last stop", () => {
+  const leg = (seqNo: number, status: string) => ({
+    id: `l${seqNo}`, seqNo, status, toLocationName: `Điểm ${seqNo}`,
+    plannedDepartureAt: `dep${seqNo}`, waypointCheckins: [],
+  });
+  assert.equal(nextStop({ legs: [leg(1, "AT_STOP"), leg(2, "NOT_STARTED")] } as any)!.at, "dep2");
+  assert.equal(nextStop({ legs: [leg(1, "COMPLETED"), leg(2, "AT_STOP")] } as any)!.at, null);
 });
 test("trip without legs is not reported as delivered", () => {
   const out = applyPending({ legs: [], orderStatus: "READY", horses: [] } as any, []);

@@ -19,6 +19,7 @@ import Svg, { Polyline, Circle } from "react-native-svg";
 import { Banner, Button, Card, Section, Txt, useTheme } from "./ui";
 import { useSession } from "./session";
 import { useOnline } from "./queue";
+import { keepPicked } from "./photo";
 import { Skeleton, type SkeletonVariant } from "./skeleton";
 import { API_URL, WEB_URL } from "./config";
 import { dateTime } from "./live-domain";
@@ -425,7 +426,7 @@ export function PhotoPicker({
       );
       if (new File(photo.uri).size > 5 * 1024 * 1024)
         throw new Error("Ảnh sau nén vẫn lớn hơn 5 MB. Chọn ảnh khác.");
-      onChange([...photos, photo.uri].slice(0, max));
+      onChange([...photos, keepPicked(photo.uri)].slice(0, max));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không mở được ảnh.");
     } finally {

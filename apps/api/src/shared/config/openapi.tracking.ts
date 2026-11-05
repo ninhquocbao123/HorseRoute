@@ -56,9 +56,9 @@ export const trackingSchemas = {
     horses: { type: 'array', items: ref('TrackingHorse') }, legs: { type: 'array', items: ref('TrackingLeg') },
   }, ['id', 'orderId', 'orderCode', 'orderStatus', 'planStatus', 'plannedDepartureAt', 'plannedArrivalAt', 'crew', 'customer', 'recipient', 'coordinator', 'emergencyHotline', 'vehicles', 'horses', 'legs']),
 
-  MilestoneInput: object({ milestoneType, occurredAt: { ...time, description: 'Không ở tương lai (cho lệch đồng hồ 60 giây); nhập bù tối đa T phút (mặc định 120, cấu hình system_parameters.LEG_BACK); không sớm hơn mốc trước của chặng.' } }),
+  MilestoneInput: object({ milestoneType, occurredAt: { ...time, description: 'Không ở tương lai (cho lệch đồng hồ 60 giây); nhập bù tối đa T phút (mặc định 120, cấu hình system_parameters.LEG_BACK); không sớm hơn mốc trước của chặng.' }, queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' } }),
   MilestoneResult: object({ milestoneId: id, legId: id, milestoneType, legStatus, orderStatus }),
-  CompleteLegInput: object({ occurredAt: time }),
+  CompleteLegInput: object({ occurredAt: time, queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' } }),
   LegCompleteResult: object({ legId: id, status: { type: 'string', enum: ['COMPLETED'] } }),
   CorrectLegInput: object({
     status: legStatus,
@@ -72,6 +72,7 @@ export const trackingSchemas = {
     caption: nullable({ type: 'string', maxLength: 100, description: 'Nhãn ảnh (ví dụ "Lốp sau"); null với ảnh cũ.' }),
   }),
   HorseLogFields: object({
+    clientRequestId: { type: 'string', minLength: 8, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', description: 'Mã do máy sinh cho mỗi mục hàng chờ. Gửi lại cùng mã thì trả về bản ghi đã có, không tạo thêm và không thông báo lại.' },
     horseId: id, conditionStatus,
     note: { type: 'string', maxLength: 1000, description: 'Ghi chú nội bộ (khách không thấy).' },
     loggedAt: { ...time, description: 'Không ở tương lai.' },
@@ -126,6 +127,8 @@ export const trackingSchemas = {
     performedAt: time, createdBy: id, createdByName: { type: 'string' }, createdAt: time, correctsActivityId: nullable(id),
   }),
   CareActivityInput: object({
+    queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' },
+    clientRequestId: { type: 'string', minLength: 8, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', description: 'Mã do máy sinh cho mỗi mục hàng chờ. Gửi lại cùng mã thì trả về bản ghi đã có, không tạo thêm và không thông báo lại.' },
     activityType: { type: 'string', enum: ['FEED', 'WATER', 'REST'] },
     horseId: { ...id, nullable: true, description: 'Bắt buộc với FEED/WATER và phải thuộc đơn của chuyến; null được với REST (cả đoàn).' },
     feedDescription: { type: 'string', minLength: 1, maxLength: 200, nullable: true, description: 'Chỉ FEED, bắt buộc.' },
@@ -141,6 +144,7 @@ export const trackingSchemas = {
   }),
   CareActivityList: object({ activities: { type: 'array', items: ref('CareActivity') }, summary: ref('CareSummary') }),
   IncidentFields: object({
+    clientRequestId: { type: 'string', minLength: 8, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', description: 'Mã do máy sinh cho mỗi mục hàng chờ. Gửi lại cùng mã thì trả về bản ghi đã có, không tạo thêm và không thông báo lại.' },
     incidentType, description: { type: 'string', minLength: 5, maxLength: 2000 },
     legId: { ...id, description: 'Tuỳ chọn; phải thuộc chuyến.' },
     horseId: { ...id, description: 'Bắt buộc với HORSE_MEDICAL; phải thuộc đơn của chuyến.' },

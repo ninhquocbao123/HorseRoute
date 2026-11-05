@@ -7,8 +7,11 @@ const {
   legIdSchema,
   createMilestoneSchema,
   buildMilestoneSchema,
+  buildWaypointCheckinSchema,
+  buildCareActivitySchema,
   completeLegSchema,
   correctLegSchema,
+  createIncidentSchema,
 } = require('../src/features/tracking/tracking.validation');
 const { TrackingService } = require('../src/features/tracking/tracking.service');
 
@@ -16,6 +19,33 @@ test('Leg ID validation preserves large IDs and rejects unsafe inputs', () => {
   assert.equal(legIdSchema.parse('18446744073709551615'), '18446744073709551615');
   for (const bad of ['18446744073709551616', '0', '-5', 'abc', '1.2']) {
     assert.equal(legIdSchema.safeParse(bad).success, false);
+  }
+});
+
+test('G3: queuedAt extends the retroactive window to 24 hours, without it LEG_BACK applies', () => {
+  const ago = minutes => new Date(Date.now() - minutes * 60_000).toISOString();
+  const milestone = buildMilestoneSchema(120);
+  const base = { milestoneType: MilestoneType.DEPARTED };
+  assert.equal(milestone.safeParse({ ...base, occurredAt: ago(180) }).success, false);
+  assert.equal(milestone.safeParse({ ...base, occurredAt: ago(180), queuedAt: ago(180) }).success, true);
+  assert.equal(milestone.safeParse({ ...base, occurredAt: ago(1500), queuedAt: ago(1500) }).success, false);
+  // Giờ xảy ra không được sau giờ vào hàng chờ; giờ vào hàng chờ không được ở tương lai.
+  assert.equal(milestone.safeParse({ ...base, occurredAt: ago(10), queuedAt: ago(60) }).success, false);
+  assert.equal(milestone.safeParse({ ...base, occurredAt: ago(10), queuedAt: ago(-10) }).success, false);
+  // LEG_BACK lớn hơn 24 giờ thì giữ giá trị lớn hơn.
+  assert.equal(buildMilestoneSchema(2000).safeParse({ ...base, occurredAt: ago(1500), queuedAt: ago(1500) }).success, true);
+  assert.equal(buildWaypointCheckinSchema(120).safeParse({ occurredAt: ago(180), queuedAt: ago(180) }).success, true);
+  const care = { activityType: 'REST', durationMinutes: 10 };
+  assert.equal(buildCareActivitySchema(120).safeParse({ ...care, performedAt: ago(180) }).success, false);
+  assert.equal(buildCareActivitySchema(120).safeParse({ ...care, performedAt: ago(180), queuedAt: ago(180) }).success, true);
+});
+
+test('G2: clientRequestId accepts queue ids and rejects malformed values', () => {
+  const incident = { incidentType: 'LONG_TRAFFIC_JAM', severity: 'YELLOW', damageTarget: 'VEHICLE', description: 'Tắc đường lâu' };
+  assert.equal(createIncidentSchema.safeParse({ ...incident, clientRequestId: '1762300000000-a1b2c3' }).success, true);
+  assert.equal(createIncidentSchema.safeParse(incident).success, true);
+  for (const bad of ['short', 'có dấu cách', 'x'.repeat(65)]) {
+    assert.equal(createIncidentSchema.safeParse({ ...incident, clientRequestId: bad }).success, false);
   }
 });
 

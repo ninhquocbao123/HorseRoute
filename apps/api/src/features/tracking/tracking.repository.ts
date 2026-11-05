@@ -671,18 +671,46 @@ export class TrackingRepository {
     loggedAt: string,
     createdBy: string,
     correctsLogId: string | null,
-    report?: HorseReportColumns
+    report?: HorseReportColumns,
+    clientRequestId: string | null = null
   ): Promise<string> {
     // Nhật ký cũ không truyền `report`: các cột báo cáo giữ giá trị mặc định (NULL / 0).
     const result = await this.db.query(
       `INSERT INTO horse_logs (horse_id, leg_id, condition_status, note, logged_at, created_by, corrects_log_id,
-        body_temp_c, heart_rate_bpm, appetite, customer_note, report_status, send_to_customer, sent_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${report?.reportStatus === 'SENT' ? 'UTC_TIMESTAMP()' : 'NULL'})`,
+        body_temp_c, heart_rate_bpm, appetite, customer_note, report_status, send_to_customer, client_request_id, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${report?.reportStatus === 'SENT' ? 'UTC_TIMESTAMP()' : 'NULL'})`,
       [horseId, legId, conditionStatus, note, new Date(loggedAt), createdBy, correctsLogId,
         report?.bodyTempC ?? null, report?.heartRateBpm ?? null, report?.appetite ?? null, report?.customerNote ?? null,
-        report?.reportStatus ?? null, report?.sendToCustomer ? 1 : 0]
+        report?.reportStatus ?? null, report?.sendToCustomer ? 1 : 0, clientRequestId]
     );
     return String(result.insertId);
+  }
+
+  /** G2: bản ghi đã tạo từ cùng một mục hàng chờ của người này, trong đúng chặng / chuyến đang gửi. */
+  async findHorseLogByClientRequest(userId: string, clientRequestId: string, legId: string): Promise<{ id: string; tripId: string } | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(h.id AS CHAR) AS id, CAST(l.trip_id AS CHAR) AS tripId
+      FROM horse_logs h JOIN legs l ON l.id = h.leg_id
+      WHERE h.created_by = ? AND h.client_request_id = ? AND h.leg_id = ?`,
+      [userId, clientRequestId, legId]
+    );
+    return row;
+  }
+
+  async findCareActivityByClientRequest(userId: string, clientRequestId: string, tripId: string): Promise<string | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id FROM horse_care_activities WHERE created_by = ? AND client_request_id = ? AND trip_id = ?`,
+      [userId, clientRequestId, tripId]
+    );
+    return row?.id;
+  }
+
+  async findIncidentByClientRequest(userId: string, clientRequestId: string, tripId: string): Promise<string | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(id AS CHAR) AS id FROM incidents WHERE reported_by = ? AND client_request_id = ? AND trip_id = ?`,
+      [userId, clientRequestId, tripId]
+    );
+    return row?.id;
   }
 
   /** Sửa nháp: thay toàn bộ nội dung chỉnh được. Chỉ chạy trên dòng còn DRAFT. */
@@ -820,14 +848,14 @@ export class TrackingRepository {
 
   async insertCareActivity(input: {
     tripId: string; legId: string | null; horseId: string | null; activityType: string; feedDescription: string | null;
-    amountLiters: number | null; durationMinutes: number | null; note: string | null; performedAt: string; createdBy: string; correctsActivityId: string | null;
+    amountLiters: number | null; durationMinutes: number | null; note: string | null; performedAt: string; createdBy: string; correctsActivityId: string | null; clientRequestId?: string | null;
   }): Promise<string> {
     const result = await this.db.query(
       `INSERT INTO horse_care_activities
-        (trip_id, leg_id, horse_id, activity_type, feed_description, amount_liters, duration_minutes, note, performed_at, created_by, corrects_activity_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (trip_id, leg_id, horse_id, activity_type, feed_description, amount_liters, duration_minutes, note, performed_at, created_by, corrects_activity_id, client_request_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [input.tripId, input.legId, input.horseId, input.activityType, input.feedDescription, input.amountLiters, input.durationMinutes, input.note,
-        new Date(input.performedAt), input.createdBy, input.correctsActivityId]
+        new Date(input.performedAt), input.createdBy, input.correctsActivityId, input.clientRequestId ?? null]
     );
     return String(result.insertId);
   }
@@ -913,13 +941,14 @@ export class TrackingRepository {
     locationText: string | null;
     reportedBy: string;
     reportedAt: string;
+    clientRequestId?: string | null;
   }): Promise<string> {
     const result = await this.db.query(
       `INSERT INTO incidents (trip_id, leg_id, horse_id, incident_type, sub_type, severity, damage_target, description, urgency,
-        latitude, longitude, location_text, status, reported_by, reported_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?)`,
+        latitude, longitude, location_text, status, reported_by, reported_at, client_request_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?)`,
       [input.tripId, input.legId, input.horseId, input.incidentType, input.subType, input.severity, input.damageTarget, input.description,
-        input.urgency, input.latitude, input.longitude, input.locationText, input.reportedBy, new Date(input.reportedAt)]
+        input.urgency, input.latitude, input.longitude, input.locationText, input.reportedBy, new Date(input.reportedAt), input.clientRequestId ?? null]
     );
     return String(result.insertId);
   }

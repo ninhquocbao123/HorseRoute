@@ -31,11 +31,27 @@ const milestoneTimeSchema = z.string().datetime({ offset: false }).refine(value 
 
 /** Mặc định T (phút) cho phép nhập bù mốc đã xảy ra; có thể ghi đè bằng system_parameters.LEG_BACK. */
 export const DEFAULT_MAX_RETROACTIVE_MINUTES = 120;
+/** G3 phương án A: mốc gửi từ hàng chờ offline (kèm `queuedAt`) được nhận trong 24 giờ, bằng cửa sổ của GPS. */
+export const QUEUED_RETROACTIVE_MINUTES = 24 * 60;
 const CLOCK_SKEW_MS = 60_000;
 
-function checkOccurredAt(occurredAt: string, maxRetroactiveMinutes: number, context: z.RefinementCtx, field = 'occurredAt') {
+/** G2: mã do máy sinh cho mỗi mục hàng chờ, gửi lại cùng mã thì trả về bản ghi đã có. */
+const clientRequestIdSchema = z.string().trim().min(8, 'Mã yêu cầu không hợp lệ.').max(64, 'Mã yêu cầu không hợp lệ.')
+  .regex(/^[A-Za-z0-9_-]+$/, 'Mã yêu cầu không hợp lệ.');
+
+function checkOccurredAt(occurredAt: string, maxRetroactiveMinutes: number, context: z.RefinementCtx, field = 'occurredAt', queuedAt?: string) {
   const timestamp = Date.parse(occurredAt);
   const now = Date.now();
+  if (queuedAt) {
+    const queued = Date.parse(queuedAt);
+    if (queued > now + CLOCK_SKEW_MS) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['queuedAt'], message: 'Giờ vào hàng chờ không được ở tương lai.' });
+    }
+    if (timestamp > queued + CLOCK_SKEW_MS) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: 'Thời điểm xảy ra không được sau giờ vào hàng chờ.' });
+    }
+    maxRetroactiveMinutes = Math.max(maxRetroactiveMinutes, QUEUED_RETROACTIVE_MINUTES);
+  }
   if (timestamp > now + CLOCK_SKEW_MS) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -58,20 +74,21 @@ export function buildMilestoneSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROAC
       errorMap: () => ({ message: 'Loại mốc không hợp lệ (DEPARTED, ARRIVED_AT_STOP, CUSTOMS_CLEARED, DELIVERED).' }),
     }),
     occurredAt: milestoneTimeSchema,
-  }).strict().superRefine(({ occurredAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context));
+    queuedAt: milestoneTimeSchema.optional(),
+  }).strict().superRefine(({ occurredAt, queuedAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context, 'occurredAt', queuedAt));
 }
 export const createMilestoneSchema = buildMilestoneSchema();
 export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
 
 export function buildWaypointCheckinSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
-  return z.object({ occurredAt: milestoneTimeSchema }).strict()
-    .superRefine(({ occurredAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context));
+  return z.object({ occurredAt: milestoneTimeSchema, queuedAt: milestoneTimeSchema.optional() }).strict()
+    .superRefine(({ occurredAt, queuedAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context, 'occurredAt', queuedAt));
 }
 export const waypointIdSchema = z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/, 'Mã điểm dừng không hợp lệ.');
 
 export function buildCompleteLegSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
-  return z.object({ occurredAt: milestoneTimeSchema }).strict()
-    .superRefine(({ occurredAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context));
+  return z.object({ occurredAt: milestoneTimeSchema, queuedAt: milestoneTimeSchema.optional() }).strict()
+    .superRefine(({ occurredAt, queuedAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context, 'occurredAt', queuedAt));
 }
 export const completeLegSchema = buildCompleteLegSchema();
 export type CompleteLegInput = z.infer<typeof completeLegSchema>;
@@ -138,6 +155,7 @@ export const createHorseLogSchema = z.object({
   horseId: legIdSchema,
   correctsLogId: legIdSchema.optional().nullable(),
   reportStatus: z.nativeEnum(HorseReportStatus, { errorMap: () => ({ message: 'Trạng thái báo cáo không hợp lệ (DRAFT, SENT).' }) }).optional(),
+  clientRequestId: clientRequestIdSchema.optional(),
   ...horseReportFields,
 }).strict().superRefine((data, context) => {
   noFuture(data.loggedAt, context);
@@ -165,6 +183,7 @@ const coordinateSchema = (min: number, max: number, label: string) => z.coerce.n
   .refine(value => value >= min && value <= max, `${label} phải trong khoảng ${min}..${max}.`);
 
 export const createIncidentSchema = z.object({
+  clientRequestId: clientRequestIdSchema.optional(),
   incidentType: z.nativeEnum(IncidentType, {
     errorMap: () => ({ message: 'Loại sự cố không hợp lệ (VEHICLE_BREAKDOWN, LONG_TRAFFIC_JAM, HORSE_MEDICAL).' }),
   }),
@@ -295,6 +314,8 @@ export function buildCareActivitySchema(maxRetroactiveMinutes = DEFAULT_MAX_RETR
       .min(1, 'Thời gian nghỉ tối thiểu 1 phút.').max(720, 'Thời gian nghỉ tối đa 720 phút.').optional().nullable(),
     note: z.string().trim().max(255, 'Ghi chú tối đa 255 ký tự.').optional().nullable(),
     performedAt: milestoneTimeSchema,
+    queuedAt: milestoneTimeSchema.optional(),
+    clientRequestId: clientRequestIdSchema.optional(),
     correctsActivityId: legIdSchema.optional().nullable(),
   }).strict().superRefine((input, context) => {
     const issue = (path: string, message: string) => context.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
@@ -310,7 +331,7 @@ export function buildCareActivitySchema(maxRetroactiveMinutes = DEFAULT_MAX_RETR
       needs('durationMinutes', 'Thời gian nghỉ');
       mustBeEmpty('feedDescription', 'Khẩu phần'); mustBeEmpty('amountLiters', 'Lượng nước');
     }
-    checkOccurredAt(input.performedAt, maxRetroactiveMinutes, context, 'performedAt');
+    checkOccurredAt(input.performedAt, maxRetroactiveMinutes, context, 'performedAt', input.queuedAt);
   });
 }
 export const careActivitySchema = buildCareActivitySchema();

@@ -40,6 +40,7 @@ import { useResource, useSession } from "../session";
 import { Contact, Empty } from "../live-ui";
 import { AbnormalSheet, QuickLogSheet, lastCare } from "./CrewWork";
 import {
+  BACKFILL_MS,
   CONTINUE_ANYWAY,
   applyPending,
   asId,
@@ -47,6 +48,8 @@ import {
   driverAction,
   label,
   nextStop,
+  pastClock,
+  tripTimeline,
   type DriverAction,
 } from "../live-domain";
 import {
@@ -156,7 +159,7 @@ export function DriverTrip({
   }, [checklistKey, serverTrip]);
   useEffect(() => {
     if (running) void startTripTracking(trip.id).then(gps.refresh);
-    if (done) void stopTripTracking();
+    if (done) void stopTripTracking(trip.id);
   }, [running, done, trip.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Màn sáng khi chuyến chạy: tài xế liếc khi dừng đèn đỏ.
@@ -167,7 +170,7 @@ export function DriverTrip({
     };
   }, [running]);
 
-  const tooOld = Date.now() - when.getTime() > 120 * 60000;
+  const tooOld = Date.now() - when.getTime() > BACKFILL_MS;
   const record = (a: DriverAction, at: Date) => {
     const occurredAt = (
       at.getTime() > Date.now() ? new Date() : at
@@ -196,7 +199,7 @@ export function DriverTrip({
       onExpire: () => sendNow(id),
     });
     if (a.body.milestoneType === "DELIVERED") {
-      void stopTripTracking();
+      void stopTripTracking(trip.id);
       notify(
         `Đã giao ${trip.horses.length} ngựa lúc ${clock(occurredAt)}`,
         "Đã tắt gửi vị trí. Cảm ơn bạn.",
@@ -297,41 +300,8 @@ export function DriverTrip({
     </>
   );
 
-  const legs = [...trip.legs].sort((a, b) => a.seqNo - b.seqNo);
-  const timeline = {
-    active: done
-      ? legs.length + 1
-      : (() => {
-          const i = legs.findIndex((l) => l.status !== "COMPLETED");
-          if (i < 0) return legs.length;
-          return legs[i].status === "NOT_STARTED" ? i : i + 1;
-        })(),
-    stops: legs.length
-      ? [
-          {
-            name: legs[0].fromLocationName,
-            note: "Điểm xuất phát",
-            time:
-              legs[0].status === "NOT_STARTED"
-                ? `Dự kiến ${clock(legs[0].plannedDepartureAt)}`
-                : `Rời ${clock(legs[0].actualDepartureAt)}`,
-          },
-          ...legs.map((l, i) => ({
-            name: l.toLocationName,
-            note:
-              i === legs.length - 1
-                ? "Điểm giao"
-                : l.status === "AT_STOP"
-                  ? "Đang dừng"
-                  : "Điểm dừng",
-            time:
-              l.status === "COMPLETED" || l.status === "AT_STOP"
-                ? `Đến ${clock(l.actualArrivalAt)}`
-                : `Dự kiến ${clock(l.plannedArrivalAt)}`,
-          })),
-        ]
-      : [],
-  };
+  const timeline = tripTimeline(trip, map, clock);
+  const earlierDay = when.toDateString() !== new Date().toDateString();
   return (
     <ScreenBody
       footer={footer}
@@ -455,7 +425,7 @@ export function DriverTrip({
         ) : null}
       </Card>
 
-      {/* DRV-04 Xác nhận mốc: chạm giờ để chọn lại, lùi tối đa 2 giờ. */}
+      {/* DRV-04 Xác nhận mốc: chạm giờ để chọn lại, lùi tối đa 24 giờ. */}
       <Sheet
         visible={!!confirm}
         onClose={() => setConfirm(null)}
@@ -481,17 +451,17 @@ export function DriverTrip({
           label="Giờ ghi"
           mode="time"
           value={when}
-          onChange={(d) => {
-            const next = new Date(when);
-            next.setHours(d.getHours(), d.getMinutes(), 0, 0);
-            setWhen(next);
-          }}
+          onChange={(d) => setWhen(pastClock(d.getHours(), d.getMinutes()))}
           error={
             tooOld
-              ? "Chỉ ghi lùi tối đa 2 giờ. Quá 2 giờ, hãy gọi điều phối để sửa."
+              ? "Chỉ ghi lùi tối đa 24 giờ. Quá 24 giờ, hãy gọi điều phối để sửa."
               : undefined
           }
-          hint="Quên ghi lúc đến? Chạm vào giờ để sửa. Sau khi xác nhận có 5 giây để hoàn tác."
+          hint={
+            earlierDay
+              ? `Giờ này là của hôm qua, ngày ${when.toLocaleDateString("vi-VN")}. Sau khi xác nhận có 5 giây để hoàn tác.`
+              : "Quên ghi lúc đến? Chạm vào giờ để sửa. Sau khi xác nhận có 5 giây để hoàn tác."
+          }
         />
       </Sheet>
     </ScreenBody>

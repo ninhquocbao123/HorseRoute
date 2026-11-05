@@ -121,6 +121,11 @@ const ALERT_LABELS: Record<AlertType, string> = {
   [AlertType.BORDER]: 'cửa khẩu',
 };
 
+const isDuplicateKey = (error: unknown) => {
+  const e = error as { code?: string; driverError?: { code?: string } };
+  return (e.driverError?.code ?? e.code) === 'ER_DUP_ENTRY';
+};
+
 /** Form multipart gửi ô trống dưới dạng chuỗi rỗng: coi như không gửi trường đó. */
 function normalizeForm(body: unknown) {
   if (!body || typeof body !== 'object') return body;
@@ -780,6 +785,15 @@ export class TrackingService {
     }
     const legId = parse(legIdSchema, rawLegId);
     const input = parse(createHorseLogSchema, normalizeForm(body));
+    // G2: hàng chờ gửi lại sau khi mất phản hồi thì trả bản đã ghi, không tạo thêm và không báo lại cho khách.
+    const replay = async () => {
+      if (!input.clientRequestId) return null;
+      const found = await this.repository.findHorseLogByClientRequest(String(account.id), input.clientRequestId, legId);
+      if (!found) return null;
+      return (await this.loadHorseLogs(this.repository, found.tripId, String(account.id))).find(item => item.id === found.id) ?? null;
+    };
+    const replayed = await replay();
+    if (replayed) return replayed;
     assertPhotos(files);
     if (input.captions.length > files.length) {
       throw new BadRequestException('Số nhãn ảnh không được nhiều hơn số ảnh.');
@@ -831,7 +845,7 @@ export class TrackingService {
         }
 
         const logId = await repo.insertHorseLog(
-          input.horseId, legId, input.conditionStatus, input.note || null, input.loggedAt, String(account.id), input.correctsLogId ?? null, report
+          input.horseId, legId, input.conditionStatus, input.note || null, input.loggedAt, String(account.id), input.correctsLogId ?? null, report, input.clientRequestId ?? null
         );
         for (const [index, file] of saved.entries()) {
           await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), logId, null, input.captions[index] || null);
@@ -850,6 +864,10 @@ export class TrackingService {
       return log;
     } catch (error) {
       await Promise.all(saved.map(file => removeFile(file.key)));
+      if (isDuplicateKey(error)) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
       throw error;
     }
   }
@@ -1129,6 +1147,16 @@ export class TrackingService {
     }
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(buildCareActivitySchema(await this.repository.getMaxRetroactiveMinutes()), files.length ? careFormBody(body) : body);
+    // G2: gửi lại cùng mục hàng chờ thì trả bản đã ghi.
+    const replay = async () => {
+      if (!input.clientRequestId) return null;
+      const id = await this.repository.findCareActivityByClientRequest(String(account.id), input.clientRequestId, tripId);
+      if (!id) return null;
+      const [activity] = await this.careActivitiesWithPhotos(this.repository, await this.repository.getCareActivities(tripId, undefined, id));
+      return activity ?? null;
+    };
+    const replayed = await replay();
+    if (replayed) return replayed;
     assertPhotos(files);
     if (PHOTO_REQUIRED.CARE_ACTIVITY && !files.length && !input.correctsActivityId) {
       throw new BadRequestException('Cần ít nhất 1 ảnh để cập nhật nhật ký cho khách.');
@@ -1171,6 +1199,7 @@ export class TrackingService {
           performedAt: input.performedAt,
           createdBy: String(account.id),
           correctsActivityId: input.correctsActivityId ?? null,
+          clientRequestId: input.clientRequestId ?? null,
         });
         for (const file of saved) {
           await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, null, null, activityId);
@@ -1186,6 +1215,10 @@ export class TrackingService {
       });
     } catch (error) {
       await Promise.all(saved.map(file => removeFile(file.key)));
+      if (isDuplicateKey(error)) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
       throw error;
     }
   }
@@ -1222,6 +1255,17 @@ export class TrackingService {
     }
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createIncidentSchema, normalizeForm(body));
+    // G2: gửi lại cùng mục hàng chờ thì trả sự cố đã có, không báo lại cho điều phối.
+    const replay = async (): Promise<IIncident | null> => {
+      if (!input.clientRequestId) return null;
+      const id = await this.repository.findIncidentByClientRequest(String(account.id), input.clientRequestId, tripId);
+      const row = id ? await this.repository.getIncidentById(id) : null;
+      if (!row) return null;
+      const [{ orderId: _o, orderCode: _c, routeLabel: _r, reporterRole: _p, ...incident }] = await this.toIncidents(this.repository, [row]);
+      return incident;
+    };
+    const replayed = await replay();
+    if (replayed) return replayed;
     assertPhotos(files);
     if (PHOTO_REQUIRED.INCIDENT && !files.length) {
       throw new BadRequestException('Cần ít nhất 1 ảnh hiện trường để điều phối viên xử lý sự cố.');
@@ -1254,7 +1298,7 @@ export class TrackingService {
           tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, description: input.description,
           urgency, severity: input.severity, subType, damageTarget: input.damageTarget,
           latitude: input.latitude ?? null, longitude: input.longitude ?? null, locationText: input.locationText || null,
-          reportedBy: String(account.id), reportedAt: new Date().toISOString(),
+          reportedBy: String(account.id), reportedAt: new Date().toISOString(), clientRequestId: input.clientRequestId ?? null,
         });
         for (const [index, file] of saved.entries()) {
           await repo.insertAttachmentRecord(file.name, file.type, file.size, file.key, String(account.id), null, incidentId, input.captions[index] || null);
@@ -1290,6 +1334,10 @@ export class TrackingService {
       return incident;
     } catch (error) {
       await Promise.all(saved.map(file => removeFile(file.key)));
+      if (isDuplicateKey(error)) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
       throw error;
     }
   }

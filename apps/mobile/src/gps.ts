@@ -12,6 +12,7 @@ import { Linking, Platform } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, createApiClient } from "./api/http";
 import { API_URL, AUTH_KEY } from "./config";
+import { shouldStopTracking } from "./live-domain";
 
 export const GPS_TASK = "horseroute-trip-gps";
 const TRIP_KEY = "horseroute.gps.trip";
@@ -167,7 +168,8 @@ export async function startTripTracking(tripId: string) {
   return state;
 }
 
-export async function stopTripTracking() {
+export async function stopTripTracking(tripId: string) {
+  if (!shouldStopTracking(await AsyncStorage.getItem(TRIP_KEY), tripId)) return;
   await AsyncStorage.removeItem(TRIP_KEY);
   if (
     await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false)

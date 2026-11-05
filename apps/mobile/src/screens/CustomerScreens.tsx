@@ -81,6 +81,8 @@ import type {
 import {
   asId,
   canResumeDraft,
+  quoteExpiredForPayment,
+  recipientError,
   dateTime,
   emptyProfile,
   fromOrder,
@@ -1061,7 +1063,7 @@ export function QuoteScreen({ id }: { id: string }) {
     <ScreenBody
       onRefresh={resource.reload}
       footer={
-        quote && due > 0 ? (
+        quote && due > 0 && !quoteExpiredForPayment(quote) ? (
           <Button
             title={
               Number(quote.paid) > 0
@@ -1780,14 +1782,27 @@ export function ProfilesScreen({ go, id }: { go: Navigate; id?: string }) {
     </ScreenBody>
   );
 }
-export function ProfileFormScreen({ id, go }: { id?: string; go: Navigate }) {
+export function ProfileFormScreen({
+  id,
+  go,
+  replace,
+}: {
+  id?: string;
+  go: Navigate;
+  replace: Navigate;
+}) {
   const resource = useResource<Profile[]>(id ? "/customer/profiles" : null);
-  if (!id) return <ProfileForm go={go} />;
+  if (!id) return <ProfileForm go={go} replace={replace} />;
   const profile = resource.data?.find((h) => String(h.id) === id);
   return (
     <ResourceState resource={resource} what="hồ sơ ngựa" skeleton="detail">
       {profile ? (
-        <ProfileForm key={profile.id} initial={profile} go={go} />
+        <ProfileForm
+          key={profile.id}
+          initial={profile}
+          go={go}
+          replace={replace}
+        />
       ) : (
         <NotFound
           title="Không tìm thấy hồ sơ để chỉnh sửa"
@@ -1798,7 +1813,15 @@ export function ProfileFormScreen({ id, go }: { id?: string; go: Navigate }) {
   );
 }
 /** CUS-10 Thêm/sửa hồ sơ ngựa, có ảnh ngựa (F-K1). */
-function ProfileForm({ initial, go }: { initial?: Profile; go: Navigate }) {
+function ProfileForm({
+  initial,
+  go,
+  replace,
+}: {
+  initial?: Profile;
+  go: Navigate;
+  replace: Navigate;
+}) {
   const { request, user, write, writing, refresh } = useSession();
   const { notify } = useOverlay();
   const { colors: c } = useTheme();
@@ -1857,7 +1880,9 @@ function ProfileForm({ initial, go }: { initial?: Profile; go: Navigate }) {
           `Đã lưu hồ sơ ${form.name.trim()}`,
           photoError ? `Chưa tải được ảnh: ${photoError}` : undefined,
         );
-        go("horse", { id: savedId });
+        // Lưu xong không quay lại form đã gửi: sửa thì về màn hồ sơ đang mở, thêm mới thì thay form bằng hồ sơ vừa tạo.
+        if (initial) go("back");
+        else replace("horse", { id: savedId });
       });
     } catch (e) {
       setError(messageOf(e));
@@ -2258,11 +2283,8 @@ function BookingForm({
         throw new Error("Chọn ngày khởi hành từ hôm nay trở đi.");
     }
     if (step === 2) {
-      const phone = draft.recipientPhone.replace(/[\s.]/g, "");
-      if (phone && !/^\+?\d{9,15}$/.test(phone))
-        throw new Error("Số điện thoại người nhận có 9 đến 15 chữ số.");
-      if (phone && !draft.recipientName.trim())
-        throw new Error("Nhập tên người nhận đi kèm số điện thoại.");
+      const problem = recipientError(draft.recipientName, draft.recipientPhone);
+      if (problem) throw new Error(problem);
     }
   };
   /** Ước khoảng cách (chỉ hỗ trợ VN, CN, TH). Không ước được thì để quản lý tính khi báo giá. */
@@ -2696,6 +2718,7 @@ function BookingForm({
             }
             keyboardType="phone-pad"
             maxLength={20}
+            hint="Bắt buộc khi đã nhập tên người nhận."
           />
           <Field
             label="Yêu cầu đặc biệt (không bắt buộc)"

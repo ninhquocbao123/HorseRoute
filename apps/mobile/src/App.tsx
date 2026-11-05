@@ -600,6 +600,7 @@ function Authenticated({
     ? [
         { screen: "home", title: "Ngựa", icon: PawPrint },
         { screen: "journal", title: "Nhật ký", icon: NotebookPen },
+        { screen: "incidents", title: "Sự cố", icon: TriangleAlert },
       ]
     : [
         { screen: "home", title: "Chuyến", icon: Truck },
@@ -679,7 +680,7 @@ function Authenticated({
         <ProfilesScreen go={go} id={screen === "horse" ? page.id : undefined} />
       );
     else if (screen === "horse-form")
-      content = <ProfileFormScreen go={go} id={page.id} />;
+      content = <ProfileFormScreen go={go} replace={replace} id={page.id} />;
     else if (screen === "booking")
       content = <BookingScreen page={page} go={go} replace={replace} />;
     else if (page.id && (screen === "order" || screen === "documents"))
@@ -758,7 +759,9 @@ function Authenticated({
         title={
           screen === "home" && escort && selected
             ? "Ngựa trên chuyến"
-            : titles[screen] || (customer ? "Hành trình" : "Chuyến của tôi")
+            : screen === "horse-form" && !page.id
+              ? "Thêm hồ sơ ngựa"
+              : titles[screen] || (customer ? "Hành trình" : "Chuyến của tôi")
         }
         subtitle={pages.length === 1 ? roleName : undefined}
         back={

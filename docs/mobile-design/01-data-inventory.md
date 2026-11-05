@@ -352,8 +352,8 @@ Không endpoint nào có phân trang ngoài `/orders`. Không endpoint nào hỗ
 | # | Khoảng trống | Mức | Đề xuất thay đổi API (chỉ đề xuất) |
 | --- | --- | --- | --- |
 | G1 | Không có nơi lưu device token, không gửi push | Bắt buộc MVP | Bảng `user_devices(user_id, token, platform, updated_at)`; `POST/DELETE /users/me/devices`; khi ghi `notifications` thì gửi FCM kèm `related_type/related_id` để mở đúng màn |
-| G2 | Gửi lại sự cố, báo cáo sức khỏe, hoạt động chăm sóc từ hàng chờ có thể tạo bản ghi trùng | Bắt buộc MVP | Thêm `clientRequestId` (uuid tạo trên máy) + khóa duy nhất, giống `orders.client_request_id` đã có |
-| G3 | Mốc chặng và chăm sóc chỉ cho nhập bù 120 phút (`LEG_BACK`); mất mạng lâu hơn sẽ bị từ chối | Bắt buộc MVP (cần quyết định) | Phương án A: nhận mốc gửi từ hàng chờ với `queuedAt` và cửa sổ dài hơn (VD 24 giờ, giống GPS). Phương án B: giữ 120 phút, app báo "Cần điều phối hiệu chỉnh" và gọi hotline |
+| G2 | Gửi lại sự cố, báo cáo sức khỏe, hoạt động chăm sóc từ hàng chờ có thể tạo bản ghi trùng | Bắt buộc MVP | Đã làm (05/11/2026): `clientRequestId` tạo trên máy + khóa duy nhất, giống `orders.client_request_id`. Xem [09-test-va-sua-loi.md](09-test-va-sua-loi.md) |
+| G3 | Mốc chặng và chăm sóc chỉ cho nhập bù 120 phút (`LEG_BACK`); mất mạng lâu hơn sẽ bị từ chối | Bắt buộc MVP | Đã làm phương án A (05/11/2026). Phương án A: nhận mốc gửi từ hàng chờ với `queuedAt` và cửa sổ dài hơn (VD 24 giờ, giống GPS). Phương án B: giữ 120 phút, app báo "Cần điều phối hiệu chỉnh" và gọi hotline |
 | G4 | Customer chỉ thấy vị trí ước tính (điểm xuất phát chặng), không thấy xe thật | Cần quyết định | Hoặc giữ như hiện tại (riêng tư tài xế), hoặc trả vị trí thật làm tròn và trễ 5–10 phút |
 | G5 | Không có refresh token; JWT 7 ngày hết hạn giữa chuyến dài | Nên có | `POST /auth/refresh` + refresh token lưu Keychain; hoặc tăng hạn cho DRIVER_ESCORT |
 | G6 | Checklist trước chuyến không lưu backend | Nên có | `GET/PUT /tracking/trips/:id/pre-departure-checks` (đã ghi trong `gap-analysis-driver.md`) |
