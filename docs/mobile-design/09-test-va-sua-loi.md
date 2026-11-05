@@ -1,6 +1,6 @@
 # 09 — Test và sửa lỗi mobile cho customer, tài xế, hộ tống
 
-Ngày 05/11/2026. App: `apps/mobile`. Đợt 1 nằm trong commit `a04dff6`, nhánh `long`, chưa push. Đợt 2 (mục 5) sửa tiếp trên commit đó.
+Ngày 05/11/2026. App: `apps/mobile`. Đợt 1 nằm trong commit `a04dff6`, đợt 2 (mục 5) trong commit `1d556e7`. Cả hai đã có trên `long` và `dev`.
 
 ## 1. Kết luận
 
@@ -90,6 +90,8 @@ Lỗi mới phát hiện khi bấm thử, đã sửa:
 
 Còn một điểm nhỏ chưa sửa: thẻ "Đặt cọc cho …" ở trang chủ khách hàng vẫn hiện với báo giá đã hết hạn, vì API danh sách đơn không trả hạn báo giá. Chạm vào thì màn báo giá báo đã hết hạn và không có nút thanh toán.
 
+Một hiện tượng chưa rõ nguyên nhân: khi ép `pm trim-caches` chỉ vài giây sau khi bấm Done ở camera, form `Báo bất thường` hiện `Ảnh · 0/3`, ảnh không vào form. Gặp 1 lần; lần thử lại đợi ảnh vào form rồi mới ép dọn cache thì đạt. Người dùng chụp lại được và form báo thiếu ảnh nên không gửi nhầm. Chưa điều tra thêm.
+
 ## 6. Việc bắt buộc khi triển khai
 
 1. Migration `1800000092000-ClientRequestIds` **đã chạy trên DB chung `wdp` ngày 05/11/2026**. API mới ghi cột `client_request_id`, nên mọi DB khác (máy cá nhân, môi trường mới) phải chạy migration này trước khi chạy API mới; nếu thiếu thì mọi lần tạo sự cố, nhật ký ngựa và ghi chăm sóc đều lỗi, kể cả từ web. Code cũ vẫn chạy được với DB đã migrate vì cột cho phép NULL.
@@ -114,11 +116,11 @@ Còn một điểm nhỏ chưa sửa: thẻ "Đặt cọc cho …" ở trang ch�
 
 - `apps/api/test/flow4-tracking.mysql.cjs` đã lỗi thời so với schema (cột `plate_or_code`), không chạy được.
 - Container Docker `horseroute-api-1` đang khởi động lại liên tục; chưa xem nguyên nhân.
-- `pnpm-lock.yaml` chưa có `apps/mobile`, nên `pnpm install --frozen-lockfile` ở gốc repo thất bại.
+- `pnpm-lock.yaml` đã có `apps/mobile` (commit `14d880a`) nhưng vẫn lệch với `apps/mobile/package.json`, nên `pnpm install --frozen-lockfile` ở gốc repo vẫn thất bại (`ERR_PNPM_OUTDATED_LOCKFILE`, thử lại ngày 05/11/2026 trên `91a1627`). Cách cài hiện tại: `npm ci` trong `apps/mobile`, `pnpm install --no-frozen-lockfile --filter '!@horseroute/mobile'` ở gốc rồi khôi phục `pnpm-lock.yaml`.
 
 ## 10. Đề xuất thứ tự tiếp theo
 
-1. Push nhánh `long` và triển khai API (migration trên DB chung đã xong).
+1. Triển khai API từ `dev` (code đã push, migration trên DB chung đã xong).
 2. Làm bản dev build để kiểm chứng GPS nền.
 3. Các màn còn thiếu và push.
 4. Chạy trọn luồng liên role trên máy Android thật.
