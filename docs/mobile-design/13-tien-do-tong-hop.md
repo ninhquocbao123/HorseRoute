@@ -10,7 +10,7 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 
 **Đã làm:**
 
-- API: migration `1800000093000-DeliveryExceptions` (loại sự cố `DELIVERY_ISSUE`, bảng `delivery_exceptions`, người nhận thực tế ở `leg_milestones`). **Chưa chạy trên DB chung, cần Long đồng ý.**
+- API: migration `1800000093000-DeliveryExceptions` (loại sự cố `DELIVERY_ISSUE`, bảng `delivery_exceptions`, người nhận thực tế ở `leg_milestones`). Đã chạy trên DB chung ngày 06/11/2026.
 - API: mốc `DELIVERED` và hiệu chỉnh chặng trả `402` khi chưa trả đủ; `paymentCleared`, `deliveryExceptionReason` trong dữ liệu chuyến; `/tracking/orders/:id/delivery-clearance`, `/delivery-exception`, `/delivery-exception/open`; thông báo khi xe tới mà chưa đủ tiền và khi đã trả đủ; dùng lại phiên mô phỏng còn hạn.
 - Mobile khách: `paymentAction`, CUS-04, màn `PaymentScreen` mô phỏng (CUS-17, CUS-18), thẻ đặt cọc, thanh toán, khẩn ở trang chủ. Thẻ đặt cọc không còn hiện khi báo giá hết hạn.
 - Mobile tổ lái: "Chờ khách thanh toán", "Kiểm tra lại", tự hỏi lại 15 giây, báo sự cố giao ngựa, "Người khác nhận thay"; chỉ báo đã giao và tắt GPS sau khi máy chủ nhận; hàng chờ xử lý `402`.
@@ -34,7 +34,7 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 
 **Việc tiếp theo, theo thứ tự:**
 
-1. Trước khi lên DB chung: Long đồng ý chạy migration và kiểm tra các chuyến `IN_TRANSIT` chưa trả đủ, vì chúng sẽ bị chặn ngay ở bước giao.
+1. Migration `DeliveryExceptions` đã chạy trên DB chung ngày 06/11/2026. Lúc đó cả 3 đơn đang hoạt động còn nợ nên bị chặn ở bước giao cho tới khi trả đủ hoặc có ngoại lệ: `VCN-20261025-0002` (READY), `VCN-20261026-0001` (IN_TRANSIT, đang dừng), `VCN-20261030-0002` (READY).
 2. Khi Long có khóa VNPay Sandbox: làm giai đoạn 1 và 2 file 10 phần cổng thật.
 
 **Dựng lại môi trường thử** (đã xóa sau phiên này):
@@ -57,6 +57,8 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 | CI: lockfile, lỗi kiểu React của web, schema test nạp thêm migration | Xong, các bước trước flow3 đều qua khi chạy trên máy | Commit `a2d078e` |
 
 ## 2. Chưa làm
+
+**Đã sửa và có trên `long`:** 4 lỗi và 6 chỗ chỉnh giao diện sau khi test trên máy ảo, kết quả ở [14-sua-loi-sau-test-may-ao.md](14-sua-loi-sau-test-may-ao.md), mục 9.
 
 ### Việc lớn
 

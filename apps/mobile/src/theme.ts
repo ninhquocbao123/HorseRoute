@@ -71,6 +71,9 @@ export interface ColorTokens {
   successFg: string;
   successBg: string;
   successSolid: string;
+  /** Mức sự cố Nhẹ: `severityLow` cho chữ, đủ tương phản; `severityLowMark` cho viền và thanh. */
+  severityLow: string;
+  severityLowMark: string;
   warningFg: string;
   warningBg: string;
   warningSolid: string;
@@ -281,6 +284,8 @@ export const lightTheme: Theme = {
     successFg: "#166534",
     successBg: "#eaf6ee",
     successSolid: "#166534",
+    severityLow: "#854d0e",
+    severityLowMark: "#ca8a04",
     warningFg: "#a24a05",
     warningBg: "#fdf1e4",
     warningSolid: "#b45309",
@@ -348,6 +353,8 @@ export const darkTheme: Theme = {
     successFg: "#6fd39a",
     successBg: "#0f2a1e",
     successSolid: "#17753f",
+    severityLow: "#eab308",
+    severityLowMark: "#eab308",
     warningFg: "#f3a35c",
     warningBg: "#2e1f0f",
     warningSolid: "#b45309",

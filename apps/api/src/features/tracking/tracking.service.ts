@@ -1,5 +1,5 @@
 import {
-  CareActivityType, CrewRole, Role, HorseReportStatus, HORSE_CONDITION_META, HORSE_REPORT_PHOTO_REQUIRED_STATUSES, HORSE_REPORT_MAX_PHOTOS, PHOTO_REQUIRED,
+  CARE_ACTIVITY_LABEL, CareActivityType, CrewRole, Role, HorseReportStatus, HORSE_CONDITION_META, HORSE_REPORT_PHOTO_REQUIRED_STATUSES, HORSE_REPORT_MAX_PHOTOS, PHOTO_REQUIRED,
   type HorseConditionStatus, type IHorseReport, type IDeliveryClearance,
 } from '@my-project/shared';
 import { User } from '../users/users.model';
@@ -123,6 +123,8 @@ const INCIDENT_LABELS: Record<IncidentType, string> = {
   [IncidentType.HORSE_MEDICAL]: 'y tế ngựa',
   [IncidentType.DELIVERY_ISSUE]: 'giao ngựa',
 };
+/** Chăm sóc diễn ra liên tục: gộp tối đa một thông báo mỗi 30 phút cho mỗi đơn (kế hoạch 14). */
+const CARE_NOTICE_GAP_MINUTES = 30;
 const UNPAID_MESSAGE = 'Khách chưa thanh toán đủ nên chưa xác nhận giao được. Chờ khách thanh toán hoặc báo điều phối.';
 const ALERT_LABELS: Record<AlertType, string> = {
   [AlertType.TRAFFIC]: 'giao thông',
@@ -1259,7 +1261,7 @@ export class TrackingService {
     const saved: StoredFile[] = [];
     try {
       for (const file of files) saved.push(await saveFile(file));
-      return await this.repository.transaction(async repo => {
+      const created = await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
         const assignment = await repo.getDriverAssignment(tripId, String(account.id));
         if (assignment?.role !== CrewRole.ESCORT) throw new ForbiddenException('Chỉ hộ tống của chuyến mới được ghi nhật ký chăm sóc ngựa.');
@@ -1305,8 +1307,20 @@ export class TrackingService {
           JSON.stringify({ tripId, horseId, activityType: input.activityType, correctsActivityId: input.correctsActivityId ?? null, photos: saved.length })
         );
         const [activity] = await this.careActivitiesWithPhotos(repo, await repo.getCareActivities(tripId, undefined, activityId));
-        return activity;
+        let notice: { id: string; content: string } | null = null;
+        if (!input.correctsActivityId && !(await repo.hasRecentNotification(trip.customerId, 'CARE_ACTIVITY', 'ORDER', trip.orderId, CARE_NOTICE_GAP_MINUTES))) {
+          const content = `Đơn ${trip.orderCode}: hộ tống vừa ghi ${CARE_ACTIVITY_LABEL[input.activityType].toLowerCase()} cho ${activity.horseName ?? 'cả đoàn'}. Xem nhật ký trong hành trình.`;
+          notice = { id: await repo.notify(trip.customerId, 'CARE_ACTIVITY', content, 'ORDER', trip.orderId), content };
+        }
+        return { activity, notice, customerId: trip.customerId, orderId: trip.orderId };
       });
+      if (created.notice) {
+        const { id, content } = created.notice;
+        await this.publish('care_activity', async () => {
+          this.realtime.emitToUsers([created.customerId], 'notification:new', { id, content, createdAt: new Date().toISOString(), eventType: 'CARE_ACTIVITY', relatedType: 'ORDER', relatedId: created.orderId });
+        });
+      }
+      return created.activity;
     } catch (error) {
       await Promise.all(saved.map(file => removeFile(file.key)));
       if (isDuplicateKey(error)) {

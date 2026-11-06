@@ -504,6 +504,50 @@ export function tripTimeline(
   return { active, stops };
 }
 
+/**
+ * Tên địa điểm cho thẻ, bỏ tên địa phương sau dấu "·":
+ * "43, Manorom · มโนรมย์, Chai Nat · ชัยนาท" thành "43, Manorom, Chai Nat".
+ */
+export function placeName(name: string) {
+  const short = name
+    .split(",")
+    .map((part) => part.split("·")[0].trim())
+    .filter(Boolean)
+    .join(", ");
+  return short || name;
+}
+
+type CareActivity = {
+  activityType: string;
+  feedDescription: string | null;
+  amountLiters: number | null;
+  durationMinutes: number | null;
+  note: string | null;
+};
+/** Dòng chi tiết của một lần chăm sóc, giống `activityDetail` của web. */
+export function careDetail(activity: CareActivity) {
+  const main =
+    activity.activityType === "FEED"
+      ? activity.feedDescription
+      : activity.activityType === "WATER"
+        ? activity.amountLiters === null
+          ? null
+          : `${activity.amountLiters.toLocaleString("vi-VN")} L`
+        : activity.durationMinutes === null
+          ? null
+          : `${activity.durationMinutes} phút`;
+  return [main, activity.note].filter(Boolean).join(" · ");
+}
+/** Tóm tắt nhật ký chăm sóc, giống web. */
+export function careSummaryLine(summary: {
+  meals: number;
+  waterLiters: number;
+  rests: number;
+  restMinutes: number;
+}) {
+  return `${summary.meals} bữa ăn · ${summary.waterLiters.toLocaleString("vi-VN")} L nước · ${summary.rests} lần nghỉ chân${summary.restMinutes ? ` (${summary.restMinutes} phút)` : ""}`;
+}
+
 /** Tên ngắn cho nút: bỏ phần sau dấu phẩy và tiền tố loại điểm. */
 export function shortName(name: string) {
   return name

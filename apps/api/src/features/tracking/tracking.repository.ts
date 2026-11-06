@@ -553,6 +553,16 @@ export class TrackingRepository {
     return String(result?.insertId ?? '');
   }
 
+  /** Đã có thông báo cùng loại cho đúng người và đối tượng trong `minutes` phút gần đây chưa. */
+  async hasRecentNotification(recipientId: string, eventType: string, relatedType: string, relatedId: string, minutes: number): Promise<boolean> {
+    const rows = await this.db.query(
+      `SELECT 1 FROM notifications WHERE recipient_id = ? AND event_type = ? AND related_type = ? AND related_id = ?
+        AND created_at > UTC_TIMESTAMP() - INTERVAL ? MINUTE LIMIT 1`,
+      [recipientId, eventType, relatedType, relatedId, minutes]
+    );
+    return rows.length > 0;
+  }
+
   async notifyStakeholders(tripId: string, orderId: string, eventType: string, content: string): Promise<void> {
     await this.db.query(
       `INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel)

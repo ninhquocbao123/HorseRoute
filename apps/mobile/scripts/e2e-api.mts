@@ -618,6 +618,45 @@ await check("điều phối mở: tài xế thấy lý do, giao được; đơn 
   assert.equal(audit, 2);
 });
 
+/* ---------------- Nhật ký chăm sóc cho khách (kế hoạch 14) ---------------- */
+console.log("\n== Nhật ký chăm sóc ==");
+const crewCare = await mkCrew("care");
+const careTrip = await mkTrip(`K${tag}`, crewCare.d, crewCare.e, [[locA, locC]]);
+const carePath = `/tracking/trips/${careTrip.tripId}/care-activities`;
+const careNotices = () => notices(owner, "CARE_ACTIVITY", careTrip.orderId);
+await check("ghi chăm sóc: khách đọc được nhật ký và có đúng một thông báo", async () => {
+  const id = randomUUID();
+  const body = { activityType: "WATER", horseId: careTrip.horse, amountLiters: 12, performedAt: minutesAgo(5), clientRequestId: id };
+  const first = ok(await call("POST", carePath, crewCare.tE, body));
+  assert.equal(await careNotices(), 1);
+  const list = ok(await call("GET", `/tracking/orders/${careTrip.orderId}/care-activities`, tOwner));
+  assert.equal(list.activities.length, 1);
+  assert.equal(list.summary.waterLiters, 12);
+  const again = ok(await call("POST", carePath, crewCare.tE, body));
+  assert.equal(again.id, first.id, "Gửi lại phải trả bản đã ghi");
+  assert.equal(await careNotices(), 1, "Gửi lại không được tạo thêm thông báo");
+});
+await check("trong 30 phút: nhật ký vẫn đủ nhưng không thêm thông báo", async () => {
+  ok(await call("POST", carePath, crewCare.tE, { activityType: "REST", durationMinutes: 30, performedAt: minutesAgo(4) }));
+  assert.equal(await careNotices(), 1);
+  const list = ok(await call("GET", `/tracking/orders/${careTrip.orderId}/care-activities`, tOwner));
+  assert.equal(list.activities.length, 2);
+});
+await check("quá 30 phút: có thông báo mới; đính chính thì không", async () => {
+  await q("UPDATE notifications SET created_at=UTC_TIMESTAMP()-INTERVAL 31 MINUTE WHERE recipient_id=? AND event_type='CARE_ACTIVITY' AND related_id=?", [owner, careTrip.orderId]);
+  const fed = ok(await call("POST", carePath, crewCare.tE, { activityType: "FEED", horseId: careTrip.horse, feedDescription: "Cỏ khô", performedAt: minutesAgo(3) }));
+  assert.equal(await careNotices(), 2);
+  await q("UPDATE notifications SET created_at=UTC_TIMESTAMP()-INTERVAL 31 MINUTE WHERE recipient_id=? AND event_type='CARE_ACTIVITY' AND related_id=?", [owner, careTrip.orderId]);
+  ok(await call("POST", carePath, crewCare.tE, { activityType: "FEED", horseId: careTrip.horse, feedDescription: "Cám viên", performedAt: minutesAgo(2), correctsActivityId: fed.id }));
+  assert.equal(await careNotices(), 2, "Đính chính không được báo lại");
+});
+await check("tài khoản khách khác không đọc được nhật ký của đơn", async () => {
+  const other = await mkUser("othercus", "CUSTOMER");
+  assert.ok(other);
+  const token = await login(`e2e.othercus.${tag}@wdp.test`);
+  rejected(await call("GET", `/tracking/orders/${careTrip.orderId}/care-activities`, token));
+});
+
 console.log(`\nKết quả: ${passed} đạt, ${failures.length} lỗi.`);
 failures.forEach((f) => console.log(`  - ${f}`));
 notes.forEach((n) => console.log(`Ghi chú: ${n}`));

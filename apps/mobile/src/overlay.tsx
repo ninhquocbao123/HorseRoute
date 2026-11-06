@@ -301,12 +301,15 @@ export function Sheet({
   title,
   children,
   footer,
+  fixedHeight = false,
 }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Cao cố định, nội dung cuộn bên trong: đổi nội dung không làm sheet nhảy. */
+  fixedHeight?: boolean;
 }) {
   const { colors: c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
@@ -331,6 +334,7 @@ export function Sheet({
         <View
           style={[
             styles.sheet,
+            fixedHeight ? { height: "75%" } : null,
             {
               backgroundColor: c.surfaceElevated,
               paddingBottom: insets.bottom + 12,
@@ -346,7 +350,7 @@ export function Sheet({
             <IconButton icon={X} label="Đóng" onPress={onClose} />
           </View>
           <ScrollView
-            style={{ maxHeight: 560 }}
+            style={fixedHeight ? { flex: 1 } : { maxHeight: 560 }}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
             keyboardShouldPersistTaps="handled"
           >

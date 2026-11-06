@@ -499,7 +499,9 @@ function Notifications({ go }: { go: Navigate }) {
           notice.order_id ||
           (notice.related_type === "ORDER" ? notice.related_id : undefined);
         if (orderId && user!.role === "CUSTOMER")
-          go("order", { id: String(orderId) });
+          go(notice.event_type === "CARE_ACTIVITY" ? "tracking" : "order", {
+            id: String(orderId),
+          });
         else if (
           notice.related_type === "TRIP" &&
           notice.related_id &&
@@ -842,7 +844,6 @@ function Authenticated({
               ? "Thêm hồ sơ ngựa"
               : titles[screen] || (customer ? "Hành trình" : "Chuyến của tôi")
         }
-        subtitle={pages.length === 1 ? roleName : undefined}
         back={
           pages.length > 1
             ? () => {

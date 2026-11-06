@@ -11,7 +11,10 @@ import {
   nextStop,
   pastClock,
   queueWireFields,
+  careDetail,
+  careSummaryLine,
   paymentAction,
+  placeName,
   shouldStopTracking,
   tripTimeline,
   profilePayload,
@@ -169,6 +172,20 @@ test("paymentAction picks the right instalment, amount and urgency", () => {
   const paid = paymentAction({ status: "IN_TRANSIT" }, { ...quote, paid: 300 });
   assert.deepEqual([paid.kind, paid.note], ["none", "Đã thanh toán đủ"]);
   assert.equal(paymentAction({ status: "CANCELLED" }, { ...quote, paid: 0 }).kind, "none");
+});
+test("placeName drops local names but keeps every part of the address", () => {
+  assert.equal(placeName("43, Manorom · มโนรมย์, Chai Nat · ชัยนาท"), "43, Manorom, Chai Nat");
+  assert.equal(placeName("2 Lý Thường Kiệt, Quận 11"), "2 Lý Thường Kiệt, Quận 11");
+  assert.equal(placeName("Kho Thủ Đức"), "Kho Thủ Đức");
+  assert.equal(placeName("· "), "· ");
+});
+test("careDetail and careSummaryLine match the web wording", () => {
+  const base = { feedDescription: null, amountLiters: null, durationMinutes: null, note: null };
+  assert.equal(careDetail({ ...base, activityType: "WATER", amountLiters: 12 }), "12 L");
+  assert.equal(careDetail({ ...base, activityType: "FEED", feedDescription: "Cỏ khô", note: "Ăn hết" }), "Cỏ khô · Ăn hết");
+  assert.equal(careDetail({ ...base, activityType: "REST", durationMinutes: 30 }), "30 phút");
+  assert.equal(careSummaryLine({ meals: 2, waterLiters: 24, rests: 1, restMinutes: 30 }), "2 bữa ăn · 24 L nước · 1 lần nghỉ chân (30 phút)");
+  assert.equal(careSummaryLine({ meals: 0, waterLiters: 0, rests: 0, restMinutes: 0 }), "0 bữa ăn · 0 L nước · 0 lần nghỉ chân");
 });
 test("applyPending shows delivered only after the server accepted it", () => {
   const trip = {

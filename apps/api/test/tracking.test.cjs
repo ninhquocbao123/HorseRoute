@@ -948,6 +948,7 @@ function careRepo(overrides = {}, calls = {}) {
   const repo = stage2Repo({
     getMaxRetroactiveMinutes: async () => 120,
     getCurrentLegId: async () => '10',
+    hasRecentNotification: async () => false,
     insertCareActivity: async input => { calls.inserted = input; const id = String(800 + rows.length); rows.push({ ...input, id }); return id; },
     findCareActivity: async id => calls.original && calls.original.id === id ? calls.original : undefined,
     getCareActivityAttachments: async () => [],

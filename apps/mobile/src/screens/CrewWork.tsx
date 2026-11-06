@@ -5,11 +5,12 @@
  * Mọi thao tác ghi đi qua hàng chờ: có sóng thì gửi ngay, mất sóng thì tự gửi lại.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Linking, Pressable, Switch, View } from "react-native";
+import { Linking, Pressable, ScrollView, Switch, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import {
   Car,
+  CircleCheck,
   ClipboardList,
   Droplet,
   FileHeart,
@@ -33,6 +34,7 @@ import {
   Card,
   CheckRow,
   Chip,
+  FilterBar,
   DateField,
   Field,
   InfoLine,
@@ -119,6 +121,12 @@ const currentLeg = (trip: IDriverTripDetail) => {
     null
   );
 };
+
+const JOURNAL_FILTERS = [
+  { value: "all", label: "Tất cả" },
+  { value: "report", label: "Báo cáo sức khỏe" },
+  { value: "care", label: "Ăn uống, nghỉ" },
+] as const;
 
 export const INCIDENT_TYPE_LABEL: Record<string, string> = {
   VEHICLE_BREAKDOWN: "Hỏng xe",
@@ -336,6 +344,12 @@ export function IncidentForm({
   } | null>(null);
   const [locating, setLocating] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const typesRow = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const severityColor = {
+    RED: c.dangerFg,
+    ORANGE: c.warningFg,
+    YELLOW: c.severityLowMark,
+  };
   useEffect(() => {
     let live = true;
     void currentPosition()
@@ -406,7 +420,19 @@ export function IncidentForm({
       footer={<Button title="Gửi cho điều phối" large onPress={submit} />}
     >
       <Section title="Loại sự cố" />
-      <View style={s.wrap}>
+      <ScrollView
+        ref={typesRow}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ marginHorizontal: -16 }}
+        contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+        onContentSizeChange={() => {
+          // Mở từ "Báo sự cố giao ngựa": đưa loại đã chọn, đứng cuối hàng, vào tầm nhìn.
+          if (incidentType === "DELIVERY_ISSUE")
+            typesRow.current?.scrollToEnd({ animated: false });
+        }}
+      >
         {TYPES.map((t) => (
           <Chip
             key={t.value}
@@ -421,18 +447,20 @@ export function IncidentForm({
             }}
           />
         ))}
-      </View>
+      </ScrollView>
       {errors.type ? (
         <Txt size={15} color={c.dangerFg}>
           {errors.type}
         </Txt>
       ) : null}
+      {type ? <Section title="Chi tiết sự cố" /> : null}
       {type ? (
         <View style={s.wrap}>
           {INCIDENT_SUB_TYPES[type as keyof typeof INCIDENT_SUB_TYPES].map(
             (x) => (
               <Chip
                 key={x.code}
+                outline
                 label={x.label}
                 selected={subType === x.code}
                 onPress={() => setSubType(subType === x.code ? null : x.code)}
@@ -452,11 +480,13 @@ export function IncidentForm({
             style={{
               minHeight: 56,
               borderRadius: 12,
-              borderWidth: 1.5,
+              borderWidth: 2,
               paddingHorizontal: 16,
-              justifyContent: "center",
-              borderColor: severity === k ? c.chipSelectedBg : c.chipBorder,
-              backgroundColor: severity === k ? c.surfaceMuted : c.surface,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderColor: severity === k ? severityColor[k] : c.chipBorder,
+              backgroundColor: c.surface,
             }}
           >
             <SeverityBars
@@ -464,6 +494,9 @@ export function IncidentForm({
               label={incidentSeverity[k].label}
               tone={incidentSeverity[k].tone}
             />
+            {severity === k ? (
+              <CircleCheck size={22} color={severityColor[k]} />
+            ) : null}
           </Pressable>
         ))}
       </View>
@@ -787,23 +820,12 @@ export function LogTab({
       <Txt size={15} color={c.textSecondary}>
         {trip.orderCode}
       </Txt>
-      <View style={s.wrap}>
-        <Chip
-          label="Tất cả"
-          selected={filter === "all"}
-          onPress={() => setFilter("all")}
-        />
-        <Chip
-          label="Báo cáo sức khỏe"
-          selected={filter === "report"}
-          onPress={() => setFilter("report")}
-        />
-        <Chip
-          label="Ăn uống, nghỉ"
-          selected={filter === "care"}
-          onPress={() => setFilter("care")}
-        />
-      </View>
+      <FilterBar
+        large
+        options={JOURNAL_FILTERS.map((f) => f.label)}
+        selected={JOURNAL_FILTERS.findIndex((f) => f.value === filter)}
+        onSelect={(i) => setFilter(JOURNAL_FILTERS[i].value)}
+      />
       {logs.data === undefined && care.data === undefined ? (
         <ResourceState resource={logs} what="nhật ký" skeleton="rows">
           {null}
@@ -946,6 +968,7 @@ export function QuickLogSheet({
       visible={visible}
       onClose={onClose}
       title="Ghi nhanh"
+      fixedHeight
       footer={<Button title="Lưu" onPress={save} />}
     >
       <View style={s.wrap}>

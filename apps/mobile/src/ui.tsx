@@ -331,7 +331,12 @@ export function SeverityBars({
 }) {
   const theme = useTheme();
   const colors = toneColors(theme, tone);
-  const fill = tone === "neutral" ? theme.colors.textSecondary : colors.fg;
+  const fill =
+    level === 1
+      ? theme.colors.severityLow
+      : tone === "neutral"
+        ? theme.colors.textSecondary
+        : colors.fg;
   return (
     <View
       accessible
@@ -346,7 +351,12 @@ export function SeverityBars({
               width: 6,
               height: 6 + n * 5,
               borderRadius: 2,
-              backgroundColor: n <= level ? fill : theme.colors.border,
+              backgroundColor:
+                n > level
+                  ? theme.colors.border
+                  : level === 1
+                    ? theme.colors.severityLowMark
+                    : fill,
             }}
           />
         ))}
@@ -735,11 +745,14 @@ export function Chip({
   onPress,
   disabled = false,
   compact = false,
+  outline = false,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  /** Trường chọn phụ: khi chọn thì nền nhạt và viền đậm, để khác với trường chính. */
+  outline?: boolean;
   /** Thanh lọc của khách hàng: cao 44, chữ 15. Tổ lái giữ 56 vì thao tác khi đeo găng. */
   compact?: boolean;
 }) {
@@ -757,8 +770,16 @@ export function Chip({
           : null,
         disabled ? { opacity: 0.45 } : null,
         {
-          backgroundColor: selected ? c.chipSelectedBg : c.chipBg,
-          borderColor: selected ? c.chipSelectedBg : c.chipBorder,
+          backgroundColor: !selected
+            ? c.chipBg
+            : outline
+              ? c.surfaceMuted
+              : c.chipSelectedBg,
+          borderColor: !selected
+            ? c.chipBorder
+            : outline
+              ? c.link
+              : c.chipSelectedBg,
         },
       ]}
     >
@@ -766,7 +787,7 @@ export function Chip({
       <Txt
         size={compact ? 15 : undefined}
         numberOfLines={compact ? 1 : undefined}
-        color={selected ? c.chipSelectedFg : c.textPrimary}
+        color={selected && !outline ? c.chipSelectedFg : c.textPrimary}
       >
         {label}
       </Txt>
@@ -781,10 +802,13 @@ export function FilterBar({
   options,
   selected,
   onSelect,
+  large = false,
 }: {
   options: string[];
   selected: number;
   onSelect: (index: number) => void;
+  /** Tổ lái giữ chip cao 56 vì thao tác khi đeo găng. */
+  large?: boolean;
 }) {
   const [first, ...rest] = options;
   return (
@@ -797,7 +821,7 @@ export function FilterBar({
       }}
     >
       <Chip
-        compact
+        compact={!large}
         label={first}
         selected={selected === 0}
         onPress={() => onSelect(0)}
@@ -811,7 +835,7 @@ export function FilterBar({
         {rest.map((name, i) => (
           <Chip
             key={name}
-            compact
+            compact={!large}
             label={name}
             selected={selected === i + 1}
             onPress={() => onSelect(i + 1)}

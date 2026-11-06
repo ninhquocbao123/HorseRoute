@@ -96,6 +96,7 @@ Ghi chú: yêu cầu đơn giản không gửi `booking` (trường này tùy ch
 ### 2.6 Ý tưởng khác
 
 - CUS-01: không chào hỏi, không banner quảng cáo. Thẻ chuyến đang chạy (gradient teal duy nhất được phép) + danh sách "Cần bạn xử lý" dạng list gọn.
+- CUS-05: timeline xen nhật ký chăm sóc của hộ tống (cho ăn, uống nước, nghỉ chân) đúng giờ, có dòng tóm tắt. Bản đồ toàn màn không có nút "Xem toàn tuyến".
 - CUS-04: bảng chi phí như hóa đơn, số canh phải, đơn vị ₫; dòng "Đã thanh toán" và "Còn lại" đậm; hạn báo giá đếm ngược nếu < 48 giờ.
 - Tạo yêu cầu 4 bước có thanh tiến độ, giữ nháp khi thoát (dùng `POST /orders` lưu nháp ở bước 1).
 

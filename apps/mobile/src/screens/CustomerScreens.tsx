@@ -13,6 +13,7 @@ import {
   CircleAlert,
   CircleCheck,
   ClipboardList,
+  Droplets,
   FileText,
   HeartPulse,
   MapPin,
@@ -24,8 +25,10 @@ import {
   Route,
   SearchX,
   Thermometer,
+  Timer,
   Truck,
   Upload,
+  Utensils,
   Wallet,
 } from "lucide-react-native";
 import {
@@ -48,7 +51,7 @@ import {
 } from "../ui";
 import { Sheet, useOverlay } from "../overlay";
 import { useResource, useSession } from "../session";
-import { TripMapView, type TripMapHandle } from "../map/TripMapView";
+import { TripMapView } from "../map/TripMapView";
 import { customerPositionText } from "../map/map-scene";
 import { useAutoRefresh, useLiveTripMap } from "../map/useLiveTripMap";
 import {
@@ -62,6 +65,7 @@ import {
 } from "../live-ui";
 import { SkeletonLines } from "../skeleton";
 import type {
+  ICareActivityList,
   IOrderTimeline,
   IHorseReport,
   ITripMap,
@@ -75,7 +79,10 @@ import type {
 } from "../api/types";
 import {
   asId,
+  careDetail,
+  careSummaryLine,
   paymentAction,
+  placeName,
   dateTime,
   day,
   emptyProfile,
@@ -181,37 +188,52 @@ function RunningCard({ order, go }: { order: Order; go: Navigate }) {
     legs.find((l) => l.status === "MOVING" || l.status === "AT_STOP") ??
     legs.find((l) => l.status !== "COMPLETED");
   const late = legs.some((l) => l.isOverdue);
+  // Svg giữ kích thước đo lần đầu nên không tự cao theo khi dữ liệu chuyến tải xong: truyền kích thước thật vào.
+  const [box, setBox] = useState({ width: 0, height: 0 });
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Theo dõi ${order.order_code}`}
       onPress={() => go("tracking", { id: String(order.id) })}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setBox((old) =>
+          old.width === width && old.height === height
+            ? old
+            : { width, height },
+        );
+      }}
       style={({ pressed }) => ({
         borderRadius: 20,
         overflow: "hidden",
+        backgroundColor: c.surfaceBrand,
         opacity: pressed ? 0.9 : 1,
       })}
     >
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg
+        width={box.width}
+        height={box.height}
+        style={StyleSheet.absoluteFill}
+      >
         <Defs>
           <LinearGradient id="running" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={c.surfaceBrand} />
             <Stop offset="1" stopColor={c.surfaceBrandAlt} />
           </LinearGradient>
         </Defs>
-        <Rect width="100%" height="100%" fill="url(#running)" />
+        <Rect width={box.width} height={box.height} fill="url(#running)" />
       </Svg>
       <View style={{ padding: 20, gap: 8 }}>
         <Txt size={12} bold color={c.onBrandMuted}>
           {`ĐANG VẬN CHUYỂN · ${order.order_code}`}
         </Txt>
-        <Txt size={24} bold color={c.onBrand}>
+        <Txt size={24} bold color={c.onBrand} numberOfLines={2}>
           {leg
             ? leg.status === "AT_STOP"
-              ? `Đang dừng tại ${leg.toLocationName}`
+              ? `Đang dừng tại ${placeName(leg.toLocationName)}`
               : leg.status === "NOT_STARTED"
-                ? `Chuẩn bị rời ${leg.fromLocationName}`
-                : `Đang đến ${leg.toLocationName}`
+                ? `Chuẩn bị rời ${placeName(leg.fromLocationName)}`
+                : `Đang đến ${placeName(leg.toLocationName)}`
             : order.destination_address || "Đang vận chuyển"}
         </Txt>
         {leg ? (
@@ -1283,7 +1305,62 @@ type TrackEvent =
       done: boolean;
       current: boolean;
     }
-  | { kind: "report"; key: string; report: IHorseReport; time: string };
+  | { kind: "report"; key: string; report: IHorseReport; time: string }
+  | {
+      kind: "care";
+      key: string;
+      activity: ICareActivityList["activities"][number];
+      time: string;
+    };
+
+const CARE_ICON = { FEED: Utensils, WATER: Droplets, REST: Timer } as const;
+
+/** Một lần chăm sóc của hộ tống trên timeline CUS-05. */
+function CareEvent({
+  activity,
+}: {
+  activity: ICareActivityList["activities"][number];
+}) {
+  const { colors: c } = useTheme();
+  const Icon =
+    CARE_ICON[activity.activityType as keyof typeof CARE_ICON] ?? Timer;
+  const detail = careDetail(activity);
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ width: 24, alignItems: "center" }}>
+        <View style={{ width: 2, flex: 1, backgroundColor: c.border }} />
+      </View>
+      <View
+        accessible
+        style={{ flex: 1, flexDirection: "row", gap: 8, paddingBottom: 16 }}
+      >
+        <Icon size={20} color={c.link} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt bold>
+            {`${label(activity.activityType)} · ${activity.horseName ?? "Cả đoàn"}`}
+          </Txt>
+          <Txt size={15} color={c.textSecondary}>
+            {[detail, activity.createdByName, clock(activity.performedAt)]
+              .filter(Boolean)
+              .join(" · ")}
+          </Txt>
+          {activity.photos.length ? (
+            <View style={s.wrap}>
+              {activity.photos.map((photo) => (
+                <PrivateImage
+                  key={photo.id}
+                  path={`/tracking/attachments/${asId(photo.id)}`}
+                  caption={photo.originalName}
+                  size={56}
+                />
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
 
 /**
  * CUS-05 Theo dõi (hướng B): thẻ trạng thái lớn, timeline điểm dừng có báo cáo sức khỏe xen đúng giờ,
@@ -1298,9 +1375,13 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
   const reports = useResource<IHorseReport[]>(
     `/tracking/orders/${asId(id)}/horse-reports`,
   );
+  const care = useResource<ICareActivityList>(
+    `/tracking/orders/${asId(id)}/care-activities`,
+  );
   useAutoRefresh(() => {
     timeline.reload();
     reports.reload();
+    care.reload();
   });
   const t = timeline.data;
   const legs = useMemo(
@@ -1358,15 +1439,23 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
         report: r,
         time: r.sentAt,
       });
+    for (const activity of care.data?.activities ?? [])
+      list.push({
+        kind: "care",
+        key: `c-${activity.id}`,
+        activity,
+        time: activity.performedAt,
+      });
     const at = (e: TrackEvent) => Date.parse(e.time ?? "") || 0;
     return list.sort((a, b) => at(a) - at(b));
-  }, [legs, leg, reports.data]);
+  }, [legs, leg, reports.data, care.data]);
   return (
     <ScreenBody
       onRefresh={() => {
         timeline.reload();
         map.reload();
         reports.reload();
+        care.reload();
       }}
     >
       <ResourceState resource={timeline} what="lộ trình" skeleton="detail">
@@ -1381,10 +1470,10 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
                 : !leg
                   ? "Chưa có lộ trình được duyệt"
                   : leg.status === "AT_STOP"
-                    ? `Đang dừng tại ${leg.toLocationName}`
+                    ? `Đang dừng tại ${placeName(leg.toLocationName)}`
                     : leg.status === "NOT_STARTED"
-                      ? `Chuẩn bị rời ${leg.fromLocationName}`
-                      : `Đang trên đường đến ${leg.toLocationName}`}
+                      ? `Chuẩn bị rời ${placeName(leg.fromLocationName)}`
+                      : `Đang trên đường đến ${placeName(leg.toLocationName)}`}
             </Txt>
             {leg && t.orderStatus !== "DELIVERED" ? (
               <Txt size={15} color={c.onBrandMuted}>
@@ -1436,6 +1525,11 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
         </Pressable>
       ) : null}
       <Section title="Hành trình" />
+      {care.data?.activities.length ? (
+        <Txt size={15} color={c.textSecondary}>
+          {careSummaryLine(care.data.summary)}
+        </Txt>
+      ) : null}
       {events.length ? (
         <View>
           {events.map((e, i) =>
@@ -1473,6 +1567,8 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
                   </Txt>
                 </View>
               </View>
+            ) : e.kind === "care" ? (
+              <CareEvent key={e.key} activity={e.activity} />
             ) : (
               <View key={e.key} style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ width: 24, alignItems: "center" }}>
@@ -1539,8 +1635,6 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
 export function TrackingMapScreen({ id }: { id: string }) {
   const { colors: c } = useTheme();
   const map = useLiveTripMap(`/tracking/orders/${asId(id)}/map`);
-  const view = useRef<TripMapHandle>(null);
-  const [fallback, setFallback] = useState(false);
   const data = map.data;
   return (
     <ResourceState resource={map} what="bản đồ" skeleton="map">
@@ -1548,21 +1642,10 @@ export function TrackingMapScreen({ id }: { id: string }) {
         <View style={{ flex: 1 }}>
           <View style={{ flex: 1 }}>
             <TripMapView
-              ref={view}
               map={data}
               mode="customer"
-              onFallbackChange={setFallback}
               accessibilityLabel={`Bản đồ ${data.stops.map((stop) => stop.name).join(" đến ")}`}
             />
-            {fallback ? null : (
-              <View style={{ position: "absolute", right: 12, top: 12 }}>
-                <Button
-                  title="Xem toàn tuyến"
-                  kind="secondary"
-                  onPress={() => view.current?.fit()}
-                />
-              </View>
-            )}
           </View>
           <View
             style={{
@@ -1886,22 +1969,19 @@ export function ProfilesScreen({ go, id }: { go: Navigate; id?: string }) {
     >
       <ResourceState resource={resource} what="danh sách ngựa">
         {resource.data?.length ? (
-          <Card>
+          <View style={{ gap: 12 }}>
             {resource.data.map((h) => {
               const photo = photoOf(h);
               return (
-                <Pressable
+                <Card
                   key={h.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={h.name}
+                  label={h.name}
                   onPress={() => go("horse", { id: String(h.id) })}
-                  style={({ pressed }) => ({
+                  style={{
                     flexDirection: "row",
                     gap: 12,
                     alignItems: "center",
-                    paddingVertical: 8,
-                    opacity: pressed ? 0.7 : 1,
-                  })}
+                  }}
                 >
                   {photo ? (
                     <PrivateImage
@@ -1937,10 +2017,10 @@ export function ProfilesScreen({ go, id }: { go: Navigate; id?: string }) {
                     ) : null}
                   </View>
                   <ChevronRight size={20} color={c.textSecondary} />
-                </Pressable>
+                </Card>
               );
             })}
-          </Card>
+          </View>
         ) : (
           <Empty
             icon={PawPrint}
