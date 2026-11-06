@@ -8,6 +8,7 @@ export class HttpError extends Error {
 }
 export class BadRequestException extends HttpError { constructor(body: ErrorBody | string = 'Bad Request') { super(400, body); } }
 export class UnauthorizedException extends HttpError { constructor(body = 'Unauthorized') { super(401, body); } }
+export class PaymentRequiredException extends HttpError { constructor(body = 'Payment Required') { super(402, body); } }
 export class ForbiddenException extends HttpError { constructor(body = 'Forbidden') { super(403, body); } }
 export class NotFoundException extends HttpError { constructor(body = 'Not Found') { super(404, body); } }
 export class ConflictException extends HttpError { constructor(body: ErrorBody | string = 'Conflict') { super(409, body); } }

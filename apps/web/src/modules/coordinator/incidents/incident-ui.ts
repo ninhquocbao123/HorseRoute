@@ -48,6 +48,9 @@ export function noteSuggestions(incident: Pick<IIncident, 'incidentType' | 'subT
   if (incident.incidentType === 'HORSE_MEDICAL') {
     return ['Đã liên hệ bác sĩ thú y, đang trên đường tới.', 'Dừng xe nơi thoáng mát, theo dõi nhịp thở và nhiệt độ ngựa.', 'Hộ tống gửi ảnh và chỉ số ngựa 15 phút một lần.'];
   }
+  if (incident.incidentType === 'DELIVERY_ISSUE') {
+    return ['Đang gọi người gửi, tổ lái chờ tại chỗ và chăm sóc ngựa.', 'Người nhận đang đến, tiếp tục đợi.', 'Đối chiếu giấy tờ người nhận thay rồi chụp ảnh bàn giao.'];
+  }
   return ['Đã kiểm tra tuyến, đi theo đường tránh được gửi kèm.', 'Giữ vị trí an toàn, chờ thông đường.', 'Đã báo khách hàng về thời gian giao dự kiến mới.'];
 }
 

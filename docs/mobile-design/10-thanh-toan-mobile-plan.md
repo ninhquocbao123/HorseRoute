@@ -1,6 +1,6 @@
 # 10 — Kế hoạch thanh toán VNPay trên mobile và xử lý khi giao ngựa
 
-Ngày 06/11/2026. Trạng thái: **đã chốt hướng, chưa code. Sẽ bắt đầu ở phiên làm việc sau.**
+Ngày 06/11/2026. Trạng thái: **đang làm với thanh toán mô phỏng, chưa commit; cổng VNPay thật chờ Long có khóa sandbox.** Tiến độ chi tiết ở [13-tien-do-tong-hop.md](13-tien-do-tong-hop.md), mục 0.
 
 ## 0. Khi bắt đầu phiên sau
 
@@ -229,10 +229,13 @@ Làm **vừa đủ để lưu vết và xử lý**. Giai đoạn đầu dùng l�
 Mỗi giai đoạn có thể commit riêng và test được.
 
 - [ ] **Giai đoạn 0. Chuẩn bị:** chốt mục 11, có khóa VNPay và địa chỉ công khai.
+Long đổi hướng ngày 06/11/2026: tạm dùng thanh toán mô phỏng, thiết kế lại phần cổng khi có khóa VNPay Sandbox.
+
+- [x] **Giai đoạn 1 (bản mô phỏng):** phiên không trùng, CUS-04, CUS-17, CUS-18 bằng `/payments/sessions`. Chưa có `mobile-return`, `expo-web-browser`.
 - [ ] **Giai đoạn 1. VNPay trên mobile:** phiên không trùng, `mobile-return`, CUS-04, CUS-17, CUS-18. Xong là đặt cọc và trả phần còn lại được bằng thẻ thử trên iPhone.
 - [ ] **Giai đoạn 2. Web đồng bộ:** web dùng VNPay, tắt mô phỏng.
-- [ ] **Giai đoạn 3. Điều kiện giao:** chặn `DELIVERED`, `paymentCleared`, màn tài xế trên mobile và web, thông báo, hàng chờ `402`.
-- [ ] **Giai đoạn 4. Sự cố giao ngựa:** loại sự cố mới, ngoại lệ, quyền quản lý và điều phối, người nhận thực tế.
+- [x] **Giai đoạn 3. Điều kiện giao:** chặn `DELIVERED`, `paymentCleared`, màn tài xế trên mobile và web, thông báo, hàng chờ `402`.
+- [x] **Giai đoạn 4. Sự cố giao ngựa:** loại sự cố mới, ngoại lệ, quyền quản lý và điều phối, người nhận thực tế.
 - [ ] **Giai đoạn 5. Rà soát và kiểm thử:** toàn bộ mục 10, cập nhật tài liệu, kiểm tra các chuyến đang chạy, chạy migration trên DB chung khi Long đồng ý.
 
 Làm giai đoạn 2 trước 3 vì nếu web còn mô phỏng thì khách có thể tự đánh dấu đã trả để tài xế giao được.

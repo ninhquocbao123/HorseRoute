@@ -160,7 +160,8 @@ export class TrackingRepository {
     return this.db.query(
       `SELECT CAST(m.id AS CHAR) AS id, CAST(m.leg_id AS CHAR) AS legId,
         m.milestone_type AS milestoneType, m.occurred_at AS occurredAt,
-        CAST(m.recorded_by AS CHAR) AS recordedBy, u.full_name AS recordedByName
+        CAST(m.recorded_by AS CHAR) AS recordedBy, u.full_name AS recordedByName,
+        m.actual_recipient_name AS actualRecipientName, m.actual_recipient_phone AS actualRecipientPhone
       FROM leg_milestones m
       JOIN users u ON u.id = m.recorded_by
       WHERE m.leg_id IN (${legIds.map(() => '?').join(',')})
@@ -390,14 +391,83 @@ export class TrackingRepository {
     await this.db.query(`DELETE FROM leg_milestones WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
   }
 
-  async insertMilestone(legId: string, milestoneType: MilestoneType, occurredAt: string, recordedBy: string): Promise<string> {
+  async insertMilestone(
+    legId: string,
+    milestoneType: MilestoneType,
+    occurredAt: string,
+    recordedBy: string,
+    actualRecipient?: { name: string; phone: string | null } | null,
+  ): Promise<string> {
     const result = await this.db.query(
-      `INSERT INTO leg_milestones (leg_id, milestone_type, occurred_at, recorded_by)
-      VALUES (?, ?, ?, ?)`,
-      [legId, milestoneType, new Date(occurredAt), recordedBy]
+      `INSERT INTO leg_milestones (leg_id, milestone_type, occurred_at, recorded_by, actual_recipient_name, actual_recipient_phone)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [legId, milestoneType, new Date(occurredAt), recordedBy, actualRecipient?.name ?? null, actualRecipient?.phone ?? null]
     );
     return String(result.insertId);
   }
+
+  /**
+   * Quy tắc giao ngựa dùng chung cho mốc DELIVERED, hiệu chỉnh chặng và màn tài xế.
+   * Đơn cũ không có báo giá đã duyệt thì không chặn.
+   */
+  async getDeliveryClearance(orderId: string): Promise<import('@my-project/shared').IDeliveryClearance> {
+    const [money] = await this.db.query(
+      `SELECT (SELECT q.total FROM order_quotes q WHERE q.order_id = ? AND q.status = 'APPROVED' ORDER BY q.id DESC LIMIT 1) AS total,
+        (SELECT COALESCE(SUM(r.amount), 0) FROM order_receipts r WHERE r.order_id = ?) AS paid`,
+      [orderId, orderId]
+    );
+    const [row] = await this.db.query(
+      `SELECT e.reason, e.due_at AS dueAt, e.status, a.full_name AS approvedByName, e.approved_at AS approvedAt,
+        o.full_name AS openedByName, e.opened_at AS openedAt
+      FROM delivery_exceptions e
+      JOIN users a ON a.id = e.approved_by
+      LEFT JOIN users o ON o.id = e.opened_by
+      WHERE e.order_id = ?`,
+      [orderId]
+    );
+    const fullyPaid = money.total === null || Number(money.paid) >= Number(money.total);
+    const exception = row
+      ? {
+          reason: row.reason,
+          dueAt: row.dueAt ? new Date(row.dueAt).toISOString() : null,
+          status: row.status,
+          approvedByName: row.approvedByName,
+          approvedAt: new Date(row.approvedAt).toISOString(),
+          openedByName: row.openedByName ?? null,
+          openedAt: row.openedAt ? new Date(row.openedAt).toISOString() : null,
+        }
+      : null;
+    return { orderId, fullyPaid, cleared: fullyPaid || exception?.status === 'OPENED', exception };
+  }
+
+  async insertDeliveryException(orderId: string, reason: string, dueAt: Date | null, approvedBy: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO delivery_exceptions (order_id, reason, due_at, status, approved_by, approved_at)
+      VALUES (?, ?, ?, 'APPROVED', ?, UTC_TIMESTAMP())`,
+      [orderId, reason, dueAt, approvedBy]
+    );
+  }
+
+  async openDeliveryException(orderId: string, openedBy: string): Promise<boolean> {
+    const result = await this.db.query(
+      `UPDATE delivery_exceptions SET status = 'OPENED', opened_by = ?, opened_at = UTC_TIMESTAMP()
+      WHERE order_id = ? AND status = 'APPROVED'`,
+      [openedBy, orderId]
+    );
+    return result.affectedRows > 0;
+  }
+
+  /** Chuyến đã duyệt của đơn. Đơn chưa lập chuyến thì không có. */
+  async findApprovedTripOfOrder(orderId: string): Promise<{ id: string; plannedBy: string; orderCode: string; orderStatus: OrderStatus } | undefined> {
+    const [row] = await this.db.query(
+      `SELECT CAST(t.id AS CHAR) AS id, CAST(t.planned_by AS CHAR) AS plannedBy, o.order_code AS orderCode, o.status AS orderStatus
+      FROM trips t JOIN orders o ON o.id = t.order_id
+      WHERE t.order_id = ? AND t.plan_status = 'APPROVED' ORDER BY t.id DESC LIMIT 1`,
+      [orderId]
+    );
+    return row;
+  }
+
 
   async updateLegDeparture(legId: string, actualDepartureAt: string, actorId: string): Promise<void> {
     await this.db.query(
@@ -935,7 +1005,7 @@ export class TrackingRepository {
     urgency: import('@my-project/shared').IncidentUrgency;
     severity: import('@my-project/shared').IncidentSeverity;
     subType: string | null;
-    damageTarget: import('@my-project/shared').DamageTarget;
+    damageTarget: import('@my-project/shared').DamageTarget | null;
     latitude: number | null;
     longitude: number | null;
     locationText: string | null;

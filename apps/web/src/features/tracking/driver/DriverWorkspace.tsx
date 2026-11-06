@@ -123,6 +123,13 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
   const viaNext = waypoints.next;
 
   const start = isTripStart(action, seqNo);
+  const waitingPayment = action?.kind === 'milestone' && action.milestone === 'DELIVERED' && trip.paymentCleared === false;
+  // Đang đợi khách thanh toán: hỏi lại để nút giao mở ngay khi khách trả xong.
+  useEffect(() => {
+    if (!waitingPayment) return;
+    const timer = window.setInterval(() => void onChanged(), 15000);
+    return () => window.clearInterval(timer);
+  }, [waitingPayment, onChanged]);
 
   // Thông báo thành công là toast tự tắt sau 5 giây (không còn banner đẩy bản đồ xuống).
   const toast = useDriverNotice();
@@ -159,9 +166,9 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
             </Button>
           )}
           {running && !viaNext && (
-            <Tooltip title={action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
-              <Button size="large" className="drv-action drv-btn-checkin" disabled={!action} onClick={() => action && legAction.open(action)}>
-                {action ? checkInLabel(action) : 'Check-in chặng'}
+            <Tooltip title={waitingPayment ? 'Nút mở khi khách trả đủ hoặc điều phối cho phép giao.' : action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
+              <Button size="large" className="drv-action drv-btn-checkin" disabled={!action || waitingPayment} onClick={() => action && legAction.open(action)}>
+                {waitingPayment ? 'Chờ khách thanh toán' : action ? checkInLabel(action) : 'Check-in chặng'}
               </Button>
             </Tooltip>
           )}
@@ -180,6 +187,16 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
       />
 
       {legAction.pendingAlert}
+      {waitingPayment && (
+        <Alert
+          type="warning" showIcon title="Khách chưa thanh toán đủ"
+          description="Chưa xác nhận giao được. Hệ thống đã báo khách. Gọi người nhận hoặc điều phối nếu phải đợi lâu; báo sự cố loại Giao ngựa nếu không liên lạc được."
+          action={<Button onClick={() => void onChanged()}>Kiểm tra lại</Button>}
+        />
+      )}
+      {trip.deliveryExceptionReason && action?.kind === 'milestone' && action.milestone === 'DELIVERED' && (
+        <Alert type="info" showIcon title={`Điều phối cho phép giao: ${trip.deliveryExceptionReason}`} />
+      )}
       {!action && !finished && trip.legs.length > 0 && !ready && trip.orderStatus !== 'IN_TRANSIT' && (
         <Alert type="info" showIcon title="Chưa thể cập nhật chặng này lúc này" description="Chờ chặng trước hoàn thành hoặc đơn hàng chuyển sang sẵn sàng." />
       )}

@@ -11,7 +11,7 @@ import {
   nextStop,
   pastClock,
   queueWireFields,
-  quoteExpiredForPayment,
+  paymentAction,
   shouldStopTracking,
   tripTimeline,
   profilePayload,
@@ -145,11 +145,39 @@ test("milestone just sent keeps the screen moving and never rewinds server state
 });
 test("expired quote blocks payment only until the deposit is covered", () => {
   const past = "2026-01-01T00:00:00.000Z";
+  const future = "2026-12-01T00:00:00.000Z";
   const now = Date.parse("2026-06-01T00:00:00.000Z");
-  assert.equal(quoteExpiredForPayment({ expires_at: past, paid: 0, deposit: 100 }, now), true);
-  assert.equal(quoteExpiredForPayment({ expires_at: past, paid: 100, deposit: 100 }, now), false);
-  assert.equal(quoteExpiredForPayment({ expires_at: "2026-12-01T00:00:00.000Z", paid: 0, deposit: 100 }, now), false);
-  assert.equal(quoteExpiredForPayment({ expires_at: null, paid: 0, deposit: 100 }, now), false);
+  const order = { status: "APPROVED" };
+  const quote = { total: 300, deposit: 100 };
+  const expired = paymentAction(order, { ...quote, expires_at: past, paid: 0 }, now);
+  assert.equal(expired.kind, "none");
+  assert.match(String(expired.note), /hết hạn/);
+  assert.equal(paymentAction({ status: "PREPARING" }, { ...quote, expires_at: past, paid: 100 }, now).kind, "pay");
+  assert.equal(paymentAction(order, { ...quote, expires_at: future, paid: 0 }, now).kind, "pay");
+  assert.equal(paymentAction(order, { ...quote, expires_at: null, paid: 0 }, now).kind, "pay");
+});
+test("paymentAction picks the right instalment, amount and urgency", () => {
+  const quote = { total: 300, deposit: 100, expires_at: null };
+  const deposit = paymentAction({ status: "APPROVED" }, { ...quote, paid: 40 });
+  assert.deepEqual([deposit.kind, deposit.kind === "pay" && deposit.type, deposit.kind === "pay" && deposit.amount], ["pay", "DEPOSIT", 60]);
+  const balance = paymentAction({ status: "READY" }, { ...quote, paid: 100 });
+  assert.deepEqual([balance.kind === "pay" && balance.type, balance.kind === "pay" && balance.amount, balance.kind === "pay" && balance.urgent], ["BALANCE", 200, false]);
+  const arrived = paymentAction({ status: "IN_TRANSIT", arrivedAtDelivery: 1 }, { ...quote, paid: 100 });
+  assert.equal(arrived.kind === "pay" && arrived.urgent, true);
+  assert.match(arrived.note ?? "", /Tài xế đang đợi/);
+  assert.equal(paymentAction({ status: "DELIVERED" }, { ...quote, paid: 100 }).kind, "pay");
+  const paid = paymentAction({ status: "IN_TRANSIT" }, { ...quote, paid: 300 });
+  assert.deepEqual([paid.kind, paid.note], ["none", "Đã thanh toán đủ"]);
+  assert.equal(paymentAction({ status: "CANCELLED" }, { ...quote, paid: 0 }).kind, "none");
+});
+test("applyPending shows delivered only after the server accepted it", () => {
+  const trip = {
+    id: "1", orderStatus: "IN_TRANSIT",
+    legs: [{ id: "l1", seqNo: 1, status: "AT_STOP", milestones: [], waypointCheckins: [] }],
+  } as never;
+  const item = { kind: "milestone", status: "QUEUED", legId: "l1", milestoneType: "DELIVERED", body: {} };
+  assert.equal(applyPending(trip, [item]).orderStatus, "IN_TRANSIT");
+  assert.equal(applyPending(trip, [{ ...item, sent: true }]).orderStatus, "DELIVERED");
 });
 test("picking a clock time past midnight means yesterday, never the current time", () => {
   const now = new Date(2026, 10, 5, 0, 30, 15);

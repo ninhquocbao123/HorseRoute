@@ -26,7 +26,7 @@ function LegRow({ leg, canCorrect, onCorrect }: { leg: ITripTimelineLeg; canCorr
       {leg.milestones.length > 0 ? (
         <ul className="trk-milestones">
           {leg.milestones.map(m => (
-            <li key={m.id}><span>{MILESTONE_LABEL[m.milestoneType]} · {m.recordedByName}</span><time dateTime={m.occurredAt}>{formatDateTime(m.occurredAt)}</time></li>
+            <li key={m.id}><span>{MILESTONE_LABEL[m.milestoneType]} · {m.recordedByName}{m.actualRecipientName && ` · Người nhận thực tế: ${m.actualRecipientName}${m.actualRecipientPhone ? ` (${m.actualRecipientPhone})` : ''}`}</span><time dateTime={m.occurredAt}>{formatDateTime(m.occurredAt)}</time></li>
           ))}
         </ul>
       ) : (

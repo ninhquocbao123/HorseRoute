@@ -2,6 +2,51 @@
 
 Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc muốn làm ở mục 2, ví dụ "làm tiếp kế hoạch 10".
 
+## 0. Đang làm dở: kế hoạch 10 với thanh toán mô phỏng (ngày 06/11/2026)
+
+**Trạng thái: code và tài liệu xong, đã commit nhưng chưa đưa lên `long` và chưa push.** Toàn bộ nằm trong worktree `.claude/worktrees/claude-code-docker-running-d4ddbb`, nhánh `claude/progress-13-payment-simulation-f07217`, dựng từ `long` commit `6c3b2a4`. Đừng xóa nhánh này trước khi đưa lên `long`.
+
+**Long đã quyết định:** tạm dùng thanh toán mô phỏng. Khi có khóa VNPay Sandbox thì thiết kế lại phần cổng thanh toán. Phần 12 đã xong về code, chỉ còn kiểm tra trên máy thật. Câu 3, 4 mục 11 file 10 đang theo đề xuất, Long chưa xác nhận rõ.
+
+**Đã làm:**
+
+- API: migration `1800000093000-DeliveryExceptions` (loại sự cố `DELIVERY_ISSUE`, bảng `delivery_exceptions`, người nhận thực tế ở `leg_milestones`). **Chưa chạy trên DB chung, cần Long đồng ý.**
+- API: mốc `DELIVERED` và hiệu chỉnh chặng trả `402` khi chưa trả đủ; `paymentCleared`, `deliveryExceptionReason` trong dữ liệu chuyến; `/tracking/orders/:id/delivery-clearance`, `/delivery-exception`, `/delivery-exception/open`; thông báo khi xe tới mà chưa đủ tiền và khi đã trả đủ; dùng lại phiên mô phỏng còn hạn.
+- Mobile khách: `paymentAction`, CUS-04, màn `PaymentScreen` mô phỏng (CUS-17, CUS-18), thẻ đặt cọc, thanh toán, khẩn ở trang chủ. Thẻ đặt cọc không còn hiện khi báo giá hết hạn.
+- Mobile tổ lái: "Chờ khách thanh toán", "Kiểm tra lại", tự hỏi lại 15 giây, báo sự cố giao ngựa, "Người khác nhận thay"; chỉ báo đã giao và tắt GPS sau khi máy chủ nhận; hàng chờ xử lý `402`.
+- Web: tài xế có trạng thái chờ; `DeliveryExceptionPanel` cho quản lý (duyệt) và điều phối (mở); form sự cố có loại Giao ngựa; hiện người nhận thực tế ở chi tiết chuyến.
+
+**Kết quả kiểm thử:**
+
+- `tsc` sạch ở api, web, mobile. Test API 180/180, test mobile 59/59.
+- `e2e-api.mts` trên MySQL dùng một lần: 42/42, gồm 14 ca mới.
+- Máy ảo Android: đặt cọc, thất bại rồi thử lại, màn chờ của tài xế, thông báo đã trả đủ, sự cố giao ngựa, giao với người nhận thay: đạt.
+- Web, trình duyệt: quản lý duyệt, điều phối mở, màn chờ của tài xế, dòng "Điều phối cho phép giao", form sự cố Giao ngựa, tài xế xác nhận giao: đạt.
+- Màn tự chuyển trang thấy ở lần thử trước: không tái hiện được. Để yên màn chờ hơn 70 giây và khách trả tiền lúc đang mở, màn vẫn đứng yên, code điều hướng chỉ chạy khi có thao tác chạm. Nhiều khả năng do có người chạm máy ảo, chưa khẳng định chắc.
+
+**Còn mở:**
+
+- Test trình duyệt của web (`apps/web/test/**/*.browser.cjs`) đều lỗi timeout, trang trắng. `driver-trip` lỗi y hệt trên `long` sạch nên không do phần này; các file khác chưa so với `long`. Nguyên nhân chưa tìm. Playwright không có trong `package.json`, cần đặt `PLAYWRIGHT_PACKAGE`.
+- Mockup HTML trong `ui/` chưa vẽ CUS-17, CUS-18 và màn chờ của tài xế.
+- Ảnh bàn giao chưa gắn vào mốc giao: tài xế gửi qua sự cố giao ngựa.
+- Chưa có nút thu hồi ngoại lệ đã duyệt. Mỗi đơn chỉ có một ngoại lệ.
+- Khi còn mô phỏng, khách vẫn tự xác nhận đã trả được, nên quy tắc giao có thể bị lách (mục 2 file 10). Phải tắt khi chuyển sang VNPay.
+
+**Việc tiếp theo, theo thứ tự:**
+
+1. Long xem rồi cho fast-forward `long` và push.
+2. Trước khi lên DB chung: Long đồng ý chạy migration và kiểm tra các chuyến `IN_TRANSIT` chưa trả đủ, vì chúng sẽ bị chặn ngay ở bước giao.
+3. Khi Long có khóa VNPay Sandbox: làm giai đoạn 1 và 2 file 10 phần cổng thật.
+
+**Dựng lại môi trường thử** (đã xóa sau phiên này):
+
+- `docker run` `mysql:8.0` cổng 33077 và `redis:7-alpine` cổng 63790. DB `wdp` phải tạo với `utf8mb4_unicode_ci`, nếu không migration `CustomerProfiles` lỗi collation.
+- Nạp riêng các lệnh `CREATE TABLE` của `apps/api/test/fixtures/schema.sql`, rồi `pnpm typeorm migration:run -t none`.
+- Đặt sẵn mọi biến `DB_*`, `REDIS_*`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT=3100`, rồi trong `apps/api` chạy `npx ts-node --files src/index.ts`.
+- E2E, trong `apps/mobile`: `E2E_API_URL=http://127.0.0.1:3100/api/v1 E2E_DB_PORT=33077 E2E_DB_PASSWORD=<mật khẩu thử> node --experimental-strip-types scripts/e2e-api.mts`.
+- Metro: đặt `EXPO_PUBLIC_API_URL=http://10.0.2.2:3100/api/v1`, chạy `npx expo start --go --localhost --port 8090`, rồi `adb reverse tcp:8090 tcp:8090`.
+- Web: `VITE_API_URL=http://127.0.0.1:3100/api/v1 npx vite --port 5190 --strictPort --host 127.0.0.1`, và `CORS_ORIGIN=http://127.0.0.1:5190` ở API.
+
 ## 1. Đã hoàn thành
 
 | Việc | Kết quả | Chi tiết |
@@ -16,7 +61,7 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 
 ### Việc lớn
 
-1. **Thanh toán VNPay Sandbox và xử lý tình huống khi giao ngựa.** Đã chốt hướng, chưa code. Cần Long có khóa sandbox, tự đặt vào `.env`, không gửi qua chat. Xem [10-thanh-toan-mobile-plan.md](10-thanh-toan-mobile-plan.md), bắt đầu từ mục 0.
+1. **Cổng VNPay Sandbox thật.** Xử lý khi giao ngựa và thanh toán mô phỏng đã làm, xem mục 0. Cần Long có khóa sandbox, tự đặt vào `.env`, không gửi qua chat. Xem [10-thanh-toan-mobile-plan.md](10-thanh-toan-mobile-plan.md), bắt đầu từ mục 0.
 2. **Cho CI trên `main` xanh.** CI đang đỏ ở `flow3-read.mysql.cjs` và `flow4-tracking.mysql.cjs`, vì test còn viết theo API và schema cũ, chưa thấy là lỗi của code:
    - flow3: 32/49 ca hỏng. Test gửi `vehicleId` theo từng chặng và danh sách `assignments` phẳng, API đã đổi sang phân xe và nhân sự theo từng xe. Phải viết lại khoảng 470 dòng trong `apps/api/test/trips-*-checks.cjs`, nên có Tiến xem cùng để chốt ca nào còn đúng nghiệp vụ.
    - flow4: 5/26 ca hỏng. Ba ca gửi báo cáo sự cố thiếu ảnh hoặc sai trường, một ca timeline do sự cố nhỏ chưa đóng, một ca migration `EscortHorseCare` không drop được bảng vì khóa ngoại. Chưa xem kỹ nên chưa loại trừ lỗi thật.
@@ -37,7 +82,6 @@ Claude không làm được các việc này.
 - Kiểu của `react-native-webview` 14 chưa khớp RN 0.88, đang ép kiểu ở một chỗ trong `apps/mobile/src/map/TripMapView.tsx`.
 - Mockup HTML trong `docs/mobile-design/ui/` chưa vẽ lại theo bản đồ thật và tạo đơn mới.
 - Tính quãng đường báo sai "Chưa kết nối được dịch vụ bản đồ" với điểm ở đảo như Côn Đảo.
-- Thẻ "Đặt cọc cho..." ở trang chủ từng hiện với báo giá đã hết hạn. Cần kiểm tra lại xem còn không.
 - Đổi bản đồ web sang MapLibre: chưa làm, để sau nếu muốn web và mobile giống hệt.
 
 ### Trước ngày demo

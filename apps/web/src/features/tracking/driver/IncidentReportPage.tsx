@@ -44,7 +44,10 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
 
   const kind = splitIncidentKind(draft.kind);
   const medical = kind?.incidentType === 'HORSE_MEDICAL';
-  const showHorse = medical || draft.damageTarget === 'HORSE' || draft.damageTarget === 'BOTH';
+  // Sự cố giao ngựa không gắn với hư hại, và thường không có gì để chụp.
+  const delivery = kind?.incidentType === 'DELIVERY_ISSUE';
+  const photoRequired = PHOTO_REQUIRED.INCIDENT && !delivery;
+  const showHorse = medical || (!delivery && (draft.damageTarget === 'HORSE' || draft.damageTarget === 'BOTH'));
   const horses = detail?.horses ?? [];
   const update = (patch: Partial<Draft>) => setDraft(previous => ({ ...previous, ...patch }));
 
@@ -79,9 +82,9 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
     if (!draft.severity) return 'Chọn mức độ sự cố.';
     if (!kind) return 'Chọn loại sự cố.';
     if (draft.description.trim().length < 5) return 'Mô tả chi tiết tối thiểu 5 ký tự.';
-    if (!draft.damageTarget) return 'Chọn hư hại liên quan tới xe, ngựa hay cả hai.';
+    if (!delivery && !draft.damageTarget) return 'Chọn hư hại liên quan tới xe, ngựa hay cả hai.';
     if (medical && !draft.horseId) return 'Sự cố y tế: chọn con ngựa bị ảnh hưởng.';
-    if (PHOTO_REQUIRED.INCIDENT && !photos.length) return 'Thêm ít nhất 1 ảnh hiện trường để điều phối viên xử lý.';
+    if (photoRequired && !photos.length) return 'Thêm ít nhất 1 ảnh hiện trường để điều phối viên xử lý.';
     return '';
   }
 
@@ -95,7 +98,7 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
     form.set('severity', draft.severity);
     form.set('incidentType', kind.incidentType);
     form.set('subType', kind.subType);
-    form.set('damageTarget', draft.damageTarget);
+    if (!delivery) form.set('damageTarget', draft.damageTarget);
     form.set('description', draft.description.trim());
     const leg = currentLeg(trip.legs);
     if (leg) form.set('legId', leg.id);
@@ -160,8 +163,8 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
           />
         </label>
 
-        <h3 className="drv-card-title">3. Hư hại liên quan tới</h3>
-        <DamageTargetChips value={draft.damageTarget} onChange={damageTarget => update({ damageTarget })} disabled={busy} invalid={invalid(!draft.damageTarget)} />
+        {!delivery && <h3 className="drv-card-title">3. Hư hại liên quan tới</h3>}
+        {!delivery && <DamageTargetChips value={draft.damageTarget} onChange={damageTarget => update({ damageTarget })} disabled={busy} invalid={invalid(!draft.damageTarget)} />}
         {showHorse && (
           <label className="drv-input drv-horse-field">
             <span>Con ngựa liên quan{medical ? ' (bắt buộc)' : ' (nếu có)'}</span>
@@ -173,13 +176,13 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
           </label>
         )}
 
-        <h3 className="drv-card-title">4. Hình ảnh hiện trường{PHOTO_REQUIRED.INCIDENT ? ' (bắt buộc)' : ''}</h3>
-        <div className={'drv-photo-required' + (invalid(PHOTO_REQUIRED.INCIDENT && !photos.length) ? ' is-invalid' : '')}>
+        <h3 className="drv-card-title">{delivery ? 3 : 4}. Hình ảnh hiện trường{photoRequired ? ' (bắt buộc)' : ''}</h3>
+        <div className={'drv-photo-required' + (invalid(photoRequired && !photos.length) ? ' is-invalid' : '')}>
           <LabeledPhotoGrid
             photos={photos} captions={captions} onError={setError} disabled={busy}
             onChange={(nextPhotos, nextCaptions) => { setPhotos(nextPhotos); setCaptions(nextCaptions); }}
           />
-          {invalid(PHOTO_REQUIRED.INCIDENT && !photos.length) && <small className="drv-error-text" role="alert">Điều phối viên cần ảnh để xem và xử lý sự cố.</small>}
+          {invalid(photoRequired && !photos.length) && <small className="drv-error-text" role="alert">Điều phối viên cần ảnh để xem và xử lý sự cố.</small>}
         </div>
 
         {error && <Alert type="error" showIcon title={error} />}

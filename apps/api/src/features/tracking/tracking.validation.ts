@@ -75,9 +75,25 @@ export function buildMilestoneSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROAC
     }),
     occurredAt: milestoneTimeSchema,
     queuedAt: milestoneTimeSchema.optional(),
-  }).strict().superRefine(({ occurredAt, queuedAt }, context) => checkOccurredAt(occurredAt, maxRetroactiveMinutes, context, 'occurredAt', queuedAt));
+    // Chỉ dùng với DELIVERED, khi người khác nhận thay người nhận trên đơn.
+    actualRecipientName: z.string().trim().min(2, 'Tên người nhận tối thiểu 2 ký tự.').max(120, 'Tên người nhận tối đa 120 ký tự.').optional(),
+    actualRecipientPhone: z.string().trim().min(8, 'Số điện thoại không hợp lệ.').max(30, 'Số điện thoại không hợp lệ.').optional(),
+  }).strict().superRefine((input, context) => {
+    checkOccurredAt(input.occurredAt, maxRetroactiveMinutes, context, 'occurredAt', input.queuedAt);
+    if (input.milestoneType !== MilestoneType.DELIVERED && (input.actualRecipientName || input.actualRecipientPhone)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['actualRecipientName'], message: 'Người nhận thực tế chỉ ghi ở mốc Đã giao.' });
+    }
+    if (input.actualRecipientPhone && !input.actualRecipientName) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['actualRecipientName'], message: 'Cần ghi tên người nhận thực tế.' });
+    }
+  });
 }
 export const createMilestoneSchema = buildMilestoneSchema();
+
+export const approveDeliveryExceptionSchema = z.object({
+  reason: z.string().trim().min(5, 'Lý do tối thiểu 5 ký tự.').max(500, 'Lý do tối đa 500 ký tự.'),
+  dueAt: z.string().datetime({ message: 'Hạn trả không hợp lệ.' }).optional().nullable(),
+}).strict();
 export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
 
 export function buildWaypointCheckinSchema(maxRetroactiveMinutes = DEFAULT_MAX_RETROACTIVE_MINUTES) {
@@ -185,7 +201,7 @@ const coordinateSchema = (min: number, max: number, label: string) => z.coerce.n
 export const createIncidentSchema = z.object({
   clientRequestId: clientRequestIdSchema.optional(),
   incidentType: z.nativeEnum(IncidentType, {
-    errorMap: () => ({ message: 'Loại sự cố không hợp lệ (VEHICLE_BREAKDOWN, LONG_TRAFFIC_JAM, HORSE_MEDICAL).' }),
+    errorMap: () => ({ message: 'Loại sự cố không hợp lệ (VEHICLE_BREAKDOWN, LONG_TRAFFIC_JAM, HORSE_MEDICAL, DELIVERY_ISSUE).' }),
   }),
   description: z.string().trim().min(5, 'Mô tả sự cố tối thiểu 5 ký tự.').max(2000, 'Mô tả sự cố tối đa 2000 ký tự.'),
   legId: legIdSchema.optional().nullable(),
@@ -196,7 +212,7 @@ export const createIncidentSchema = z.object({
   subType: z.string().trim().max(40, 'Loại con tối đa 40 ký tự.').optional().nullable(),
   damageTarget: z.nativeEnum(DamageTarget, {
     errorMap: () => ({ message: 'Hư hại liên quan tới là bắt buộc (VEHICLE, HORSE, BOTH).' }),
-  }),
+  }).optional().nullable(),
   latitude: coordinateSchema(-90, 90, 'Vĩ độ').optional().nullable(),
   longitude: coordinateSchema(-180, 180, 'Kinh độ').optional().nullable(),
   locationText: z.string().trim().max(255, 'Vị trí tối đa 255 ký tự.').optional().nullable(),
@@ -206,6 +222,14 @@ export const createIncidentSchema = z.object({
     z.array(z.string().trim().max(100, 'Nhãn ảnh tối đa 100 ký tự.')).max(3, 'Tối đa 3 nhãn ảnh.'),
   ),
 }).strict().superRefine((data, context) => {
+  // Sự cố giao ngựa không gắn với hư hại xe hay ngựa.
+  if (data.incidentType !== IncidentType.DELIVERY_ISSUE && !data.damageTarget) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['damageTarget'],
+      message: 'Hư hại liên quan tới là bắt buộc (VEHICLE, HORSE, BOTH).',
+    });
+  }
   if (data.incidentType === IncidentType.HORSE_MEDICAL && !data.horseId) {
     context.addIssue({
       code: z.ZodIssueCode.custom,

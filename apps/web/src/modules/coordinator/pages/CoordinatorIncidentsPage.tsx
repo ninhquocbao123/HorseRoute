@@ -6,6 +6,7 @@ import type { ICoordinatorIncident } from '@my-project/shared';
 import { useFeedback } from '../../../components/useFeedback';
 import { errorMessage, trackingApi } from '../../../features/tracking/tracking.api';
 import { IncidentFacts, IncidentHeading, IncidentHistory } from '../incidents/IncidentDetail';
+import DeliveryExceptionPanel from '../../../features/tracking/DeliveryExceptionPanel';
 import { useIncidentCenter } from '../incidents/IncidentCenter';
 import { REPORTER_ROLE, STATUS_TEXT, WAIT_PRESETS, incidentTitle, minutesText, noteSuggestions, severityOf, waitText, whenText } from '../incidents/incident-ui';
 
@@ -132,6 +133,7 @@ export default function CoordinatorIncidentsPage() {
               <h3>Lịch sử xử lý</h3>
               <IncidentHistory incident={selected} />
             </section>
+            {selected.incidentType === 'DELIVERY_ISSUE' && <DeliveryExceptionPanel key={selected.orderId} orderId={selected.orderId} canApprove={false} />}
             {selected.status !== 'CLOSED' && <HandleForm key={selected.id} incident={selected} onDone={changed} />}
           </>
         )}

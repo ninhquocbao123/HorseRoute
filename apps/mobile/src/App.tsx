@@ -78,6 +78,7 @@ import {
   OrdersScreen,
   ProfileFormScreen,
   ProfilesScreen,
+  PaymentScreen,
   QuoteScreen,
   TrackingMapScreen,
   TrackingScreen,
@@ -100,6 +101,7 @@ const titles: Record<string, string> = {
   "horse-form": "Chỉnh sửa hồ sơ",
   booking: "Yêu cầu vận chuyển",
   quote: "Báo giá",
+  payment: "Thanh toán",
   documents: "Giấy tờ",
   tracking: "Theo dõi hành trình",
   "tracking-map": "Bản đồ hành trình",
@@ -127,6 +129,7 @@ const customerSelfScrolling = new Set([
   "order",
   "documents",
   "quote",
+  "payment",
   "tracking",
   "tracking-map",
   "horses",
@@ -760,7 +763,11 @@ function Authenticated({
         <OrderScreen id={page.id} go={go} documents={screen === "documents"} />
       );
     else if (page.id && screen === "quote")
-      content = <QuoteScreen id={page.id} />;
+      content = <QuoteScreen id={page.id} go={go} />;
+    else if (page.id && page.paymentType && screen === "payment")
+      content = (
+        <PaymentScreen id={page.id} type={page.paymentType} back={back} />
+      );
     else if (page.id && screen === "tracking")
       content = <TrackingScreen id={page.id} go={go} />;
     else if (page.id && screen === "tracking-map")

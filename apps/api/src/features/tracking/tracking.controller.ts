@@ -14,6 +14,18 @@ export class TrackingController {
     res.json(await this.service.getTripDetail(req.account, String(req.params.id)));
   };
 
+  deliveryClearance: RequestHandler = async (req, res) => {
+    res.json(await this.service.getDeliveryClearance(req.account, String(req.params.orderId)));
+  };
+
+  approveDeliveryException: RequestHandler = async (req, res) => {
+    res.status(201).json(await this.service.approveDeliveryException(req.account, String(req.params.orderId), req.body));
+  };
+
+  openDeliveryException: RequestHandler = async (req, res) => {
+    res.json(await this.service.openDeliveryException(req.account, String(req.params.orderId)));
+  };
+
   recordMilestone: RequestHandler = async (req, res) => {
     res.status(201).json(await this.service.recordMilestone(req.account, String(req.params.legId), req.body));
   };

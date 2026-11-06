@@ -6,6 +6,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Linking, Pressable, StyleSheet, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import {
   ChevronRight,
@@ -74,7 +75,7 @@ import type {
 } from "../api/types";
 import {
   asId,
-  quoteExpiredForPayment,
+  paymentAction,
   dateTime,
   day,
   emptyProfile,
@@ -253,20 +254,31 @@ export function CustomerHome({ go }: { go: Navigate }) {
         icon: CircleAlert,
         onPress: () => go("order", { id: String(o.id) }),
       })),
-    ...all
-      .filter(
-        (o) =>
-          ["APPROVED", "AWAITING_DEPOSIT"].includes(o.status) &&
-          o.quote_total != null &&
-          Number(o.paid ?? 0) === 0,
-      )
-      .map((o) => ({
-        key: `deposit-${o.id}`,
-        title: `Đặt cọc cho ${o.order_code}`,
-        detail: `Báo giá ${money(o.quote_total)}`,
-        icon: Wallet,
-        onPress: () => go("quote", { id: String(o.id) }),
-      })),
+    ...all.flatMap((o) => {
+      if (o.quote_total == null || o.quote_deposit == null) return [];
+      const action = paymentAction(
+        { status: o.status, arrivedAtDelivery: o.arrived_at_delivery },
+        {
+          total: o.quote_total,
+          deposit: o.quote_deposit,
+          paid: o.paid,
+          expires_at: o.quote_expires_at,
+        },
+      );
+      if (action.kind !== "pay") return [];
+      return [
+        {
+          key: `pay-${o.id}`,
+          title:
+            action.type === "DEPOSIT"
+              ? `Đặt cọc cho ${o.order_code}`
+              : `Thanh toán ${o.order_code}`,
+          detail: `${money(action.amount)}. ${action.note}`,
+          icon: Wallet,
+          onPress: () => go("quote", { id: String(o.id) }),
+        },
+      ];
+    }),
     ...(resource.data?.horses ?? [])
       .filter((h) => Number(h.missing_documents) > 0)
       .map((h) => ({
@@ -582,7 +594,7 @@ export function OrderScreen({
   const quote = useResource<Quote | null>(
     quoted ? `/orders/${asId(id)}/quote` : null,
   );
-  const [web, setWeb] = useState<"docs" | "pay" | null>(null);
+  const [web, setWeb] = useState(false);
   const [error, setError] = useState("");
   const [upload, setUpload] = useState<OrderDetail["documents"][number] | null>(
     null,
@@ -630,7 +642,7 @@ export function OrderScreen({
         <Button
           title="Tải bản PDF trên website"
           kind="tertiary"
-          onPress={() => setWeb("docs")}
+          onPress={() => setWeb(true)}
         />
       ) : null;
   else if (order.status === "DRAFT")
@@ -902,31 +914,31 @@ export function OrderScreen({
         }}
       />
       <WebHandoffSheet
-        visible={web !== null}
-        onClose={() => setWeb(null)}
+        visible={web}
+        onClose={() => setWeb(false)}
         orderId={id}
-        documents={web === "docs"}
-        title={
-          web === "docs"
-            ? "Tải giấy tờ trên website"
-            : "Thanh toán trên website"
-        }
-        body={
-          web === "docs"
-            ? "Tải ảnh hoặc bản quét giấy tờ trên website. Trạng thái cập nhật lại ở đây sau khi quản lý kiểm tra."
-            : "Thanh toán thực hiện trên website. Ứng dụng cập nhật số đã trả khi giao dịch được ghi nhận."
-        }
+        documents
+        title="Tải giấy tờ trên website"
+        body="Tải ảnh hoặc bản quét giấy tờ trên website. Trạng thái cập nhật lại ở đây sau khi quản lý kiểm tra."
       />
     </ScreenBody>
   );
 }
 
 /** CUS-04 Báo giá: bảng như hóa đơn, số canh phải, hạn đếm ngược khi còn dưới 48 giờ. */
-export function QuoteScreen({ id }: { id: string }) {
+export function QuoteScreen({ id, go }: { id: string; go: Navigate }) {
   const resource = useResource<Quote | null>(`/orders/${asId(id)}/quote`);
   const quote = resource.data;
   const { colors: c } = useTheme();
-  const [web, setWeb] = useState(false);
+  const action = quote
+    ? paymentAction(
+        {
+          status: quote.order_status,
+          arrivedAtDelivery: quote.arrived_at_delivery,
+        },
+        quote,
+      )
+    : null;
   const due = quote ? Math.max(0, Number(quote.total) - Number(quote.paid)) : 0;
   const left = quote?.expires_at
     ? Date.parse(quote.expires_at) - Date.now()
@@ -962,15 +974,15 @@ export function QuoteScreen({ id }: { id: string }) {
     <ScreenBody
       onRefresh={resource.reload}
       footer={
-        quote && due > 0 && !quoteExpiredForPayment(quote) ? (
+        action?.kind === "pay" ? (
           <Button
             title={
-              Number(quote.paid) > 0
-                ? `Thanh toán ${money(due)} trên web`
-                : `Đặt cọc ${money(quote.deposit)} trên web`
+              action.type === "DEPOSIT"
+                ? `Đặt cọc ${money(action.amount)}`
+                : `Thanh toán ${money(action.amount)}`
             }
             icon={Wallet}
-            onPress={() => setWeb(true)}
+            onPress={() => go("payment", { id, paymentType: action.type })}
           />
         ) : null
       }
@@ -998,10 +1010,25 @@ export function QuoteScreen({ id }: { id: string }) {
                   }
                 >
                   {left <= 0
-                    ? "Báo giá đã hết hạn. Liên hệ quản lý để báo giá lại."
+                    ? action?.kind === "none" && action.expired
+                      ? action.note
+                      : `Hạn báo giá: ${dateTime(quote.expires_at)}`
                     : left < 48 * 3600000
                       ? `Còn ${Math.floor(left / 3600000)} giờ ${Math.floor((left % 3600000) / 60000)} phút để đặt cọc`
                       : `Hạn báo giá: ${dateTime(quote.expires_at)}`}
+                </Txt>
+              ) : null}
+              {action?.note && !(action.kind === "none" && action.expired) ? (
+                <Txt
+                  size={15}
+                  bold={action.kind === "pay" && action.urgent}
+                  color={
+                    action.kind === "pay" && action.urgent
+                      ? c.warningFg
+                      : c.textSecondary
+                  }
+                >
+                  {action.note}
                 </Txt>
               ) : null}
             </Card>
@@ -1056,13 +1083,192 @@ export function QuoteScreen({ id }: { id: string }) {
           />
         )}
       </ResourceState>
-      <WebHandoffSheet
-        visible={web}
-        onClose={() => setWeb(false)}
-        orderId={id}
-        title="Thanh toán trên website"
-        body="Thanh toán thực hiện trên website. Số đã trả cập nhật ở đây khi giao dịch được ghi nhận."
-      />
+    </ScreenBody>
+  );
+}
+
+const PAY_METHODS = [
+  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
+  { value: "E_WALLET", label: "Ví điện tử" },
+  { value: "CARD", label: "Thẻ" },
+] as const;
+
+/**
+ * CUS-17, CUS-18 Thanh toán MÔ PHỎNG, cùng API với web, không thu tiền thật.
+ * Tạm thời cho tới khi có VNPay Sandbox; khi đó thay màn này theo kế hoạch 10 mục 4.
+ * Số tiền lấy lại từ máy chủ lúc tạo phiên, không tin số đang hiện trên máy.
+ */
+export function PaymentScreen({
+  id,
+  type,
+  back,
+}: {
+  id: string;
+  type: "DEPOSIT" | "BALANCE";
+  back: () => void;
+}) {
+  const { request, refresh } = useSession();
+  const { colors: c } = useTheme();
+  const resource = useResource<Quote | null>(`/orders/${asId(id)}/quote`);
+  const quote = resource.data;
+  const [method, setMethod] =
+    useState<(typeof PAY_METHODS)[number]["value"]>("BANK_TRANSFER");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<{
+    status: "SUCCESS" | "FAILED" | "CANCELLED";
+    amount: number;
+  } | null>(null);
+  const action = quote
+    ? paymentAction(
+        {
+          status: quote.order_status,
+          arrivedAtDelivery: quote.arrived_at_delivery,
+        },
+        quote,
+      )
+    : null;
+  const finish = async (status: "SUCCESS" | "FAILED" | "CANCELLED") => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const session = await request<{ sessionCode: string; amount: number }>(
+        "/payments/sessions",
+        {
+          method: "POST",
+          body: { orderId: id, paymentType: type, paymentMethod: method },
+        },
+      );
+      await request(
+        `/payments/sessions/${asId(session.sessionCode)}/complete`,
+        { method: "POST", body: { result: status } },
+      );
+      setResult({ status, amount: session.amount });
+      if (status === "SUCCESS") {
+        void Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        ).catch(() => {});
+        refresh();
+      }
+    } catch (e) {
+      setError(messageOf(e));
+      resource.reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (result)
+    return (
+      <ScreenBody
+        footer={
+          result.status === "SUCCESS" ? (
+            <Button title="Xong" onPress={back} />
+          ) : (
+            <>
+              <Button title="Thử lại" onPress={() => setResult(null)} />
+              <Button title="Để sau" kind="secondary" onPress={back} />
+            </>
+          )
+        }
+      >
+        <Card>
+          {result.status === "SUCCESS" ? (
+            <CircleCheck size={32} color={c.successFg} />
+          ) : (
+            <CircleAlert
+              size={32}
+              color={result.status === "FAILED" ? c.dangerFg : c.warningFg}
+            />
+          )}
+          <Txt size={24} bold>
+            {result.status === "SUCCESS"
+              ? "Đã ghi nhận thanh toán"
+              : result.status === "FAILED"
+                ? "Thanh toán không thành công"
+                : "Đã hủy giao dịch"}
+          </Txt>
+          <Txt color={c.textSecondary}>
+            {result.status === "SUCCESS"
+              ? `${money(result.amount)} đã được ghi vào đơn. Đây là giao dịch mô phỏng.`
+              : "Chưa có khoản tiền nào được ghi nhận."}
+          </Txt>
+        </Card>
+      </ScreenBody>
+    );
+  const payable = action?.kind === "pay" && action.type === type;
+  return (
+    <ScreenBody
+      onRefresh={resource.reload}
+      footer={
+        payable ? (
+          <>
+            <Button
+              title={`Xác nhận thanh toán ${money(action.amount)}`}
+              large
+              icon={Wallet}
+              disabled={busy}
+              onPress={() => void finish("SUCCESS")}
+            />
+            <Button
+              title="Thử thanh toán thất bại"
+              kind="secondary"
+              disabled={busy}
+              onPress={() => void finish("FAILED")}
+            />
+            <Button
+              title="Hủy giao dịch"
+              kind="tertiary"
+              disabled={busy}
+              onPress={() => void finish("CANCELLED")}
+            />
+          </>
+        ) : null
+      }
+    >
+      <ResourceState resource={resource} what="thanh toán" skeleton="detail">
+        <Banner warning text="Thanh toán mô phỏng, không thu tiền thật." />
+        {payable ? (
+          <>
+            <Card>
+              <Txt size={12} bold color={c.textSecondary}>
+                {type === "DEPOSIT" ? "ĐẶT CỌC" : "PHẦN CÒN LẠI"}
+              </Txt>
+              <Txt size={24} bold style={{ fontVariant: ["tabular-nums"] }}>
+                {money(action.amount)}
+              </Txt>
+              <Txt size={15} color={c.textSecondary}>
+                {action.note}
+              </Txt>
+            </Card>
+            <Section title="Phương thức" />
+            <View style={s.wrap}>
+              {PAY_METHODS.map((m) => (
+                <Chip
+                  key={m.value}
+                  label={m.label}
+                  selected={method === m.value}
+                  onPress={() => setMethod(m.value)}
+                />
+              ))}
+            </View>
+          </>
+        ) : (
+          <Empty
+            icon={ReceiptText}
+            title="Không còn khoản cần trả ở bước này"
+            detail={
+              (action?.kind === "none" && action.note) ||
+              "Quay lại báo giá để xem số tiền mới nhất."
+            }
+          />
+        )}
+        {error ? (
+          <Txt size={15} color={c.dangerFg}>
+            {error}
+          </Txt>
+        ) : null}
+      </ResourceState>
     </ScreenBody>
   );
 }
@@ -1219,7 +1425,11 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
             accessibilityLabel={`Bản đồ ${map.data.stops.map((stop) => stop.name).join(" đến ")}`}
           />
           {customerPositionText(map.data) ? (
-            <Txt size={12} color={c.textSecondary} style={{ paddingHorizontal: 4 }}>
+            <Txt
+              size={12}
+              color={c.textSecondary}
+              style={{ paddingHorizontal: 4 }}
+            >
               {customerPositionText(map.data)}
             </Txt>
           ) : null}
@@ -1363,15 +1573,15 @@ export function TrackingMapScreen({ id }: { id: string }) {
               borderTopColor: c.border,
             }}
           >
-            <Txt bold>
-              {customerPositionText(data) ?? "Chưa có vị trí xe"}
-            </Txt>
+            <Txt bold>{customerPositionText(data) ?? "Chưa có vị trí xe"}</Txt>
             <Txt size={15} color={c.textSecondary}>
               {[
                 data.remainingKm !== null
                   ? `Còn khoảng ${data.remainingKm.toLocaleString("vi-VN")} km`
                   : null,
-                data.position ? `Cập nhật ${dateTime(data.position.asOf)}` : null,
+                data.position
+                  ? `Cập nhật ${dateTime(data.position.asOf)}`
+                  : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}

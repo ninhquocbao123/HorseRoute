@@ -31,6 +31,8 @@ module.exports = async function loadSchema(db) {
     await new CrewReservations1800000091000().up(runner);
     const {ClientRequestIds1800000092000}=require('../src/database/migrations/1800000092000-ClientRequestIds');
     await new ClientRequestIds1800000092000().up(runner);
+    const {DeliveryExceptions1800000093000}=require('../src/database/migrations/1800000093000-DeliveryExceptions');
+    await new DeliveryExceptions1800000093000().up(runner);
     // Migrations newer than the schema.sql dump. Keep this list in step with src/database/migrations.
     // RemoveQuarantineRules is left out on purpose: it seeds document_types, and flow2 tests approval before they exist.
     for (const file of ['1800000007000-PricingVersions', '1800000008000-ManagerQuotes',

@@ -1,6 +1,6 @@
 import {
   CareActivityType, CrewRole, Role, HorseReportStatus, HORSE_CONDITION_META, HORSE_REPORT_PHOTO_REQUIRED_STATUSES, HORSE_REPORT_MAX_PHOTOS, PHOTO_REQUIRED,
-  type HorseConditionStatus, type IHorseReport,
+  type HorseConditionStatus, type IHorseReport, type IDeliveryClearance,
 } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { TrackingRepository } from './tracking.repository';
@@ -22,6 +22,7 @@ import {
   createAlertSchema,
   positionsBatchSchema,
   trackQuerySchema,
+  approveDeliveryExceptionSchema,
 } from './tracking.validation';
 import { Upload, fileType, saveFile, removeFile, loadFile } from '../documents/file-storage';
 import { parse } from '../../shared/utils/validation.util';
@@ -30,6 +31,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  PaymentRequiredException,
 } from '../../shared/core/error.response';
 import {
   LegStatus,
@@ -74,6 +76,10 @@ const waypointCheckinView = (c: WaypointCheckinRow): IWaypointCheckin => ({
   waypointId: c.waypointId, label: c.label, occurredAt: c.occurredAt.toISOString(), recordedByName: c.recordedByName,
 });
 
+/** Tổ lái chỉ thấy lý do khi ngoại lệ đã mở và đơn vẫn còn nợ. */
+const exceptionReason = (clearance: IDeliveryClearance) =>
+  !clearance.fullyPaid && clearance.exception?.status === 'OPENED' ? clearance.exception.reason : null;
+
 function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[], checkins: WaypointCheckinRow[] = []): ILegTracking {
   const legMilestones: ILegMilestone[] = milestones
     .filter(m => m.legId === leg.id)
@@ -84,6 +90,7 @@ function mapLegWithMilestones(leg: LegDetailRow, milestones: MilestoneRow[], che
       occurredAt: m.occurredAt.toISOString(),
       recordedBy: m.recordedBy,
       recordedByName: m.recordedByName,
+      ...(m.actualRecipientName ? { actualRecipientName: m.actualRecipientName, actualRecipientPhone: m.actualRecipientPhone } : {}),
     }));
 
   return {
@@ -114,7 +121,9 @@ const INCIDENT_LABELS: Record<IncidentType, string> = {
   [IncidentType.VEHICLE_BREAKDOWN]: 'hỏng xe',
   [IncidentType.LONG_TRAFFIC_JAM]: 'kẹt xe kéo dài',
   [IncidentType.HORSE_MEDICAL]: 'y tế ngựa',
+  [IncidentType.DELIVERY_ISSUE]: 'giao ngựa',
 };
+const UNPAID_MESSAGE = 'Khách chưa thanh toán đủ nên chưa xác nhận giao được. Chờ khách thanh toán hoặc báo điều phối.';
 const ALERT_LABELS: Record<AlertType, string> = {
   [AlertType.TRAFFIC]: 'giao thông',
   [AlertType.WEATHER]: 'thời tiết',
@@ -272,6 +281,9 @@ export class TrackingService {
     const allLegs = await this.repository.getLegsForTrips(tripRows.map(t => t.id));
     const allMilestones = await this.repository.getLegMilestones(allLegs.map(l => l.id));
     const allCheckins = await this.repository.getWaypointCheckins(allLegs.map(l => l.id));
+    const clearances = new Map(await Promise.all(
+      tripRows.map(async trip => [trip.id, await this.repository.getDeliveryClearance(trip.orderId)] as const),
+    ));
     const summaries: IDriverTripSummary[] = tripRows.map(trip => ({
       id: trip.id,
       orderId: trip.orderId,
@@ -282,6 +294,8 @@ export class TrackingService {
       plannedArrivalAt: trip.plannedArrivalAt ? trip.plannedArrivalAt.toISOString() : null,
       crewRole: trip.crewRole,
       legs: allLegs.filter(l => l.tripId === trip.id).map(l => mapLegWithMilestones(l, allMilestones, allCheckins)),
+      paymentCleared: clearances.get(trip.id)!.cleared,
+      deliveryExceptionReason: exceptionReason(clearances.get(trip.id)!),
     }));
 
     return summaries;
@@ -311,13 +325,14 @@ export class TrackingService {
       }
     }
 
-    const [legs, horses, crew, contacts, vehicles, emergencyHotline] = await Promise.all([
+    const [legs, horses, crew, contacts, vehicles, emergencyHotline, clearance] = await Promise.all([
       this.repository.getTripLegs(tripId),
       this.repository.getTripHorses(trip.orderId),
       this.repository.getTripCrew(tripId),
       this.repository.getTripContacts(tripId),
       this.repository.getTripVehicles(tripId),
       this.repository.getEmergencyHotline(),
+      this.repository.getDeliveryClearance(trip.orderId),
     ]);
 
     const legIds = legs.map(l => l.id);
@@ -345,8 +360,65 @@ export class TrackingService {
       vehicles: vehicles.map(v => ({ id: v.id, code: v.code, type: v.type, capacityStalls: Number(v.capacityStalls) })),
       emergencyHotline,
       horses,
-      legs: legs.map(l => mapLegWithMilestones(l, milestones, checkins)),
+      legs: legs
+        .map(l => mapLegWithMilestones(l, milestones, checkins))
+        .map(l => (showPhone ? l : { ...l, milestones: l.milestones.map(m => ({ ...m, actualRecipientPhone: null })) })),
+      paymentCleared: clearance.cleared,
+      deliveryExceptionReason: exceptionReason(clearance),
     };
+  }
+
+  /** Quản lý và điều phối phụ trách chuyến xem tình trạng được giao. Không trả số tiền. */
+  private async deliveryExceptionScope(account: User, rawOrderId: string, repo: TrackingRepository = this.repository) {
+    const orderId = parse(legIdSchema, rawOrderId);
+    const trip = await repo.findApprovedTripOfOrder(orderId);
+    if (!trip) throw new NotFoundException('Đơn chưa có chuyến được duyệt.');
+    if (account.role === Role.COORDINATOR && trip.plannedBy !== String(account.id)) {
+      throw new NotFoundException('Đơn chưa có chuyến được duyệt.');
+    }
+    return { orderId, trip };
+  }
+
+  async getDeliveryClearance(account: User, rawOrderId: string): Promise<IDeliveryClearance> {
+    const { orderId } = await this.deliveryExceptionScope(account, rawOrderId);
+    return this.repository.getDeliveryClearance(orderId);
+  }
+
+  /** B5, B7: chỉ Quản lý được duyệt cho giao khi còn nợ. Duyệt xong tài xế vẫn bị chặn cho tới khi có người mở. */
+  async approveDeliveryException(account: User, rawOrderId: string, body: unknown): Promise<IDeliveryClearance> {
+    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Quản lý được duyệt giao ngựa khi còn nợ.');
+    const input = parse(approveDeliveryExceptionSchema, body);
+    return this.repository.transaction(async repo => {
+      const { orderId, trip } = await this.deliveryExceptionScope(account, rawOrderId, repo);
+      if (![OrderStatus.READY, OrderStatus.IN_TRANSIT].includes(trip.orderStatus)) {
+        throw new ConflictException('Chỉ duyệt ngoại lệ khi đơn đang chuẩn bị xuất phát hoặc đang vận chuyển.');
+      }
+      const current = await repo.getDeliveryClearance(orderId);
+      if (current.fullyPaid) throw new ConflictException('Đơn đã thanh toán đủ, không cần ngoại lệ.');
+      if (current.exception) throw new ConflictException('Đơn này đã có ngoại lệ giao ngựa.');
+      await repo.insertDeliveryException(orderId, input.reason, input.dueAt ? new Date(input.dueAt) : null, String(account.id));
+      await repo.audit(String(account.id), 'ORDER', orderId, 'DELIVERY_EXCEPTION_APPROVED', null, JSON.stringify({ reason: input.reason, dueAt: input.dueAt ?? null }), input.reason);
+      await repo.notify(trip.plannedBy, 'DELIVERY_EXCEPTION_APPROVED', `Quản lý đã duyệt giao ngựa khi còn nợ cho đơn ${trip.orderCode}. Hãy mở cho tài xế khi sẵn sàng.`, 'TRIP', trip.id);
+      return repo.getDeliveryClearance(orderId);
+    });
+  }
+
+  /** Mở cho tài xế: chỉ sau khi Quản lý đã duyệt. Tài xế vẫn tự bấm giao nên giờ giao đúng thực tế. */
+  async openDeliveryException(account: User, rawOrderId: string): Promise<IDeliveryClearance> {
+    if (account.role !== Role.COORDINATOR && account.role !== Role.MANAGER) {
+      throw new ForbiddenException('Chỉ Điều phối viên hoặc Quản lý được mở ngoại lệ giao ngựa.');
+    }
+    return this.repository.transaction(async repo => {
+      const { orderId, trip } = await this.deliveryExceptionScope(account, rawOrderId, repo);
+      if (!(await repo.openDeliveryException(orderId, String(account.id)))) {
+        throw new ConflictException('Quản lý chưa duyệt, hoặc ngoại lệ đã được mở trước đó.');
+      }
+      await repo.audit(String(account.id), 'ORDER', orderId, 'DELIVERY_EXCEPTION_OPENED', null, JSON.stringify({ tripId: trip.id }), null);
+      for (const userId of await repo.getTripCrewIds(trip.id)) {
+        await repo.notify(userId, 'DELIVERY_EXCEPTION_OPENED', `Đơn ${trip.orderCode}: điều phối đã cho phép giao ngựa.`, 'TRIP', trip.id);
+      }
+      return repo.getDeliveryClearance(orderId);
+    });
   }
 
   async recordMilestone(account: User, rawLegId: string, body: unknown): Promise<{
@@ -474,6 +546,8 @@ export class TrackingService {
           }
 
           assertNotBefore(input.occurredAt, leg.actualArrivalAt, 'đến trạm dừng');
+          // Dùng 402, không dùng 409: hàng chờ coi 409 sau khi mất phản hồi là "mốc đã đến nơi" (isReplayConflict).
+          if (!(await repo.getDeliveryClearance(leg.orderId)).cleared) throw new PaymentRequiredException(UNPAID_MESSAGE);
           nextLegStatus = LegStatus.COMPLETED;
           nextOrderStatus = OrderStatus.DELIVERED;
 
@@ -497,7 +571,8 @@ export class TrackingService {
         legId,
         input.milestoneType,
         input.occurredAt,
-        String(account.id)
+        String(account.id),
+        input.actualRecipientName ? { name: input.actualRecipientName, phone: input.actualRecipientPhone ?? null } : null,
       );
 
       // Audit log on leg
@@ -531,6 +606,16 @@ export class TrackingService {
           leg.customerId,
           'ORDER_LEG_PROGRESS',
           `Đơn hàng ${leg.orderCode}, chặng ${leg.seqNo}: ${milestoneLabels[input.milestoneType]}.`,
+          'ORDER',
+          leg.orderId
+        );
+      }
+
+      if (input.milestoneType === MilestoneType.ARRIVED_AT_STOP && isLastLeg && !(await repo.getDeliveryClearance(leg.orderId)).cleared) {
+        await repo.notify(
+          leg.customerId,
+          'PAYMENT_NEEDED_FOR_DELIVERY',
+          `Xe đã tới điểm giao của đơn ${leg.orderCode}. Tài xế đang đợi bạn thanh toán phần còn lại để giao ngựa.`,
           'ORDER',
           leg.orderId
         );
@@ -685,6 +770,15 @@ export class TrackingService {
           throw new ConflictException(`Trạng thái mới làm sai thứ tự chặng: Chặng ${index + 1} là ${status} nhưng có chặng trước chưa hoàn thành.`);
         }
       });
+
+      // Hiệu chỉnh không được là đường vòng qua quy tắc giao ngựa.
+      if (
+        leg.orderStatus !== OrderStatus.DELIVERED &&
+        nextStatuses.every(status => status === LegStatus.COMPLETED) &&
+        !(await repo.getDeliveryClearance(leg.orderId)).cleared
+      ) {
+        throw new PaymentRequiredException('Khách chưa thanh toán đủ nên chưa hiệu chỉnh thành đã giao được. Thu đủ tiền hoặc mở ngoại lệ giao ngựa trước.');
+      }
 
       const isLast = leg.seqNo === allLegs.length;
       const isBorder = leg.toLocationType === 'BORDER';
@@ -1267,7 +1361,8 @@ export class TrackingService {
     const replayed = await replay();
     if (replayed) return replayed;
     assertPhotos(files);
-    if (PHOTO_REQUIRED.INCIDENT && !files.length) {
+    // Sự cố giao ngựa thường không có gì để chụp (người nhận không nghe máy), ảnh là tùy chọn.
+    if (PHOTO_REQUIRED.INCIDENT && !files.length && input.incidentType !== IncidentType.DELIVERY_ISSUE) {
       throw new BadRequestException('Cần ít nhất 1 ảnh hiện trường để điều phối viên xử lý sự cố.');
     }
     if (input.captions.length > files.length) {
@@ -1296,7 +1391,7 @@ export class TrackingService {
         const subType = input.subType || null;
         const incidentId = await repo.insertIncident({
           tripId, legId: input.legId ?? null, horseId: input.horseId ?? null, incidentType: input.incidentType, description: input.description,
-          urgency, severity: input.severity, subType, damageTarget: input.damageTarget,
+          urgency, severity: input.severity, subType, damageTarget: input.damageTarget ?? null,
           latitude: input.latitude ?? null, longitude: input.longitude ?? null, locationText: input.locationText || null,
           reportedBy: String(account.id), reportedAt: new Date().toISOString(), clientRequestId: input.clientRequestId ?? null,
         });

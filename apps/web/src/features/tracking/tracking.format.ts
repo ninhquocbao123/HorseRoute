@@ -82,4 +82,4 @@ export function nextAction(leg: ILegTracking, legs: ILegTracking[], orderStatus:
 
 export const ALERT_LABEL: Record<string, string> = { TRAFFIC: 'Giao thông', WEATHER: 'Thời tiết', BORDER: 'Cửa khẩu' };
 export const URGENCY_LABEL: Record<string, string> = { NORMAL: 'Bình thường', HIGH: 'KHẨN CẤP' };
-export const INCIDENT_TYPE_LABEL: Record<string, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa' };
+export const INCIDENT_TYPE_LABEL: Record<string, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa', DELIVERY_ISSUE: 'Giao ngựa' };

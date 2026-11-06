@@ -23,6 +23,13 @@ export const INCIDENT_SUB_TYPES: Record<IncidentType, { code: string; label: str
     { code: 'COLIC', label: 'Đau bụng (colic)' },
     { code: 'OTHER', label: 'Khác' },
   ],
+  [IncidentType.DELIVERY_ISSUE]: [
+    { code: 'RECIPIENT_UNREACHABLE', label: 'Không liên lạc được người nhận' },
+    { code: 'UNPAID', label: 'Khách chưa thanh toán' },
+    { code: 'RECIPIENT_REFUSED', label: 'Người nhận từ chối' },
+    { code: 'LOCATION_PROBLEM', label: 'Địa điểm có vấn đề' },
+    { code: 'OTHER', label: 'Khác' },
+  ],
 };
 
 /** `code` có thuộc danh sách loại con của `type` không. */

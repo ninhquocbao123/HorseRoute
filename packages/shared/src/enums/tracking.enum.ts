@@ -52,6 +52,7 @@ export enum IncidentType {
   VEHICLE_BREAKDOWN = 'VEHICLE_BREAKDOWN',
   LONG_TRAFFIC_JAM  = 'LONG_TRAFFIC_JAM',
   HORSE_MEDICAL     = 'HORSE_MEDICAL',
+  DELIVERY_ISSUE    = 'DELIVERY_ISSUE',
 }
 
 /** incidents.urgency */

@@ -499,7 +499,7 @@ function BookingForm({
           {[
             ["Đã gửi yêu cầu", true],
             ["Quản lý duyệt và gửi báo giá", false],
-            ["Bạn đặt cọc trên website", false],
+            ["Bạn đặt cọc ngay trên app", false],
             ["Điều phối lập chuyến, bạn theo dõi trên app", false],
           ].map(([text, done], i) => (
             <View

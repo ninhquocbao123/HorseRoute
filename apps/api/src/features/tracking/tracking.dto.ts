@@ -48,6 +48,8 @@ export interface MilestoneRow {
   occurredAt: Date;
   recordedBy: string;
   recordedByName: string;
+  actualRecipientName: string | null;
+  actualRecipientPhone: string | null;
 }
 
 export interface WaypointCheckinRow {

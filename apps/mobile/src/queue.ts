@@ -11,7 +11,7 @@ import { isReplayConflict, queueWireFields } from "./live-domain";
  * - Hoàn tác 5 giây: mục giữ đến notBefore rồi mới gửi; Hoàn tác là bỏ khỏi hàng chờ (API không có xóa mốc).
  * - Mất mạng hoặc máy chủ lỗi 5xx: giữ lại, gửi lại theo thứ tự khi có mạng (lùi dần tới 60 giây).
  * - Phiên hết hạn (401): giữ nguyên, gửi tiếp khi đăng nhập lại đúng tài khoản.
- * - 4xx khác: "Bị từ chối" kèm lý do; người dùng sửa giờ hoặc bỏ.
+ * - 4xx khác: "Bị từ chối" kèm lý do; người dùng sửa giờ hoặc bỏ. Mốc giao ngựa bị 402 (khách chưa trả đủ) gửi lại được sau khi khách trả.
  * - Ảnh đính kèm không còn trên máy: "Bị từ chối" luôn, thử lại cũng không gửi được.
  * - Gửi lại không tạo bản ghi trùng: mỗi mục có clientRequestId riêng (G2), mốc kèm queuedAt để được ghi bù 24 giờ (G3).
  */
@@ -51,6 +51,8 @@ export type QueueItem = {
   error?: string;
   /** Lý do lần thử gần nhất thất bại khi chưa gọi được máy chủ. */
   lastFailure?: string;
+  /** Máy chủ đã nhận, mục chỉ còn giữ để màn chuyến không lùi trạng thái. */
+  sent?: boolean;
   attempts: number;
   ownerId?: string;
 };
@@ -261,7 +263,8 @@ export async function flush() {
           },
         );
         items = items.filter((i) => i.id !== item.id);
-        if (item.legId) recent.push({ item, sentAt: Date.now() });
+        if (item.legId)
+          recent.push({ item: { ...item, sent: true }, sentAt: Date.now() });
         dropPhotos(item.photos);
         emit();
         void persist();

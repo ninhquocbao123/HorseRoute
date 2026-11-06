@@ -15,7 +15,9 @@ import {
   applyPending,
   canResumeDraft,
   driverAction,
+  isReplayConflict,
   orderPayload,
+  paymentAction,
   profilePayload,
   emptyProfile,
 } from "../src/live-domain.ts";
@@ -418,6 +420,202 @@ await check("gửi lại mốc đã ghi trả 409 (mobile coi như đã gửi n�
   const again = await call("POST", leg3, tDriver3, body);
   assert.equal(again.status, 409);
   assert.match(again.data.message, /đã được ghi nhận/);
+});
+
+/* ---------------- Thanh toán mô phỏng và điều kiện giao (kế hoạch 10) ---------------- */
+console.log("\n== Thanh toán và giao ngựa ==");
+const manager = await mkUser("paymgr", "MANAGER");
+const coordOther = await mkUser("coordother", "COORDINATOR");
+const tManager = await login(`e2e.paymgr.${tag}@wdp.test`);
+const tCoordOther = await login(`e2e.coordother.${tag}@wdp.test`);
+const tOwner = await login(`e2e.owner.${tag}@wdp.test`);
+const TOTAL = 1000000;
+const DEPOSIT = 300000;
+/** Báo giá đã duyệt, ghi thẳng DB. Khóa ngoại bảng giá tạm tắt vì DB dùng một lần không có bảng giá mẫu. */
+async function mkQuote(orderId: string, expiresAt: Date | null = new Date(Date.now() + 86400000)) {
+  await q("SET FOREIGN_KEY_CHECKS=0");
+  const id = String((await q(
+    "INSERT INTO order_quotes(order_id,pricing_version_id,status,input,items,subtotal,adjustment_reason,vat_amount,total,deposit,deposit_percent,validity_hours,expires_at,created_by,approved_by,approved_at) VALUES (?,1,'APPROVED','{}','[]',?,'',0,?,?,30,48,?,?,?,UTC_TIMESTAMP(3))",
+    [orderId, TOTAL, TOTAL, DEPOSIT, expiresAt, manager, manager],
+  )).insertId);
+  await q("SET FOREIGN_KEY_CHECKS=1");
+  return id;
+}
+const paySim = async (orderId: string, paymentType: string, result = "SUCCESS") => {
+  const session = ok(await call("POST", "/payments/sessions", tOwner, { orderId, paymentType, paymentMethod: "BANK_TRANSFER" }));
+  return { session, done: await call("POST", `/payments/sessions/${session.sessionCode}/complete`, tOwner, { result }) };
+};
+const quoteOf = async (orderId: string) => ok(await call("GET", `/orders/${orderId}/quote`, tOwner));
+const actionOf = async (orderId: string) => {
+  const quote = await quoteOf(orderId);
+  return paymentAction({ status: quote.order_status, arrivedAtDelivery: quote.arrived_at_delivery }, quote);
+};
+const notices = (userId: string, eventType: string, relatedId: string) =>
+  count("SELECT COUNT(*) n FROM notifications WHERE recipient_id=? AND event_type=? AND related_id=?", [userId, eventType, relatedId]);
+/** Đưa chặng đầu tới điểm giao, đúng thứ tự tài xế bấm. */
+async function arrive(trip: { legs: string[] }, token: string) {
+  ok(await call("POST", `/tracking/legs/${trip.legs[0]}/milestones`, token, { milestoneType: "DEPARTED", occurredAt: minutesAgo(30) }));
+  ok(await call("POST", `/tracking/legs/${trip.legs[0]}/milestones`, token, { milestoneType: "ARRIVED_AT_STOP", occurredAt: minutesAgo(10) }));
+}
+const deliver = (trip: { legs: string[] }, token: string, extra = {}) =>
+  call("POST", `/tracking/legs/${trip.legs[0]}/milestones`, token, { milestoneType: "DELIVERED", occurredAt: minutesAgo(1), ...extra });
+
+await check("đơn APPROVED: đặt cọc mô phỏng, chuyển PREPARING, không tạo phiên trùng", async () => {
+  const orderId = String((await q(
+    "INSERT INTO orders(order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status) VALUES (?,?,'A','VN','B','VN',CURDATE(),'APPROVED')",
+    [`P${tag}`, owner],
+  )).insertId);
+  await mkQuote(orderId);
+  const action = await actionOf(orderId);
+  assert.ok(action.kind === "pay" && action.type === "DEPOSIT" && action.amount === DEPOSIT);
+  rejected(await call("POST", "/payments/sessions", tOwner, { orderId, paymentType: "BALANCE", paymentMethod: "CARD" }));
+  const body = { orderId, paymentType: "DEPOSIT", paymentMethod: "CARD" };
+  const first = ok(await call("POST", "/payments/sessions", tOwner, body));
+  const second = ok(await call("POST", "/payments/sessions", tOwner, body));
+  assert.equal(second.sessionCode, first.sessionCode);
+  const failed = await paySim(orderId, "DEPOSIT", "FAILED");
+  ok(failed.done);
+  assert.equal(Number((await quoteOf(orderId)).paid), 0);
+  ok((await paySim(orderId, "DEPOSIT")).done);
+  const quote = await quoteOf(orderId);
+  assert.equal(Number(quote.paid), DEPOSIT);
+  assert.equal(quote.order_status, "PREPARING");
+  const next = await actionOf(orderId);
+  assert.ok(next.kind === "pay" && next.type === "BALANCE" && next.amount === TOTAL - DEPOSIT && !next.urgent);
+});
+await check("báo giá hết hạn: mobile không có nút, máy chủ từ chối đặt cọc", async () => {
+  const orderId = String((await q(
+    "INSERT INTO orders(order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status) VALUES (?,?,'A','VN','B','VN',CURDATE(),'APPROVED')",
+    [`X${tag}`, owner],
+  )).insertId);
+  await mkQuote(orderId, new Date(Date.now() - 3600000));
+  assert.equal((await actionOf(orderId)).kind, "none");
+  assert.equal((await call("POST", "/payments/sessions", tOwner, { orderId, paymentType: "DEPOSIT", paymentMethod: "CARD" })).status, 409);
+  const home = ok(await call("GET", "/orders/customer-workspace", tOwner)).orders.find((o: any) => String(o.id) === orderId);
+  assert.ok(home.quote_expires_at && Number(home.quote_deposit) === DEPOSIT, "Trang chủ cần hạn và tiền cọc để ẩn thẻ");
+});
+
+/** Tổ lái riêng cho mỗi chuyến: API không cho một người ở hai chuyến đang mở. */
+async function mkCrew(name: string) {
+  const d = await mkUser(`d${name}`, "DRIVER_ESCORT");
+  const e = await mkUser(`e${name}`, "DRIVER_ESCORT");
+  await q("INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (?,'DRIVER','AVAILABLE'),(?,'ESCORT','AVAILABLE')", [d, e]);
+  return { d, e, tD: await login(`e2e.d${name}.${tag}@wdp.test`), tE: await login(`e2e.e${name}.${tag}@wdp.test`) };
+}
+const crewPaid = await mkCrew("paid");
+const driver4 = crewPaid.d;
+const tDriver4 = crewPaid.tD;
+const tEscort4 = crewPaid.tE;
+const paidTrip = await mkTrip(`Q${tag}`, driver4, crewPaid.e, [[locA, locC]]);
+await mkQuote(paidTrip.orderId);
+await check("chưa trả đủ: tổ lái chỉ thấy cờ, không thấy số tiền", async () => {
+  ok((await paySim(paidTrip.orderId, "DEPOSIT")).done);
+  for (const token of [tDriver4, tEscort4]) {
+    const trip = await detail(paidTrip.tripId, token);
+    assert.equal(trip.paymentCleared, false);
+    assert.equal(trip.deliveryExceptionReason, null);
+    assert.ok(!/"(total|paid|deposit|balance|amount)"/.test(JSON.stringify(trip)), "Lộ số tiền cho tổ lái");
+  }
+  rejected(await call("GET", `/tracking/orders/${paidTrip.orderId}/delivery-clearance`, tDriver4));
+});
+await check("xe tới mà chưa trả đủ: khách có thông báo và thẻ khẩn, tài xế bị 402, chặng vẫn AT_STOP", async () => {
+  await arrive(paidTrip, tDriver4);
+  assert.equal(await notices(owner, "PAYMENT_NEEDED_FOR_DELIVERY", paidTrip.orderId), 1);
+  const action = await actionOf(paidTrip.orderId);
+  assert.ok(action.kind === "pay" && action.urgent, "Khách phải thấy thẻ khẩn");
+  const r = await deliver(paidTrip, tDriver4);
+  assert.equal(r.status, 402);
+  assert.match(r.data.message, /chưa thanh toán đủ/);
+  const trip = await detail(paidTrip.tripId, tDriver4);
+  assert.equal(trip.legs[0].status, "AT_STOP");
+  assert.equal(trip.orderStatus, "IN_TRANSIT");
+});
+await check("402 không bị hàng chờ coi là mốc đã đến nơi", async () => {
+  assert.equal(isReplayConflict({ kind: "milestone", lastFailure: "mất mạng" }, 402), false);
+});
+await check("hiệu chỉnh chặng không lách được quy tắc giao", async () => {
+  assert.equal((await call("PATCH", `/tracking/legs/${paidTrip.legs[0]}/correct`, tCoord, { status: "COMPLETED", reason: "Thử lách" })).status, 402);
+  assert.equal((await detail(paidTrip.tripId, tDriver4)).orderStatus, "IN_TRANSIT");
+});
+await check("khách trả đủ: tổ lái có thông báo, nút mở, giao được và ghi người nhận thực tế", async () => {
+  ok((await paySim(paidTrip.orderId, "BALANCE")).done);
+  assert.equal(await notices(driver4, "DELIVERY_CLEARED", paidTrip.tripId), 1);
+  const trip = await detail(paidTrip.tripId, tDriver4);
+  assert.equal(trip.paymentCleared, true);
+  assert.equal(driverAction(trip, null)?.body.milestoneType, "DELIVERED");
+  ok(await deliver(paidTrip, tDriver4, { actualRecipientName: "Trần Nhận Thay", actualRecipientPhone: "0911222333" }));
+  const after = await detail(paidTrip.tripId, tDriver4);
+  assert.equal(after.orderStatus, "DELIVERED");
+  const m = after.legs[0].milestones.find((x: any) => x.milestoneType === "DELIVERED");
+  assert.equal(m.actualRecipientName, "Trần Nhận Thay");
+  assert.equal(m.actualRecipientPhone, "0911222333");
+  assert.deepEqual((await actionOf(paidTrip.orderId)).note, "Đã thanh toán đủ");
+});
+await check("người nhận thực tế chỉ ghi ở mốc Đã giao", async () => {
+  const crew = await mkCrew("rcpt");
+  const other = await mkTrip(`R${tag}`, crew.d, crew.e, [[locA, locC]]);
+  rejected(await call("POST", `/tracking/legs/${other.legs[0]}/milestones`, crew.tD, { milestoneType: "DEPARTED", occurredAt: minutesAgo(1), actualRecipientName: "Ai đó" }));
+});
+await check("quản lý ghi khoản thu đủ thì tài xế giao được", async () => {
+  const crew = await mkCrew("cash");
+  const trip = await mkTrip(`V${tag}`, crew.d, crew.e, [[locA, locC]]);
+  const quoteId = await mkQuote(trip.orderId);
+  await arrive(trip, crew.tD);
+  assert.equal((await deliver(trip, crew.tD)).status, 402);
+  ok(await call("POST", `/manager/quotes/${quoteId}/receipts`, tManager, { amount: TOTAL, reference: `TM-${tag}`, receivedAt: minutesAgo(1) }));
+  assert.equal((await detail(trip.tripId, crew.tD)).paymentCleared, true);
+  ok(await deliver(trip, crew.tD));
+});
+await check("đơn cũ không có báo giá duyệt thì không chặn", async () => {
+  assert.equal((await detail(g3.tripId, tDriver3)).paymentCleared, true);
+});
+
+const crewDebt = await mkCrew("debt");
+const debtTrip = await mkTrip(`D${tag}`, crewDebt.d, crewDebt.e, [[locA, locC]]);
+await mkQuote(debtTrip.orderId);
+const openPath = `/tracking/orders/${debtTrip.orderId}/delivery-exception`;
+await check("sự cố giao ngựa: không cần ảnh và hư hại, sai loại con bị từ chối, loại khác vẫn bắt buộc", async () => {
+  await arrive(debtTrip, crewDebt.tD);
+  const base = { incidentType: "DELIVERY_ISSUE", severity: "ORANGE", description: "Gọi 3 lần không nghe máy" };
+  const created = ok(await call("POST", `/tracking/trips/${debtTrip.tripId}/incidents`, crewDebt.tD, form({ ...base, subType: "RECIPIENT_UNREACHABLE" }, 0)));
+  assert.equal(created.damageTarget, null);
+  const seen = ok(await call("GET", `/tracking/incidents/${created.id}`, tCoord));
+  assert.equal(seen.incidentType, "DELIVERY_ISSUE");
+  rejected(await call("POST", `/tracking/trips/${debtTrip.tripId}/incidents`, crewDebt.tD, form({ ...base, subType: "COLIC" }, 0)));
+  rejected(await call("POST", `/tracking/trips/${debtTrip.tripId}/incidents`, crewDebt.tD, form({ incidentType: "VEHICLE_BREAKDOWN", severity: "ORANGE", description: "Nổ lốp sau xe" }, 1)));
+  rejected(await call("POST", `/tracking/trips/${debtTrip.tripId}/incidents`, crewDebt.tD, form({ incidentType: "VEHICLE_BREAKDOWN", severity: "ORANGE", damageTarget: "VEHICLE", description: "Nổ lốp sau xe" }, 0)));
+});
+await check("ngoại lệ: tổ lái, khách, điều phối không tự duyệt được; chưa duyệt thì không mở được", async () => {
+  const body = { reason: "Khách tin cậy, trả trong 3 ngày" };
+  for (const token of [crewDebt.tD, tOwner, tCoord]) assert.equal((await call("POST", openPath, token, body)).status, 403);
+  assert.equal((await call("POST", `${openPath}/open`, crewDebt.tD)).status, 403);
+  assert.equal((await call("POST", `${openPath}/open`, tCoord)).status, 409);
+  assert.equal((await call("GET", `/tracking/orders/${debtTrip.orderId}/delivery-clearance`, tCoordOther)).status, 404);
+  assert.equal((await deliver(debtTrip, crewDebt.tD)).status, 402);
+});
+await check("quản lý duyệt nhưng chưa mở thì tài xế vẫn bị chặn; điều phối ngoài chuyến không mở được", async () => {
+  const c = ok(await call("POST", openPath, tManager, { reason: "Khách tin cậy, trả trong 3 ngày", dueAt: new Date(Date.now() + 3 * 86400000).toISOString() }));
+  assert.equal(c.cleared, false);
+  assert.equal(c.exception.status, "APPROVED");
+  assert.equal((await call("POST", openPath, tManager, { reason: "Duyệt lần hai" })).status, 409);
+  assert.equal((await deliver(debtTrip, crewDebt.tD)).status, 402);
+  assert.equal((await call("POST", `${openPath}/open`, tCoordOther)).status, 404);
+  assert.equal((await detail(debtTrip.tripId, crewDebt.tD)).deliveryExceptionReason, null);
+});
+await check("điều phối mở: tài xế thấy lý do, giao được; đơn vẫn còn nợ và khách vẫn trả được", async () => {
+  const c = ok(await call("POST", `${openPath}/open`, tCoord));
+  assert.equal(c.cleared, true);
+  assert.equal(c.fullyPaid, false);
+  assert.equal(await notices(crewDebt.d, "DELIVERY_EXCEPTION_OPENED", debtTrip.tripId), 1);
+  const trip = await detail(debtTrip.tripId, crewDebt.tD);
+  assert.equal(trip.paymentCleared, true);
+  assert.match(trip.deliveryExceptionReason, /Khách tin cậy/);
+  ok(await deliver(debtTrip, crewDebt.tD));
+  assert.equal((await detail(debtTrip.tripId, crewDebt.tD)).orderStatus, "DELIVERED");
+  const action = await actionOf(debtTrip.orderId);
+  assert.equal(action.kind, "pay");
+  const audit = await count("SELECT COUNT(*) n FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action IN ('DELIVERY_EXCEPTION_APPROVED','DELIVERY_EXCEPTION_OPENED')", [debtTrip.orderId]);
+  assert.equal(audit, 2);
 });
 
 console.log(`\nKết quả: ${passed} đạt, ${failures.length} lỗi.`);

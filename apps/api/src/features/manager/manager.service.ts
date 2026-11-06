@@ -2,6 +2,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { Role, calculateEstimate } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { PricingService } from '../pricing/pricing.service';
+import { notifyDeliveryCleared } from '../payments/payment-notices';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
 import { parse } from '../../shared/utils/validation.util';
 import { quoteSchema, quoteReviewSchema, receiptSchema, reportSchema } from './manager.validation';
@@ -74,7 +75,7 @@ export class ManagerService {
   const [q]=await m.query('SELECT * FROM order_quotes WHERE id=? FOR UPDATE',[id]);if(q.status!=='APPROVED')throw new ConflictException('Chỉ ghi nhận thu tiền cho báo giá đã duyệt.');
   const paidRows=await m.query('SELECT amount FROM order_receipts WHERE order_id=? FOR UPDATE',[q.order_id]);if(paidRows.reduce((sum:number,r:any)=>sum+Number(r.amount),0)+dto.amount>Number(q.total))throw new BadRequestException('Số tiền thu vượt số còn phải thanh toán.');
   const [duplicate]=await m.query('SELECT id FROM order_receipts WHERE reference=?',[dto.reference]);if(duplicate)throw new ConflictException('Mã chứng từ đã được ghi nhận.');
-  const result=await m.query('INSERT INTO order_receipts(order_id,quote_id,amount,method,source,reference,received_at,recorded_by) VALUES(?,?,?,?,?,?,?,?)',[q.order_id,id,dto.amount,'MANUAL','MANUAL',dto.reference,new Date(dto.receivedAt),u.id]);await this.audit(m,u,id,'RECEIPT',dto);return {id:String(result.insertId)};
+  const result=await m.query('INSERT INTO order_receipts(order_id,quote_id,amount,method,source,reference,received_at,recorded_by) VALUES(?,?,?,?,?,?,?,?)',[q.order_id,id,dto.amount,'MANUAL','MANUAL',dto.reference,new Date(dto.receivedAt),u.id]);await this.audit(m,u,id,'RECEIPT',dto);if(paidRows.reduce((sum:number,r:any)=>sum+Number(r.amount),0)+dto.amount>=Number(q.total)){const [o]=await m.query('SELECT order_code FROM orders WHERE id=?',[q.order_id]);await notifyDeliveryCleared(m,q.order_id,o.order_code);}return {id:String(result.insertId)};
  });}
  async revenue(u:User,query:unknown){this.allow(u);const dto=parse(reportSchema,query);
   const [cash]=await this.db.query(`SELECT COALESCE(SUM(amount),0) collected FROM order_receipts WHERE YEAR(CONVERT_TZ(received_at,'+00:00','+07:00'))=? AND (? IS NULL OR MONTH(CONVERT_TZ(received_at,'+00:00','+07:00'))=?)`,[dto.year,dto.month||null,dto.month||null]);

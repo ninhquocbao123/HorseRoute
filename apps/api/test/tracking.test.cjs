@@ -281,7 +281,7 @@ test('Intermediate completion rejects the last leg and non-AT_STOP legs, and not
   assert.deepEqual(notified.map(n => n[0]).sort(), ['2', '3']);
 });
 
-function correctionRepo({ leg, legs, milestones = [], calls = {} }) {
+function correctionRepo({ leg, legs, milestones = [], calls = {}, unpaid = false }) {
   const repo = {
     transaction: work => work(repo),
     lockLegForUpdate: async () => leg,
@@ -294,6 +294,7 @@ function correctionRepo({ leg, legs, milestones = [], calls = {} }) {
     getDepartureBlockers: async () => [],
     audit: async (actor, entity, id, action, oldV, newV) => { (calls.audits ||= []).push({ entity, action, oldV, newV }); },
     notifyStakeholders: async () => { calls.notified = true; },
+    getDeliveryClearance: async () => ({ cleared: !unpaid, fullyPaid: !unpaid, exception: null }),
   };
   return repo;
 }
@@ -353,6 +354,20 @@ test('Correcting the last leg to COMPLETED adds DELIVERED and moves the order to
   assert.deepEqual(calls.inserted, [MilestoneType.DELIVERED]);
 });
 
+test('Correcting the last leg to COMPLETED is refused with 402 while the order is unpaid', async () => {
+  const calls = {};
+  const leg = legRow({ id: '11', seqNo: 2, status: LegStatus.AT_STOP, orderStatus: OrderStatus.IN_TRANSIT, actualDepartureAt: new Date(Date.now() - 3600000), actualArrivalAt: new Date(Date.now() - 1800000) });
+  const repo = correctionRepo({
+    leg,
+    legs: [{ id: '10', seqNo: 1, status: LegStatus.COMPLETED }, { id: '11', seqNo: 2, status: LegStatus.AT_STOP }],
+    milestones: [{ id: '1', milestoneType: MilestoneType.DEPARTED }, { id: '2', milestoneType: MilestoneType.ARRIVED_AT_STOP }],
+    calls,
+    unpaid: true,
+  });
+  await assert.rejects(() => new TrackingService(repo).correctLeg({ id: '3', role: Role.COORDINATOR }, '11', { status: LegStatus.COMPLETED, reason: 'Đã giao thực tế' }), e => e.getStatus() === 402);
+  assert.equal(calls.order, undefined);
+});
+
 test('Trip detail is not available to customers', async () => {
   await assert.rejects(() => new TrackingService({}).getTripDetail({ id: '2', role: Role.CUSTOMER }, '100'), e => e.getStatus() === 403);
 });
@@ -372,6 +387,7 @@ function tripDetailRepo(overrides = {}) {
     getTripContacts: async () => ({ customerName: 'Khách Một', recipientName: 'Người Nhận', recipientPhone: '+65 1234', coordinatorName: 'Điều Phối A', coordinatorPhone: '0903' }),
     getTripVehicles: async () => [{ id: '5', code: 'XE-01', type: 'TRUCK', capacityStalls: '4' }],
     getEmergencyHotline: async () => '1900 1080',
+    getDeliveryClearance: async () => ({ cleared: true, fullyPaid: true, exception: null }),
     ...overrides,
   };
 }

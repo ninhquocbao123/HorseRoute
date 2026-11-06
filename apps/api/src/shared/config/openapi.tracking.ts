@@ -9,7 +9,7 @@ const milestoneType = { type: 'string', enum: ['DEPARTED', 'ARRIVED_AT_STOP', 'C
 const orderStatus = { type: 'string', enum: ['DRAFT', 'PENDING', 'NEED_INFO', 'REJECTED', 'APPROVED', 'PREPARING', 'READY', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED'] };
 const planStatus = { type: 'string', enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'] };
 const conditionStatus = { type: 'string', enum: ['STABLE', 'OFF_FEED', 'STRESSED', 'CLIMATE_CHANGE'] };
-const incidentType = { type: 'string', enum: ['VEHICLE_BREAKDOWN', 'LONG_TRAFFIC_JAM', 'HORSE_MEDICAL'] };
+const incidentType = { type: 'string', enum: ['VEHICLE_BREAKDOWN', 'LONG_TRAFFIC_JAM', 'HORSE_MEDICAL', 'DELIVERY_ISSUE'] };
 const incidentStatus = { type: 'string', enum: ['NEW', 'ACKNOWLEDGED', 'CLOSED'] };
 const locationType = { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'], description: 'BORDER yêu cầu mốc CUSTOMS_CLEARED trước khi hoàn tất chặng.' };
 const contact = (description: string, phone: string) => nullable({ ...object({ name: { type: 'string' }, phone: nullable({ type: 'string', description: phone }) }), description });
@@ -18,7 +18,21 @@ const lngLat = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number
 const alertType = { type: 'string', enum: ['TRAFFIC', 'WEATHER', 'BORDER'] };
 
 export const trackingSchemas = {
-  TrackingMilestone: object({ id, legId: id, milestoneType, occurredAt: time, recordedBy: id, recordedByName: { type: 'string' } }),
+  TrackingMilestone: object({ id, legId: id, milestoneType, occurredAt: time, recordedBy: id, recordedByName: { type: 'string' },
+    actualRecipientName: nullable({ type: 'string', description: 'Mốc DELIVERED: người nhận thực tế khi khác người nhận trên đơn.' }),
+    actualRecipientPhone: nullable({ type: 'string', description: 'Null với Specialist.' }),
+  }, ['id', 'legId', 'milestoneType', 'occurredAt', 'recordedBy', 'recordedByName']),
+  DeliveryException: object({
+    reason: { type: 'string', maxLength: 500 }, dueAt: nullable(time), status: { type: 'string', enum: ['APPROVED', 'OPENED'], description: 'APPROVED: Quản lý đã duyệt, tài xế vẫn bị chặn. OPENED: đã mở cho tài xế.' },
+    approvedByName: { type: 'string' }, approvedAt: time, openedByName: nullable({ type: 'string' }), openedAt: nullable(time),
+  }),
+  DeliveryClearance: object({
+    orderId: id, fullyPaid: { type: 'boolean', description: 'Đã trả đủ, hoặc đơn cũ không có báo giá duyệt.' },
+    cleared: { type: 'boolean', description: 'Tài xế được xác nhận đã giao.' }, exception: nullable(ref('DeliveryException')),
+  }),
+  DeliveryExceptionInput: object({
+    reason: { type: 'string', minLength: 5, maxLength: 500 }, dueAt: nullable({ ...time, description: 'Hạn khách trả phần còn nợ, tùy chọn.' }),
+  }, ['reason']),
   TrackingLeg: object({
     id, seqNo: { type: 'integer', minimum: 1 },
     fromLocationId: id, fromLocationName: { type: 'string' }, toLocationId: id, toLocationName: { type: 'string' }, toLocationType: locationType,
@@ -42,6 +56,7 @@ export const trackingSchemas = {
     id, orderId: id, orderCode: { type: 'string' }, orderStatus, planStatus,
     plannedDepartureAt: nullable(time), plannedArrivalAt: nullable(time),
     crewRole: { type: 'string', enum: ['DRIVER', 'ESCORT'] }, legs: { type: 'array', items: ref('TrackingLeg') },
+    paymentCleared: { type: 'boolean', description: 'Đủ điều kiện xác nhận giao ngựa. Không có số tiền.' }, deliveryExceptionReason: nullable({ type: 'string' }),
   }),
   TrackingTripDetail: object({
     id, orderId: id, orderCode: { type: 'string' }, orderStatus, planStatus,
@@ -54,9 +69,10 @@ export const trackingSchemas = {
     emergencyHotline: nullable({ type: 'string', description: 'Số cứu hộ 24/7 (system_parameters.HOTLINE); null khi chưa cấu hình.' }),
     vehicles: { type: 'array', items: ref('TrackingVehicle'), description: 'Các xe khác nhau dùng trong chặng, theo thứ tự chặng đầu tiên dùng xe.' },
     horses: { type: 'array', items: ref('TrackingHorse') }, legs: { type: 'array', items: ref('TrackingLeg') },
+    paymentCleared: { type: 'boolean', description: 'Đủ điều kiện xác nhận giao ngựa. Không có số tiền.' }, deliveryExceptionReason: nullable({ type: 'string' }),
   }, ['id', 'orderId', 'orderCode', 'orderStatus', 'planStatus', 'plannedDepartureAt', 'plannedArrivalAt', 'crew', 'customer', 'recipient', 'coordinator', 'emergencyHotline', 'vehicles', 'horses', 'legs']),
 
-  MilestoneInput: object({ milestoneType, occurredAt: { ...time, description: 'Không ở tương lai (cho lệch đồng hồ 60 giây); nhập bù tối đa T phút (mặc định 120, cấu hình system_parameters.LEG_BACK); không sớm hơn mốc trước của chặng.' }, queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' } }),
+  MilestoneInput: object({ milestoneType, occurredAt: { ...time, description: 'Không ở tương lai (cho lệch đồng hồ 60 giây); nhập bù tối đa T phút (mặc định 120, cấu hình system_parameters.LEG_BACK); không sớm hơn mốc trước của chặng.' }, queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' }, actualRecipientName: { type: 'string', minLength: 2, maxLength: 120, description: 'Chỉ dùng với DELIVERED, khi người khác nhận thay.' }, actualRecipientPhone: { type: 'string', minLength: 8, maxLength: 30, description: 'Cần kèm actualRecipientName.' } }, ['milestoneType', 'occurredAt']),
   MilestoneResult: object({ milestoneId: id, legId: id, milestoneType, legStatus, orderStatus }),
   CompleteLegInput: object({ occurredAt: time, queuedAt: { ...time, description: 'Giờ mục vào hàng chờ offline của mobile. Có trường này thì cửa sổ nhập bù là 24 giờ thay vì T phút; thời điểm xảy ra không được sau giờ này.' } }),
   LegCompleteResult: object({ legId: id, status: { type: 'string', enum: ['COMPLETED'] } }),
@@ -150,12 +166,12 @@ export const trackingSchemas = {
     horseId: { ...id, description: 'Bắt buộc với HORSE_MEDICAL; phải thuộc đơn của chuyến.' },
     severity: { type: 'string', enum: ['RED', 'ORANGE', 'YELLOW'], description: 'Bắt buộc. RED → urgency HIGH.' },
     subType: { type: 'string', maxLength: 40, description: 'Tuỳ chọn; phải thuộc INCIDENT_SUB_TYPES của incidentType (400 nếu sai loại).' },
-    damageTarget: { type: 'string', enum: ['VEHICLE', 'HORSE', 'BOTH'], description: 'Bắt buộc.' },
+    damageTarget: { type: 'string', enum: ['VEHICLE', 'HORSE', 'BOTH'], description: 'Bắt buộc, trừ DELIVERY_ISSUE.' },
     latitude: { type: 'number', minimum: -90, maximum: 90, description: 'Tuỳ chọn; phải gửi cùng longitude.' },
     longitude: { type: 'number', minimum: -180, maximum: 180, description: 'Tuỳ chọn; phải gửi cùng latitude.' },
     locationText: { type: 'string', maxLength: 255, description: 'Vị trí người dùng nhập tay.' },
     captions: { type: 'array', maxItems: 3, items: { type: 'string', maxLength: 100 }, description: 'Nhãn ảnh theo thứ tự `photos` (multipart: lặp field `captions`); số nhãn ≤ số ảnh.' },
-  }, ['incidentType', 'description', 'severity', 'damageTarget']),
+  }, ['incidentType', 'description', 'severity']),
   Incident: object({
     id, tripId: id, legId: nullable(id), horseId: nullable(id), horseName: nullable({ type: 'string' }),
     incidentType, description: { type: 'string' }, urgency: { type: 'string', enum: ['NORMAL', 'HIGH'] },
@@ -273,6 +289,7 @@ const requestIdHeader = { description: 'UUID do server cấp để tra log.', sc
 const errorDescriptions: Record<number, string> = {
   400: 'Sai ID/body/query, trường không được phép hoặc thời điểm không hợp lệ.',
   401: 'Thiếu token, token sai/hết hạn.',
+  402: 'Khách chưa thanh toán đủ và chưa có ngoại lệ đã mở, nên chưa ghi nhận giao ngựa được.',
   403: 'Vai trò không được phép thực hiện thao tác này.',
   404: 'Không tìm thấy hoặc người gọi không thuộc phạm vi chuyến.',
   409: 'Trạng thái chặng/Order/sự cố không cho phép thao tác (sai thứ tự, trùng mốc, đã đóng...).',
@@ -459,6 +476,16 @@ Gửi: \`sent_at\`, thông báo IN_APP cho khách (\`HORSE_REPORT\`, liên kết
     description: 'Chỉ Coordinator phụ trách chuyến (khác phạm vi → 404). NEW → ACKNOWLEDGED → CLOSED một chiều; có thể đóng thẳng từ NEW. **Đóng bắt buộc `handlingNote`** (400). Sự cố đã đóng hoặc đã tiếp nhận mà tiếp nhận lại → 409. Thông báo cho người báo.',
     requestBody: json('IncidentPatchInput', { status: 'CLOSED', handlingNote: 'Đã đưa ngựa tới thú y gần nhất, tiếp tục hành trình sau 40 phút.' }),
     responses: { ...ok(200, ref('Incident'), { ...incident, status: 'CLOSED', receivedBy: '4', handlingNote: 'Đã đưa ngựa tới thú y gần nhất.', closedAt: t1 }), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
+  '/api/v1/tracking/orders/{orderId}/delivery-clearance': { get: { ...common, operationId: 'getDeliveryClearance', summary: 'Quản lý, Điều phối: tình trạng được giao ngựa của đơn', parameters: [param('orderId', 'ID đơn hàng.')],
+    description: 'Không trả số tiền. Điều phối ngoài chuyến hoặc đơn chưa có chuyến đã duyệt: 404.',
+    responses: { ...ok(200, ref('DeliveryClearance'), { orderId: '301', fullyPaid: false, cleared: false, exception: null }), ...errors([400, 401, 403, 404, 429, 500]) } } },
+  '/api/v1/tracking/orders/{orderId}/delivery-exception': { post: { ...common, operationId: 'approveDeliveryException', summary: 'Quản lý: duyệt giao ngựa khi còn nợ', parameters: [param('orderId', 'ID đơn hàng.')],
+    description: 'Chỉ Quản lý. Đơn phải READY hoặc IN_TRANSIT, còn nợ, chưa có ngoại lệ (409). Duyệt xong tài xế vẫn bị chặn cho tới khi có người mở.',
+    requestBody: json('DeliveryExceptionInput', { reason: 'Khách tin cậy, trả trong 3 ngày' }),
+    responses: { ...ok(201, ref('DeliveryClearance'), { orderId: '301', fullyPaid: false, cleared: false, exception: { reason: 'Khách tin cậy, trả trong 3 ngày', dueAt: null, status: 'APPROVED', approvedByName: 'Quản lý mẫu', approvedAt: t1, openedByName: null, openedAt: null } }), ...errors([400, 401, 403, 404, 409, 429, 500]) } } },
+  '/api/v1/tracking/orders/{orderId}/delivery-exception/open': { post: { ...common, operationId: 'openDeliveryException', summary: 'Điều phối, Quản lý: mở ngoại lệ cho tài xế', parameters: [param('orderId', 'ID đơn hàng.')],
+    description: 'Chỉ sau khi Quản lý đã duyệt (409). Điều phối phải phụ trách chuyến (404). Tổ lái nhận thông báo; tài xế vẫn tự bấm giao.',
+    responses: { ...ok(200, ref('DeliveryClearance'), { orderId: '301', fullyPaid: false, cleared: true, exception: { reason: 'Khách tin cậy, trả trong 3 ngày', dueAt: null, status: 'OPENED', approvedByName: 'Quản lý mẫu', approvedAt: t1, openedByName: 'Điều phối mẫu', openedAt: t1 } }), ...errors([401, 403, 404, 409, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/alerts': {
     post: { ...common, operationId: 'createAlert', summary: 'Coordinator: phát cảnh báo thủ công', parameters: [tripId],
       description: 'Chỉ Coordinator phụ trách; Order phải READY hoặc IN_TRANSIT (409). Lưu người gửi/thời gian, thông báo IN_APP cho Driver/Escort được phân công và mọi Manager ACTIVE.',

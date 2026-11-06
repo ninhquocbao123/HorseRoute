@@ -20,7 +20,7 @@ Vai trò khi làm việc: Senior Mobile Product Designer kiêm React Native engi
 
 | Actor | Trong phạm vi |
 | --- | --- |
-| Chủ ngựa (customer) | Hồ sơ ngựa; gửi yêu cầu vận chuyển đơn giản; xem đơn/báo giá; theo dõi vị trí; nhận thông báo. Thanh toán VNPay và giấy tờ: chỉ xem trạng thái, thao tác mở web. |
+| Chủ ngựa (customer) | Hồ sơ ngựa; gửi yêu cầu vận chuyển đơn giản; xem đơn/báo giá; theo dõi vị trí; nhận thông báo. Thanh toán ngay trên app (tạm thời mô phỏng, sau này VNPay Sandbox, xem file 10). Giấy tờ: chỉ xem trạng thái, thao tác mở web. |
 | Tài xế (driver) | Xem chuyến được giao; checklist; cập nhật mốc chặng; GPS nền; báo sự cố kèm ảnh. |
 | Người hộ tống (escort) | Xem danh sách ngựa; ghi nhật ký chăm sóc/sức khỏe; chụp ảnh; báo bất thường. |
 

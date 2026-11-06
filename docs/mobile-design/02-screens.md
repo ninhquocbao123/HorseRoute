@@ -63,7 +63,7 @@ Thông báo mở từ chuông trên header (có số chưa đọc), không chi�
 | CUS-01 | Hành trình (trang chủ) | Thấy chuyến đang chạy và việc cần làm | Mở chuyến đang chạy | order_code, status, horse_names, latestMilestone, điểm dừng kế tiếp, giờ dự kiến; danh sách việc: NEED_INFO, missing_documents, chờ cọc (quote_total, paid) | | `/orders/customer-workspace`, `/tracking/orders/:id/timeline` | màn tab | cache | P0 |
 | CUS-02 | Đơn hàng | Danh sách đơn | Tạo yêu cầu vận chuyển | order_code, status, tuyến, desired_departure_date, horse_count, quote_total | lọc: Đang xử lý / Đang chạy / Đã xong / Đã đóng | `/orders/customer-workspace` | màn tab | cache | P0 |
 | CUS-03 | Chi tiết đơn | Toàn cảnh 1 đơn | Hành động theo trạng thái (Sửa và gửi lại / Xem báo giá / Theo dõi) | trạng thái + lý do (manager_note), tuyến, ngày, ngựa, giấy tờ thiếu, tóm tắt báo giá | | `/orders/:id`, `/quote`, `/documents/orders/:id` | màn đẩy | cache | P0 |
-| CUS-04 | Báo giá và thanh toán | Minh bạch chi phí | Thanh toán cọc (mở web) | items, adjustment + lý do, VAT, total, deposit, paid, còn lại, expires_at, receipts | | `/orders/:id/quote`, `/payments/orders/:id` | màn đẩy | cache | P0 |
+| CUS-04 | Báo giá và thanh toán | Minh bạch chi phí | Đặt cọc, thanh toán phần còn lại (mở CUS-17) | items, adjustment + lý do, VAT, total, deposit, paid, còn lại, expires_at, receipts | | `/orders/:id/quote`, `/payments/orders/:id` | màn đẩy | cache | P0 |
 | CUS-05 | Theo dõi hành trình | Ngựa đang ở đâu | Gọi điều phối (**CẦN XÁC NHẬN** khách có được thấy số điều phối) | bản đồ vị trí ước tính + nhãn "Ước tính theo mốc", điểm dừng, mốc + giờ, isOverdue, remainingKm, báo cáo sức khỏe mới nhất | | `/tracking/orders/:id/map`, `/timeline`, `/horse-reports` | màn đẩy | cache | P0 |
 | CUS-06 | Báo cáo sức khỏe | Đọc 1 báo cáo | Đã xem (tự đánh dấu) | horseName, tình trạng, nhiệt độ, nhịp tim, ăn uống, customerNote, ảnh, escortName, sentAt | | `/horse-reports`, `/view`, `/attachments/:id` | màn đẩy | cache | P0 |
 | CUS-07 | Nhật ký chăm sóc | Xem cho ăn/uống/nghỉ | | activityType, horseName, lượng, performedAt, summary | | `/tracking/orders/:id/care-activities` | màn đẩy | cache | P1 |
@@ -75,6 +75,8 @@ Thông báo mở từ chuông trên header (có số chưa đọc), không chi�
 | CUS-13 | Yêu cầu · 3 Dịch vụ & bảo hiểm | | Tiếp tục | thanh tổng tiền, sheet từng khoản | khoang, thức ăn, cữ nước, bảo hiểm, yêu cầu thêm (≤5000) | `/pricing/current`, `/pricing/estimate` | màn đẩy | không | P0 |
 | CUS-14 | Yêu cầu · 4 Xác nhận & gửi | Kiểm tra trước khi gửi | Gửi đơn chờ duyệt | tóm tắt có nút Sửa từng nhóm, chi phí, cọc dự kiến, điều khoản | đồng ý điều khoản | `POST /orders` (requestId) → `/submit` | màn đẩy | không | P0 |
 | CUS-15 | Đã gửi yêu cầu | Xác nhận | Xem đơn | order_code, "Chờ duyệt", bước tiếp theo | | | màn đầy đủ | | P0 |
+| CUS-17 | Thanh toán | Trả tiền ngay trong app. Tạm thời mô phỏng, chờ VNPay Sandbox (file 10) | Xác nhận thanh toán | đợt, số tiền, phương thức, kết quả | | `/orders/:id/quote`, `/payments/sessions`, `/payments/sessions/:code/complete` | màn đẩy | không | P0 |
+| CUS-18 | Kết quả thanh toán | Biết tiền đã được ghi nhận chưa; hiện trong màn CUS-17 | Xong hoặc Thử lại | kết quả, số tiền | | như CUS-17 | | không | P0 |
 | CUS-16 | Giấy tờ của đơn | Trạng thái giấy tờ theo ngựa | Tải giấy tờ trên web | loại giấy, status, expiry_date, invalid_reason | | `/documents/orders/:id` | màn đẩy | cache | P1 |
 
 Ghi chú: yêu cầu đơn giản không gửi `booking` (trường này tùy chọn trong `orderSchema`). Khoảng trống: không gửi được người nhận (`recipient_name/phone`) nếu bỏ booking; đề xuất cho phép `booking.recipient` riêng, hoặc ghi vào yêu cầu đặc biệt.
@@ -226,7 +228,7 @@ Báo sự cố chung (xe, đường) của hộ tống dùng lại DRV-06/07.
 | Hộ tống | Báo bất thường | ESC-07 (+ DRV-06/07 dùng chung) |
 | Chung | Offline/đồng bộ | COM-12, thanh trạng thái toàn cục |
 
-Không có màn ngoài phạm vi: không có màn điều phối, manager, thanh toán trong app (CUS-04 chỉ mở web), tải giấy tờ (CUS-16 chỉ xem).
+Không có màn ngoài phạm vi: không có màn điều phối, manager, tải giấy tờ (CUS-16 chỉ xem). Thanh toán đã có trong app từ 06/11/2026 (CUS-17, file 10).
 
 ## 6. Thông báo push
 
@@ -252,7 +254,7 @@ Push tới tài xế lúc đang chạy xe: chỉ TRIP_ALERT dùng âm thanh; cò
 
 ## 7. Đề xuất sau MVP
 
-- Thanh toán trong app (VNPay SDK), tải giấy tờ trong app.
+- Cổng VNPay thật (chờ khóa sandbox, file 10), tải giấy tờ trong app.
 - Hủy đơn, xóa hồ sơ ngựa (cần API, G9).
 - Vị trí thật cho khách hàng (G4).
 - Chế độ tương phản cao ngoài trời cho tài xế; đọc mô tả sự cố bằng giọng nói toàn phần.

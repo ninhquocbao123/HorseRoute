@@ -56,12 +56,7 @@ import {
   useOwnFix,
   useTripTrack,
 } from "../map/useLiveTripMap";
-import {
-  Empty,
-  PhotoPicker,
-  ResourceState,
-  NotFound,
-} from "../live-ui";
+import { Empty, PhotoPicker, ResourceState, NotFound } from "../live-ui";
 import {
   applyPending,
   asId,
@@ -129,6 +124,7 @@ export const INCIDENT_TYPE_LABEL: Record<string, string> = {
   VEHICLE_BREAKDOWN: "Hỏng xe",
   LONG_TRAFFIC_JAM: "Tắc đường",
   HORSE_MEDICAL: "Y tế ngựa",
+  DELIVERY_ISSUE: "Giao ngựa",
 };
 type Sev = "RED" | "ORANGE" | "YELLOW";
 
@@ -281,6 +277,7 @@ const TYPES = [
   { value: "VEHICLE_BREAKDOWN", icon: Car },
   { value: "LONG_TRAFFIC_JAM", icon: TrafficCone },
   { value: "HORSE_MEDICAL", icon: HeartPulse },
+  { value: "DELIVERY_ISSUE", icon: MapPin },
 ] as const;
 /** Câu mẫu: không có số điện thoại hay tên thật (R-16). */
 const TEMPLATES: Record<string, string[]> = {
@@ -298,6 +295,11 @@ const TEMPLATES: Record<string, string[]> = {
     "Ngựa đứng không vững",
     "Có vết thương chảy máu",
     "Ngựa bỏ ăn, vã mồ hôi",
+  ],
+  DELIVERY_ISSUE: [
+    "Đã gọi người nhận 3 lần, không nghe máy",
+    "Người nhận đang đến, trễ",
+    "Ngựa vẫn ổn định trên xe",
   ],
 };
 
@@ -319,7 +321,11 @@ export function IncidentForm({
   const [type, setType] = useState<string | null>(incidentType ?? null);
   const [subType, setSubType] = useState<string | null>(null);
   const [severity, setSeverity] = useState<Sev | null>(
-    incidentType === "HORSE_MEDICAL" ? "RED" : null,
+    incidentType === "HORSE_MEDICAL"
+      ? "RED"
+      : incidentType === "DELIVERY_ISSUE"
+        ? "ORANGE"
+        : null,
   );
   const [horseId, setHorseId] = useState<string | null>(initialHorse ?? null);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -353,7 +359,8 @@ export function IncidentForm({
     if (!severity) e.severity = "Chọn mức độ.";
     if (type === "HORSE_MEDICAL" && !horseId)
       e.horse = "Chọn con ngựa gặp vấn đề.";
-    if (!photos.length)
+    // Giao ngựa thường không có gì để chụp, ví dụ người nhận không nghe máy.
+    if (!photos.length && type !== "DELIVERY_ISSUE")
       e.photos =
         "Cần ít nhất 1 ảnh để gửi. Chụp rõ chỗ hỏng hoặc vùng bị thương.";
     if (description.trim().length < 5)
@@ -368,7 +375,9 @@ export function IncidentForm({
       body: {
         incidentType: type,
         severity,
-        damageTarget: type === "HORSE_MEDICAL" ? "HORSE" : "VEHICLE",
+        ...(type === "DELIVERY_ISSUE"
+          ? {}
+          : { damageTarget: type === "HORSE_MEDICAL" ? "HORSE" : "VEHICLE" }),
         description: description.trim(),
         ...(subType ? { subType } : {}),
         ...(leg ? { legId: leg.id } : {}),
@@ -407,6 +416,8 @@ export function IncidentForm({
               setType(t.value);
               setSubType(null);
               if (t.value === "HORSE_MEDICAL" && !severity) setSeverity("RED");
+              if (t.value === "DELIVERY_ISSUE" && !severity)
+                setSeverity("ORANGE");
             }}
           />
         ))}
@@ -484,9 +495,13 @@ export function IncidentForm({
       <PhotoPicker
         photos={photos}
         onChange={setPhotos}
-        required
+        required={type !== "DELIVERY_ISSUE"}
         error={errors.photos}
-        label="Ảnh hiện trường"
+        label={
+          type === "DELIVERY_ISSUE"
+            ? "Ảnh hiện trường, biên nhận hoặc bàn giao"
+            : "Ảnh hiện trường"
+        }
       />
       <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
         <MapPin size={18} color={c.textSecondary} />
@@ -1706,7 +1721,9 @@ export function TripMapScreen({
   const stop = nextStop(trip, map.data ?? null);
   const late = stop?.at ? now - Date.parse(stop.at) : 0;
   const waypoint =
-    stop && stop.at === null && stop.caption === "ĐIỂM KẾ TIẾP" ? stop.name : null;
+    stop && stop.at === null && stop.caption === "ĐIỂM KẾ TIẾP"
+      ? stop.name
+      : null;
   const stats = tripStats({
     legs: trip.legs,
     map: map.data ?? null,
@@ -1894,7 +1911,11 @@ function MapStat({ title, stat }: { title: string; stat: Stat }) {
       >
         {stat.value}
       </Txt>
-      <Txt size={12} numberOfLines={2} color={stat.warn ? c.warningFg : c.textSecondary}>
+      <Txt
+        size={12}
+        numberOfLines={2}
+        color={stat.warn ? c.warningFg : c.textSecondary}
+      >
         {stat.sub}
       </Txt>
     </View>

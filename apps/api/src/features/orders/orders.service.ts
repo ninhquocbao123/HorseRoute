@@ -27,6 +27,9 @@ export class OrdersService {
         (SELECT COUNT(*) FROM horses h WHERE h.order_id=o.id AND h.order_status<>'REMOVED') horse_count,
         (SELECT GROUP_CONCAT(h.name ORDER BY h.id SEPARATOR ', ') FROM horses h WHERE h.order_id=o.id AND h.order_status<>'REMOVED') horse_names,
         (SELECT q.total FROM order_quotes q WHERE q.order_id=o.id AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1) quote_total,
+        (SELECT q.deposit FROM order_quotes q WHERE q.order_id=o.id AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1) quote_deposit,
+        (SELECT q.expires_at FROM order_quotes q WHERE q.order_id=o.id AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1) quote_expires_at,
+        EXISTS(SELECT 1 FROM legs l JOIN trips t ON t.id=l.trip_id WHERE t.order_id=o.id AND t.plan_status='APPROVED' AND l.status='AT_STOP' AND l.seq_no=(SELECT MAX(l2.seq_no) FROM legs l2 WHERE l2.trip_id=l.trip_id)) arrived_at_delivery,
         (SELECT COALESCE(SUM(r.amount),0) FROM order_receipts r WHERE r.order_id=o.id) paid
         FROM orders o WHERE o.customer_id=? ORDER BY o.created_at DESC,o.id DESC`,[user.id]),
       this.db.query(`SELECT h.id,h.order_id,h.name,h.passport_no,h.breed,h.birth_date,h.sex,h.coat_color,h.note,o.order_code,o.status order_status,
@@ -45,9 +48,9 @@ export class OrdersService {
 
   async quote(user:User,id:string){
     await this.owned(this.db.manager,user,id);
-    const [q]=await this.db.query("SELECT q.id,q.input,q.items,q.adjustment,q.adjustment_reason,q.vat_percent,q.vat_amount,q.total,q.deposit,q.deposit_percent,q.expires_at,(SELECT COALESCE(SUM(amount),0) FROM order_receipts r WHERE r.order_id=q.order_id) paid FROM order_quotes q WHERE q.order_id=? AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1",[id]);
+    const [q]=await this.db.query("SELECT q.id,q.input,q.items,q.adjustment,q.adjustment_reason,q.vat_percent,q.vat_amount,q.total,q.deposit,q.deposit_percent,q.expires_at,(SELECT COALESCE(SUM(amount),0) FROM order_receipts r WHERE r.order_id=q.order_id) paid,o.status order_status,EXISTS(SELECT 1 FROM legs l JOIN trips t ON t.id=l.trip_id WHERE t.order_id=o.id AND t.plan_status='APPROVED' AND l.status='AT_STOP' AND l.seq_no=(SELECT MAX(l2.seq_no) FROM legs l2 WHERE l2.trip_id=l.trip_id)) arrived_at_delivery FROM order_quotes q JOIN orders o ON o.id=q.order_id WHERE q.order_id=? AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1",[id]);
     const receipts = await this.db.query(`SELECT id, quote_id, amount, reference, method, source, received_at FROM order_receipts WHERE order_id=? ORDER BY received_at DESC, id DESC`, [id]);
-    return q?{...q,input:typeof q.input==='string'?JSON.parse(q.input):q.input,items:typeof q.items==='string'?JSON.parse(q.items):q.items, receipts}:null;
+    return q?{...q,arrived_at_delivery:Boolean(q.arrived_at_delivery),input:typeof q.input==='string'?JSON.parse(q.input):q.input,items:typeof q.items==='string'?JSON.parse(q.items):q.items, receipts}:null;
   }
 
   async deleteDraft(user:User,id:string){

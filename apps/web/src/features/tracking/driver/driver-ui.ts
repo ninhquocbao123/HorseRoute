@@ -18,7 +18,7 @@ export const LEG_TAG: Record<string, { label: string }> = {
   COMPLETED: { label: 'Hoàn thành' },
 };
 export const CONDITION_COLOR: Record<string, string> = { STABLE: 'green', OFF_FEED: 'orange', STRESSED: 'red', CLIMATE_CHANGE: 'blue' };
-export const INCIDENT_COLOR: Record<string, string> = { VEHICLE_BREAKDOWN: 'orange', LONG_TRAFFIC_JAM: 'gold', HORSE_MEDICAL: 'red' };
+export const INCIDENT_COLOR: Record<string, string> = { VEHICLE_BREAKDOWN: 'orange', LONG_TRAFFIC_JAM: 'gold', HORSE_MEDICAL: 'red', DELIVERY_ISSUE: 'blue' };
 export const INCIDENT_STATUS_COLOR: Record<string, string> = { NEW: 'red', ACKNOWLEDGED: 'gold', CLOSED: 'green' };
 export const ALERT_COLOR: Record<string, string> = { TRAFFIC: 'orange', WEATHER: 'blue', BORDER: 'gold' };
 export const LOCATION_TYPE_LABEL: Record<string, string> = {
@@ -141,7 +141,7 @@ export const DAMAGE_TARGETS: { value: DamageTarget; label: string }[] = [
   { value: 'BOTH' as DamageTarget, label: 'Cả hai' },
 ];
 
-const TYPE_LABEL: Record<IncidentType, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa' } as Record<IncidentType, string>;
+const TYPE_LABEL: Record<IncidentType, string> = { VEHICLE_BREAKDOWN: 'Hỏng xe', LONG_TRAFFIC_JAM: 'Tắc đường', HORSE_MEDICAL: 'Y tế ngựa', DELIVERY_ISSUE: 'Giao ngựa' } as Record<IncidentType, string>;
 
 /** Dropdown "Loại sự cố" gộp loại + loại con, giá trị dạng `TYPE:SUB_TYPE`. */
 export const INCIDENT_KIND_GROUPS = (Object.keys(INCIDENT_SUB_TYPES) as IncidentType[]).map(type => ({

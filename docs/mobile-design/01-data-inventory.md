@@ -97,6 +97,8 @@ Ngựa trong đơn — `horses`: name, passport_no, breed, birth_date, sex, coat
 - `order_quotes` (migration `1800000008000-ManagerQuotes.ts`): status `DRAFT/APPROVED/NEED_REVISION`; khách chỉ thấy bản `APPROVED` mới nhất qua `GET /orders/:id/quote`: `items`, `adjustment`, `adjustment_reason`, `vat_percent`, `vat_amount`, `total`, `deposit`, `deposit_percent`, `expires_at`, `paid`, `receipts[]` (`apps/api/src/features/orders/orders.service.ts`, hàm `quote`).
 - `payment_sessions`: type `DEPOSIT/BALANCE`, method `BANK_TRANSFER/E_WALLET/CARD`, status `PENDING/SUCCESS/FAILED/CANCELLED` (migration `1800000012000`).
 - `order_receipts`: amount, method, source, reference, received_at.
+- `delivery_exceptions` (migration `1800000093000`): reason, due_at, status `APPROVED/OPENED`, approved_by, approved_at, opened_by, opened_at; mỗi đơn một dòng. `leg_milestones` thêm `actual_recipient_name`, `actual_recipient_phone`.
+- `GET /orders/:id/quote` thêm `order_status`, `arrived_at_delivery`; `GET /orders/customer-workspace` thêm `quote_deposit`, `quote_expires_at`, `arrived_at_delivery`. Chi tiết và danh sách chuyến thêm `paymentCleared`, `deliveryExceptionReason`, không có số tiền.
 - Ví dụ: tổng `48.600.000 ₫`, cọc 30% `14.580.000 ₫` (đề xuất, không lấy từ seed).
 
 ### 4.5 Giấy tờ (mobile chỉ xem trạng thái)
@@ -127,7 +129,7 @@ latitude, longitude, accuracy_m, speed_mps, heading_deg, recorded_at (giờ thi�
 
 | Trường | Kiểu | Bắt buộc | Ví dụ |
 | --- | --- | --- | --- |
-| incident_type | `VEHICLE_BREAKDOWN/LONG_TRAFFIC_JAM/HORSE_MEDICAL` | có | `HORSE_MEDICAL` |
+| incident_type | `VEHICLE_BREAKDOWN/LONG_TRAFFIC_JAM/HORSE_MEDICAL/DELIVERY_ISSUE` | có | `HORSE_MEDICAL` |
 | sub_type | code trong `INCIDENT_SUB_TYPES` | không | `COLIC` (Đau bụng) |
 | severity | `RED/ORANGE/YELLOW` (Nghiêm trọng/Trung bình/Nhẹ) | có | `ORANGE` |
 | urgency | `NORMAL/HIGH` (RED → HIGH) | tự suy | |
@@ -394,7 +396,7 @@ Xung đột: các bảng nhật ký chỉ thêm mới, sửa bằng bản đính
 | Chặng: NOT_STARTED, MOVING, AT_STOP, COMPLETED | Chưa bắt đầu, Đang di chuyển, Đang dừng, Hoàn thành | `driver-ui.ts`, `tracking.format.ts` |
 | Mốc: DEPARTED, ARRIVED_AT_STOP, CUSTOMS_CLEARED, DELIVERED | Xuất phát, Đã đến điểm dừng, Đã thông quan, Đã giao ngựa | `tracking.format.ts` |
 | Loại điểm | Cửa khẩu, Trạm kiểm dịch, Điểm dừng nghỉ, Sân bay, Trạm nhiên liệu | `driver-ui.ts` |
-| Sự cố | Hỏng xe, Tắc đường, Y tế ngựa; Nghiêm trọng/Trung bình/Nhẹ; Đã tiếp nhận, Đã đóng | `incident.constants.ts`, `tracking.format.ts` |
+| Sự cố | Hỏng xe, Tắc đường, Y tế ngựa, Giao ngựa; Nghiêm trọng/Trung bình/Nhẹ; Đã tiếp nhận, Đã đóng | `incident.constants.ts`, `tracking.format.ts` |
 | Sức khỏe ngựa | Sức khỏe ổn định, Bỏ ăn, Căng thẳng, Khí hậu thay đổi; Ăn uống: Bình thường/Giảm/Bỏ ăn | `horse.constants.ts` |
 | Chăm sóc | Cho ăn, Uống nước, Nghỉ chân | `horse.constants.ts` |
 | Cảnh báo | Giao thông, Thời tiết, Cửa khẩu | `tracking.format.ts` |
@@ -426,6 +428,6 @@ Seed dùng tên "Demo" nên đề xuất bộ dùng khi vẽ UI (giả lập, gi
 
 1. G3: chọn phương án A. Backend sẽ nhận mốc gửi từ hàng chờ với cửa sổ dài hơn (đề xuất 24 giờ, kèm `queuedAt`). Thiết kế coi mốc offline là gửi được.
 2. G4: giữ vị trí ước tính như web. Customer không thấy GPS thật.
-3. Chấp nhận báo giá = đặt cọc trên web. App có nút "Thanh toán cọc" mở web.
+3. Chấp nhận báo giá = đặt cọc. Từ 06/11/2026 trả ngay trong app (CUS-17), tạm thời mô phỏng; file 10.
 4. Driver cập nhật mốc theo **điểm dừng** trong `route_plan`, không theo chặng.
 5. "Khách hàng" và "Chủ ngựa" là một; UI dùng "Khách hàng" cho thống nhất với web.

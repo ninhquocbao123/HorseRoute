@@ -31,6 +31,30 @@ export interface ILegMilestone {
   occurredAt: string; // ISO UTC
   recordedBy: string; // userId
   recordedByName: string;
+  /** Mốc DELIVERED: người nhận thực tế khi khác người nhận trên đơn */
+  actualRecipientName?: string | null;
+  actualRecipientPhone?: string | null;
+}
+
+/** Ngoại lệ giao ngựa khi chưa trả đủ: quản lý duyệt (APPROVED), rồi điều phối mở cho tài xế (OPENED). */
+export interface IDeliveryException {
+  reason: string;
+  dueAt: string | null;
+  status: 'APPROVED' | 'OPENED';
+  approvedByName: string;
+  approvedAt: string;
+  openedByName: string | null;
+  openedAt: string | null;
+}
+
+/** Tình trạng được giao ngựa của đơn. Không có số tiền vì điều phối và tổ lái không được xem. */
+export interface IDeliveryClearance {
+  orderId: string;
+  /** Đơn có báo giá đã duyệt và đã trả đủ, hoặc đơn cũ không có báo giá */
+  fullyPaid: boolean;
+  /** Tài xế được xác nhận đã giao */
+  cleared: boolean;
+  exception: IDeliveryException | null;
 }
 
 /** Check-in điểm nghỉ giữa đường (leg_waypoint_checkins) của chuyến theo lộ trình mới. */
@@ -257,6 +281,10 @@ export interface IDriverTripSummary {
   plannedArrivalAt: string | null;
   crewRole: CrewRole;       // DRIVER or ESCORT (this user's role in the assignment)
   legs: ILegTracking[];
+  /** Đã đủ điều kiện xác nhận giao ngựa (đã trả đủ hoặc đã mở ngoại lệ) */
+  paymentCleared: boolean;
+  /** Lý do khi điều phối đã mở ngoại lệ giao ngựa */
+  deliveryExceptionReason: string | null;
 }
 
 // ─── Trip detail (GET /tracking/trips/:id) ───────────────────────────────────
@@ -347,6 +375,10 @@ export interface IDriverTripDetail {
   vehicles: ITripVehicle[];
   horses: ITripHorse[];
   legs: ILegTracking[];
+  /** Đã đủ điều kiện xác nhận giao ngựa (đã trả đủ hoặc đã mở ngoại lệ) */
+  paymentCleared: boolean;
+  /** Lý do khi điều phối đã mở ngoại lệ giao ngựa */
+  deliveryExceptionReason: string | null;
 }
 
 // ─── Timeline (Customer-facing and internal) ──────────────────────────────────
@@ -474,7 +506,8 @@ export interface IIncidentCreateInput {
   severity: IncidentSeverity;
   /** Mã trong INCIDENT_SUB_TYPES[incidentType] */
   subType?: string;
-  damageTarget: DamageTarget;
+  /** Bắt buộc, trừ sự cố giao ngựa (DELIVERY_ISSUE) */
+  damageTarget?: DamageTarget | null;
   /** Gửi cả hai hoặc không gửi */
   latitude?: number;
   longitude?: number;

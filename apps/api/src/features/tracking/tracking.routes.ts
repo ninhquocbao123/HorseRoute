@@ -42,6 +42,10 @@ export function trackingRoutes(service: TrackingService) {
   router.get('/incidents', authorize(Role.COORDINATOR, Role.MANAGER), controller.coordinatorIncidents);
   router.get('/incidents/:id', authorize(Role.COORDINATOR, Role.MANAGER), controller.incident);
   router.patch('/incidents/:id', authorize(Role.COORDINATOR), controller.updateIncident);
+  // Ngoại lệ giao ngựa khi chưa trả đủ: Quản lý duyệt, Điều phối phụ trách (hoặc Quản lý) mở cho tài xế
+  router.get('/orders/:orderId/delivery-clearance', authorize(Role.COORDINATOR, Role.MANAGER), controller.deliveryClearance);
+  router.post('/orders/:orderId/delivery-exception', authorize(Role.MANAGER), controller.approveDeliveryException);
+  router.post('/orders/:orderId/delivery-exception/open', authorize(Role.COORDINATOR, Role.MANAGER), controller.openDeliveryException);
   router.post('/trips/:tripId/alerts', authorize(Role.COORDINATOR), controller.createAlert);
   router.get('/trips/:tripId/alerts', authorize(...internal), controller.alerts);
   router.get('/attachments/:id', authorize(...internal, Role.CUSTOMER), controller.attachment);

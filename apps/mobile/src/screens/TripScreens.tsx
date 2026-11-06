@@ -55,6 +55,8 @@ import {
 import {
   cancel,
   enqueue,
+  onRejected,
+  onSent,
   retry,
   sendNow,
   timeOf,
@@ -73,6 +75,7 @@ import {
   type GpsState,
 } from "../gps";
 import { API_URL } from "../config";
+import { useAutoRefresh } from "../map/useLiveTripMap";
 import type {
   ICareActivityList,
   IDriverTripDetail,
@@ -114,6 +117,12 @@ function GpsBanner({ state, go }: { state: GpsState; go: Navigate }) {
   );
 }
 
+/** Tài xế đang đợi khách thanh toán: hỏi lại máy chủ để nút giao mở ngay khi khách trả xong. */
+function PaymentPoll({ reload }: { reload: () => void }) {
+  useAutoRefresh(reload, 15000);
+  return null;
+}
+
 /** DRV-02 Chuyến của tài xế: một nút hành động theo ngữ cảnh ở đáy, mốc điểm dừng có Hoàn tác 5 giây. */
 export function DriverTrip({
   trip: serverTrip,
@@ -146,6 +155,16 @@ export function DriverTrip({
   const [confirm, setConfirm] = useState<DriverAction | null>(null);
   const [when, setWhen] = useState(new Date());
   const [checked, setChecked] = useState<string[] | null>(null);
+  const [otherRecipient, setOtherRecipient] = useState(false);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [recipientError, setRecipientError] = useState("");
+  const delivering = action?.body.milestoneType === "DELIVERED";
+  // Bản lưu cũ chưa có cờ này thì không khóa nút; máy chủ vẫn là bên quyết định.
+  const waitingPayment = delivering && trip.paymentCleared === false;
+  const sendingDelivery = queue.some(
+    (i) => i.milestoneType === "DELIVERED" && i.status !== "REJECTED",
+  );
   const checklistKey = `horseroute.checklist:${API_URL}:${user!.id}:${trip.id}`;
 
   useEffect(() => {
@@ -169,19 +188,65 @@ export function DriverTrip({
       void deactivateKeepAwake("trip");
     };
   }, [running]);
+  useEffect(() => {
+    const offSent = onSent((item) => {
+      if (item.tripId !== serverTrip.id || item.milestoneType !== "DELIVERED")
+        return;
+      notify(
+        `Đã giao ${serverTrip.horses.length} ngựa lúc ${clock(String(item.body.occurredAt))}`,
+        "Đã tắt gửi vị trí. Cảm ơn bạn.",
+      );
+    });
+    const offRejected = onRejected((item, status) => {
+      if (item.tripId !== serverTrip.id || status !== 402) return;
+      notify(
+        "Khách chưa thanh toán đủ",
+        "Chưa ghi đã giao. Chờ khách thanh toán rồi xác nhận lại, hoặc báo điều phối.",
+      );
+    });
+    return () => {
+      offSent();
+      offRejected();
+    };
+  }, [serverTrip.id, serverTrip.horses.length, notify]);
 
   const tooOld = Date.now() - when.getTime() > BACKFILL_MS;
   const record = (a: DriverAction, at: Date) => {
     const occurredAt = (
       at.getTime() > Date.now() ? new Date() : at
     ).toISOString();
+    const delivered = a.body.milestoneType === "DELIVERED";
+    const actualRecipient = delivered && otherRecipient;
+    if (actualRecipient && recipientName.trim().length < 2) {
+      setRecipientError("Ghi tên người nhận thay.");
+      return;
+    }
+    setRecipientError("");
     setConfirm(null);
+    // Lần trước bị từ chối vì chưa trả đủ: lần xác nhận mới này thay cho mục cũ.
+    if (delivered)
+      queue
+        .filter(
+          (i) => i.milestoneType === "DELIVERED" && i.status === "REJECTED",
+        )
+        .forEach((i) => cancel(i.id));
     const id = enqueue({
       tripId: trip.id,
       kind: a.kind,
       label: `${a.label} · ${clock(occurredAt)}`,
       path: a.path,
-      body: { ...a.body, occurredAt },
+      body: {
+        ...a.body,
+        occurredAt,
+        ...(actualRecipient
+          ? {
+              actualRecipientName: recipientName.trim(),
+              ...(recipientPhone.trim()
+                ? { actualRecipientPhone: recipientPhone.trim() }
+                : {}),
+            }
+          : {}),
+      },
       timeField: "occurredAt",
       legId: a.legId,
       milestoneType: a.body.milestoneType,
@@ -198,13 +263,6 @@ export function DriverTrip({
       },
       onExpire: () => sendNow(id),
     });
-    if (a.body.milestoneType === "DELIVERED") {
-      void stopTripTracking(trip.id);
-      notify(
-        `Đã giao ${trip.horses.length} ngựa lúc ${clock(occurredAt)}`,
-        "Đã tắt gửi vị trí. Cảm ơn bạn.",
-      );
-    }
   };
   const press = async (a: DriverAction) => {
     if (a.needsChecklist && checked && checked.length < checks.length) {
@@ -232,19 +290,50 @@ export function DriverTrip({
     lastLeg &&
     (lastLeg.status === "AT_STOP" ||
       (lastLeg.status === "MOVING" && action?.kind !== "checkin"));
-  const deliveredAt = lastLeg?.milestones.find(
+  const deliveredMilestone = lastLeg?.milestones.find(
     (m) => m.milestoneType === "DELIVERED",
-  )?.occurredAt;
+  );
+  const deliveredAt = deliveredMilestone?.occurredAt;
+  const receiverName =
+    deliveredMilestone?.actualRecipientName ?? trip.recipient?.name;
 
   const footer = done ? undefined : (
     <>
       <Button
-        title="Báo sự cố"
+        title={delivering ? "Báo sự cố giao ngựa" : "Báo sự cố"}
         kind="danger"
         icon={TriangleAlert}
-        onPress={() => go("incident-form", { tripId: trip.id })}
+        onPress={() =>
+          go("incident-form", {
+            tripId: trip.id,
+            ...(delivering ? { incidentType: "DELIVERY_ISSUE" } : {}),
+          })
+        }
       />
-      {!action && mapFailed && running ? (
+      {sendingDelivery ? (
+        <Button
+          title="Đang gửi xác nhận đã giao"
+          large
+          disabled
+          onPress={() => {}}
+        />
+      ) : waitingPayment ? (
+        <>
+          <Button
+            title="Kiểm tra lại"
+            kind="secondary"
+            icon={RefreshCw}
+            onPress={reload}
+          />
+          <Button
+            title="Chờ khách thanh toán"
+            large
+            disabled
+            hint="Nút mở khi khách trả đủ hoặc điều phối cho phép giao"
+            onPress={() => {}}
+          />
+        </>
+      ) : !action && mapFailed && running ? (
         // Chuyến một chặng cần bản đồ để biết điểm dừng tiếp theo.
         <Button
           title="Tải lại bản đồ lộ trình"
@@ -311,6 +400,20 @@ export function DriverTrip({
       }}
     >
       {running ? <GpsBanner state={gps.state} go={go} /> : null}
+      {waitingPayment && !sendingDelivery ? (
+        <>
+          <PaymentPoll reload={reload} />
+          <Banner
+            warning
+            text="Khách chưa thanh toán đủ nên chưa xác nhận giao được. Hệ thống đã báo khách. Gọi người nhận hoặc điều phối nếu phải đợi lâu."
+          />
+        </>
+      ) : null}
+      {delivering && trip.deliveryExceptionReason ? (
+        <Banner
+          text={`Điều phối cho phép giao: ${trip.deliveryExceptionReason}`}
+        />
+      ) : null}
       {!action && mapFailed && running ? (
         <Banner
           warning
@@ -333,7 +436,7 @@ export function DriverTrip({
           </Txt>
           <Txt color={c.onBrandMuted}>
             {`${trip.orderCode} · ${lastLeg?.toLocationName ?? ""}${
-              trip.recipient ? ` · Người nhận: ${trip.recipient.name}` : ""
+              receiverName ? ` · Người nhận: ${receiverName}` : ""
             }`}
           </Txt>
           <Txt color={c.onBrandMuted}>
@@ -447,6 +550,34 @@ export function DriverTrip({
         }
       >
         <Txt color={c.textSecondary}>{confirm?.placeName}</Txt>
+        {confirm?.body.milestoneType === "DELIVERED" ? (
+          <>
+            <Chip
+              label="Người khác nhận thay"
+              selected={otherRecipient}
+              onPress={() => setOtherRecipient((v) => !v)}
+            />
+            {otherRecipient ? (
+              <>
+                <Field
+                  label="Tên người nhận thực tế"
+                  value={recipientName}
+                  onChangeText={setRecipientName}
+                  maxLength={120}
+                  error={recipientError || undefined}
+                />
+                <Field
+                  label="Số điện thoại"
+                  value={recipientPhone}
+                  onChangeText={setRecipientPhone}
+                  keyboardType="phone-pad"
+                  maxLength={30}
+                  hint="Đối chiếu giấy tờ. Báo sự cố giao ngựa để gửi ảnh bàn giao."
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
         <DateField
           label="Giờ ghi"
           mode="time"
@@ -542,6 +673,15 @@ export function EscortTrip({
         )
       }
     >
+      {trip.paymentCleared === false &&
+      trip.legs.length > 0 &&
+      [...trip.legs].sort((a, b) => b.seqNo - a.seqNo)[0].status ===
+        "AT_STOP" ? (
+        <Banner
+          warning
+          text="Đang chờ khách thanh toán. Tài xế chưa xác nhận giao được."
+        />
+      ) : null}
       <Card brand>
         <Txt size={12} bold color={c.onBrandMuted}>
           {`${trip.orderCode} · ${label(trip.orderStatus)}`}

@@ -18,6 +18,7 @@ import type {
   MilestoneType,
   HorseConditionStatus,
   IncidentType,
+  IDeliveryClearance,
   ITripMap,
   ITripPositionBatchResult,
   ITripPositionInput,
@@ -76,6 +77,10 @@ export const trackingApi = {
   /** ACKNOWLEDGED = gửi hướng xử lý (gửi được nhiều lần, kèm thời gian chờ); CLOSED = đã xử lý xong. */
   updateIncident: (incidentId: string, body: { status: 'ACKNOWLEDGED' | 'CLOSED'; handlingNote: string; waitMinutes?: number | null }) =>
     api.patch<IIncident>(`/tracking/incidents/${incidentId}`, body).then(r => r.data),
+  deliveryClearance: (orderId: string) => api.get<IDeliveryClearance>(`/tracking/orders/${orderId}/delivery-clearance`).then(r => r.data),
+  approveDeliveryException: (orderId: string, body: { reason: string; dueAt: string | null }) =>
+    api.post<IDeliveryClearance>(`/tracking/orders/${orderId}/delivery-exception`, body).then(r => r.data),
+  openDeliveryException: (orderId: string) => api.post<IDeliveryClearance>(`/tracking/orders/${orderId}/delivery-exception/open`).then(r => r.data),
   createAlert: (tripId: string, body: { alertType: AlertType; content: string }) =>
     api.post<IAlert>(`/tracking/trips/${tripId}/alerts`, body).then(r => r.data),
   customerOrders: () =>
@@ -109,6 +114,7 @@ export const INCIDENT_TYPES: { value: IncidentType; label: string }[] = [
   { value: 'VEHICLE_BREAKDOWN' as IncidentType, label: 'Hỏng xe' },
   { value: 'LONG_TRAFFIC_JAM' as IncidentType, label: 'Tắc đường' },
   { value: 'HORSE_MEDICAL' as IncidentType, label: 'Y tế ngựa' },
+  { value: 'DELIVERY_ISSUE' as IncidentType, label: 'Giao ngựa' },
 ];
 
 export const ALERT_TYPES: { value: AlertType; label: string }[] = [

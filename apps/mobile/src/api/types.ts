@@ -70,6 +70,9 @@ export type Order = {
   horse_count?: number;
   horse_names?: string;
   quote_total?: number | string | null;
+  quote_deposit?: number | string | null;
+  quote_expires_at?: string | null;
+  arrived_at_delivery?: number | boolean;
   paid?: number | string;
   manager_note?: string | null;
 };
@@ -146,6 +149,8 @@ export type Quote = {
   deposit_percent: number | string;
   paid: number | string;
   expires_at: string | null;
+  order_status: string;
+  arrived_at_delivery: boolean;
   receipts: {
     id: string;
     amount: number | string;
@@ -173,6 +178,8 @@ export type Page = {
   horseId?: string;
   /** Mở form sự cố với loại chọn sẵn (Y tế ngựa từ ESC-07). */
   incidentType?: string;
+  /** Đợt thanh toán của màn CUS-17. */
+  paymentType?: "DEPOSIT" | "BALANCE";
 };
 /** screen "back" quay về màn trước. */
 export type Navigate = (screen: string, params?: Omit<Page, "screen">) => void;

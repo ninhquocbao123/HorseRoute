@@ -105,8 +105,8 @@ flowchart TD
   W -->|"Push ORDER_REVIEWED → REJECTED"| RJ["CUS-03: lý do từ chối"]
   W -->|"Push ORDER_REVIEWED → APPROVED"| AP["CUS-03 Đã duyệt"]
   AP -->|"Push QUOTE_APPROVED"| Q["CUS-04 Báo giá"]
-  Q -->|"Thanh toán cọc: mở web"| WEB["Web: VNPay"]
-  WEB -->|"Socket payment:updated / push PAYMENT_SUCCESS → PREPARING"| Q2["CUS-04: Đã đặt cọc"]
+  Q -->|"Đặt cọc"| PAY["CUS-17: thanh toán, tạm thời mô phỏng"]
+  PAY -->|"Ghi nhận xong → PREPARING"| Q2["CUS-04: Đã đặt cọc, còn nút trả phần còn lại"]
   Q -->|"Không đồng ý giá"| Q3["Gọi hotline (chưa có API từ chối, G9)"]
   Q -->|"Báo giá hết hạn"| Q4["Thông báo: Báo giá đã hết hạn, chờ báo giá mới"]
 ```
@@ -177,7 +177,9 @@ flowchart TD
   D -->|"Đã đến cửa khẩu → Xác nhận"| E["DRV-02: Tại cửa khẩu, nút Đã thông quan"]
   E -->|"Đã thông quan → Xác nhận; API: CUSTOMS_CLEARED"| F["DRV-02: Rời cửa khẩu"]
   F -->|"... điểm cuối"| G["DRV-02: nút Xác nhận đã giao"]
-  G -->|"Xác nhận đã giao → DRV-04; API: POST /legs/:id/complete → COMPLETED, đơn DELIVERED"| H["Màn hoàn tất: Đã giao 2 ngựa lúc 14:20 + GPS nền tắt"]
+  F -->|"Khách chưa trả đủ"| PW["DRV-02: Chờ khách thanh toán, tự kiểm tra lại 15 giây, Báo sự cố giao ngựa"]
+  PW -->|"Khách trả đủ, hoặc điều phối mở ngoại lệ"| G
+  G -->|"Xác nhận đã giao → DRV-04; API: mốc DELIVERED → COMPLETED, đơn DELIVERED; chưa đủ tiền thì 402"| H["Màn hoàn tất, sau khi máy chủ nhận: Đã giao 2 ngựa lúc 14:20 + GPS nền tắt"]
   B -->|"Quên ghi, giờ thật đã qua"| B2["Sửa giờ trong DRV-04 (trong 24 giờ, G3 phương án A)"]
   B -->|"Mất mạng"| Q["Hàng chờ; DRV-02 vẫn chuyển sang trạng thái tiếp theo, nhãn Chờ gửi"]
   Q -->|"Có mạng, 409 do điều phối đã hiệu chỉnh"| Q2["Tải lại chuyến, báo: Điều phối đã cập nhật chặng. Kiểm tra lại mốc"]

@@ -6,6 +6,7 @@ import { Role } from '@my-project/shared';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
 import { socketService, PaymentEventPayload } from '../../shared/socket/socket.service';
 import { CreatePaymentSessionDto, CompletePaymentSessionDto } from './payments.validation';
+import { notifyDeliveryCleared } from './payment-notices';
 
 export class PaymentsService {
   constructor(private readonly db: DataSource) { }
@@ -66,10 +67,18 @@ export class PaymentsService {
       amount = balance;
     }
 
+    // Bấm lại khi phiên mô phỏng còn hạn thì dùng tiếp phiên đó. Phiên VNPay sẽ xử lý khi làm lại phần cổng thật.
+    const [open] = gateway ? [] : await this.db.query(
+      `SELECT id, session_code FROM payment_sessions
+       WHERE order_id=? AND quote_id=? AND payment_type=? AND payment_method=? AND amount=? AND status='PENDING'
+         AND session_code NOT LIKE 'VNP%' AND created_at > UTC_TIMESTAMP(3) - INTERVAL 10 MINUTE
+       ORDER BY id DESC LIMIT 1`,
+      [dto.orderId, quote.id, dto.paymentType, dto.paymentMethod, amount]
+    );
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const sessionCode = gateway ? "VNP" + randomBytes(16).toString("hex") : `PAY-${order.order_code}-${Date.now().toString(36).toUpperCase()}-${rand}`;
+    const sessionCode: string = open?.session_code ?? (gateway ? "VNP" + randomBytes(16).toString("hex") : `PAY-${order.order_code}-${Date.now().toString(36).toUpperCase()}-${rand}`);
 
-    const insertResult = await this.db.query(
+    const insertResult = open ? { insertId: open.id } : await this.db.query(
       `INSERT INTO payment_sessions (session_code, order_id, quote_id, customer_id, payment_type, payment_method, amount, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
       [sessionCode, dto.orderId, quote.id, order.customer_id, dto.paymentType, dto.paymentMethod, amount]
@@ -223,6 +232,7 @@ export class PaymentsService {
           "INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value, reason) VALUES (?, 'ORDER', ?, 'FULLY_PAID', ?, ?)",
           [user.id, session.order_id, JSON.stringify({ paid: newPaid, total }), 'Đã thanh toán đủ toàn bộ chi phí vận chuyển']
         );
+        await notifyDeliveryCleared(m, session.order_id, session.order_code);
       }
 
       // Record audit for receipt

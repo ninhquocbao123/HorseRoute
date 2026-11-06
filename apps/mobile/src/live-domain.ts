@@ -44,6 +44,7 @@ export const statuses: Record<string, string> = {
   VEHICLE_BREAKDOWN: "Hỏng xe",
   LONG_TRAFFIC_JAM: "Tắc đường",
   HORSE_MEDICAL: "Y tế ngựa",
+  DELIVERY_ISSUE: "Giao ngựa",
   RED: "Nghiêm trọng",
   ORANGE: "Trung bình",
   YELLOW: "Nhẹ",
@@ -107,20 +108,67 @@ export const customerNoteError = (sendToCustomer: boolean, note: string) =>
   sendToCustomer && !note.trim()
     ? "Nhập ghi chú gửi khách, hoặc tắt Gửi cho khách xem."
     : null;
-/** Máy chủ chặn thanh toán khi báo giá hết hạn mà chưa đủ tiền cọc; đã cọc đủ thì vẫn trả tiếp được. */
-export function quoteExpiredForPayment(
+export type PaymentAction =
+  | { kind: "none"; note: string | null; expired?: boolean }
+  | {
+      kind: "pay";
+      type: "DEPOSIT" | "BALANCE";
+      amount: number;
+      note: string;
+      /** Xe đã tới điểm giao, tài xế đang đợi. */
+      urgent: boolean;
+    };
+/**
+ * Nút thanh toán của CUS-04 và các thẻ trang chủ (kế hoạch 10, mục 4). Khớp quy tắc máy chủ:
+ * báo giá hết hạn chỉ chặn khi chưa đủ cọc; đã cọc đủ thì vẫn trả tiếp được.
+ */
+export function paymentAction(
+  order: { status: string; arrivedAtDelivery?: boolean | number | null },
   quote: {
-    expires_at?: string | null;
-    paid: string | number;
+    total: string | number;
     deposit: string | number;
+    paid?: string | number | null;
+    expires_at?: string | null;
   },
   now = Date.now(),
-) {
-  return (
-    !!quote.expires_at &&
-    Date.parse(quote.expires_at) <= now &&
-    Number(quote.paid) < Number(quote.deposit)
-  );
+): PaymentAction {
+  const total = Number(quote.total);
+  const deposit = Number(quote.deposit);
+  const paid = Number(quote.paid ?? 0);
+  if (paid >= total) return { kind: "none", note: "Đã thanh toán đủ" };
+  if (
+    !["APPROVED", "PREPARING", "READY", "IN_TRANSIT", "DELIVERED"].includes(
+      order.status,
+    )
+  )
+    return { kind: "none", note: null };
+  if (paid < deposit) {
+    if (quote.expires_at && Date.parse(quote.expires_at) <= now)
+      return {
+        kind: "none",
+        expired: true,
+        note: "Báo giá đã hết hạn. Liên hệ quản lý để báo giá lại.",
+      };
+    return {
+      kind: "pay",
+      type: "DEPOSIT",
+      amount: deposit - paid,
+      note: "Đặt cọc xong, đơn chuyển sang chuẩn bị chuyến.",
+      urgent: false,
+    };
+  }
+  const urgent = !!order.arrivedAtDelivery && order.status === "IN_TRANSIT";
+  return {
+    kind: "pay",
+    type: "BALANCE",
+    amount: total - paid,
+    urgent,
+    note: urgent
+      ? "Xe đã tới. Tài xế đang đợi bạn thanh toán để giao ngựa."
+      : order.status === "DELIVERED"
+        ? "Ngựa đã giao. Bạn còn khoản này phải thanh toán."
+        : "Cần trả đủ trước khi tài xế giao ngựa.",
+  };
 }
 /** Cửa sổ ghi lùi của mốc và ghi chăm sóc từ hàng chờ (G3 phương án A). */
 export const BACKFILL_MS = 24 * 3600000;
@@ -467,6 +515,8 @@ export function shortName(name: string) {
 type PendingMilestone = {
   kind: string;
   status: string;
+  /** Máy chủ đã nhận mục này. */
+  sent?: boolean;
   legId?: string;
   milestoneType?: string;
   waypointId?: string;
@@ -489,6 +539,8 @@ export function applyPending(
   }));
   for (const item of pending) {
     if (item.status === "REJECTED" || !item.legId) continue;
+    // Giao ngựa có thể bị từ chối vì chưa trả đủ: chỉ coi là đã giao khi máy chủ đã nhận.
+    if (item.milestoneType === "DELIVERED" && !item.sent) continue;
     const leg = legs.find((l) => l.id === item.legId);
     if (!leg) continue;
     const at = String(item.body.occurredAt ?? new Date().toISOString());
