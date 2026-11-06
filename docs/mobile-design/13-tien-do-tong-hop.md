@@ -4,7 +4,7 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 
 ## 0. Đang làm dở: kế hoạch 10 với thanh toán mô phỏng (ngày 06/11/2026)
 
-**Trạng thái: code và tài liệu xong, đã commit nhưng chưa đưa lên `long` và chưa push.** Toàn bộ nằm trong worktree `.claude/worktrees/claude-code-docker-running-d4ddbb`, nhánh `claude/progress-13-payment-simulation-f07217`, dựng từ `long` commit `6c3b2a4`. Đừng xóa nhánh này trước khi đưa lên `long`.
+**Trạng thái: code và tài liệu xong, đã có trên `long` (máy và GitHub); chưa merge vào `dev`, `main`.** Làm trong worktree `.claude/worktrees/claude-code-docker-running-d4ddbb`, nhánh `claude/progress-13-payment-simulation-f07217`, dựng từ `long` commit `6c3b2a4`. 
 
 **Long đã quyết định:** tạm dùng thanh toán mô phỏng. Khi có khóa VNPay Sandbox thì thiết kế lại phần cổng thanh toán. Phần 12 đã xong về code, chỉ còn kiểm tra trên máy thật. Câu 3, 4 mục 11 file 10 đang theo đề xuất, Long chưa xác nhận rõ.
 
@@ -34,9 +34,8 @@ Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc mu
 
 **Việc tiếp theo, theo thứ tự:**
 
-1. Long xem rồi cho fast-forward `long` và push.
-2. Trước khi lên DB chung: Long đồng ý chạy migration và kiểm tra các chuyến `IN_TRANSIT` chưa trả đủ, vì chúng sẽ bị chặn ngay ở bước giao.
-3. Khi Long có khóa VNPay Sandbox: làm giai đoạn 1 và 2 file 10 phần cổng thật.
+1. Trước khi lên DB chung: Long đồng ý chạy migration và kiểm tra các chuyến `IN_TRANSIT` chưa trả đủ, vì chúng sẽ bị chặn ngay ở bước giao.
+2. Khi Long có khóa VNPay Sandbox: làm giai đoạn 1 và 2 file 10 phần cổng thật.
 
 **Dựng lại môi trường thử** (đã xóa sau phiên này):
 
