@@ -47,12 +47,14 @@ import {
 } from "../ui";
 import { Sheet, useOverlay } from "../overlay";
 import { useResource, useSession } from "../session";
+import { TripMapView, type TripMapHandle } from "../map/TripMapView";
+import { customerPositionText } from "../map/map-scene";
+import { useAutoRefresh, useLiveTripMap } from "../map/useLiveTripMap";
 import {
   Empty,
   PhotoPicker,
   PrivateImage,
   ResourceState,
-  RouteMap,
   appendPhoto,
   webUrl,
   NotFound,
@@ -1086,10 +1088,14 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
   const timeline = useResource<IOrderTimeline>(
     `/tracking/orders/${asId(id)}/timeline`,
   );
-  const map = useResource<ITripMap>(`/tracking/orders/${asId(id)}/map`);
+  const map = useLiveTripMap(`/tracking/orders/${asId(id)}/map`);
   const reports = useResource<IHorseReport[]>(
     `/tracking/orders/${asId(id)}/horse-reports`,
   );
+  useAutoRefresh(() => {
+    timeline.reload();
+    reports.reload();
+  });
   const t = timeline.data;
   const legs = useMemo(
     () => [...(t?.legs ?? [])].sort((a, b) => a.seqNo - b.seqNo),
@@ -1203,8 +1209,20 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
           accessibilityRole="button"
           accessibilityLabel="Mở bản đồ toàn màn hình"
           onPress={() => go("tracking-map", { id })}
+          style={{ borderRadius: 16, overflow: "hidden", gap: 4 }}
         >
-          <RouteMap map={map.data} compact />
+          <TripMapView
+            map={map.data}
+            mode="customer"
+            compact
+            height={160}
+            accessibilityLabel={`Bản đồ ${map.data.stops.map((stop) => stop.name).join(" đến ")}`}
+          />
+          {customerPositionText(map.data) ? (
+            <Txt size={12} color={c.textSecondary} style={{ paddingHorizontal: 4 }}>
+              {customerPositionText(map.data)}
+            </Txt>
+          ) : null}
         </Pressable>
       ) : null}
       <Section title="Hành trình" />
@@ -1307,12 +1325,60 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
   );
 }
 
-/** Bản đồ toàn màn của CUS-05. */
+/** Bản đồ toàn màn của CUS-05: không có tốc độ, GPS hay cảnh báo kỹ thuật. */
 export function TrackingMapScreen({ id }: { id: string }) {
-  const map = useResource<ITripMap>(`/tracking/orders/${asId(id)}/map`);
+  const { colors: c } = useTheme();
+  const map = useLiveTripMap(`/tracking/orders/${asId(id)}/map`);
+  const view = useRef<TripMapHandle>(null);
+  const [fallback, setFallback] = useState(false);
+  const data = map.data;
   return (
     <ResourceState resource={map} what="bản đồ" skeleton="map">
-      {map.data ? <RouteMap map={map.data} /> : null}
+      {data ? (
+        <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
+            <TripMapView
+              ref={view}
+              map={data}
+              mode="customer"
+              onFallbackChange={setFallback}
+              accessibilityLabel={`Bản đồ ${data.stops.map((stop) => stop.name).join(" đến ")}`}
+            />
+            {fallback ? null : (
+              <View style={{ position: "absolute", right: 12, top: 12 }}>
+                <Button
+                  title="Xem toàn tuyến"
+                  kind="secondary"
+                  onPress={() => view.current?.fit()}
+                />
+              </View>
+            )}
+          </View>
+          <View
+            style={{
+              padding: 16,
+              gap: 4,
+              backgroundColor: c.surface,
+              borderTopWidth: 1,
+              borderTopColor: c.border,
+            }}
+          >
+            <Txt bold>
+              {customerPositionText(data) ?? "Chưa có vị trí xe"}
+            </Txt>
+            <Txt size={15} color={c.textSecondary}>
+              {[
+                data.remainingKm !== null
+                  ? `Còn khoảng ${data.remainingKm.toLocaleString("vi-VN")} km`
+                  : null,
+                data.position ? `Cập nhật ${dateTime(data.position.asOf)}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </Txt>
+          </View>
+        </View>
+      ) : null}
     </ResourceState>
   );
 }

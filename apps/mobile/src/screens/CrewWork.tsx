@@ -47,11 +47,19 @@ import {
 } from "../ui";
 import { Sheet, useOverlay } from "../overlay";
 import { useResource, useSession } from "../session";
+import { TripMapView, type TripMapHandle } from "../map/TripMapView";
+import { crewMapNotes } from "../map/map-scene";
+import { tripStats, type Stat } from "../map/trip-stats";
+import {
+  KeepScreenAwake,
+  useLiveTripMap,
+  useOwnFix,
+  useTripTrack,
+} from "../map/useLiveTripMap";
 import {
   Empty,
   PhotoPicker,
   ResourceState,
-  RouteMap,
   NotFound,
 } from "../live-ui";
 import {
@@ -1640,23 +1648,73 @@ export function HorseDetail({
 
 /* ---------------- DRV-05 Bản đồ chuyến ---------------- */
 
-/** Không có nút ghi mốc trên bản đồ để tránh bấm nhầm; ghi mốc vẫn ở màn chuyến. */
+const noFollowKey = (tripId: string) => `horseroute.map.nofollow.${tripId}`;
+
+/**
+ * Giống màn tài xế của web: đang chạy thì mặc định bám xe, kéo tay thì ngừng bám và hiện "Về giữa".
+ * Không chỉ đường từng ngã rẽ (nút mở Google Maps) và không có nút ghi mốc trên bản đồ để tránh bấm nhầm.
+ */
 export function TripMapScreen({
   trip: serverTrip,
 }: {
   trip: IDriverTripDetail;
 }) {
   const { colors: c } = useTheme();
-  const map = useResource<ITripMap>(
-    `/tracking/trips/${asId(serverTrip.id)}/map`,
-  );
+  const map = useLiveTripMap(`/tracking/trips/${asId(serverTrip.id)}/map`);
   const progress = useTripProgress(serverTrip.id);
   const trip = useMemo(
     () => applyPending(serverTrip, progress),
     [serverTrip, progress],
   );
+  const running = trip.orderStatus === "IN_TRANSIT";
+  const track = useTripTrack(serverTrip.id, running);
+  const ownFix = useOwnFix(running);
+  const view = useRef<TripMapHandle>(null);
+
+  // Nhớ lựa chọn tắt bám xe của từng chuyến.
+  const [navigating, setNavigatingState] = useState(true);
+  const [following, setFollowing] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    void AsyncStorage.getItem(noFollowKey(serverTrip.id))
+      .then((value) => {
+        if (alive && value === "1") setNavigatingState(false);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [serverTrip.id]);
+  const setNavigating = (on: boolean) => {
+    setNavigatingState(on);
+    setFollowing(true);
+    void (
+      on
+        ? AsyncStorage.removeItem(noFollowKey(serverTrip.id))
+        : AsyncStorage.setItem(noFollowKey(serverTrip.id), "1")
+    ).catch(() => {});
+  };
+  const [fallback, setFallback] = useState(false);
+  const nav = running && navigating && !fallback;
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   const stop = nextStop(trip, map.data ?? null);
-  const late = stop?.at ? Date.now() - Date.parse(stop.at) : 0;
+  const late = stop?.at ? now - Date.parse(stop.at) : 0;
+  const waypoint =
+    stop && stop.at === null && stop.caption === "ĐIỂM KẾ TIẾP" ? stop.name : null;
+  const stats = tripStats({
+    legs: trip.legs,
+    map: map.data ?? null,
+    ownFix,
+    waypoint,
+    now,
+  });
+  const notes = crewMapNotes(map.data ?? null);
   const directions = () => {
     const leg = map.data?.legs.find((l) => l.status !== "COMPLETED");
     const next = map.data?.stops.find(
@@ -1671,63 +1729,175 @@ export function TripMapScreen({
     );
   };
   return (
-    <ScreenBody
-      onRefresh={map.reload}
-      footer={
-        stop ? (
+    <View style={{ flex: 1 }}>
+      <ResourceState resource={map} what="bản đồ lộ trình" skeleton="map">
+        <View style={{ flex: 1 }}>
+          <TripMapView
+            ref={view}
+            map={map.data ?? null}
+            mode="crew"
+            running={running}
+            track={track}
+            ownFix={ownFix}
+            navigating={nav}
+            following={following}
+            onUserMoved={() => setFollowing(false)}
+            onFallbackChange={setFallback}
+            accessibilityLabel={`Bản đồ chuyến ${trip.orderCode}${stop ? `, ${stop.caption.toLowerCase()} ${stop.name}` : ""}`}
+          />
+          {nav ? <KeepScreenAwake /> : null}
+          {nav && stop ? (
+            <View
+              accessibilityRole="text"
+              style={{
+                position: "absolute",
+                left: 12,
+                right: 12,
+                top: 12,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: c.surfaceBrand,
+              }}
+            >
+              <Txt bold color={c.onBrand} numberOfLines={2}>
+                {stop.caption === "ĐANG DỪNG TẠI"
+                  ? `Đang dừng tại ${stop.name}`
+                  : `Về phía ${stop.name}`}
+              </Txt>
+            </View>
+          ) : null}
+          {running && !fallback ? (
+            <View
+              style={{
+                position: "absolute",
+                right: 12,
+                bottom: 36,
+                gap: 8,
+                alignItems: "flex-end",
+              }}
+            >
+              {nav && !following ? (
+                <Button
+                  title="Về giữa"
+                  kind="secondary"
+                  large
+                  onPress={() => {
+                    setFollowing(true);
+                    view.current?.recenter();
+                  }}
+                />
+              ) : null}
+              <Button
+                title={nav ? "Xem toàn tuyến" : "Bám theo xe"}
+                kind="secondary"
+                large
+                onPress={() => setNavigating(!nav)}
+              />
+            </View>
+          ) : null}
+        </View>
+      </ResourceState>
+      <View
+        style={{
+          padding: 12,
+          gap: 8,
+          backgroundColor: c.surface,
+          borderTopWidth: 1,
+          borderTopColor: c.border,
+        }}
+      >
+        {notes.map((note, index) => (
+          <Txt key={index} size={12} color={c.warningFg}>
+            {note}
+          </Txt>
+        ))}
+        {running ? (
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <MapStat title="Chặng tiếp" stat={stats.next} />
+            <MapStat title="Tốc độ" stat={stats.speed} />
+            <MapStat title="Đã chạy" stat={stats.elapsed} />
+          </View>
+        ) : stop ? (
+          <View style={{ gap: 4 }}>
+            <Txt size={12} bold color={c.textSecondary}>
+              {stop.caption}
+            </Txt>
+            <Txt size={17} bold numberOfLines={2}>
+              {stop.name}
+            </Txt>
+            <View style={[s.wrap, { alignItems: "center" }]}>
+              {stop.at ? (
+                <Txt size={15}>{`${stop.atLabel} ${clock(stop.at)}`}</Txt>
+              ) : null}
+              {stop.at ? (
+                <StatusBadge
+                  spec={
+                    late > 60000
+                      ? {
+                          label: `Trễ ${Math.round(late / 60000)} phút`,
+                          tone: "warning",
+                          icon: "clock",
+                        }
+                      : {
+                          label: "Đúng giờ",
+                          tone: "success",
+                          icon: "circle-check",
+                        }
+                  }
+                />
+              ) : null}
+            </View>
+            {map.data?.totalKm != null ? (
+              <Txt size={15} color={c.textSecondary}>
+                {`Tổng ${map.data.totalKm.toLocaleString("vi-VN")} km`}
+              </Txt>
+            ) : null}
+          </View>
+        ) : null}
+        {stop ? (
           <Button
             title={`Chỉ đường đến ${shortName(stop.name)}`}
             icon={Navigation}
             large
             onPress={directions}
           />
-        ) : undefined
-      }
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Tô cảnh báo luôn kèm chữ ở dòng phụ, không truyền nghĩa chỉ bằng màu. */
+function MapStat({ title, stat }: { title: string; stat: Stat }) {
+  const { colors: c } = useTheme();
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${title}: ${stat.value}, ${stat.sub}`}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        padding: 8,
+        borderRadius: 12,
+        gap: 2,
+        backgroundColor: stat.warn ? c.warningBg : c.surfaceMuted,
+      }}
     >
-      <ResourceState resource={map} what="bản đồ lộ trình" skeleton="map">
-        {map.data ? <RouteMap map={map.data} /> : null}
-      </ResourceState>
-      {stop ? (
-        <Card>
-          <Txt size={12} bold color={c.textSecondary}>
-            {stop.caption}
-          </Txt>
-          <Txt size={24} bold>
-            {stop.name}
-          </Txt>
-          <View style={[s.wrap, { alignItems: "center" }]}>
-            {stop.at ? (
-              <Txt bold>{`${stop.atLabel} ${clock(stop.at)}`}</Txt>
-            ) : null}
-            {stop.at ? (
-              <StatusBadge
-                spec={
-                  late > 60000
-                    ? {
-                        label: `Trễ ${Math.round(late / 60000)} phút`,
-                        tone: "warning",
-                        icon: "clock",
-                      }
-                    : {
-                        label: "Đúng giờ",
-                        tone: "success",
-                        icon: "circle-check",
-                      }
-                }
-              />
-            ) : null}
-          </View>
-          {map.data?.remainingKm != null ? (
-            <Txt color={c.textSecondary}>
-              {`Còn khoảng ${map.data.remainingKm.toLocaleString("vi-VN")} km`}
-            </Txt>
-          ) : null}
-        </Card>
-      ) : null}
-      <Txt size={15} color={c.textSecondary}>
-        App không tự dẫn đường. Nút bên dưới mở Google Maps.
+      <Txt size={12} color={c.textSecondary}>
+        {title}
       </Txt>
-    </ScreenBody>
+      <Txt
+        size={15}
+        bold
+        numberOfLines={1}
+        color={stat.warn ? c.warningFg : c.textPrimary}
+      >
+        {stat.value}
+      </Txt>
+      <Txt size={12} numberOfLines={2} color={stat.warn ? c.warningFg : c.textSecondary}>
+        {stat.sub}
+      </Txt>
+    </View>
   );
 }
 

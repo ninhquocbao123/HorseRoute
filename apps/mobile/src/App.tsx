@@ -128,6 +128,7 @@ const customerSelfScrolling = new Set([
   "documents",
   "quote",
   "tracking",
+  "tracking-map",
   "horses",
   "horse",
   "booking",

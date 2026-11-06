@@ -801,10 +801,13 @@ export { appendPhoto } from "./photo";
 export function RouteMap({
   map,
   compact = false,
+  bare = false,
 }: {
   map: ITripMap;
   /** Thẻ nhỏ cao 160 (CUS-05): chỉ sơ đồ và nhãn vị trí. */
   compact?: boolean;
+  /** Phương án dự phòng của TripMapView: màn hình tự hiện vị trí và km, ở đây chỉ vẽ sơ đồ. */
+  bare?: boolean;
 }) {
   const { colors: c } = useTheme();
   const points = map.legs.flatMap((l) => l.coordinates ?? []);
@@ -831,7 +834,7 @@ export function RouteMap({
   ];
   return (
     <Card>
-      {compact ? null : <Txt bold>Tuyến từ dữ liệu hành trình</Txt>}
+      {compact || bare ? null : <Txt bold>Tuyến từ dữ liệu hành trình</Txt>}
       <View
         accessible
         accessibilityLabel={`Sơ đồ ${map.stops.map((s) => s.name).join(" → ")}`}
@@ -882,15 +885,17 @@ export function RouteMap({
       {compact ? null : (
         <Txt size={12}>Sơ đồ tọa độ, không phải bản đồ dẫn đường.</Txt>
       )}
-      <Txt size={compact ? 12 : 17}>
-        {map.position
-          ? `${map.position.source === "GPS" ? "Vị trí GPS" : "Vị trí ước tính theo mốc"} · ${dateTime(map.position.asOf)}`
-          : "Chưa có vị trí xe"}
-      </Txt>
-      {map.remainingKm !== null && !compact ? (
+      {bare ? null : (
+        <Txt size={compact ? 12 : 17}>
+          {map.position
+            ? `${map.position.source === "GPS" ? "Vị trí GPS" : "Vị trí ước tính theo mốc"} · ${dateTime(map.position.asOf)}`
+            : "Chưa có vị trí xe"}
+        </Txt>
+      )}
+      {map.remainingKm !== null && !compact && !bare ? (
         <Txt>Còn {map.remainingKm.toLocaleString("vi-VN")} km</Txt>
       ) : null}
-      {(compact ? [] : map.warnings).map((warning, index) => (
+      {(compact || bare ? [] : map.warnings).map((warning, index) => (
         <Banner key={index} text={warning} warning />
       ))}
     </Card>

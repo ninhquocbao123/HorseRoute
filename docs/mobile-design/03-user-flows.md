@@ -117,7 +117,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  P["Push ORDER_IN_TRANSIT"] -->|"Chạm"| A["CUS-05 Theo dõi; API: /timeline, /map; socket join:order"]
+  P["Push ORDER_IN_TRANSIT"] -->|"Chạm"| A["CUS-05 Theo dõi; API: /timeline, /map; tự tải lại mỗi 60 giây"]
   A -->|"Socket order:status_updated / push ORDER_LEG_PROGRESS"| A
   A -->|"Chạm thẻ báo cáo"| B["CUS-06 Báo cáo sức khỏe; API: POST /horse-reports/:id/view"]
   B --> A
