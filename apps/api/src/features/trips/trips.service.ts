@@ -41,7 +41,7 @@ export class TripsService {
     if (row.planStatus !== 'DRAFT' || !['APPROVED', 'PREPARING'].includes(row.orderStatus)) throw new ConflictException('Chỉ tính tuyến khi kế hoạch còn được sửa.');
     const legs = await this.repository.legs(id);
     if (legs.some(leg => leg.status !== 'NOT_STARTED')) throw new ConflictException('Chuyến đã vận hành, không được tính lại tuyến.');
-    return { inputKey: routeInputKey(input.waypoints), routes: await previewRoutes(id, input.waypoints), attribution: 'Mapbox' };
+    return { inputKey: routeInputKey(input.waypoints), routes: await previewRoutes(id, input.waypoints), attribution: 'OpenStreetMap' };
   }
   async saveRoutePlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
     if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lưu lộ trình.');

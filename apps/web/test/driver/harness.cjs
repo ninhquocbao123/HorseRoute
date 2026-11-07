@@ -10,7 +10,7 @@ exports.run = async (name, body) => {
   const web = path.resolve(__dirname, '../..');
   const { createServer } = await import(pathToFileURL(path.join(path.dirname(require.resolve('vite', { paths: [web] })), 'dist/node/index.js')).href);
   const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
-  process.env.VITE_MAP_ENABLED = 'false'; // không gọi Mapbox trong test; bản đồ rơi về khung dự phòng
+  process.env.VITE_MAP_ENABLED = 'false'; // không gọi dịch vụ bản đồ trong test; bản đồ rơi về khung dự phòng
   const PORT = Number(process.env.WEB_TEST_PORT || 5181);
   const server = await createServer({ root: web, server: { host: '127.0.0.1', port: PORT, strictPort: true } });
   await server.listen();

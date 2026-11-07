@@ -13,7 +13,7 @@ const incidentType = { type: 'string', enum: ['VEHICLE_BREAKDOWN', 'LONG_TRAFFIC
 const incidentStatus = { type: 'string', enum: ['NEW', 'ACKNOWLEDGED', 'CLOSED'] };
 const locationType = { type: 'string', enum: ['BORDER', 'QUARANTINE_STATION', 'REST_STOP', 'AIRPORT', 'FUEL_STOP'], description: 'BORDER yêu cầu mốc CUSTOMS_CLEARED trước khi hoàn tất chặng.' };
 const contact = (description: string, phone: string) => nullable({ ...object({ name: { type: 'string' }, phone: nullable({ type: 'string', description: phone }) }), description });
-const routeMode = { type: 'string', enum: ['ROAD', 'AIR', 'STRAIGHT'], description: 'ROAD: đường thật (Mapbox Directions, cache); AIR: cung tròn lớn (chặng bay); STRAIGHT: đường thẳng ước lượng.' };
+const routeMode = { type: 'string', enum: ['ROAD', 'AIR', 'STRAIGHT'], description: 'ROAD: đường thật (OSRM, cache); AIR: cung tròn lớn (chặng bay); STRAIGHT: đường thẳng ước lượng.' };
 const lngLat = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } };
 const alertType = { type: 'string', enum: ['TRAFFIC', 'WEATHER', 'BORDER'] };
 
@@ -481,9 +481,9 @@ Gửi: \`sent_at\`, thông báo IN_APP cho khách (\`HORSE_REPORT\`, liên kết
     responses: { ...ok(200, ref('ActiveTrips'), { summary: { inTransit: 1, openIncidents: 1, overdueTrips: 0 }, items: [activeItem] }), ...errors([401, 403, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/map': { get: { ...common, operationId: 'getTripMap', summary: 'Bản đồ chuyến: tuyến từng chặng, điểm dừng, km, vị trí xe', parameters: [tripId],
     description: `Driver (được phân công), Coordinator (chuyến mình lập), Manager, Specialist (thấy GPS như Manager, quyết định #4). Customer không gọi API này.
-- Tuyến: mọi xe LIGHT/MEDIUM/HEAVY dùng ROAD từ cache \`location_routes\` (30 ngày) hoặc Mapbox Directions (timeout 5 giây). Không có token / lỗi / không có đường → STRAIGHT; không bao giờ trả 500 vì Mapbox.
+- Tuyến: mọi xe LIGHT/MEDIUM/HEAVY dùng ROAD từ cache \`location_routes\` (30 ngày) hoặc OSRM (timeout 5 giây). Dịch vụ tắt / lỗi / không có đường → STRAIGHT; không bao giờ trả 500 vì dịch vụ tính tuyến.
 - \`position\`: GPS khi điểm mới nhất < 10 phút và chặng hiện tại không phải chặng bay; ngược lại ước tính theo mốc (MOVING: theo thời gian, kẹp 0–0.95).
-- Không reverse geocode, không lưu địa chỉ từ Mapbox. Giới hạn 60 request/phút/người dùng.`,
+- Không reverse geocode. Giới hạn 60 request/phút/người dùng.`,
     responses: { ...ok(200, ref('TripMap'), tripMap), ...errors([400, 401, 403, 404, 429, 500]) } } },
   '/api/v1/tracking/trips/{tripId}/positions': {
     post: { ...common, operationId: 'recordPositions', summary: 'Tài xế (crew DRIVER của chuyến): gửi lô vị trí GPS; hộ tống nhận 403', parameters: [tripId],

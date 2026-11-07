@@ -18,8 +18,8 @@ const name = 'wdp_flow4_test_' + require('crypto').randomBytes(8).toString('hex'
 const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-flow4-'));
 process.env.DOCUMENT_STORAGE_DIR = storageDir;
 process.env.DOCUMENT_STORAGE_PROVIDER = 'local';
-// Không bao giờ gọi Mapbox thật trong test: thiếu token → tuyến STRAIGHT, không cache.
-delete process.env.MAPBOX_ACCESS_TOKEN;
+// Không bao giờ gọi dịch vụ tính tuyến thật trong test: URL rỗng → tuyến STRAIGHT, không cache.
+process.env.MAP_ROUTING_URL = '';
 
 let admin, db, server, created = false, passed = 0;
 async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
@@ -666,7 +666,7 @@ async function main() {
     await q("UPDATE notifications SET is_read = 0 WHERE event_type='TRIP_ALERT'");
   });
 
-  await check('Map + GPS: scope, STRAIGHT without Mapbox token, VMAX, batched positions are idempotent, GPS replaces the estimate, retention purge', async () => {
+  await check('Map + GPS: scope, STRAIGHT with routing turned off, VMAX, batched positions are idempotent, GPS replaces the estimate, retention purge', async () => {
     const pointAt = (minutes, extra = {}) => ({ latitude: 10.95, longitude: 106.4, recordedAt: minutesAgo(minutes), ...extra });
     await expectStatus(403, 'GET', '/trips/100/map', { as: ids.customer });
     await expectStatus(404, 'GET', '/trips/100/map', { as: ids.driver2 });

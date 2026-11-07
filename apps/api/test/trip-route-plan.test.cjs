@@ -46,21 +46,29 @@ test('route input key ignores note-only edits but changes with coordinate/order 
   assert.notEqual(routeInputKey(waypoints), routeInputKey([waypoints[0], waypoints[2], waypoints[1]]));
 });
 
-test('Mapbox provider uses permanent non-autocomplete geocoding and normalizes minimal results', async () => {
-  process.env.MAPBOX_ACCESS_TOKEN = 'test-token';
+test('Photon search biases towards Vietnam, sends no unsupported language and normalizes results', async () => {
   let called;
-  const items = await searchAddresses('Hà Nội', async url => {
-    called = new URL(url);
-    return new Response(JSON.stringify({ features: [{ id: 'address.1', properties: { full_address: 'Hà Nội, Việt Nam' }, geometry: { type: 'Point', coordinates: [105.8542, 21.0285] } }] }), { status: 200 });
+  let init;
+  const items = await searchAddresses('8 Nguyễn Tất Thành', async (url, options) => {
+    called = new URL(url); init = options;
+    return new Response(JSON.stringify({ features: [
+      { properties: { osm_type: 'N', osm_id: 12, name: 'Sở GD&ĐT', housenumber: '8', street: 'Nguyễn Tất Thành', city: 'Buôn Ma Thuột', state: 'Đắk Lắk', country: 'Việt Nam' }, geometry: { type: 'Point', coordinates: [108.04, 12.68] } },
+      { properties: { street: 'Nguyễn Tất Thành', city: 'Nguyễn Tất Thành' }, geometry: { type: 'Point', coordinates: [108, 12] } },
+    ] }), { status: 200 });
   });
-  assert.equal(called.searchParams.get('permanent'), 'true');
-  assert.equal(called.searchParams.get('autocomplete'), 'false');
-  assert.deepEqual(items, [{ id: 'address.1', label: 'Hà Nội, Việt Nam', latitude: 21.0285, longitude: 105.8542 }]);
+  assert.equal(called.searchParams.get('lang'), 'default', 'Photon rejects lang=vi with HTTP 400; default keeps the names written in OpenStreetMap');
+  assert.equal(called.searchParams.get('limit'), '5');
+  assert.equal(called.searchParams.has('countrycode'), false, 'international trips can search abroad');
+  assert.equal(init.headers['User-Agent'], 'HorseRoute/1.0');
+  assert.deepEqual(items, [
+    { id: 'N12', label: 'Sở GD&ĐT, 8 Nguyễn Tất Thành, Buôn Ma Thuột, Đắk Lắk, Việt Nam', latitude: 12.68, longitude: 108.04 },
+    { id: '108,12', label: 'Nguyễn Tất Thành', latitude: 12, longitude: 108 },
+  ]);
 });
 
 test('invalid provider responses never become empty results or signed unsaveable routes', async () => {
   const reply = body => async () => new Response(JSON.stringify(body));
-  for (const body of [{}, { features: null }, { features: [{ geometry: { type: 'Point', coordinates: [200, 10] }, properties: { name: 'Bad' } }] }]) {
+  for (const body of [{}, { features: null }, { features: [{ geometry: { type: 'Point', coordinates: [200, 10] }, properties: { name: 'Bad' } }] }, { features: [{ geometry: { type: 'Point', coordinates: [106, 10] }, properties: { city: 'No name' } }] }]) {
     await assert.rejects(searchAddresses('public place', reply(body)), e => e.getStatus() === 503);
   }
   assert.deepEqual(await searchAddresses('no results', reply({ features: [] })), []);
@@ -93,11 +101,49 @@ test('expired token is rejected without weakening signed trip/input/digest check
   assert.throws(() => verifyRouteToken(token, '42', route), /hết hạn/);
 });
 
-test('Mapbox routing mock returns signed alternatives bound to exact waypoint input', async () => {
-  process.env.MAPBOX_ACCESS_TOKEN = 'test-token';
+test('OSRM no-road answers (HTTP 400) become a clear 400, other failures stay 503', async () => {
+  const reply = (status, body) => async () => new Response(JSON.stringify(body), { status });
+  for (const code of ['NoRoute', 'NoSegment']) {
+    await assert.rejects(previewRoutes('42', waypoints, reply(400, { code })), e => e.getStatus() === 400 && /Không tìm thấy đường bộ/.test(e.message));
+  }
+  await assert.rejects(previewRoutes('42', waypoints, reply(400, { code: 'InvalidQuery' })), e => e.getStatus() === 503);
+  await assert.rejects(previewRoutes('42', waypoints, reply(500, {})), e => e.getStatus() === 503);
+  await assert.rejects(previewRoutes('42', waypoints, reply(429, {})), e => e.getStatus() === 503 && /giới hạn/.test(e.message));
+});
+
+test('a waypoint OSRM snapped too far from any road is rejected by name, never signed', async () => {
+  const body = distances => ({ code: 'Ok', waypoints: distances.map(distance => ({ distance })), routes: [{ geometry: route.geometry, distance: route.distanceM, duration: route.durationS }] });
+  const far = waypoints.map((_, index) => (index === 1 ? 292534 : 10));
+  await assert.rejects(previewRoutes('42', waypoints, async () => new Response(JSON.stringify(body(far)))), e => e.getStatus() === 400 && e.message.includes(waypoints[1].label));
+  const near = await previewRoutes('42', waypoints, async () => new Response(JSON.stringify(body(waypoints.map(() => 4900)))));
+  assert.equal(near[0].provider, 'osrm');
+});
+
+test('routes saved before the switch (provider mapbox) can still be read and saved', () => {
+  assert.equal(route.provider, 'mapbox');
+  assert(routePlanWriteSchema.safeParse({ revision: 0, routePlan: { version: 1, waypoints, selectedRoute: route }, verificationToken: null }).success);
+  assert.equal(routePlanWriteSchema.safeParse({ revision: 0, routePlan: { version: 1, waypoints, selectedRoute: { ...route, provider: 'other' } }, verificationToken: null }).success, false);
+});
+
+test('turning a map service off fails clearly instead of calling the public server', async () => {
+  const saved = [process.env.MAP_ROUTING_URL, process.env.MAP_GEOCODING_URL];
+  process.env.MAP_ROUTING_URL = ''; process.env.MAP_GEOCODING_URL = '';
+  try {
+    const never = async () => { throw new Error('must not fetch'); };
+    await assert.rejects(previewRoutes('42', waypoints, never), e => e.getStatus() === 503 && /tắt/.test(e.message));
+    await assert.rejects(searchAddresses('Hà Nội', never), e => e.getStatus() === 503 && /tắt/.test(e.message));
+  } finally {
+    for (const [key, value] of [['MAP_ROUTING_URL', saved[0]], ['MAP_GEOCODING_URL', saved[1]]]) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test('OSRM routing mock returns signed alternatives bound to exact waypoint input', async () => {
   const result = await previewRoutes('42', waypoints, async url => {
     const parsed = new URL(url);
-    assert.equal(parsed.searchParams.get('alternatives'), 'true');
+    assert.equal(parsed.searchParams.get('alternatives'), '2');
+    assert.equal(parsed.searchParams.has('access_token'), false);
     assert.equal(parsed.searchParams.get('geometries'), 'geojson');
     return new Response(JSON.stringify({ code: 'Ok', routes: [{ geometry: route.geometry, distance: route.distanceM, duration: route.durationS }] }), { status: 200 });
   });

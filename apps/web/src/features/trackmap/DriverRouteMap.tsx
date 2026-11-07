@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Layer, Marker, Source, type MapRef } from 'react-map-gl/mapbox';
+import { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre';
 import type { ITripMap, ITripTrackPoint } from '@my-project/shared';
 import BaseMap from './BaseMap';
 import { applyDriverMapTheme, driverMapColors } from './driver-map-theme';

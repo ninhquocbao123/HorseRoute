@@ -33,14 +33,14 @@ const reviewProperties = {
 };
 export const tripSchemas = {
   RouteWaypoint: object({ id: { type: 'string', maxLength: 64 }, kind: { type: 'string', enum: ['ORIGIN','REST_STOP','DESTINATION'] }, label: { type: 'string', maxLength: 255 }, latitude: { type: 'number', minimum: -90, maximum: 90 }, longitude: { type: 'number', minimum: -180, maximum: 180 }, note: { type: 'string', maxLength: 500 } }),
-  SelectedRoute: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' } }),
+  SelectedRoute: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox', 'osrm'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' } }),
   RoutePlan: object({ version: { type: 'integer', enum: [1] }, waypoints: { type: 'array', minItems: 2, maxItems: 12, items: ref('RouteWaypoint') }, selectedRoute: { ...ref('SelectedRoute'), nullable: true } }),
   RoutePlanWrite: object({ revision: { type: 'integer', minimum: 0 }, routePlan: ref('RoutePlan'), verificationToken: { type: 'string', nullable: true, maxLength: 400 } }),
   RoutePreviewInput: object({ waypoints: { type: 'array', minItems: 2, maxItems: 12, items: ref('RouteWaypoint') } }),
-  RouteCandidate: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, verificationToken: { type: 'string' } }),
-  RoutePreviewResult: object({ inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, routes: { type: 'array', maxItems: 3, items: ref('RouteCandidate') }, attribution: { type: 'string', enum: ['Mapbox'] } }),
+  RouteCandidate: object({ geometry: object({ type: { type: 'string', enum: ['LineString'] }, coordinates: { type: 'array', minItems: 2, maxItems: 5000, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } } } }), distanceM: { type: 'number', exclusiveMinimum: 0 }, durationS: { type: 'number', exclusiveMinimum: 0 }, provider: { type: 'string', enum: ['mapbox', 'osrm'] }, calculatedAt: time, inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, verificationToken: { type: 'string' } }),
+  RoutePreviewResult: object({ inputKey: { type: 'string', pattern: '^[a-f0-9]{64}$' }, routes: { type: 'array', maxItems: 3, items: ref('RouteCandidate') }, attribution: { type: 'string', enum: ['OpenStreetMap'] } }),
   MapSearchResult: object({ id: { type: 'string' }, label: { type: 'string' }, latitude: { type: 'number' }, longitude: { type: 'number' } }),
-  MapSearchResults: object({ items: { type: 'array', maxItems: 5, items: ref('MapSearchResult') }, attribution: { type: 'string', enum: ['Mapbox'] } }),
+  MapSearchResults: object({ items: { type: 'array', maxItems: 5, items: ref('MapSearchResult') }, attribution: { type: 'string', enum: ['OpenStreetMap'] } }),
   CrewOption: object({ id, fullName: { type: 'string' }, crewType: { type: 'string', enum: ['DRIVER','ESCORT'], nullable: true }, workStatus: { type: 'string', enum: ['AVAILABLE','RESERVED','IN_TRIP'], nullable: true }, selectable: { type: 'boolean' } }),
   AssignmentOptions: object({ items: { type: 'array', items: ref('CrewOption') } }),
   TripAssignment: object({ tripVehicleId: {...id,nullable:true}, id, userId: id, fullName: { type: 'string' }, role: { type: 'string', enum: ['DRIVER','ESCORT'] }, assignedBy: id, assignedAt: time, crewType: { type: 'string', enum: ['DRIVER','ESCORT'], nullable: true }, workStatus: { type: 'string', enum: ['AVAILABLE','RESERVED','IN_TRIP'], nullable: true } }),
@@ -168,15 +168,15 @@ export const tripPaths = {
   } },
   '/api/v1/maps/search': { get: {
     ...readCommon, operationId: 'searchMapAddresses', summary: '[Đã triển khai] Coordinator tìm địa chỉ qua backend',
-    description: 'Chỉ gọi khi nhấn Tìm/Enter. Query q dài 3–200 ký tự; tối đa 30 request/phút/tài khoản. Mapbox permanent=true vì tọa độ được lưu trong route_plan; không tự chọn kết quả.',
+    description: 'Chỉ gọi khi nhấn Tìm/Enter. Query q dài 3–200 ký tự; tối đa 30 request/phút/tài khoản. Dùng Photon (dữ liệu OpenStreetMap); ưu tiên kết quả gần Việt Nam; không tự chọn kết quả.',
     parameters: [{ name: 'q', in: 'query', required: true, schema: { type: 'string', minLength: 3, maxLength: 200 } }],
-    responses: { 200: response('MapSearchResults', { found: { value: { items: [{ id: 'address.example', label: 'Hà Nội, Việt Nam', latitude: 21.0285, longitude: 105.8542 }], attribution: 'Mapbox' } } }), ...errors('/api/v1/maps/search', [400,401,403,429,503,500]) },
+    responses: { 200: response('MapSearchResults', { found: { value: { items: [{ id: 'address.example', label: 'Hà Nội, Việt Nam', latitude: 21.0285, longitude: 105.8542 }], attribution: 'OpenStreetMap' } } }), ...errors('/api/v1/maps/search', [400,401,403,429,503,500]) },
   } },
   '/api/v1/trips/{id}/route-preview': { post: {
     ...readCommon, operationId: 'previewTripRoute', summary: '[Đã triển khai] Tính phương án tuyến chưa lưu', parameters: [pathId],
-    description: 'Coordinator phụ trách, kế hoạch DRAFT. Mapbox Directions chạy sau backend. Response tối đa 3 phương án kèm token ký 15 phút gắn với tripId, inputKey và toàn bộ tuyến; không ghi database.',
+    description: 'Coordinator phụ trách, kế hoạch DRAFT. OSRM chạy sau backend; điểm cách đường bộ quá 5 km bị từ chối 400. Response tối đa 3 phương án kèm token ký 15 phút gắn với tripId, inputKey và toàn bộ tuyến; không ghi database.',
     requestBody: { required: true, content: { 'application/json': { schema: ref('RoutePreviewInput'), examples: { direct: { value: { waypoints: [{ id: 'origin', kind: 'ORIGIN', label: 'Hà Nội', latitude: 21.0285, longitude: 105.8542, note: '' }, { id: 'destination', kind: 'DESTINATION', label: 'TP. Hồ Chí Minh', latitude: 10.7769, longitude: 106.7009, note: '' }] } } } } } },
-    responses: { 200: response('RoutePreviewResult', { routes: { value: { inputKey: 'a'.repeat(64), routes: [], attribution: 'Mapbox' } } }), ...errors('/api/v1/trips/{id}/route-preview', [400,401,403,404,409,413,429,503,500]) },
+    responses: { 200: response('RoutePreviewResult', { routes: { value: { inputKey: 'a'.repeat(64), routes: [], attribution: 'OpenStreetMap' } } }), ...errors('/api/v1/trips/{id}/route-preview', [400,401,403,404,409,413,429,503,500]) },
   } },
   '/api/v1/trips/{id}/route-plan': { put: {
     ...readCommon, operationId: 'saveTripRoutePlan', summary: '[Đã triển khai] Thay thế toàn bộ route_plan', parameters: [pathId],
@@ -259,7 +259,7 @@ Không tự duyệt, phân công hoặc chuyển READY.`,
 Chỉ Coordinator phụ trách. Manager không được sửa. Trip phải DRAFT, Order APPROVED/PREPARING. Kiểm tra lại trong transaction; chặn chặng khác NOT_STARTED hoặc có lịch sử vận hành (milestones, nhật ký/sự cố liên quan).
 
 ### Dữ liệu và validation
-- Chuyến mới gửi giờ đi, giờ đến và routePlanRevision. Server yêu cầu route_plan có tuyến Mapbox đã chọn và tạo đúng một leg đại diện với các FK địa điểm/xe bằng NULL.
+- Chuyến mới gửi giờ đi, giờ đến và routePlanRevision. Server yêu cầu route_plan có tuyến đã chọn và tạo đúng một leg đại diện với các FK địa điểm/xe bằng NULL.
 - Giờ đến phải sau giờ đi. routePlanRevision phải đúng revision hiện tại; thay đổi lộ trình sẽ làm mất hiệu lực lịch cũ.
 - Payload legs cũ chỉ còn dùng cho chuyến legacy chưa có route_plan.
 

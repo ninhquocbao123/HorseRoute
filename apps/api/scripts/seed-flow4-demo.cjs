@@ -81,7 +81,7 @@ async function main() {
     }
 
     // Địa điểm có tọa độ; tuyến đường bộ giữa các cặp liên tiếp được ghi sẵn vào cache location_routes (mode ROAD, hình học xấp xỉ quốc lộ)
-    // nên demo KHÔNG cần token Mapbox. Cặp không có cache (vd. 1→3) rơi về đường thẳng ước lượng.
+    // nên demo không cần gọi dịch vụ tính tuyến. Cặp không có cache (vd. 1→3) rơi về đường thẳng ước lượng.
     await runner.query(`INSERT INTO locations(id,name,location_type,country,timezone,latitude,longitude) VALUES
       (1,'Kho Long An','REST_STOP','VN','Asia/Ho_Chi_Minh',10.638,106.47),(2,'Cửa khẩu Mộc Bài','BORDER','VN','Asia/Ho_Chi_Minh',11.076,106.158),
       (3,'Trạm nghỉ Phnom Penh','REST_STOP','KH','Asia/Phnom_Penh',11.5564,104.9282),(4,'Cảng Sihanoukville','REST_STOP','KH','Asia/Phnom_Penh',10.6418,103.5236)`);

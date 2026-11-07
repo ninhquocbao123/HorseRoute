@@ -6,7 +6,7 @@ const { createDatabase } = require('../src/shared/config/db');
 const { TokenService } = require('../src/shared/utils/jwt.util');
 
 function fail(message) {
-  console.error(`MAPBOX API VERIFY FAILED: ${message}`);
+  console.error(`MAP SERVICES API VERIFY FAILED: ${message}`);
   process.exitCode = 1;
 }
 
@@ -54,7 +54,7 @@ async function main() {
     if (!route || route.geometry?.type !== 'LineString' || !Array.isArray(route.geometry.coordinates) || route.geometry.coordinates.length < 2 || !route.verificationToken) {
       throw new Error('route-preview không trả geometry/token hợp lệ.');
     }
-    console.log('MAPBOX API VERIFY PASS');
+    console.log('MAP SERVICES API VERIFY PASS');
     console.log(`- GET /api/v1/maps/search: PASS; ${searchBody.items.length} kết quả`);
     console.log(`- POST /api/v1/trips/{id}/route-preview: PASS; ${previewBody.routes.length} phương án; ${Math.round(route.distanceM)} m; ${Math.round(route.durationS)} giây`);
     console.log('- Database: chỉ đọc; route_plan không được ghi trong smoke test');

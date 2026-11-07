@@ -1,4 +1,4 @@
-// Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6): hình học, cache tuyến Mapbox (fetch giả, không gọi mạng), dựng /map, nhận vị trí.
+// Bản đồ chuyến + GPS (kế hoạch Bước 4 + 6): hình học, cache tuyến OSRM (fetch giả, không gọi mạng), dựng /map, nhận vị trí.
 require('reflect-metadata');
 require('ts-node').register({ project: require('path').resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
 const { test } = require('node:test');
@@ -10,7 +10,8 @@ const { RouteCacheFull1800000010000 } = require('../src/database/migrations/1800
 const { buildTripMap } = require('../src/features/tracking/trackmap.build');
 const { TrackingService } = require('../src/features/tracking/tracking.service');
 
-delete process.env.MAPBOX_ACCESS_TOKEN; // không bao giờ gọi Mapbox thật trong test
+process.env.MAP_ROUTING_URL = ''; // không bao giờ gọi dịch vụ tính tuyến thật trong test
+const OSRM = 'https://osrm.test/route/v1/driving/';
 
 const CU_CHI = [106.4933, 10.9733];
 const MOC_BAI = [106.158, 11.076];
@@ -55,26 +56,28 @@ function memoryStore(rows = []) {
 }
 const directions = (status, body) => async () => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
-test('routes provider: no token → STRAIGHT without fetch and without caching', async () => {
+test('routes provider: routing turned off → STRAIGHT without fetch and without caching', async () => {
   const store = memoryStore();
   let fetched = 0;
-  const provider = new RoutesProvider(store, { token: () => '', fetch: async () => { fetched++; } });
+  const provider = new RoutesProvider(store, { baseUrl: () => '', fetch: async () => { fetched++; } });
   const route = await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
   assert.equal(route.mode, 'STRAIGHT');
   assert.deepEqual(route.coordinates, [CU_CHI, MOC_BAI]);
   assert.equal(fetched, 0);
-  assert.equal(store.calls.saved.length, 0, 'a missing token is not remembered');
+  assert.equal(store.calls.saved.length, 0, 'turned-off routing is not remembered');
 });
 
-test('routes provider: Mapbox route is cached; concurrent and later views do not call Directions again', async () => {
+test('routes provider: OSRM route is cached; concurrent and later views do not call Directions again', async () => {
   const store = memoryStore();
   let fetched = 0;
   let url = '';
   const provider = new RoutesProvider(store, {
-    token: () => 'pk.test',
+    baseUrl: () => OSRM,
     fetch: async (requestUrl, init) => {
       fetched++; url = requestUrl;
       assert.ok(init.signal, 'request has a timeout signal');
+      assert.equal(init.headers['User-Agent'], 'HorseRoute/1.0', 'public servers require a real application name');
+      assert.equal(init.headers['User-Agent'], 'HorseRoute/1.0', 'public servers require a real application name');
       return { ok: true, status: 200, json: async () => ({ code: 'Ok', routes: [{ geometry: { coordinates: [CU_CHI, [106.35, 11.02], MOC_BAI] }, distance: 45210.4, duration: 3600 }] }) };
     },
   });
@@ -83,7 +86,7 @@ test('routes provider: Mapbox route is cached; concurrent and later views do not
   assert.equal(a.mode, 'ROAD');
   assert.equal(b.coordinates.length, 3);
   assert.equal(a.distanceKm, 45.21);
-  assert.match(url, /\/driving\/106\.4933,10\.9733;106\.158,11\.076\?geometries=geojson&overview=full&access_token=pk\.test$/);
+  assert.equal(url, OSRM + '106.4933,10.9733;106.158,11.076?geometries=geojson&overview=full');
   assert.deepEqual(store.calls.saved.map(r => [r.mode, r.distanceM, r.durationS]), [['ROAD', 45210, 3600]]);
   assert.deepEqual(store.calls.deleted, [{ fromId: '1', toId: '2', mode: 'STRAIGHT' }], 'an older "no road" entry is dropped');
   const again = await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
@@ -93,17 +96,17 @@ test('routes provider: Mapbox route is cached; concurrent and later views do not
 
 test('routes provider: NoRoute is remembered as STRAIGHT; timeouts and HTTP errors fall back without caching', async () => {
   const noRoute = memoryStore();
-  const provider = new RoutesProvider(noRoute, { token: () => 'pk.test', fetch: directions(200, { code: 'NoRoute', routes: [] }) });
+  const provider = new RoutesProvider(noRoute, { baseUrl: () => OSRM, fetch: directions(200, { code: 'NoRoute', routes: [] }) });
   assert.equal((await provider.route('1', '7', TSN, CHANGI, 'ROAD')).mode, 'STRAIGHT');
   assert.deepEqual(noRoute.calls.saved.map(r => r.mode), ['STRAIGHT']);
   let calls = 0;
-  const cachedNoRoute = new RoutesProvider(noRoute, { token: () => 'pk.test', fetch: async () => { calls++; } });
+  const cachedNoRoute = new RoutesProvider(noRoute, { baseUrl: () => OSRM, fetch: async () => { calls++; } });
   assert.equal((await cachedNoRoute.route('1', '7', TSN, CHANGI, 'ROAD')).mode, 'STRAIGHT');
   assert.equal(calls, 0, 'cached STRAIGHT is not retried on every view');
 
   const timeoutStore = memoryStore();
   const slow = new RoutesProvider(timeoutStore, {
-    token: () => 'pk.test', timeoutMs: 20,
+    baseUrl: () => OSRM, timeoutMs: 20,
     fetch: (_url, init) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))),
   });
   const timedOut = await slow.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
@@ -111,19 +114,93 @@ test('routes provider: NoRoute is remembered as STRAIGHT; timeouts and HTTP erro
   assert.equal(timeoutStore.calls.saved.length, 0, 'transient failure is retried next time');
 
   const errorStore = memoryStore();
-  const failing = new RoutesProvider(errorStore, { token: () => 'pk.test', fetch: directions(401, { message: 'Not Authorized - Invalid Token' }) });
+  const failing = new RoutesProvider(errorStore, { baseUrl: () => OSRM, fetch: directions(500, { message: 'boom' }) });
   assert.equal((await failing.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'STRAIGHT');
   assert.equal(errorStore.calls.saved.length, 0);
 
   const brokenStore = { async findRoutes() { throw new Error('db down'); }, async saveRoute() { throw new Error('db down'); }, async deleteRoute() {} };
-  const resilient = new RoutesProvider(brokenStore, { token: () => 'pk.test', fetch: directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 40000 }] }) });
+  const resilient = new RoutesProvider(brokenStore, { baseUrl: () => OSRM, fetch: directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 40000 }] }) });
   assert.equal((await resilient.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'ROAD', 'cache errors never break the map');
 });
 
-test('routes provider: expired cache is refreshed; air legs use a great circle without Mapbox', async () => {
+test('routes provider: OSRM "no road" answers come with HTTP 400 and are remembered; other 400s are not', async () => {
+  for (const code of ['NoRoute', 'NoSegment']) {
+    const store = memoryStore();
+    const provider = new RoutesProvider(store, { baseUrl: () => OSRM, fetch: directions(400, { code, message: 'x' }) });
+    assert.equal((await provider.route('1', '7', TSN, CHANGI, 'ROAD')).mode, 'STRAIGHT');
+    assert.deepEqual(store.calls.saved.map(r => r.mode), ['STRAIGHT'], code);
+  }
+  const store = memoryStore();
+  const invalid = new RoutesProvider(store, { baseUrl: () => OSRM, fetch: directions(400, { code: 'InvalidQuery' }) });
+  assert.equal((await invalid.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'STRAIGHT');
+  assert.equal(store.calls.saved.length, 0, 'a bad request is not an answer about the road');
+});
+
+test('routes provider: a point OSRM had to snap too far from any road counts as no road', async () => {
+  const route = { geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 637000, duration: 3600 };
+  const far = memoryStore();
+  const offshore = new RoutesProvider(far, { baseUrl: () => OSRM, fetch: directions(200, { code: 'Ok', routes: [route], waypoints: [{ distance: 40 }, { distance: 292534 }] }) });
+  const result = await offshore.route('1', '9', CU_CHI, [112, 14], 'ROAD');
+  assert.equal(result.mode, 'STRAIGHT', 'a pin in the sea must not get a road route ending 292 km away');
+  assert.deepEqual(far.calls.saved.map(r => r.mode), ['STRAIGHT']);
+  const near = memoryStore();
+  const normal = new RoutesProvider(near, { baseUrl: () => OSRM, fetch: directions(200, { code: 'Ok', routes: [route], waypoints: [{ distance: 40 }, { distance: 4900 }] }) });
+  assert.equal((await normal.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'ROAD');
+});
+
+test('routes provider: requests are spaced out when an interval applies, without slowing cached views', async () => {
+  const stamps = [];
+  const route = { geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 40000 };
+  const provider = new RoutesProvider(memoryStore(), { baseUrl: () => OSRM, minIntervalMs: 60, fetch: async (...args) => { stamps.push(Date.now()); return directions(200, { code: 'Ok', routes: [route] })(...args); } });
+  await Promise.all([['1', '2'], ['2', '3'], ['3', '4']].map(([a, b]) => provider.route(a, b, CU_CHI, MOC_BAI, 'ROAD')));
+  assert.equal(stamps.length, 3);
+  for (let i = 1; i < stamps.length; i++) assert.ok(stamps[i] - stamps[i - 1] >= 50, 'gap ' + (stamps[i] - stamps[i - 1]));
+  const before = stamps.length;
+  await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
+  assert.equal(stamps.length, before, 'cached view does not queue');
+});
+
+test('routes provider: OSRM "no road" answers come with HTTP 400 and are remembered; other 400s are not', async () => {
+  for (const code of ['NoRoute', 'NoSegment']) {
+    const store = memoryStore();
+    const provider = new RoutesProvider(store, { baseUrl: () => OSRM, fetch: directions(400, { code, message: 'x' }) });
+    assert.equal((await provider.route('1', '7', TSN, CHANGI, 'ROAD')).mode, 'STRAIGHT');
+    assert.deepEqual(store.calls.saved.map(r => r.mode), ['STRAIGHT'], code);
+  }
+  const store = memoryStore();
+  const invalid = new RoutesProvider(store, { baseUrl: () => OSRM, fetch: directions(400, { code: 'InvalidQuery' }) });
+  assert.equal((await invalid.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'STRAIGHT');
+  assert.equal(store.calls.saved.length, 0, 'a bad request is not an answer about the road');
+});
+
+test('routes provider: a point OSRM had to snap too far from any road counts as no road', async () => {
+  const route = { geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 637000, duration: 3600 };
+  const far = memoryStore();
+  const offshore = new RoutesProvider(far, { baseUrl: () => OSRM, fetch: directions(200, { code: 'Ok', routes: [route], waypoints: [{ distance: 40 }, { distance: 292534 }] }) });
+  const result = await offshore.route('1', '9', CU_CHI, [112, 14], 'ROAD');
+  assert.equal(result.mode, 'STRAIGHT', 'a pin in the sea must not get a road route ending 292 km away');
+  assert.deepEqual(far.calls.saved.map(r => r.mode), ['STRAIGHT']);
+  const near = memoryStore();
+  const normal = new RoutesProvider(near, { baseUrl: () => OSRM, fetch: directions(200, { code: 'Ok', routes: [route], waypoints: [{ distance: 40 }, { distance: 4900 }] }) });
+  assert.equal((await normal.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).mode, 'ROAD');
+});
+
+test('routes provider: requests are spaced out when an interval applies, without slowing cached views', async () => {
+  const stamps = [];
+  const route = { geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 40000 };
+  const provider = new RoutesProvider(memoryStore(), { baseUrl: () => OSRM, minIntervalMs: 60, fetch: async (...args) => { stamps.push(Date.now()); return directions(200, { code: 'Ok', routes: [route] })(...args); } });
+  await Promise.all([['1', '2'], ['2', '3'], ['3', '4']].map(([a, b]) => provider.route(a, b, CU_CHI, MOC_BAI, 'ROAD')));
+  assert.equal(stamps.length, 3);
+  for (let i = 1; i < stamps.length; i++) assert.ok(stamps[i] - stamps[i - 1] >= 50, 'gap ' + (stamps[i] - stamps[i - 1]));
+  const before = stamps.length;
+  await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD');
+  assert.equal(stamps.length, before, 'cached view does not queue');
+});
+
+test('routes provider: expired cache is refreshed; air legs use a great circle without routing', async () => {
   const store = memoryStore([{ fromId: '1', toId: '2', mode: 'ROAD', coordinates: [CU_CHI, MOC_BAI], distanceM: 1000, fetchedAt: new Date(now - 31 * 86_400_000) }]);
   let fetched = 0;
-  const provider = new RoutesProvider(store, { token: () => 'pk.test', fetch: async (...args) => { fetched++; return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 41000 }] })(...args); } });
+  const provider = new RoutesProvider(store, { baseUrl: () => OSRM, fetch: async (...args) => { fetched++; return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: [CU_CHI, MOC_BAI] }, distance: 41000 }] })(...args); } });
   assert.equal((await provider.route('1', '2', CU_CHI, MOC_BAI, 'ROAD')).distanceKm, 41);
   assert.equal(fetched, 1, 'older than 30 days → refetched');
   const air = await provider.route('1', '7', TSN, CHANGI, 'AIR');
@@ -379,19 +456,19 @@ test('routes provider: overview=full, routes over 2000 points are simplified, sm
   const requested = [];
   const small = curve(1500);
   const smallStore = memoryStore();
-  const keep = await new RoutesProvider(smallStore, { token: () => 'pk.test', fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: small }, distance: 1200 }] })(); } })
+  const keep = await new RoutesProvider(smallStore, { baseUrl: () => OSRM, fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: small }, distance: 1200 }] })(); } })
     .route('1', '2', small[0], small.at(-1), 'ROAD');
-  assert.equal(keep.coordinates.length, 1500, '≤ 2000 points: kept as Mapbox returned them');
+  assert.equal(keep.coordinates.length, 1500, '≤ 2000 points: kept as the routing service returned them');
   assert.equal(smallStore.calls.saved[0].coordinates.length, 1500);
   const many = curve(30_000);
   const store = memoryStore();
-  const route = await new RoutesProvider(store, { token: () => 'pk.test', fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: many }, distance: 1200 }] })(); } })
+  const route = await new RoutesProvider(store, { baseUrl: () => OSRM, fetch: async url => { requested.push(url); return directions(200, { code: 'Ok', routes: [{ geometry: { coordinates: many }, distance: 1200 }] })(); } })
     .route('1', '2', many[0], many.at(-1), 'ROAD');
   assert.ok(route.coordinates.length <= MAX_POINTS, 'simplified to ' + route.coordinates.length);
   assert.deepEqual(route.coordinates[0], many[0]);
   assert.deepEqual(route.coordinates.at(-1), many.at(-1));
   assert.equal(store.calls.saved[0].coordinates.length, route.coordinates.length, 'the simplified line is what gets cached');
-  assert.equal(route.distanceKm, 1.2, 'distance comes from Mapbox, not from the simplified line');
+  assert.equal(route.distanceKm, 1.2, 'distance comes from the routing service, not from the simplified line');
   assert.ok(requested.length === 2 && requested.every(url => url.includes('overview=full') && !url.includes('overview=simplified')));
   // Chặng dài hàng nghìn km nhiều khúc cua: nếu lượt 8 m vẫn còn trên 4.000 điểm thì có thêm lượt 25 m (nhẹ hơn, vẫn giữ hai đầu).
   const long = Array.from({ length: 40_000 }, (_, i) => [100 + i * 0.0006, 10 + Math.sin(i / 40) * 0.2]);

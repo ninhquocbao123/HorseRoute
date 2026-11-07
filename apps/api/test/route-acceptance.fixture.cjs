@@ -80,8 +80,8 @@ module.exports = async function fixture() {
     if (isSearch) {
       const query = url.searchParams.get('q') || '';
       const coordinates = query.includes('Thống') ? [105.841,21.011] : query.includes('nghỉ') ? [105.849,21.021] : [105.854,21.029];
-      res.end(JSON.stringify({ features: query === 'empty' ? [] : [{ id: 'public-' + coordinates.join('-'),
-        geometry: { type:'Point', coordinates }, properties: { full_address: query + ' — fixture kiểm thử' } }] }));
+      res.end(JSON.stringify({ features: query === 'empty' ? [] : [{
+        geometry: { type:'Point', coordinates }, properties: { name: query + ' — fixture kiểm thử' } }] }));
     } else {
       const points = url.pathname.slice('/directions/'.length).split(';').map(p => p.split(',').map(Number));
       const mid = [(points[0][0] + points.at(-1)[0])/2, (points[0][1] + points.at(-1)[1])/2];
@@ -89,10 +89,9 @@ module.exports = async function fixture() {
     }
   }).listen(0,'127.0.0.1');
   await once(provider,'listening');
-  process.env.MAPBOX_ACCESS_TOKEN = 'fixture-not-a-real-key';
   process.env.ROUTE_PREVIEW_SECRET = crypto.randomBytes(32).toString('hex');
-  process.env.MAPBOX_GEOCODING_URL = 'http://127.0.0.1:' + provider.address().port + '/search';
-  process.env.MAPBOX_DIRECTIONS_URL = 'http://127.0.0.1:' + provider.address().port + '/directions/';
+  process.env.MAP_GEOCODING_URL = 'http://127.0.0.1:' + provider.address().port + '/search';
+  process.env.MAP_ROUTING_URL = 'http://127.0.0.1:' + provider.address().port + '/directions/';
   const tokens = new TokenService(crypto.randomBytes(32).toString('hex'));
   const app = createApp({ services:createServices(db,tokens),tokens,corsOrigin:'http://127.0.0.1:5178',requestLimit:10000 });
   const server = app.listen(13478,'127.0.0.1'); await once(server,'listening');

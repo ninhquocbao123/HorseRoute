@@ -5,7 +5,7 @@
 import { LegStatus } from '../enums/tracking.enum';
 import { OrderStatus } from '../enums/order.enum';
 
-/** ROAD: đường thật (Mapbox Directions) · AIR: cung tròn lớn (chặng bay) · STRAIGHT: đường thẳng ước lượng */
+/** ROAD: đường thật (OSRM) · AIR: cung tròn lớn (chặng bay) · STRAIGHT: đường thẳng ước lượng */
 export type RouteMode = 'ROAD' | 'AIR' | 'STRAIGHT';
 /** LIVE < 2 phút · STALE 2–10 phút ("mất tín hiệu") · OLD > 10 phút (không dùng làm vị trí hiện tại) */
 export type GpsFreshness = 'LIVE' | 'STALE' | 'OLD';

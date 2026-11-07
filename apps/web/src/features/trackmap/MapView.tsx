@@ -22,8 +22,8 @@ class MapErrorBoundary extends Component<{ onError: () => void; children: ReactN
 }
 
 /**
- * Boundary for every map on the site. Children are lazy map components (mapbox-gl lives only in their chunk).
- * Falls back when the map is turned off, has no token, lacks WebGL 2, or fails to load; `hint` tells the user
+ * Boundary for every map on the site. Children are lazy map components (maplibre-gl lives only in their chunk).
+ * Falls back when the map is turned off, lacks WebGL 2, or fails to load; `hint` tells the user
  * how to carry on without it.
  */
 export default function MapView({ height = 320, label, hint, children }: { height?: number | string; label: string; hint?: ReactNode; children: ReactNode }) {

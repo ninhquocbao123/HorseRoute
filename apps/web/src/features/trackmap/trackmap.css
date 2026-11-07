@@ -1,6 +1,6 @@
 .trackmap { position: relative; width: 100%; overflow: hidden; border: 1px solid var(--color-border, #d7dcd1); border-radius: 4px; background: #eef0e8; }
-.trackmap .mapboxgl-canvas:focus-visible { outline: 3px solid var(--color-accent, #b09050); outline-offset: -3px; }
-.trackmap .mapboxgl-ctrl-group button { min-height: 0; }
+.trackmap .maplibregl-canvas:focus-visible { outline: 3px solid var(--color-accent, #b09050); outline-offset: -3px; }
+.trackmap .maplibregl-ctrl-group button { min-height: 0; }
 
 .trackmap-fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 20px; text-align: center;
   border: 1px dashed #c9d0c2; border-radius: 4px; background: repeating-linear-gradient(135deg, #f4f5ee 0 12px, #eef0e8 12px 24px); color: var(--color-brand, #193e32); }
@@ -21,7 +21,7 @@
 .trackmap-pin { position: relative; display: block; width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--color-brand, #193e32);
   border: 2px solid var(--color-surface, #fffefa); box-shadow: 0 2px 6px rgb(25 62 50 / 35%); cursor: grab; margin-bottom: 6px; }
 .trackmap-pin::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--color-accent, #b09050); }
-.mapboxgl-marker:active .trackmap-pin { cursor: grabbing; }
+.maplibregl-marker:active .trackmap-pin { cursor: grabbing; }
 
 /* Bản đồ lộ trình màn tài xế (Figma D1/D1b) */
 .drm-stop { position: relative; display: block; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid #14606a; box-shadow: 0 1px 4px rgb(13 42 46 / 30%); }

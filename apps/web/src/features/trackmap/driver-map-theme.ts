@@ -1,8 +1,9 @@
-// Màu bản đồ lộ trình của màn tài xế (Figma D1 57:4903 / D1b 57:5087). Giữ style nền Mapbox light-v11 rồi đổi màu từng layer
+// Màu bản đồ lộ trình của màn tài xế (Figma D1 57:4903 / D1b 57:5087). Giữ style nền OpenFreeMap Positron rồi đổi màu từng layer
 // sau khi tải xong; CHỈ gọi từ DriverRouteMap, nên bản đồ "Địa điểm & cửa khẩu" của Specialist không đổi.
 // Màu đọc từ biến CSS --drs-* / --drs-map-* (khai báo trong tracking/driver/driver-shell.css); hằng bên dưới là giá trị dự phòng
 // khi biến không có (vd. bản đồ render ngoài khung `.drs`).
-import type { Map as MapboxMap } from 'mapbox-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
+import { VN_ISLANDS_LAYER } from './map-labels';
 
 export type DriverMapColors = Record<keyof typeof FALLBACK, string>;
 
@@ -28,22 +29,23 @@ export function driverMapColors(element?: Element | null): DriverMapColors {
   return Object.fromEntries((Object.keys(FALLBACK) as (keyof typeof FALLBACK)[]).map(key => [key, style?.getPropertyValue(VARS[key]).trim() || FALLBACK[key]])) as DriverMapColors;
 }
 
-const MAJOR = ['motorway', 'trunk', 'primary'];
-const ROAD_LINES = ['road-simple', 'road-path-trail', 'road-path-cycleway-piste', 'road-path', 'road-steps', 'road-pedestrian',
-  'tunnel-simple', 'tunnel-path-trail', 'tunnel-path-cycleway-piste', 'tunnel-path', 'tunnel-steps', 'tunnel-pedestrian',
-  'bridge-simple', 'bridge-path-trail', 'bridge-path-cycleway-piste', 'bridge-path', 'bridge-steps', 'bridge-pedestrian'];
-/** Nhãn cho tài xế không cần: điểm quan tâm, sân bay, địa hình, tòa nhà, số hiệu đường. */
-const HIDDEN = ['poi-label', 'airport-label', 'natural-point-label', 'natural-line-label', 'building', 'road-number-shield', 'road-exit-shield', 'transit-label'];
-/** Nhãn địa danh/đường/nước giữ lại, đổi sang xám xanh. */
-const KEPT_LABELS = ['road-label-simple', 'settlement-subdivision-label', 'settlement-minor-label', 'settlement-major-label', 'state-label',
-  'country-label', 'continent-label', 'water-point-label', 'water-line-label', 'waterway-label'];
+const MINOR_ROADS = ['highway_minor', 'highway_path', 'road_pier'];
+const MAJOR_ROADS = ['highway_major_inner', 'highway_major_subtle', 'highway_motorway_inner', 'highway_motorway_subtle', 'highway_motorway_bridge_inner', 'tunnel_motorway_inner'];
+const ROAD_CASINGS = ['highway_major_casing', 'highway_motorway_casing', 'highway_motorway_bridge_casing', 'tunnel_motorway_casing'];
+/** Nhãn cho tài xế không cần: điểm quan tâm, sân bay, tòa nhà, số hiệu đường. */
+const HIDDEN = ['label_other', 'airport', 'building', 'highway-shield-non-us', 'highway-shield-us-interstate', 'road_shield_us'];
+/** Nhãn địa danh/nước giữ lại, đổi sang xám xanh. */
+const KEPT_LABELS = ['label_town', 'label_state', 'label_city', 'label_city_capital', 'label_country_1', 'label_country_2', 'label_country_3',
+  'water_name_point_label', 'water_name_line_label', 'waterway_line_label', VN_ISLANDS_LAYER];
+/** Nhãn đường và làng: nhạt hơn để không lấn tuyến. */
+const FAINT_LABELS = ['label_village', 'highway-name-major', 'highway-name-minor', 'highway-name-path'];
 
 /**
- * Đổi màu layer của light-v11 theo Figma bằng setPaintProperty: nền đất xanh lá rất nhạt, nước xanh dương nhạt, công viên
+ * Đổi màu layer của Positron theo Figma bằng setPaintProperty: nền đất xanh lá rất nhạt, nước xanh dương nhạt, công viên
  * xanh hơn nền một chút, đường trắng (đường lớn hơi đậm/ấm hơn), nhãn xám xanh; ẩn bớt POI. Layer không có trong style
- * (Mapbox đổi tên) thì bỏ qua, không bao giờ làm bản đồ lỗi.
+ * (nhà cung cấp đổi tên) thì bỏ qua, không bao giờ làm bản đồ lỗi.
  */
-export function applyDriverMapTheme(map: MapboxMap, colors: DriverMapColors = driverMapColors(map.getContainer())) {
+export function applyDriverMapTheme(map: MapLibreMap, colors: DriverMapColors = driverMapColors(map.getContainer())) {
   const paint = (id: string, property: string, value: unknown) => {
     try { if (map.getLayer(id)) map.setPaintProperty(id, property as never, value as never); } catch { /* layer/thuộc tính không đổi được */ }
   };
@@ -51,24 +53,24 @@ export function applyDriverMapTheme(map: MapboxMap, colors: DriverMapColors = dr
     try { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none'); } catch { /* bỏ qua */ }
   };
 
-  paint('land', 'background-color', colors.land);
-  paint('landuse', 'fill-color', colors.park);
-  paint('national-park', 'fill-color', colors.park);
+  paint('background', 'background-color', colors.land);
+  paint('landuse_residential', 'fill-color', colors.land);
+  paint('park', 'fill-color', colors.park);
+  paint('landcover_wood', 'fill-color', colors.park);
   paint('water', 'fill-color', colors.water);
   paint('waterway', 'line-color', colors.water);
-  paint('land-structure-polygon', 'fill-color', colors.land);
-  paint('aeroway-polygon', 'fill-color', colors.roadCase);
-  paint('aeroway-line', 'line-color', colors.roadCase);
+  paint('aeroway-area', 'fill-color', colors.roadCase);
+  for (const id of ['aeroway-taxiway', 'aeroway-runway', 'aeroway-runway-casing']) paint(id, 'line-color', colors.roadCase);
 
-  const roadColor = ['match', ['get', 'class'], MAJOR, colors.roadMajor, colors.road];
-  for (const id of ROAD_LINES) paint(id, 'line-color', id.endsWith('-simple') ? roadColor : colors.road);
-  paint('bridge-case-simple', 'line-color', colors.roadCase);
-  paint('admin-1-boundary', 'line-color', colors.roadCase);
-  paint('admin-0-boundary', 'line-color', colors.labelFaint);
+  for (const id of MINOR_ROADS) paint(id, 'line-color', colors.road);
+  for (const id of MAJOR_ROADS) paint(id, 'line-color', colors.roadMajor);
+  for (const id of ROAD_CASINGS) paint(id, 'line-color', colors.roadCase);
+  paint('boundary_3', 'line-color', colors.roadCase);
+  paint('boundary_2', 'line-color', colors.labelFaint);
+  paint('boundary_disputed', 'line-color', colors.labelFaint);
 
-  for (const id of KEPT_LABELS) {
-    paint(id, 'text-color', ['step', ['to-number', ['get', 'symbolrank'], 0], colors.label, 11, colors.labelFaint]);
-    paint(id, 'text-halo-color', colors.land);
-  }
+  for (const id of KEPT_LABELS) paint(id, 'text-color', colors.label);
+  for (const id of FAINT_LABELS) paint(id, 'text-color', colors.labelFaint);
+  for (const id of [...KEPT_LABELS, ...FAINT_LABELS]) paint(id, 'text-halo-color', colors.land);
   for (const id of HIDDEN) hide(id);
 }

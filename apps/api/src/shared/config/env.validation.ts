@@ -31,8 +31,9 @@ export const envValidationSchema = Joi.object({
   }),
   SUPABASE_STORAGE_BUCKET: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]{0,62}$/).default('wdp-documents'),
 
-  // Optional for API startup. Coordinator route search/preview requires a valid Mapbox token.
-  MAPBOX_ACCESS_TOKEN: Joi.string().trim().pattern(/^(pk|sk)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/).allow('').optional(),
+  // Không đặt: dùng OSRM và Photon công khai. Đặt rỗng: tắt dịch vụ. Xem shared/config/map-services.ts.
+  MAP_ROUTING_URL: Joi.string().trim().uri({ scheme: ['http', 'https'] }).allow('').optional(),
+  MAP_GEOCODING_URL: Joi.string().trim().uri({ scheme: ['http', 'https'] }).allow('').optional(),
   TRACK_POSITION_RETENTION_DAYS: Joi.number().integer().min(1).max(365).default(30),
 
 }).unknown(true);

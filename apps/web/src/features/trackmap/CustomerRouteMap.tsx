@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Layer, Marker, Source, type MapRef } from 'react-map-gl/mapbox';
+import { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre';
 import type { ITripMap } from '@my-project/shared';
 import BaseMap from './BaseMap';
 import { DEFAULT_VIEW } from './map-style';
