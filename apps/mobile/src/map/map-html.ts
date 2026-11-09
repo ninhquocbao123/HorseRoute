@@ -3,6 +3,7 @@
  * qua window.__hr.render, trang báo lại ready, loaded, failed, userMoved.
  */
 import { MIN_ZOOM, VN_VIEW } from "../../../../packages/shared/src/map/map-view-plan.ts";
+import { LABELS_SCRIPT } from "./map-labels";
 import { MAPLIBRE_CSS, MAPLIBRE_JS } from "./vendor.generated";
 
 export const DEFAULT_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -22,6 +23,8 @@ const PAGE_SCRIPT = String.raw`
 
   var NAME = ['coalesce', ['get', 'name:vi'], ['get', 'name:latin'], ['get', 'name']];
   var HIDDEN = /^(natural_earth|building-3d|poi_|road_area_pattern|road_one_way|highway-shield|road_shield|.*_hatching$|.*transit_rail)/;
+
+  ${LABELS_SCRIPT}
 
   /** Làm dịu style gốc cho gần nền sáng, nhạt của web. Giữ nguyên nguồn tile, font, biểu tượng. */
   function tune(source, c) {
@@ -51,6 +54,7 @@ const PAGE_SCRIPT = String.raw`
         paint['text-halo-width'] = 1.2;
       }
     });
+    localizeLabels(style, c);
     return style;
   }
 

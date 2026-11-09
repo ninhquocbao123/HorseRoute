@@ -1,8 +1,34 @@
 # 13 — Tiến độ tổng hợp mobile, đọc file này đầu phiên làm việc mới
 
-Cập nhật ngày 06/11/2026. Mở đầu phiên sau chỉ cần nói việc muốn làm ở mục 2, ví dụ "làm tiếp kế hoạch 10".
+Cập nhật ngày 09/11/2026. Mở đầu phiên sau chỉ cần nói việc muốn làm ở mục 2, ví dụ "làm tiếp kế hoạch 10".
 
-## 0. Đang làm dở: kế hoạch 10 với thanh toán mô phỏng (ngày 06/11/2026)
+## 0a. Nhãn Hoàng Sa, Trường Sa trên bản đồ mobile (ngày 09/11/2026)
+
+**Trạng thái: code xong, đã thử trên máy ảo `Pixel_9a`, đã commit trên nhánh worktree, chưa đưa vào `long`.** Làm trong worktree `.claude/worktrees/bold-fermi-e646ed`, nhánh `claude/bold-fermi-e646ed`, đã đặt lại về `long` commit `1190b5c`. Commit `a6bd015` (sửa deploy Vercel) có trên `main`, chưa có trên `long`.
+
+**Lỗi:** tile OpenFreeMap bản `20261101` có "Tam Sa", "Quận Tây Sa", "Quận Nam Sa", "Kalayaan", "Yongle Qundao", chữ Hán, và các vòng ranh giới nước khác quanh đảo.
+
+**Đã làm:**
+
+- `apps/mobile/src/map/map-labels.ts` (mới): ẩn mọi nhãn và ranh giới trong vùng ẩn, thêm nhãn "Quần đảo Hoàng Sa (Việt Nam)" tại [112, 16.5] và "Quần đảo Trường Sa (Việt Nam)" tại [114.3, 10]. `tune` trong `map-html.ts` gọi `localizeLabels`. CSP không đổi.
+- Vùng ẩn có 3 polygon: hai vùng đã thử trên web, thêm vùng biển giữa hai quần đảo (lng 110–113.2, lat 10.4–15.8) vì ở đó còn khoảng 15 tên đáy biển chữ Hán.
+- Chuyển các lớp `boundary_*` xuống ngay dưới lớp `water`: ở z5 `within` không ẩn được vòng quanh Trường Sa, vì tile gộp vòng đó chung một feature với đoạn trên Palawan. Hệ quả: đoạn biên giới chạy giữa sông, hồ lớn bị mặt nước che; chưa soi riêng ở zoom cao.
+- `apps/mobile/tests/map-labels.test.ts` (mới).
+
+**Kết quả kiểm thử:**
+
+- Test mobile 68/68, `tsc` không báo lỗi, `style-spec` của MapLibre không báo lỗi trên style Liberty thật. Metro build được bundle Android có đoạn code mới.
+- Trình duyệt, trang `mapHtml` thật: Hoàng Sa và Trường Sa ở z5, z8, z10 chỉ còn nhãn Việt Nam, không còn vòng ranh giới. Hải Nam, Palawan, biên giới đất liền còn nguyên. Không có vi phạm CSP.
+- Máy ảo `Pixel_9a` (Expo Go, `TripMapView` và WebView thật, tile thật, sáng và tối): Hoàng Sa, Trường Sa ở z5, z8, z10 chỉ còn nhãn Việt Nam, không còn vòng ranh giới, đảo vẫn hiện. Hải Nam, Palawan còn nhãn và ranh giới. Bản đồ không rơi về sơ đồ dự phòng.
+- Cách thử trên máy ảo: entry tạm (đã xóa) đưa chuyến giả vào `TripMapView`, góc nhìn do fit theo điểm dừng, không vuốt phóng to bằng tay, không đăng nhập. Lý do: API chỉ nối DB chung, không được test trên đó.
+- Khởi động emulator từ shell phải tách tiến trình (`Start-Process` của PowerShell). Chạy nền qua Bash thì emulator tự thoát với mã 0.
+
+**Việc tiếp theo, theo thứ tự:**
+
+1. Long yêu cầu thì đưa nhánh `claude/bold-fermi-e646ed` vào `long`.
+2. Web nhiều khả năng cũng còn tên đáy biển chữ Hán và vòng ranh giới ở zoom thấp (mới đọc code, chưa thử trên web): `apps/web/src/features/trackmap/map-labels.ts`, nhánh `claude/map-display-mapbox-token-3e39a1`.
+
+## 0. Kế hoạch 10 với thanh toán mô phỏng (ngày 06/11/2026)
 
 **Trạng thái: code và tài liệu xong, đã có trên `long` (máy và GitHub); chưa merge vào `dev`, `main`.** Làm trong worktree `.claude/worktrees/claude-code-docker-running-d4ddbb`, nhánh `claude/progress-13-payment-simulation-f07217`, dựng từ `long` commit `6c3b2a4`. 
 
