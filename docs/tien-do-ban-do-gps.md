@@ -2,6 +2,20 @@
 
 Cập nhật: 23/10/2026 · Nhánh: `long` (trước đó `feature/trackmap`) · Kế hoạch gốc: [ke-hoach-ban-do-gps.md](ke-hoach-ban-do-gps.md) · Thiết kế: [thiet-ke-theo-doi-ban-do-mapbox.md](thiet-ke-theo-doi-ban-do-mapbox.md)
 
+> **Cập nhật 07/11/2026: đã bỏ Mapbox.** Token Mapbox bị từ chối hai lần (29/10 và 07/11) nên web và API chuyển sang dịch vụ không cần token; các mục bên dưới là lịch sử.
+>
+> | Phần | Trước | Nay | Cấu hình |
+> |---|---|---|---|
+> | Bản đồ nền (web) | Mapbox GL + `light-v11` | MapLibre + OpenFreeMap `positron` | `VITE_MAP_STYLE` |
+> | Tìm nơi trên bản đồ (web) | Mapbox Geocoding | Photon | `VITE_GEOCODING_URL` |
+> | Tìm địa chỉ (API) | Mapbox Geocoding | Photon | `MAP_GEOCODING_URL` |
+> | Tính tuyến (API) | Mapbox Directions | OSRM | `MAP_ROUTING_URL` |
+>
+> - **Nhãn Hoàng Sa, Trường Sa:** dữ liệu OpenStreetMap có tên hành chính nước ngoài và chữ Hán ở hai vùng này. [map-labels.ts](../apps/web/src/features/trackmap/map-labels.ts) ẩn nhãn và ranh giới trong hai vùng, rồi đặt nhãn "Quần đảo Hoàng Sa (Việt Nam)" và "Quần đảo Trường Sa (Việt Nam)".
+> - **Giới hạn OSRM công khai:** phi thương mại, tối đa 1 yêu cầu/giây. API giãn cách các lần gọi và cache tuyến 30 ngày; production nên tự host rồi đặt `MAP_ROUTING_URL`.
+> - **Khác Mapbox:** OSRM luôn bám vào đường gần nhất nên API từ chối điểm cách đường quá 5 km; "không có đường" trả HTTP 400 kèm `code`; tuyến nhiều điểm dừng chỉ có 1 phương án. Photon không nhận `lang=vi` nên gửi `lang=default` để giữ tên tiếng Việt trong OpenStreetMap.
+> - **Kiểm tra dịch vụ thật:** `pnpm --filter api verify:maps`.
+
 ## Tóm tắt
 
 | Bước | Nội dung | Trạng thái |

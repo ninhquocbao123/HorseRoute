@@ -28,7 +28,7 @@ pnpm dev:api:demo     # API cổng 3010; script nạp apps/api/.env.demo và GHI
 pnpm dev:web:demo     # web cổng 5180, VITE_API_URL=http://localhost:3010/api/v1
 ```
 
-Token Mapbox của web (`VITE_MAPBOX_TOKEN`) vẫn lấy từ `apps/web/.env` nếu có. API demo không cần token: các tuyến đường bộ của chuyến demo đã nằm sẵn trong cache `location_routes`.
+Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng. Các tuyến đường bộ của chuyến demo đã nằm sẵn trong cache `location_routes`.
 
 ## 3. Tài khoản demo
 

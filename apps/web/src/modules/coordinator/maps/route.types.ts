@@ -13,7 +13,8 @@ export interface RouteCandidate {
   geometry: LineString
   distanceM: number
   durationS: number
-  provider: 'mapbox'
+  /** 'mapbox' chỉ còn ở các tuyến đã lưu trước khi chuyển sang OSRM. */
+  provider: 'mapbox' | 'osrm'
   calculatedAt: string
   inputKey: string
   verificationToken: string

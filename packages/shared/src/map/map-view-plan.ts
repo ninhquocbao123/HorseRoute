@@ -3,7 +3,7 @@ export type LngLat = [number, number];
 
 /** Việt Nam: góc nhìn khi chưa có điểm nào để fit (không bao giờ là cả thế giới). */
 export const VN_VIEW = { longitude: 106.7, latitude: 10.8, zoom: 6 };
-/** Zoom nhỏ nhất của mọi bản đồ dùng BaseMap: dưới mức này Mapbox mới vẽ cả quả địa cầu. */
+/** Zoom nhỏ nhất của mọi bản đồ dùng BaseMap: không thu nhỏ tới mức thấy cả thế giới. */
 export const MIN_ZOOM = 3;
 /** Lề khi fit toàn tuyến: đủ chỗ cho chấm lớn và nhãn ở các cạnh. */
 export const FIT_PADDING = 80;

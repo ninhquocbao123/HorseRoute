@@ -35,26 +35,26 @@ const esbuild = require(require.resolve('esbuild', { paths: [require.resolve('vi
       getContainer: () => null,
     };
   };
-  const ids = ['land', 'landuse', 'national-park', 'water', 'waterway', 'road-simple', 'bridge-case-simple', 'road-pedestrian', 'road-label-simple',
-    'settlement-major-label', 'water-point-label', 'poi-label', 'airport-label', 'natural-point-label', 'building'];
+  // Tên layer thật của OpenFreeMap Positron: đổi tên ở nhà cung cấp thì test này cần cập nhật theo.
+  const ids = ['background', 'landuse_residential', 'park', 'landcover_wood', 'water', 'waterway', 'highway_minor', 'highway_major_inner', 'highway_major_casing',
+    'highway-name-minor', 'label_city', 'water_name_point_label', 'vn-islands-label', 'label_other', 'airport', 'highway-shield-non-us', 'building'];
   const map = fakeMap(ids);
   applyDriverMapTheme(map, fallback);
-  assert.equal(map.paints.get('land.background-color'), '#e2efe8', 'nền đất xanh lá rất nhạt');
+  assert.equal(map.paints.get('background.background-color'), '#e2efe8', 'nền đất xanh lá rất nhạt');
   assert.equal(map.paints.get('water.fill-color'), '#c9e3ec', 'nước xanh dương nhạt');
   assert.equal(map.paints.get('waterway.line-color'), '#c9e3ec');
-  assert.equal(map.paints.get('landuse.fill-color'), map.paints.get('national-park.fill-color'), 'công viên cùng một màu');
-  assert.notEqual(map.paints.get('landuse.fill-color'), '#e2efe8', 'công viên khác nền');
-  assert.equal(map.paints.get('road-pedestrian.line-color'), '#ffffff', 'đường nhỏ trắng');
-  const road = map.paints.get('road-simple.line-color');
-  assert.deepEqual(road[0], 'match');
-  assert.deepEqual(road[2], ['motorway', 'trunk', 'primary']);
-  assert.equal(road[3], fallback.roadMajor, 'đường lớn hơi đậm/ấm hơn');
-  assert.equal(road[4], '#ffffff', 'còn lại trắng');
+  assert.equal(map.paints.get('park.fill-color'), map.paints.get('landcover_wood.fill-color'), 'công viên cùng một màu');
+  assert.notEqual(map.paints.get('park.fill-color'), '#e2efe8', 'công viên khác nền');
+  assert.equal(map.paints.get('highway_minor.line-color'), '#ffffff', 'đường nhỏ trắng');
+  assert.equal(map.paints.get('highway_major_inner.line-color'), fallback.roadMajor, 'đường lớn hơi đậm/ấm hơn');
+  assert.equal(map.paints.get('highway_major_casing.line-color'), fallback.roadCase);
   assert.notEqual(fallback.roadMajor, fallback.road);
-  assert.equal(map.paints.get('road-label-simple.text-color')[2], fallback.label, 'nhãn xám xanh');
-  assert.equal(map.paints.get('settlement-major-label.text-halo-color'), '#e2efe8');
-  assert.deepEqual([...map.hidden].sort(), ['airport-label', 'building', 'natural-point-label', 'poi-label'], 'ẩn POI, sân bay, địa hình, tòa nhà');
-  assert.equal(map.paints.has('tunnel-simple.line-color'), false, 'layer không có trong style thì bỏ qua');
+  assert.equal(map.paints.get('label_city.text-color'), fallback.label, 'nhãn xám xanh');
+  assert.equal(map.paints.get('vn-islands-label.text-color'), fallback.label, 'nhãn Hoàng Sa, Trường Sa cùng màu');
+  assert.equal(map.paints.get('highway-name-minor.text-color'), fallback.labelFaint, 'tên đường nhạt hơn');
+  assert.equal(map.paints.get('label_city.text-halo-color'), '#e2efe8');
+  assert.deepEqual([...map.hidden].sort(), ['airport', 'building', 'highway-shield-non-us', 'label_other'], 'ẩn POI, sân bay, số hiệu đường, tòa nhà');
+  assert.equal(map.paints.has('tunnel_motorway_inner.line-color'), false, 'layer không có trong style thì bỏ qua');
 
   // Style đổi tên layer hoặc setPaintProperty ném lỗi: không bao giờ làm bản đồ lỗi
   const broken = { getLayer: () => ({}), setPaintProperty() { throw new Error('boom'); }, setLayoutProperty() { throw new Error('boom'); }, getContainer: () => null };

@@ -1,5 +1,5 @@
-// Bản đồ lộ trình tài xế với Mapbox THẬT: không globe, góc nhìn Việt Nam khi thiếu dữ liệu, một điểm, /map lỗi, tuyến xuyên lục địa.
-// Cần VITE_MAPBOX_TOKEN trong apps/web/.env (CI không có token nên bỏ qua) và Edge/Chromium có WebGL 2.
+// Bản đồ lộ trình tài xế với OpenFreeMap THẬT: không globe, góc nhìn Việt Nam khi thiếu dữ liệu, một điểm, /map lỗi, tuyến xuyên lục địa.
+// Cần mạng và Edge/Chromium có WebGL 2.
 // Chạy: PLAYWRIGHT_PACKAGE=<đường dẫn playwright-core> node apps/web/test/driver-map-view.browser.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -7,11 +7,7 @@ const { pathToFileURL } = require('node:url');
 
 (async () => {
   const web = path.resolve(__dirname, '..');
-  const { createServer, loadEnv } = await import(pathToFileURL(path.join(path.dirname(require.resolve('vite', { paths: [web] })), 'dist/node/index.js')).href);
-  if (!loadEnv('development', web, 'VITE_').VITE_MAPBOX_TOKEN && !process.env.VITE_MAPBOX_TOKEN) {
-    console.log('driver-map-view: bỏ qua (không có VITE_MAPBOX_TOKEN)');
-    return;
-  }
+  const { createServer } = await import(pathToFileURL(path.join(path.dirname(require.resolve('vite', { paths: [web] })), 'dist/node/index.js')).href);
   const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
   const server = await createServer({ root: web, logLevel: 'error', server: { host: '127.0.0.1', port: 5196, strictPort: true } });
   await server.listen();
@@ -53,7 +49,7 @@ const { pathToFileURL } = require('node:url');
     });
     const view = () => page.evaluate(() => {
       const map = window.__wdpMap;
-      return map ? { projection: map.getProjection().name, zoom: map.getZoom(), lng: map.getCenter().lng, lat: map.getCenter().lat } : null;
+      return map ? { projection: map.getProjection()?.type ?? 'mercator', zoom: map.getZoom(), lng: map.getCenter().lng, lat: map.getCenter().lat } : null;
     });
     const open = async name => {
       scenario = name;

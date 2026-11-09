@@ -179,7 +179,7 @@ export default function TripRoutePlanner({ tripId, originAddress, destinationAdd
       <div><strong>Xác nhận trên bản đồ</strong><small>Chọn trực tiếp hoặc kéo marker để điều chỉnh vị trí từng điểm.</small></div>
     </div>
     <RouteMap waypoints={mapPoints} geometry={selected?.geometry} readOnly={locked} picking={!!picking && !locked} onPick={position => { if (picking) choosePosition(picking, position); }} onMove={choosePosition} />
-    <p className="osm-source">Nền © OpenStreetMap · Tìm kiếm và tuyến © <a href="https://www.mapbox.com/about/maps/">Mapbox</a>. Thời gian lái xe chưa gồm thời gian nghỉ; chưa kiểm tra hạn chế xe chở ngựa.</p>
+    <p className="osm-source">Nền, tìm kiếm và tuyến dùng dữ liệu © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (Photon, OSRM). Thời gian lái xe chưa gồm thời gian nghỉ; chưa kiểm tra hạn chế xe chở ngựa.</p>
     {notice && <Alert type="info" message={notice} />}
     {selected && <div className="saved-route" role="status"><strong>{verificationToken ? 'Tuyến đã chọn — chưa lưu' : 'Tuyến đã lưu'}</strong><p>{(selected.distanceM / 1000).toFixed(1)} km · {Math.round(selected.durationS / 60)} phút lái xe, chưa gồm nghỉ.</p></div>}
     {!allLocated && <Alert type="info" message="Xác nhận tọa độ của tất cả điểm để tìm và lưu lộ trình." />}

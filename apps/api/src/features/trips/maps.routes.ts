@@ -14,7 +14,7 @@ export function mapsRoutes() {
   router.use(createUserRateLimiter(30));
   router.get('/search', async (req, res) => {
     const { q } = parse(searchSchema, req.query);
-    res.json({ items: await searchAddresses(q), attribution: 'Mapbox' });
+    res.json({ items: await searchAddresses(q), attribution: 'OpenStreetMap' });
   });
   return router;
 }

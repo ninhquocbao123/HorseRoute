@@ -13,6 +13,7 @@
     "noEmit": true,
     "types": ["vite/client"],
     "paths": {
+      "@my-project/shared": ["../../packages/shared/src/index.ts"],
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"]
     }

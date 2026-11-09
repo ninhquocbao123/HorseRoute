@@ -34,7 +34,8 @@ export const storedRouteSchema = z.object({
   geometry: z.object({ type: z.literal('LineString'), coordinates: z.array(coordinate).min(2).max(MAX_ROUTE_COORDINATES) }).strict(),
   distanceM: z.number().finite().positive().max(100_000_000),
   durationS: z.number().finite().positive().max(10_000_000),
-  provider: z.literal('mapbox'),
+  // 'mapbox' chỉ còn ở các route_plan đã lưu trước khi chuyển sang OSRM; vẫn phải đọc và lưu lại được.
+  provider: z.enum(['mapbox', 'osrm']),
   calculatedAt: z.string().datetime(),
   inputKey: z.string().regex(/^[a-f0-9]{64}$/),
 }).strict();
