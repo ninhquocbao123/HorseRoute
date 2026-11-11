@@ -326,6 +326,16 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     assert.ok(crew.every(row => row.s === 'AVAILABLE'), 'tài xế và hộ tống rảnh lại');
   });
 
+  await phase('Lịch sử tài xế trên màn điện thoại 375 px không tràn ngang', async () => {
+    await page.goto(`${base}/dashboard?view=history`);
+    await page.getByText(await orderCode()).first().waitFor();
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(300);
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    await page.setViewportSize({ width: 1366, height: 900 });
+    assert.ok(width <= 375, `trang rộng ${width} px trên màn 375 px`);
+  });
+
   await phase('Quản lý từ chối một đơn khác; khách thấy lý do', async () => {
     const [{ id: customerId }] = await db.query('SELECT id FROM users WHERE email=?', [customer]);
     const day = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);

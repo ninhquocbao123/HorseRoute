@@ -82,6 +82,8 @@ export function HistoryList({ history, details, search, onOpen, title = 'Lịch 
       {search.trim() && rows.length === 0 && <Alert type="info" showIcon title={`Không có chuyến nào khớp “${search.trim()}”.`} />}
       <Table<IDriverTripSummary>
         rowKey="id" size="middle" dataSource={rows} locale={{ emptyText: 'Không có chuyến nào.' }}
+        // Màn hẹp (điện thoại): bảng cuộn ngang trong thẻ thay vì đẩy cả trang tràn ra (N7).
+        scroll={{ x: 'max-content' }}
         pagination={{ current: page, pageSize: PAGE_SIZE, showSizeChanger: false, hideOnSinglePage: true, onChange: setPage }}
         onRow={trip => ({ onClick: () => onOpen(trip.id), className: 'drv-history-row' })}
         columns={[
@@ -91,7 +93,7 @@ export function HistoryList({ history, details, search, onOpen, title = 'Lịch 
               <button type="button" className="drv-link" onClick={event => { event.stopPropagation(); onOpen(trip.id); }}>{code}</button>
             ),
           },
-          { title: 'Tuyến', key: 'route', ellipsis: { showTitle: false }, render: (_: unknown, trip) => <Tooltip title={routeOf(trip)}><span>{routeOf(trip)}</span></Tooltip> },
+          { title: 'Tuyến', key: 'route', width: 240, ellipsis: { showTitle: false }, render: (_: unknown, trip) => <Tooltip title={routeOf(trip)}><span>{routeOf(trip)}</span></Tooltip> },
           { title: 'Khởi hành', key: 'dep', width: 110, render: (_: unknown, trip) => date(departedAt(trip)) },
           { title: 'Giao thực tế', key: 'del', width: 120, render: (_: unknown, trip) => date(deliveredAt(trip)) },
           { title: 'Km', key: 'km', width: 80, align: 'right', render: (_: unknown, trip) => extra(trip, 'km', formatKm) },
