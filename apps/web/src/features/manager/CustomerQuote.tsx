@@ -1,6 +1,7 @@
 import PaymentSimulationModal from '../payments/PaymentSimulationModal';
 import { useEffect, useState, useCallback } from 'react';
-import { Alert, Spin, Empty, Button, Tag } from 'antd';
+import { Alert, Spin, Empty, Button, Tag, Modal } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { api } from '../../lib/axios';
 import { useOrderSocket } from '../../lib/socket';
@@ -79,13 +80,27 @@ export default function CustomerQuote({
     },
   });
 
-  const handleOpenDeposit = () => {
-    setPaymentType('DEPOSIT');setPaymentModalOpen(true);
+  // A1: có VNPay Sandbox thì thanh toán qua VNPay; mô phỏng chỉ còn khi máy chủ bật (không bao giờ ở production).
+  const navigate = useNavigate();
+  const [payConfig, setPayConfig] = useState<{ simulation: boolean; vnpay: boolean } | null>(null);
+  const [choosing, setChoosing] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
+  const [payError, setPayError] = useState('');
+  // Không tải được cấu hình thì không đoán: không mở mô phỏng, báo khách thử lại.
+  const loadPayConfig = useCallback(() => api.get('/payments/config').then(r => { setPayConfig(r.data); return r.data as { simulation: boolean; vnpay: boolean }; }), []);
+  useEffect(() => { void loadPayConfig().catch(() => {}); }, [loadPayConfig]);
+  const toVnpay = (type: 'DEPOSIT' | 'BALANCE') => navigate(`/payments/vnpay?order=${encodeURIComponent(orderId)}&type=${type}`);
+  const toSimulation = (type: 'DEPOSIT' | 'BALANCE') => { setPaymentType(type); setPaymentModalOpen(true); };
+  const startPayment = async (type: 'DEPOSIT' | 'BALANCE') => {
+    setPayError('');
+    const config = payConfig ?? await loadPayConfig().catch(() => null);
+    if (!config) setPayError('Chưa tải được cách thanh toán. Kiểm tra kết nối rồi thử lại.');
+    else if (config.vnpay && config.simulation) setChoosing(type);
+    else if (config.vnpay) toVnpay(type);
+    else if (config.simulation) toSimulation(type);
+    else setPayError('Hệ thống chưa bật cổng thanh toán. Vui lòng liên hệ quản lý.');
   };
-
-  const handleOpenBalance = () => {
-    setPaymentType('BALANCE');setPaymentModalOpen(true);
-  };
+  const handleOpenDeposit = () => void startPayment('DEPOSIT');
+  const handleOpenBalance = () => void startPayment('BALANCE');
 
   const paid = Number(data?.paid || 0);
   const total = Number(data?.total || 0);
@@ -263,7 +278,15 @@ export default function CustomerQuote({
         ) : (
           !loading && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có báo giá chính thức" />
         )}
-      {!isRejected&&<PaymentSimulationModal open={paymentModalOpen} orderId={orderId} orderCode={orderCode} paymentType={paymentType} amount={paymentType==='DEPOSIT'?depositRemaining:remaining} onClose={()=>setPaymentModalOpen(false)} onSuccess={result=>{fetchQuote();onPaymentSuccess?.(result);}}/>}
+      {payError&&<Alert type="error" showIcon title={payError} style={{marginTop:12}}/>}
+      <Modal open={choosing!==null} title="Chọn cách thanh toán" footer={null} centered onCancel={()=>setChoosing(null)}>
+        <p>Thanh toán qua cổng VNPAY Sandbox, hoặc dùng mô phỏng khi chỉ thử nghiệm nhanh.</p>
+        <div style={{display:'grid',gap:8}}>
+          <Button type="primary" size="large" onClick={()=>{const t=choosing!;setChoosing(null);toVnpay(t);}}>Thanh toán qua VNPAY</Button>
+          <Button onClick={()=>{const t=choosing!;setChoosing(null);toSimulation(t);}}>Thanh toán mô phỏng (thử nghiệm)</Button>
+        </div>
+      </Modal>
+      {!isRejected&&payConfig?.simulation===true&&<PaymentSimulationModal open={paymentModalOpen} orderId={orderId} orderCode={orderCode} paymentType={paymentType} amount={paymentType==='DEPOSIT'?depositRemaining:remaining} onClose={()=>setPaymentModalOpen(false)} onSuccess={result=>{fetchQuote();onPaymentSuccess?.(result);}}/>}
       </section>
     </Spin>
   );

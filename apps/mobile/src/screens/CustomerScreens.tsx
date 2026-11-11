@@ -62,6 +62,7 @@ import {
   appendPhoto,
   webUrl,
   NotFound,
+  WebButton,
 } from "../live-ui";
 import { SkeletonLines } from "../skeleton";
 import type {
@@ -1163,6 +1164,9 @@ export function PaymentScreen({
   const { colors: c } = useTheme();
   const resource = useResource<Quote | null>(`/orders/${asId(id)}/quote`);
   const quote = resource.data;
+  // A1: máy chủ tắt mô phỏng (production) thì thanh toán qua VNPAY trên website.
+  const payConfig = useResource<{ simulation: boolean; vnpay: boolean }>("/payments/config");
+  const simulation = payConfig.data?.simulation !== false;
   const [method, setMethod] =
     useState<(typeof PAY_METHODS)[number]["value"]>("BANK_TRANSFER");
   const [busy, setBusy] = useState(false);
@@ -1253,7 +1257,9 @@ export function PaymentScreen({
     <ScreenBody
       onRefresh={resource.reload}
       footer={
-        payable ? (
+        payable && !simulation ? (
+          <WebButton orderId={id} title="Thanh toán qua VNPAY trên website" />
+        ) : payable ? (
           <>
             <Button
               title={`Xác nhận thanh toán ${money(action.amount)}`}
@@ -1279,7 +1285,7 @@ export function PaymentScreen({
       }
     >
       <ResourceState resource={resource} what="thanh toán" skeleton="detail">
-        <Banner warning text="Thanh toán mô phỏng, không thu tiền thật." />
+        <Banner warning text={simulation ? "Thanh toán mô phỏng, không thu tiền thật." : "Thanh toán qua cổng VNPAY trên website. Mở website, đăng nhập cùng tài khoản rồi chọn thanh toán ở đơn này."} />
         {payable ? (
           <>
             <Card>

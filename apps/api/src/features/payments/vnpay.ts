@@ -4,6 +4,13 @@ export type VnpParams=Record<string,string>;
 const encode=(s:string)=>encodeURIComponent(s).replace(/%20/g,'+');
 export const canonical=(p:VnpParams)=>Object.keys(p).sort().map(k=>encode(k)+'='+encode(p[k])).join('&');
 export const sign=(p:VnpParams,secret:string)=>createHmac('sha512',secret).update(canonical(p)).digest('hex');
+/** Đã cấu hình VNPay Sandbox (đủ mã website, khóa bí mật, địa chỉ trả về) chưa. */
+export const vnpayConfigured=()=>!!(process.env.VNPAY_TMN_CODE?.trim()&&process.env.VNPAY_HASH_SECRET?.trim()&&process.env.VNPAY_RETURN_URL?.trim());
+/**
+ * A1: thanh toán mô phỏng (bấm Thành công/Thất bại) chỉ dùng khi thử nghiệm.
+ * PAYMENT_SIMULATION_ENABLED=true|false; không đặt thì bật khi không phải production, tắt ở production.
+ */
+export function simulationEnabled(){const v=process.env.PAYMENT_SIMULATION_ENABLED?.trim().toLowerCase();if(v==='true')return true;if(v==='false')return false;return process.env.NODE_ENV!=='production';}
 export function vnpConfig(){
  const tmn=process.env.VNPAY_TMN_CODE,secret=process.env.VNPAY_HASH_SECRET,returnUrl=process.env.VNPAY_RETURN_URL;
  if(!tmn||!secret||!returnUrl)throw new ConflictException('Chưa cấu hình tài khoản VNPAY Sandbox. Cần TmnCode, HashSecret và Return URL ở backend.');
