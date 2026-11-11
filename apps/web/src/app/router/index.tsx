@@ -19,6 +19,7 @@ const CoordinatorTripsPage = lazy(() => import('../../modules/coordinator/pages/
 const CoordinatorTripPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorTripPage'));
 const CoordinatorNotificationsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorNotificationsPage'));
 const CoordinatorIncidentsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorIncidentsPage'));
+const FleetWorkspace = lazy(() => import('../../features/fleet/FleetWorkspace'));
 
 export default function AppRouter() {
   return (
@@ -37,7 +38,7 @@ export default function AppRouter() {
             <Route path="trips/:tripId/plan" element={<CoordinatorTripPage />} />
             <Route path="operations" element={<Navigate to="/coordinator/trips" replace />} />
             <Route path="monitoring" element={<Navigate to="/coordinator/trips" replace />} />
-            <Route path="fleet" element={<Navigate to="/coordinator/trips" replace />} />
+            <Route path="fleet" element={<FleetWorkspace canEdit />} />
             <Route path="notifications" element={<CoordinatorNotificationsPage />} />
             <Route path="incidents" element={<CoordinatorIncidentsPage />} />
             <Route path="account" element={<CoordinatorAccountPage />} />

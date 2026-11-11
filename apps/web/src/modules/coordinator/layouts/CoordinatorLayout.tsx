@@ -4,6 +4,7 @@ import {
   CalendarOutlined,
   CarOutlined,
   DashboardOutlined,
+  InboxOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -35,6 +36,7 @@ function IncidentsMenuLabel() {
 const menuItems: MenuProps['items'] = [
   { key: coordinatorPaths.dashboard, icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: coordinatorPaths.trips, icon: <CarOutlined />, label: 'Chuyến vận chuyển' },
+  { key: coordinatorPaths.fleet, icon: <InboxOutlined />, label: 'Phương tiện' },
   { key: coordinatorPaths.incidents, icon: <WarningOutlined />, label: <IncidentsMenuLabel /> },
   { key: coordinatorPaths.notifications, icon: <BellOutlined />, label: 'Thông báo' },
 ];
@@ -43,6 +45,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   [coordinatorPaths.incidents]: { title: 'Xử lý sự cố', subtitle: 'Sự cố tài xế / hộ tống gửi lên: tiếp nhận, gửi hướng xử lý và theo dõi tới khi xong' },
   [coordinatorPaths.dashboard]: { title: 'Không gian điều phối' },
   [coordinatorPaths.trips]: { title: 'Danh sách chuyến' },
+  [coordinatorPaths.fleet]: { title: 'Phương tiện', subtitle: 'Thêm xe, sửa sức chứa và trạng thái, xóa xe chưa từng chạy' },
   [coordinatorPaths.notifications]: { title: 'Trung tâm thông báo', subtitle: 'Cập nhật kế hoạch, phương tiện và công việc điều phối' },
   [coordinatorPaths.account]: { title: 'Tài khoản điều phối', subtitle: 'Thông tin tài khoản đang đăng nhập' },
 };

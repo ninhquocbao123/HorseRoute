@@ -1,6 +1,7 @@
 // Luồng nghiệp vụ trọn vẹn trên giao diện web thật, API thật, MySQL thật (database tạm):
-// khách đăng ký → hồ sơ ngựa → đặt chuyến → quản lý tiếp nhận → chuyên viên duyệt giấy tờ → quản lý duyệt giá
-// → khách đặt cọc → điều phối lập lộ trình, xe, tổ lái → quản lý duyệt và chuyển chuyến → tài xế chạy và giao ngựa.
+// khách đăng ký → hồ sơ ngựa → đặt chuyến → quản lý yêu cầu bổ sung → khách sửa, gửi lại → quản lý tiếp nhận → chuyên viên duyệt giấy tờ → quản lý duyệt giá
+// → khách đặt cọc → điều phối thêm xe, lập lộ trình, xe, tổ lái → quản lý duyệt và chuyển chuyến → tài xế chạy và giao ngựa.
+// Thêm: chuyên viên thêm điểm dừng nghỉ, quản lý từ chối một đơn khác.
 // Chạy: TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=root TEST_DB_PASSWORD=... pnpm --filter web test:e2e
 // Trên Windows có Edge thay Chromium: thêm PLAYWRIGHT_CHANNEL=msedge.
 const { run } = require('./harness.cjs');
@@ -13,6 +14,11 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
   const customerNav = () => page.getByRole('navigation', { name: 'Điều hướng khách hàng' });
   const toast = text => page.locator('.ant-message, .ant-notification').getByText(text).first();
   let orderId;
+  // Chờ kết quả được ghi vào DB thay vì dựa vào cách giao diện báo (toast hay dòng báo trên trang).
+  const until = async (label, check) => {
+    for (let i = 0; i < 100; i++) { if (await check()) return; await page.waitForTimeout(200); }
+    throw new Error('Hết thời gian chờ: ' + label);
+  };
 
   await phase('Khách đăng ký tài khoản (có kiểm tra mật khẩu nhập lại)', async () => {
     await page.goto(base + '/register');
@@ -92,6 +98,35 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
   const orderStatus = async () => (await db.query('SELECT status s FROM orders WHERE id=?', [orderId]))[0].s;
   const confirmDialog = async name => { const button = page.getByRole('dialog').getByRole('button', { name, exact: true }); await button.click(); };
 
+  const askNote = 'Vui lòng ghi rõ giờ ngựa ăn trước khi lên xe.';
+  await phase('Quản lý yêu cầu khách bổ sung; nội dung là bắt buộc', async () => {
+    await login('manager@e2e.test');
+    await page.getByRole('button', { name: new RegExp(await orderCode()) }).first().click();
+    await page.getByRole('button', { name: 'Yêu cầu bổ sung', exact: true }).click();
+    const ask = page.getByRole('dialog').filter({ hasText: 'Yêu cầu khách bổ sung' });
+    const send = ask.getByRole('button', { name: 'Gửi yêu cầu bổ sung' });
+    assert.equal(await send.isDisabled(), true, 'chưa nhập nội dung thì không gửi được');
+    await ask.getByLabel(/Nội dung cần bổ sung/).fill(askNote);
+    await send.click();
+    await until('đơn cần bổ sung', async () => await orderStatus() === 'NEED_INFO');
+    const [o] = await db.query('SELECT manager_note FROM orders WHERE id=?', [orderId]);
+    assert.equal(o.manager_note, askNote);
+  });
+
+  await phase('Khách đọc yêu cầu, sửa đơn và gửi lại; thông tin đặt chuyến được giữ', async () => {
+    await login(customer, false);
+    await page.goto(`${base}/dashboard?view=orders&order=${orderId}`);
+    await main.getByText(askNote).first().waitFor();
+    await main.getByRole('button', { name: 'Chỉnh sửa và gửi duyệt' }).click();
+    await main.getByLabel('Yêu cầu đặc biệt').fill('Ngựa ăn lúc 6 giờ sáng, trước khi lên xe 2 tiếng.');
+    await main.getByRole('button', { name: 'Lưu và gửi duyệt' }).click();
+    await until('đơn gửi lại', async () => await orderStatus() === 'PENDING');
+    const [o] = await db.query('SELECT special_requirements s, booking_details b FROM orders WHERE id=?', [orderId]);
+    assert.match(o.s, /6 giờ sáng/);
+    const booking = typeof o.b === 'string' ? JSON.parse(o.b) : o.b;
+    assert.ok(booking && Number(booking.distanceKm) > 0, 'giữ quãng đường và thông tin đặt chuyến sau khi sửa');
+  });
+
   await phase('Quản lý tiếp nhận đơn và giao điều phối viên', async () => {
     await login('manager@e2e.test');
     await page.getByRole('button', { name: new RegExp(await orderCode()) }).first().click();
@@ -129,6 +164,17 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     assert.equal(Number(n), 3);
   });
 
+  await phase('Chuyên viên thêm điểm dừng nghỉ trên màn Địa điểm', async () => {
+    await page.getByRole('button', { name: 'Địa điểm & trạm nghỉ' }).click();
+    await page.getByRole('button', { name: 'Thêm địa điểm' }).click();
+    const form = page.getByRole('dialog').filter({ hasText: 'Tên địa điểm' });
+    await form.getByLabel('Tên địa điểm').fill('Trạm nghỉ Quảng Ngãi E2E');
+    await form.getByLabel('Vĩ độ').fill('15.12');
+    await form.getByLabel('Kinh độ').fill('108.80');
+    await form.getByRole('button', { name: 'Thêm', exact: true }).click();
+    await until('thêm địa điểm', async () => (await db.query("SELECT id FROM locations WHERE name='Trạm nghỉ Quảng Ngãi E2E' AND location_type='REST_STOP' AND latitude IS NOT NULL")).length === 1);
+  });
+
   await phase('Quản lý lập dự toán theo bảng giá và duyệt giá gửi khách', async () => {
     await login('manager@e2e.test');
     await page.getByRole('button', { name: /Duyệt giá vận chuyển/ }).click();
@@ -161,11 +207,17 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
 
   const tripId = async () => String((await db.query('SELECT id FROM trips WHERE order_id=?', [orderId]))[0].id);
   const planStatus = async () => (await db.query('SELECT plan_status s FROM trips WHERE order_id=?', [orderId]))[0].s;
-  // Chờ kết quả được ghi vào DB thay vì dựa vào cách giao diện báo (toast hay dòng báo trên trang).
-  const until = async (label, check) => {
-    for (let i = 0; i < 100; i++) { if (await check()) return; await page.waitForTimeout(200); }
-    throw new Error('Hết thời gian chờ: ' + label);
-  };
+  await phase('Điều phối thêm xe mới trên màn Phương tiện', async () => {
+    await login('coordinator@e2e.test');
+    await page.getByRole('menuitem', { name: 'Phương tiện' }).click();
+    await page.getByText('51C-E2E.01').waitFor();
+    await page.getByRole('button', { name: 'Thêm phương tiện' }).click();
+    const form = page.getByRole('dialog').filter({ hasText: 'Biển số / mã xe' });
+    await form.getByLabel('Biển số / mã xe').fill('51C-E2E.02');
+    await form.getByRole('button', { name: 'Thêm', exact: true }).click();
+    await until('thêm xe', async () => (await db.query("SELECT id FROM vehicles WHERE license_plate='51C-E2E.02' AND status='AVAILABLE'")).length === 1);
+    await page.getByText('51C-E2E.02').waitFor();
+  });
 
   await phase('Điều phối xác nhận hai đầu tuyến, chọn tuyến, xe, tổ lái, giờ chạy và gửi duyệt', async () => {
     await login('coordinator@e2e.test');
@@ -183,7 +235,7 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
 
     await page.getByRole('button', { name: 'Chọn phương tiện', exact: true }).click();
     const drawer = () => page.locator('.ant-drawer-content, [role=dialog]').filter({ hasText: 'Xác nhận chọn' }).last();
-    await drawer().getByRole('button', { name: /51C-E2E\.01/ }).click();
+    await drawer().getByRole('button', { name: /51C-E2E\.02/ }).click();
     await drawer().getByRole('button', { name: 'Xác nhận chọn', exact: true }).click();
     await page.getByRole('button', { name: 'Chọn nhân sự', exact: true }).click();
     await drawer().getByRole('button', { name: /Tài Xế E2E/ }).click();
@@ -268,10 +320,28 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await page.getByRole('dialog').locator('.drv-dialog-ok').click();
     await until('đơn đã giao', async () => await orderStatus() === 'DELIVERED');
     assert.deepEqual(await milestones(), ['DEPARTED', 'ARRIVED_AT_STOP', 'DELIVERED']);
-    const [vehicle] = await db.query("SELECT status FROM vehicles WHERE license_plate='51C-E2E.01'");
+    const [vehicle] = await db.query("SELECT status FROM vehicles WHERE license_plate='51C-E2E.02'");
     assert.equal(vehicle.status, 'AVAILABLE');
     const crew = await db.query('SELECT work_status s FROM crew_profiles');
     assert.ok(crew.every(row => row.s === 'AVAILABLE'), 'tài xế và hộ tống rảnh lại');
+  });
+
+  await phase('Quản lý từ chối một đơn khác; khách thấy lý do', async () => {
+    const [{ id: customerId }] = await db.query('SELECT id FROM users WHERE email=?', [customer]);
+    const day = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+    const inserted = await db.query("INSERT INTO orders(order_code,customer_id,status,origin_country,destination_country,origin_address,destination_address,desired_departure_date) VALUES ('E2E-REJECT-1',?,'PENDING','VN','VN','Cần Thơ','Hà Nội',?)", [customerId, day]);
+    await db.query("INSERT INTO horses(order_id,owner_id,name,passport_no) VALUES (?,?,'Bão Lửa','FEI-VN-2002')", [inserted.insertId, customerId]);
+    await login('manager@e2e.test');
+    await page.getByRole('button', { name: /E2E-REJECT-1/ }).first().click();
+    await page.getByRole('button', { name: 'Từ chối đơn', exact: true }).click();
+    const reject = page.getByRole('dialog').filter({ hasText: 'Lý do từ chối' });
+    await reject.getByLabel(/Lý do từ chối/).fill('Tuyến Cần Thơ đi Hà Nội chưa có xe phục vụ trong tháng này.');
+    await reject.getByRole('button', { name: 'Từ chối đơn' }).click();
+    await until('đơn bị từ chối', async () => (await db.query('SELECT status s FROM orders WHERE id=?', [inserted.insertId]))[0].s === 'REJECTED');
+    await login(customer, false);
+    await page.goto(`${base}/dashboard?view=orders&order=${inserted.insertId}`);
+    await main.getByText('Đơn hàng bị từ chối').waitFor();
+    await main.getByText(/chưa có xe phục vụ/).first().waitFor();
   });
 
   await phase('Khách thấy đơn đã giao', async () => {
