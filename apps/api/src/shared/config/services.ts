@@ -22,6 +22,7 @@ import { LocationsRepository } from '../../features/locations/locations.reposito
 import { PricingService } from '../../features/pricing/pricing.service';
 import { ManagerService } from '../../features/manager/manager.service';
 import { PaymentsService } from '../../features/payments/payments.service';
+import { AccountsService } from '../../features/accounts/accounts.service';
 
 export function createServices(db: DataSource, tokens: TokenService) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
@@ -41,6 +42,7 @@ export function createServices(db: DataSource, tokens: TokenService) {
     manager: new ManagerService(db),
     specialist: new SpecialistService(db),
     payments: new PaymentsService(db),
+    accounts: new AccountsService(db),
   };
 }
 

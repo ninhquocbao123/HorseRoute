@@ -18,6 +18,7 @@ import { publicPricingRoutes, managerPricingRoutes } from '../features/pricing/p
 import { managerRoutes } from '../features/manager/manager.routes';
 import { paymentsRoutes } from '../features/payments/payments.routes';
 import { mapsRoutes } from '../features/trips/maps.routes';
+import { accountsRoutes } from '../features/accounts/accounts.routes';
 
 export function apiRoutes(services: Services, tokens: TokenService) {
   const router = Router();
@@ -41,5 +42,6 @@ export function apiRoutes(services: Services, tokens: TokenService) {
   router.use('/payments', paymentsRoutes(services.payments));
   router.use('/manager/pricing', managerPricingRoutes(services.pricing));
   router.use('/manager', managerRoutes(services.manager));
+  router.use('/admin/accounts', accountsRoutes(services.accounts));
   return router;
 }
