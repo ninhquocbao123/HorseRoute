@@ -11,6 +11,7 @@ export class OrdersController {
   create: RequestHandler = async (req, res) => { res.status(201).json(await this.service.save(req.account, parse(draftOrderSchema, req.body))); };
   edit: RequestHandler = async (req, res) => { res.json(await this.service.save(req.account, parse(draftOrderSchema, req.body), parse(idSchema, req.params.id))); };
   submit: RequestHandler = async (req, res) => { res.status(201).json(await this.service.submit(req.account, parse(idSchema, req.params.id))); };
+  cancel: RequestHandler = async (req, res) => { res.json(await this.service.cancel(req.account, parse(idSchema, req.params.id), req.body)); };
   review: RequestHandler = async (req, res) => { res.status(201).json(await this.service.review(req.account, parse(idSchema, req.params.id), parse(reviewSchema, req.body))); };
 }
 

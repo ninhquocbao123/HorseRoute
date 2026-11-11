@@ -16,6 +16,7 @@ export function ordersRoutes(service: OrdersService) {
   router.delete('/:id', authorize(Role.CUSTOMER), c.remove);
   router.post('/:id/submit', authorize(Role.CUSTOMER), c.submit);
   router.post('/:id/review', authorize(Role.MANAGER), c.review);
+  router.post('/:id/cancel', authorize(Role.CUSTOMER, Role.MANAGER), c.cancel);
   return router;
 }
 

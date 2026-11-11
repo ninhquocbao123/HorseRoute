@@ -9,6 +9,7 @@ import { User } from '../users/users.model';
 import { DraftOrderDto, OrderDto, OrderQueryDto, ReviewDto } from './orders.dto';
 import { parse } from '../../shared/utils/validation.util';
 import { orderSchema } from './orders.validation';
+import { cancelOrder } from './order-cancel';
 
 type Row = Record<string, any>;
 const editable = ['DRAFT','NEED_INFO'];
@@ -53,6 +54,11 @@ export class OrdersService {
     return q?{...q,arrived_at_delivery:Boolean(q.arrived_at_delivery),input:typeof q.input==='string'?JSON.parse(q.input):q.input,items:typeof q.items==='string'?JSON.parse(q.items):q.items, receipts}:null;
   }
 
+  /** A4: khách hủy đơn chưa duyệt; quản lý hủy đơn chưa xuất phát và quyết định số tiền hoàn. */
+  async cancel(user:User,id:string,body:unknown){
+    if(user.role!==Role.CUSTOMER&&user.role!==Role.MANAGER)throw new ForbiddenException('Không đủ quyền hủy đơn.');
+    return this.db.transaction(async m=>cancelOrder(m,user,await this.owned(m,user,id,true) as any,body,(tx,recipient,orderId,event,content)=>this.notify(tx,recipient,orderId,event,content)));
+  }
   async deleteDraft(user:User,id:string){
     if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ Customer được xóa đơn nháp.');
     try{return await this.db.transaction(async m=>{
@@ -106,7 +112,8 @@ export class OrdersService {
     const [customer]=await this.repository.findCustomer(this.db, [order.customer_id]);
     const history=await this.repository.findHistory(this.db, [id]);
     const {draft_payload,client_request_id,...safe}=order;
-    return {...safe,desired_departure_date:dateOnly(order.desired_departure_date),horses,documents,customer,history,draft:editable.includes(order.status)?this.payload(order,horses):null};
+    const [refund]=order.status==='CANCELLED'?await this.db.query('SELECT amount,paid_before paidBefore,reason,refunded_at refundedAt FROM order_refunds WHERE order_id=?',[id]):[];
+    return {...safe,refund:refund?{amount:Number(refund.amount),paidBefore:Number(refund.paidBefore),reason:refund.reason,refundedAt:refund.refundedAt}:null,desired_departure_date:dateOnly(order.desired_departure_date),horses,documents,customer,history,draft:editable.includes(order.status)?this.payload(order,horses):null};
   }
 
   async reviewOptions(user: User,id: string) {
