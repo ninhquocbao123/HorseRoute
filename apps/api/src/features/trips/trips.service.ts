@@ -356,10 +356,17 @@ export class TripsService {
   }
   private async validateSavedFleet(repo: TripsRepository, id: string, orderId: string, departure: string | null, arrival: string | null) {
     const vehicles = await repo.fleet(id), rows = await repo.assignments(id);
-    const input = parse(tripFleetSchema, { vehicles: vehicles.map(v => ({ vehicleId:v.vehicleId,horseCount:v.horseCount,
-      crew:rows.filter(p => p.tripVehicleId===v.id).map(p => ({userId:p.userId,role:p.role})) })) });
+    // Dữ liệu đã lưu chưa đủ là xung đột trạng thái (409), không phải lỗi đầu vào của request.
+    if (!vehicles.length) throw new ConflictException('Chưa phân công xe và tổ lái cho chuyến.');
     if (rows.some(p => !p.tripVehicleId)) throw new ConflictException('Phân công cũ chưa được gắn xe; hãy cập nhật tổ nhân sự.');
-    await this.validateFleet(repo,id,orderId,input,departure,arrival);
+    const stored = tripFleetSchema.safeParse({ vehicles: vehicles.map(v => ({ vehicleId:v.vehicleId,horseCount:v.horseCount,
+      crew:rows.filter(p => p.tripVehicleId===v.id).map(p => ({userId:p.userId,role:p.role})) })) });
+    if (!stored.success) throw new ConflictException('Phân công chưa đủ: mỗi xe cần số ngựa, 1–2 tài xế và 1–2 hộ tống.');
+    try { await this.validateFleet(repo,id,orderId,stored.data,departure,arrival); }
+    catch (error) {
+      if (error instanceof BadRequestException) throw new ConflictException(error.getResponse());
+      throw error;
+    }
   }
   async saveAssignments(account: User, rawId: string, body: unknown): Promise<TripAssignments> {
     if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được phân công.');
@@ -368,6 +375,11 @@ export class TripsService {
       const {orderId, trip} = await this.lockEditablePlan(repo,account,id);
       await repo.lockFleetResources(id,input);
       const before = await new TripsService(repo).assignments(account,id);
+      // Lưu lại đúng đội xe đang có (kể cả khác thứ tự) không ghi gì, không audit, không báo lại tổ lái.
+      const roster = (vehicles: {vehicleId:string;horseCount:number|null;crew:{userId:string;role:string}[]}[]) => JSON.stringify(
+        [...vehicles].map(v => ({vehicleId:v.vehicleId,horseCount:v.horseCount,crew:[...v.crew].map(p => ({userId:p.userId,role:p.role}))
+          .sort((a,b) => a.userId.localeCompare(b.userId))})).sort((a,b) => a.vehicleId.localeCompare(b.vehicleId)));
+      if (before.vehicles?.length && roster(before.vehicles) === roster(input.vehicles)) return before;
       const window = await repo.tripWindow(id);
       // A draft may lack a schedule; submit/approval require and recheck the complete window.
       await this.validateFleet(repo,id,orderId,input,window?.departure.toISOString() ?? null,window?.arrival.toISOString() ?? null);

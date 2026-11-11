@@ -1243,6 +1243,7 @@ export class TrackingService {
     }
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(buildCareActivitySchema(await this.repository.getMaxRetroactiveMinutes()), files.length ? careFormBody(body) : body);
+    await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
     // G2: gửi lại cùng mục hàng chờ thì trả bản đã ghi.
     const replay = async () => {
       if (!input.clientRequestId) return null;
@@ -1363,6 +1364,8 @@ export class TrackingService {
     }
     const tripId = parse(legIdSchema, rawTripId);
     const input = parse(createIncidentSchema, normalizeForm(body));
+    // Kiểm tra phân công trước mọi kiểm tra nội dung: người ngoài chuyến luôn nhận 404, không biết thêm gì về chuyến.
+    await this.authorizeTrip(this.repository, account, tripId, [Role.DRIVER_ESCORT]);
     // G2: gửi lại cùng mục hàng chờ thì trả sự cố đã có, không báo lại cho điều phối.
     const replay = async (): Promise<IIncident | null> => {
       if (!input.clientRequestId) return null;
