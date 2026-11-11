@@ -1,12 +1,12 @@
 // Luồng nghiệp vụ trọn vẹn trên giao diện web thật, API thật, MySQL thật (database tạm):
-// khách đăng ký → hồ sơ ngựa → đặt chuyến → quản lý yêu cầu bổ sung → khách sửa, gửi lại → quản lý tiếp nhận → chuyên viên duyệt giấy tờ → quản lý duyệt giá
+// khách đăng ký và xác minh email → hồ sơ ngựa → đặt chuyến → quản lý yêu cầu bổ sung → khách sửa, gửi lại → quản lý tiếp nhận → chuyên viên duyệt giấy tờ → quản lý duyệt giá
 // → khách đặt cọc → điều phối thêm xe, lập lộ trình, xe, tổ lái → quản lý duyệt và chuyển chuyến → tài xế chạy và giao ngựa.
 // Thêm: chuyên viên thêm điểm dừng nghỉ, quản lý từ chối một đơn khác.
 // Chạy: TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=root TEST_DB_PASSWORD=... pnpm --filter web test:e2e
 // Trên Windows có Edge thay Chromium: thêm PLAYWRIGHT_CHANNEL=msedge.
 const { run } = require('./harness.cjs');
 
-run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, phase, PASSWORD, PNG, base, assert }) => {
+run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, phase, PASSWORD, PNG, base, assert, outbox, mailCode }) => {
   const customer = 'khach@e2e.test';
   const departure = new Date(Date.now() + 10 * 86400e3);
   const ddmmyyyy = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -20,7 +20,7 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     throw new Error('Hết thời gian chờ: ' + label);
   };
 
-  await phase('Khách đăng ký tài khoản (có kiểm tra mật khẩu nhập lại)', async () => {
+  await phase('Khách đăng ký tài khoản (có kiểm tra mật khẩu nhập lại) và xác minh email bằng mã 6 số', async () => {
     await page.goto(base + '/register');
     await page.getByLabel('Họ và tên').fill('Khách Hàng E2E');
     await page.getByLabel('Email').fill(customer);
@@ -33,8 +33,44 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await page.getByLabel('Nhập lại mật khẩu').fill(PASSWORD);
     await page.getByText('Tôi đồng ý với điều khoản sử dụng').click();
     await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
+    const verify = page.getByRole('dialog').filter({ hasText: 'Xác minh email' });
+    await verify.getByText(`Đã gửi mã gồm 6 số tới ${customer}`).waitFor();
+    assert.equal((await db.query('SELECT account_status s FROM users WHERE email=?', [customer]))[0].s, 'PENDING');
+    const code = mailCode(customer);
+    assert.match(code, /^\d{6}$/, 'email xác minh có mã');
+    await verify.getByLabel('Mã xác minh').fill(code === '000000' ? '111111' : '000000');
+    await verify.getByRole('button', { name: 'Xác minh', exact: true }).click();
+    await verify.getByText('Mã không đúng.').first().waitFor();
+    await verify.getByLabel('Mã xác minh').fill(code);
+    await verify.getByRole('button', { name: 'Xác minh', exact: true }).click();
     await page.waitForURL(/\/dashboard/);
     await page.getByText('Khách Hàng E2E').first().waitFor();
+    assert.equal((await db.query('SELECT account_status s FROM users WHERE email=?', [customer]))[0].s, 'ACTIVE');
+  });
+
+  await phase('Khách quên mật khẩu: nhận mã qua email, đặt mật khẩu mới, đăng nhập bằng mật khẩu mới', async () => {
+    const sent = outbox.length;
+    await page.goto(base + '/brand/horse-transport-logo.png');
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.goto(base + '/login');
+    await page.getByRole('button', { name: 'Quên mật khẩu?' }).click();
+    const dialog = page.getByRole('dialog').filter({ hasText: 'Quên mật khẩu' });
+    await dialog.getByLabel('Email').fill(customer);
+    await dialog.getByRole('button', { name: 'Gửi mã' }).click();
+    await dialog.getByLabel('Mã xác nhận').waitFor();
+    assert.equal(outbox.length, sent + 1);
+    const temporary = PASSWORD + '-tam';
+    await dialog.getByLabel('Mã xác nhận').fill(mailCode(customer));
+    await dialog.getByLabel('Mật khẩu mới', { exact: true }).fill(temporary);
+    await dialog.getByLabel('Nhập lại mật khẩu mới').fill(temporary);
+    await dialog.getByRole('button', { name: 'Đặt mật khẩu mới' }).click();
+    await page.getByText('Đã đặt lại mật khẩu.').first().waitFor();
+    await page.getByLabel('Email').fill(customer);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(temporary);
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await page.waitForURL(/\/dashboard/);
+    // Đặt lại về mật khẩu chung để các chặng sau đăng nhập như cũ.
+    await db.query('UPDATE users SET password_hash=(SELECT h FROM (SELECT password_hash h FROM users WHERE email=?) x) WHERE email=?', ['manager@e2e.test', customer]);
   });
 
   await phase('Khách tạo hồ sơ ngựa và tải đủ 3 giấy tờ', async () => {

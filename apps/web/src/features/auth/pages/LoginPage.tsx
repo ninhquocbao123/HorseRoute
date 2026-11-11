@@ -4,11 +4,12 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
-import { Alert, Modal } from 'antd';
+import { Alert } from 'antd';
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { login, register as registerApi } from '../../users/api/users.api';
+import { login, needsVerification, register as registerApi, type LoginResponse } from '../../users/api/users.api';
+import { ForgotPasswordDialog, VerifyEmailDialog } from './EmailCodeDialogs';
 import PublicSymbols from '../../home/PublicSymbols';
 import '../../home/landing-page.css';
 import './auth-page.css';
@@ -52,8 +53,10 @@ function AuthForm({ mode }: { mode: Mode }) {
   const t = (vi: string, en: string) => language === 'vi' ? vi : en;
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [dialog, setDialog] = useState<'password' | 'terms' | null>(null);
-  const { register, handleSubmit, watch, setError: fieldError, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const [dialog, setDialog] = useState<'password' | null>(null);
+  const [verify, setVerify] = useState<{ email: string; sent: boolean } | null>(null);
+  const [notice, setNotice] = useState('');
+  const { register, handleSubmit, watch, getValues, setError: fieldError, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(formSchema(mode)),
     defaultValues: { email: '', password: '', fullName: '', phone: '', address: '', province: '', customerType: 'INDIVIDUAL', organizationName: '', confirmPassword: '', acceptTerms: false },
   });
@@ -66,18 +69,27 @@ function AuthForm({ mode }: { mode: Mode }) {
       : params.get('order') ? '/dashboard?view=orders' : '/dashboard';
     return <Navigate to={destination} replace />;
   }
+  const finish = (result: LoginResponse, keep: boolean) => {
+    if (staff && result.user.role === 'CUSTOMER') { setError('Đây là tài khoản khách hàng. Vui lòng chọn Đăng nhập khách hàng bên dưới.'); return; }
+    if (!staff && result.user.role !== 'CUSTOMER') { setError('Đây là tài khoản nhân viên. Vui lòng chọn Đăng nhập nhân viên bên dưới.'); return; }
+    onLoginSuccess(result.accessToken, result.user, keep);
+  };
   const submit = handleSubmit(async data => {
-    setError('');
+    setError(''); setNotice('');
     try {
-      const result = isRegister
+      const response = isRegister
         ? await registerApi(data.email, data.password, data.fullName!.trim(), data.phone!.trim(), data.address!.trim(), data.customerType, data.customerType === 'CLUB' ? data.organizationName!.trim() : undefined)
         : await login(data.email, data.password);
+      // Có cấu hình email: đăng ký xong phải nhập mã gửi tới email mới vào được.
+      if (needsVerification(response)) { setVerify({ email: response.email, sent: true }); return; }
+      const result = response;
       if (staff && result.user.role === 'CUSTOMER') { setError('Đây là tài khoản khách hàng. Vui lòng chọn Đăng nhập khách hàng bên dưới.'); return; }
       if (!staff && !isRegister && result.user.role !== 'CUSTOMER') { setError('Đây là tài khoản nhân viên. Vui lòng chọn Đăng nhập nhân viên bên dưới.'); return; }
       onLoginSuccess(result.accessToken, result.user, isRegister || remember);
     } catch (e) {
       if (isAxiosError(e)) {
         const body = e.response?.data;
+        if (body?.code === 'EMAIL_NOT_VERIFIED') { setVerify({ email: data.email.trim().toLowerCase(), sent: false }); return; }
         setError(typeof body?.message === 'string' ? body.message : e.response ? 'Chưa thể thực hiện. Vui lòng thử lại.' : 'Không kết nối được máy chủ. Vui lòng thử lại.');
         for (const [key, value] of Object.entries(body?.fields || {})) {
           if (['email', 'password', 'fullName', 'phone', 'address', 'customerType', 'organizationName'].includes(key)) fieldError(key as keyof FormData, { message: String(value) });
@@ -111,6 +123,7 @@ function AuthForm({ mode }: { mode: Mode }) {
             <h1>{isRegister ? t('Tạo tài khoản mới','Create a new account') : staff ? t('Đăng nhập nhân viên','Staff login') : t('Chào mừng trở lại','Welcome back')}</h1>
             <p className="sub2">{isRegister ? t('Chỉ mất một phút để bắt đầu đặt chuyến.','It takes a minute to start booking trips.') : t('Đăng nhập bằng email và mật khẩu của tài khoản.','Log in with your account email and password.')}</p>
             {(error || syncError) && <Alert type="error" showIcon title={error || syncError} style={{ marginBottom: 18 }}/>}
+            {notice && !error && <Alert type="success" showIcon title={notice} style={{ marginBottom: 18 }}/>}
             {isRegister && field('fullName',t('Họ và tên','Full name'),'text','name')}
             {isRegister ? <div className="two"><div>{field('email','Email','email','email')}</div><div>{field('phone',t('Số điện thoại','Phone number'),'tel','tel',16)}</div></div> : field('email','Email','email','email')}
             {isRegister && <><div className="fld"><select id="customerType" {...register('customerType')} disabled={busy}><option value="INDIVIDUAL">{t('Cá nhân','Individual')}</option><option value="CLUB">{t('Câu lạc bộ, trại ngựa','Club or stud farm')}</option></select><label className="up" htmlFor="customerType">{t('Loại tài khoản','Account type')}</label></div>{customerType === 'CLUB' && field('organizationName',t('Tên câu lạc bộ / tổ chức','Club / organization name'),'text','organization',150)}{field('address',t('Địa chỉ','Address'),'text','street-address',255)}</>}
@@ -124,6 +137,7 @@ function AuthForm({ mode }: { mode: Mode }) {
         </div>
       </section>
     </div></div>
-    <Modal open={dialog !== null} title={t('Hỗ trợ khôi phục mật khẩu','Password recovery help')} footer={null} onCancel={() => setDialog(null)}><p>{t('Hệ thống chưa hỗ trợ đặt lại mật khẩu tự động. Vui lòng liên hệ đơn vị quản lý tài khoản để được hỗ trợ.','Automatic password reset is not available yet. Please contact your account administrator for help.')}</p></Modal>
+    {dialog === 'password' && <ForgotPasswordDialog initialEmail={getValues('email')} onClose={done => { setDialog(null); if (done) { setError(''); setNotice(done); } }} />}
+    {verify && <VerifyEmailDialog email={verify.email} sent={verify.sent} onClose={() => setVerify(null)} onVerified={session => { setVerify(null); finish(session, true); }} />}
   </main>;
 }

@@ -85,7 +85,11 @@ exports.run = async (name, body) => {
     const { TokenService } = apiRequire(path.join(apiRoot, 'src/shared/utils/jwt.util'));
     const webPort = Number(process.env.E2E_WEB_PORT || 5197);
     const tokens = new TokenService(crypto.randomBytes(32).toString('hex'));
-    const api = createApp({ services: createServices(db, tokens), tokens, corsOrigin: `http://127.0.0.1:${webPort}`, requestLimit: 100000 }).listen(0, '127.0.0.1');
+    // Hộp thư giả thay Gmail SMTP: email xác minh và đặt lại mật khẩu được giữ trong bộ nhớ để test đọc mã. Bật xác minh như production.
+    const outbox = [];
+    const mailer = { configured: true, send: async mail => { outbox.push(mail); } };
+    const mailCode = to => { const mail = [...outbox].reverse().find(m => m.to === to); const match = mail && /Mã của bạn: (\d{6})/.exec(mail.text); return match ? match[1] : null; };
+    const api = createApp({ services: createServices(db, tokens, mailer), tokens, corsOrigin: `http://127.0.0.1:${webPort}`, requestLimit: 100000 }).listen(0, '127.0.0.1');
     await once(api, 'listening'); stop.push(() => new Promise(resolve => { api.close(resolve); api.closeAllConnections(); }));
     const apiBase = `http://127.0.0.1:${api.address().port}/api/v1`;
 
@@ -118,7 +122,7 @@ exports.run = async (name, body) => {
     let step = 0;
     const phase = async (label, fn) => { step++; await fn(); console.log(`PASS ${step}. ${label}`); };
     await page.goto(`http://127.0.0.1:${webPort}/`);
-    await body({ page, db, staff, login, phase, PASSWORD, PNG, base: `http://127.0.0.1:${webPort}`, apiBase, assert, files });
+    await body({ page, db, staff, login, phase, PASSWORD, PNG, base: `http://127.0.0.1:${webPort}`, apiBase, assert, files, outbox, mailCode });
     assert.deepEqual(pageErrors, [], 'không có lỗi JavaScript trên trang');
     console.log(`${name}: ${step} chặng đạt`);
   } catch (error) {

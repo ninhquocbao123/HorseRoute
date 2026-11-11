@@ -14,7 +14,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && !['/auth/login', '/auth/register'].includes(err.config?.url)) {
+    // Các lệnh /auth/* tự báo lỗi trên form, không chuyển trang.
+    if (err.response?.status === 401 && !String(err.config?.url ?? '').startsWith('/auth/')) {
       clearAccessToken();
       window.location.href = '/login';
     }
