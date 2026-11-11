@@ -2,6 +2,8 @@ import {MigrationInterface,QueryRunner} from 'typeorm';
 import {horseDocumentNames} from '../../features/documents/required-horse-documents';
 
 export class RemoveQuarantineRules1800000011000 implements MigrationInterface {
+  // DROP TABLE tự commit trong MySQL, nên migration tự mở transaction cho phần dữ liệu thay vì để TypeORM bọc ngoài.
+  transaction = false;
   async up(q:QueryRunner){
     for(const [index,name] of horseDocumentNames.entries()){
       await q.query('INSERT INTO document_types(name,description,has_expiry) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM document_types WHERE name=?)',[name,'Giấy tờ bắt buộc cho mỗi ngựa',index===0?0:1,name]);

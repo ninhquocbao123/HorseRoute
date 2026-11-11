@@ -23,6 +23,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm --filter api test
+      # Dựng DB từ đầu bằng đúng lệnh người dùng chạy; lần chạy thứ hai phải không làm gì.
+      - run: pnpm db:setup && pnpm db:setup
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: wdp_ci
+          DB_USER: root
+          DB_PASSWORD: integration-test-only
+          DB_SSL: 'false'
       - run: node apps/api/test/flow2.mysql.cjs
         env:
           TEST_DB_HOST: 127.0.0.1

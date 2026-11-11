@@ -11,6 +11,7 @@
     "dev:web:demo": "node apps/web/scripts/run-demo-web.cjs",
     "build": "pnpm --filter @my-project/shared build && pnpm -r --filter '!@my-project/shared' build",
     "lint": "pnpm -r lint",
-    "migration:run": "pnpm --filter api migration:run"
+    "migration:run": "pnpm --filter api migration:run",
+    "db:setup": "pnpm --filter api db:setup"
   }
 }
