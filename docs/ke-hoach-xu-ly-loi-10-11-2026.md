@@ -73,7 +73,7 @@ Trạng thái: **Long đã duyệt ngày 10/11/2026. Đang làm giai đoạn 0. 
 | 2 | A3 màn Admin tạo, khóa tài khoản nhân sự | Hiện phải dùng lệnh dòng lệnh để có nhân viên |
 | 3 | A5 ép đặt cọc; A4 hủy đơn và hoàn cọc | Câu hỏi nghiệp vụ hội đồng hay hỏi |
 | 4 | A1 VNPay Sandbox thật, tắt mô phỏng ở production | Thanh toán thật là điểm nhấn demo |
-| 5 | B5 quy tắc nghỉ cho ngựa theo Q5; B4 | Nghiệp vụ đặc thù của đề tài |
+| 5 | B13 thông tin thông quan chuyến quốc tế (Long thêm 12/11); B5 quy tắc nghỉ cho ngựa theo Q5; B4 | Nghiệp vụ đặc thù của đề tài |
 | 6 | B8 câu chữ; phần giới hạn đăng nhập của A2; C4 dọn repo; D3 ghi tài liệu | Đánh bóng, giảm câu hỏi bảo mật |
 | 7 | Không thêm tính năng: chạy lại toàn bộ test, seed demo, tập kịch bản demo trên web và điện thoại Android | Đóng băng trước bảo vệ |
 
@@ -199,6 +199,7 @@ Tổng khoảng 29–42 ngày công, chưa tính F. Nhóm nhiều người có t
 | B10 | P2-5 | So ngày theo giờ Việt Nam thay UTC ở `orders.service.ts`, `customer.service.ts` | Test mốc 0 giờ đến 7 giờ sáng |
 | B11 | P2-5 | Số tiền VNPay tính bằng số nguyên; phân trang `manager/intake` và `customer-workspace`; tác vụ dọn phiên `PENDING`; chuyển avatar sang kho file; `/health` kiểm tra Redis và kho file | Test từng mục |
 | B12 | Mục 6 báo cáo | Kiểm tra lại giấy tờ khi xuất phát; thu hồi ngoại lệ giao ngựa; làm FR-TRP-02 và FR-TRP-09 hoặc ghi rõ ngoài phạm vi; cập nhật `implementation-status.md` | Test và tài liệu khớp |
+| B13 | Long đề xuất 12/11/2026 | Thông tin thông quan cho chuyến quốc tế. Hiện `booking_details` đã có `customsCode`, `importPermit`, `border` (API nhận) nhưng không màn nào nhập hay hiện. Làm: (1) đặt đơn quốc tế cho nhập không bắt buộc mã thông quan (số tờ khai hải quan), số giấy phép nhập khẩu, cửa khẩu dự kiến, ghi "có thể bổ sung sau" vì số tờ khai thường chỉ có sau khi có giấy kiểm dịch; (2) sau khi duyệt, khách hoặc chuyên viên bổ sung, sửa ở chi tiết đơn (web, mobile); (3) đơn quốc tế thiếu mã thông quan thì chặn quản lý chuyển chuyến cho tài xế, có ngoại lệ kèm lý do như A5; (4) màn chuyến của tài xế hiện mã thông quan, giấy phép nhập khẩu và lối mở giấy tờ ngựa ở chặng qua cửa khẩu. **Cần xác nhận nghiệp vụ:** bộ giấy tài xế cần mang qua cửa khẩu (tờ khai đã thông quan, chứng nhận kiểm dịch xuất khẩu, giấy phép nhập khẩu, hộ chiếu ngựa) | Đơn quốc tế đặt được khi chưa có mã; thiếu mã thì không chuyển chuyến nếu không có lý do; tài xế thấy mã ở chặng cửa khẩu; test API và E2E |
 
 ## 7. Giai đoạn C: Triển khai
 
