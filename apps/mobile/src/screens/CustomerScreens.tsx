@@ -82,6 +82,7 @@ import {
   careDetail,
   careSummaryLine,
   paymentAction,
+  depositTimeLeft,
   placeName,
   dateTime,
   day,
@@ -962,9 +963,8 @@ export function QuoteScreen({ id, go }: { id: string; go: Navigate }) {
       )
     : null;
   const due = quote ? Math.max(0, Number(quote.total) - Number(quote.paid)) : 0;
-  const left = quote?.expires_at
-    ? Date.parse(quote.expires_at) - Date.now()
-    : null;
+  // Đã cọc đủ thì không còn đếm ngược hạn đặt cọc (N4).
+  const left = quote ? depositTimeLeft(quote) : null;
   const line = (
     title: string,
     amount: string,

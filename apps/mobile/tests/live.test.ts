@@ -14,6 +14,7 @@ import {
   careDetail,
   careSummaryLine,
   paymentAction,
+  depositTimeLeft,
   placeName,
   shouldStopTracking,
   tripTimeline,
@@ -271,4 +272,15 @@ test("planned leave time at a stop comes from the next leg, none at the last sto
 test("trip without legs is not reported as delivered", () => {
   const out = applyPending({ legs: [], orderStatus: "READY", horses: [] } as any, []);
   assert.equal(out.orderStatus, "READY");
+});
+
+test("N4: hết đếm ngược đặt cọc khi đã cọc đủ; còn nhắc khi chưa cọc hoặc cọc thiếu", () => {
+  const now = Date.parse("2026-11-11T10:00:00Z");
+  const expires_at = "2026-11-12T07:10:00Z";
+  const left = 21 * 3600000 + 10 * 60000;
+  assert.equal(depositTimeLeft({ deposit: 300, paid: 0, expires_at }, now), left);
+  assert.equal(depositTimeLeft({ deposit: 300, paid: 100, expires_at }, now), left);
+  assert.equal(depositTimeLeft({ deposit: 300, paid: 300, expires_at }, now), null);
+  assert.equal(depositTimeLeft({ deposit: 300, paid: "1000", expires_at }, now), null);
+  assert.equal(depositTimeLeft({ deposit: 300, paid: null, expires_at: null }, now), null);
 });

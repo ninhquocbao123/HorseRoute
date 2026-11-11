@@ -170,6 +170,18 @@ export function paymentAction(
         : "Cần trả đủ trước khi tài xế giao ngựa.",
   };
 }
+/**
+ * Thời gian còn lại để đặt cọc (ms), hoặc null khi không còn hạn nào phải nhắc:
+ * báo giá không có hạn, hoặc khách đã cọc đủ (hạn báo giá chỉ áp cho tiền cọc).
+ */
+export function depositTimeLeft(
+  quote: { deposit: string | number; paid?: string | number | null; expires_at?: string | null },
+  now = Date.now(),
+): number | null {
+  if (!quote.expires_at) return null;
+  if (Number(quote.paid ?? 0) >= Number(quote.deposit)) return null;
+  return Date.parse(quote.expires_at) - now;
+}
 /** Cửa sổ ghi lùi của mốc và ghi chăm sóc từ hàng chờ (G3 phương án A). */
 export const BACKFILL_MS = 24 * 3600000;
 /**
