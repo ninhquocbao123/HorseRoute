@@ -23,6 +23,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm --filter api test
+      - run: pnpm --filter web test
       # Dựng DB từ đầu bằng đúng lệnh người dùng chạy; lần chạy thứ hai phải không làm gì.
       - run: pnpm db:setup && pnpm db:setup
         env:
@@ -50,3 +51,24 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: integration-test-only
           TEST_DB_SSL: 'false'
+      - name: Install Playwright Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Web browser tests
+        run: pnpm --filter web test:browser
+      # Luồng trọn vẹn trên web thật, API thật và database tạm; dịch vụ bản đồ là server giả, không gọi mạng ngoài.
+      - name: Web end-to-end flow
+        run: pnpm --filter web test:e2e
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: integration-test-only
+          TEST_DB_SSL: 'false'
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-artifacts
+      - name: Upload E2E failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: ${{ runner.temp }}/e2e-artifacts
+          if-no-files-found: ignore

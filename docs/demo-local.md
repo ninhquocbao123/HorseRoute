@@ -74,13 +74,16 @@ Image `mysql:8.0` (~1,1 GB) có thể đang được dự án dùng chung; chỉ
 
 ## Test trình duyệt của Driver / Escort
 
-Các test dùng API giả lập (không cần DB hay server demo), vite chạy ở cổng `WEB_TEST_PORT` (mặc định **5181**; không dùng 5180 của bản demo):
+**Cập nhật 11/11/2026:** các test trình duyệt tài xế, hộ tống dùng API giả đã lỗi thời so với giao diện và được chuyển vào `apps/web/test/legacy/` (xem README trong đó). Test đang dùng:
 
 ```powershell
-$env:PLAYWRIGHT_PACKAGE='<đường dẫn playwright-core>'; $env:WEB_TEST_PORT='5181'
-node apps/web/test/driver/run-all.cjs          # 6 file tài xế + escort
-node apps/web/test/escort.browser.cjs          # chỉ hộ tống (E1)
-node apps/web/test/driver/driver-gps.browser.cjs   # từng file: driver-trip, driver-gps, driver-actions, driver-incident, driver-history, driver-notices, driver-toasts
+# Không cần trình duyệt
+pnpm --filter web test
+# Trình duyệt, API giả: màn bảng giá
+$env:PLAYWRIGHT_CHANNEL='msedge'; pnpm --filter web test:browser
+# Trình duyệt trên API và MySQL thật, luồng trọn từ đăng ký tới giao ngựa (database tạm, tự xóa)
+$env:TEST_DB_HOST='127.0.0.1'; $env:TEST_DB_PORT='3306'; $env:TEST_DB_USER='root'; $env:TEST_DB_PASSWORD='...'; $env:TEST_DB_SSL='false'
+pnpm --filter web test:e2e
 ```
 
-Khung chung (dữ liệu giả, route API, helper) nằm ở `apps/web/test/driver/harness.cjs`. `driver.browser.cjs` cũ đã được tách thành các file theo màn.
+Lỗi ở test E2E thì ảnh màn hình lúc lỗi nằm ở `%TEMP%\wdp-e2e-artifacts\failure.png`.

@@ -309,6 +309,8 @@ Mỗi mục ghi: hiện trạng, bằng chứng, hậu quả, hướng sửa. "�
 
 **N13 (P3). Giao diện điều phối hứa hơn API cho phép.** Khi kế hoạch không còn ở trạng thái nháp, màn điều phối ghi "Nhân sự có thể được cập nhật riêng", nhưng API chỉ nhận phân công khi kế hoạch còn nháp (409 với các trạng thái khác). Cần sửa câu chữ hoặc mở API theo đúng nghiệp vụ mong muốn.
 
+**N14 (P3). Số hộ chiếu FEI không có dấu bắt buộc nhưng lại bắt buộc khi đặt chuyến.** Phát hiện khi viết test E2E (11/11/2026). Form hồ sơ ngựa không đánh dấu `*` cho ô này, nhưng bước chọn ngựa khi đặt chuyến chặn nếu thiếu và chỉ báo bằng một thông báo nổi vài giây (`CustomerJourney.tsx`). Nên đánh dấu bắt buộc ngay trên form hồ sơ, hoặc hiện lỗi ngay trên thẻ ngựa.
+
 ## 5. Điểm mạnh nên trình bày với hội đồng
 
 - Phân quyền kiểm tra ở máy chủ theo vai trò đọc từ DB, không tin vai trò trong token; có test chứng minh ("JWT ADMIN claim cannot grant Manager authority"). Điều phối chỉ thấy chuyến mình phụ trách, tài xế chỉ thấy chuyến được phân công.

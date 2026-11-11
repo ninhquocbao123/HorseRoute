@@ -6,7 +6,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
  const {createServer}=await import(pathToFileURL(path.join(path.dirname(require.resolve('vite',{paths:[web]})),'dist/node/index.js')).href);
  const server=await createServer({root:web,server:{host:'127.0.0.1',port:5188,strictPort:true}});await server.listen();let browser;
  try{
- const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE||'playwright');browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE||'playwright');browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{})});const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const now=new Date().toISOString();const versions=[{id:'1',title:'Giá hiện tại',note:'HTML v7',status:'PUBLISHED',revision:1,config:structuredClone(initialPricingConfig),effectiveFrom:now,publishedAt:now,createdAt:now,updatedAt:now,createdByName:null,publishedByName:null}];let active='1';
  await page.addInitScript(()=>localStorage.setItem('accessToken','manager-pricing-test'));
  await page.context().route('**/users/me',route=>route.fulfill({json:{id:'2',role:'MANAGER',accountStatus:'ACTIVE',fullName:'Quản lý thử nghiệm',email:'manager@example.com',phone:null,address:null,createdAt:now}}));
