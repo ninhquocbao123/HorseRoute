@@ -1,7 +1,9 @@
 # Bản sao database chung của nhóm, chạy trên máy từng người (thay Aiven khi không truy cập được).
-# Lần đầu khởi động, MySQL nạp bản dump database `wdp` trên Aiven lúc 23:43 ngày 28/10/2026.
-# Sau đó chạy `pnpm db:setup` để thêm các migration mới hơn. Xem docs/db-local-copy.md.
-#   pnpm db:local          khởi động (lần đầu mất khoảng 1 phút để nạp dữ liệu)
+# Lần đầu khởi động, MySQL nạp theo thứ tự:
+#   01  cấu trúc database wdp trên Aiven lúc 15:39 ngày 10/11/2026 (40 bảng, không có dữ liệu)
+#   02  dữ liệu nền do migration của code tạo (danh sách migration, 3 loại giấy tờ, tham số, bảng giá)
+# Sau đó `pnpm db:local` chạy các migration mới hơn nếu có. Xem docs/db-local-copy.md.
+#   pnpm db:local          khởi động
 #   pnpm db:local:reset    xóa dữ liệu trên máy mình và nạp lại từ đầu
 name: wdp-local-db
 services:
@@ -16,7 +18,8 @@ services:
     command: [--character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci]
     volumes:
       - wdp-local-db-data:/var/lib/mysql
-      - ../../backups/wdp_before_trip_fleet_20261028.sql:/docker-entrypoint-initdb.d/01-wdp-20261028.sql:ro
+      - ./01-schema-20261110.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./02-reference-data.sql:/docker-entrypoint-initdb.d/02-reference-data.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pwdp-local"]
       interval: 5s

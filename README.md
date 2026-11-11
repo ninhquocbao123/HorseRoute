@@ -62,7 +62,7 @@ Sửa `packages/shared` thì chạy lại `pnpm --filter @my-project/shared buil
 
 ### Bản sao database chung của nhóm
 
-Không vào được database Aiven của nhóm thì dựng bản sao trên máy mình (dữ liệu tới 28/10/2026, đã cập nhật theo mọi migration): `pnpm db:local`, rồi trỏ `.env` vào cổng 3307. Xem [docs/db-local-copy.md](docs/db-local-copy.md).
+Cần database riêng trên máy mình (thử nghiệm, dự phòng khi Aiven lỗi): `pnpm db:local` dựng MySQL cổng 3307 với cấu trúc và dữ liệu nền giống database chung. Xem [docs/db-local-copy.md](docs/db-local-copy.md).
 
 ### Dữ liệu demo có sẵn
 
