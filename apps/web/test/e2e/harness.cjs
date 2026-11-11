@@ -63,10 +63,10 @@ exports.run = async (name, body) => {
     await db.initialize();
     await db.runMigrations({ transaction: 'each' });
 
-    // Nhân sự và tài nguyên không có màn tạo trên web (xem N2 trong báo cáo đánh giá): chèn thẳng.
+    // Nhân sự ban đầu chèn thẳng như `pnpm db:create-user` làm trên DB mới; nhân sự sau đó Admin tạo trên web (chặng A3 của test).
     const hash = await bcrypt.hash(PASSWORD, 4);
     const staff = {};
-    for (const [key, fullName, role] of [['manager', 'Quản Lý E2E', 'MANAGER'], ['specialist', 'Chuyên Viên E2E', 'SPECIALIST'],
+    for (const [key, fullName, role] of [['admin', 'Quản Trị E2E', 'ADMIN'], ['manager', 'Quản Lý E2E', 'MANAGER'], ['specialist', 'Chuyên Viên E2E', 'SPECIALIST'],
       ['coordinator', 'Điều Phối E2E', 'COORDINATOR'], ['driver', 'Tài Xế E2E', 'DRIVER_ESCORT'], ['escort', 'Hộ Tống E2E', 'DRIVER_ESCORT']]) {
       const result = await db.query("INSERT INTO users(email,password_hash,full_name,role,account_status,phone) VALUES (?,?,?,?,'ACTIVE','0901234567')",
         [`${key}@e2e.test`, hash, fullName, role]);

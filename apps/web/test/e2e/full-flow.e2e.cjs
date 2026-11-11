@@ -354,6 +354,36 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await main.getByText(/chưa có xe phục vụ/).first().waitFor();
   });
 
+  await phase('Admin tạo tài khoản tài xế trên web; tài xế đăng nhập được; Admin khóa thì không vào được nữa', async () => {
+    await login('admin@e2e.test');
+    await page.getByRole('button', { name: 'Quản lý tài khoản' }).first().click();
+    await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
+    const form = page.getByRole('dialog').filter({ hasText: 'Tạo tài khoản nhân sự' });
+    await form.getByLabel('Email').fill('taixe.moi@e2e.test');
+    await form.getByLabel('Họ tên').fill('Tài Xế Mới E2E');
+    await form.getByLabel('Mật khẩu ban đầu').fill(PASSWORD);
+    await form.getByRole('button', { name: 'Tạo', exact: true }).click();
+    await until('tạo tài xế', async () => (await db.query("SELECT u.id FROM users u JOIN crew_profiles c ON c.user_id=u.id AND c.crew_type='DRIVER' WHERE u.email='taixe.moi@e2e.test' AND u.role='DRIVER_ESCORT'")).length === 1);
+    await page.getByText('Tài Xế Mới E2E').waitFor();
+    await login('taixe.moi@e2e.test');
+    await page.getByText('Tài Xế Mới E2E').first().waitFor();
+    await login('admin@e2e.test');
+    await page.getByRole('button', { name: 'Quản lý tài khoản' }).first().click();
+    await page.getByRole('button', { name: 'Khóa taixe.moi@e2e.test' }).click();
+    const lock = page.getByRole('dialog').filter({ hasText: 'Khóa taixe.moi@e2e.test' });
+    await lock.getByLabel('Lý do').fill('Nghỉ việc');
+    await lock.getByRole('button', { name: 'Khóa', exact: true }).click();
+    await until('khóa tài xế', async () => (await db.query("SELECT account_status s FROM users WHERE email='taixe.moi@e2e.test'"))[0].s === 'LOCKED');
+    await page.goto(base + '/brand/horse-transport-logo.png');
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.goto(base + '/staff/login');
+    await page.getByLabel('Email').fill('taixe.moi@e2e.test');
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await page.getByText(/không hoạt động/).first().waitFor();
+    assert.match(page.url(), /\/staff\/login/);
+  });
+
   await phase('Khách thấy đơn đã giao', async () => {
     await login(customer, false);
     await page.goto(`${base}/dashboard?view=orders`);

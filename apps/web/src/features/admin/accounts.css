@@ -1,0 +1,14 @@
+.accounts-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.accounts-heading h2 { margin: 0; }
+.accounts-heading p { font-size: 13px; color: var(--color-text-muted, #68756e); margin: 8px 0 0; }
+/* The site-wide `input` rule adds a margin that misaligns antd inputs. */
+.accounts input { margin: 0; }
+.accounts-filters { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(150px, 1fr) auto; gap: 12px; margin-bottom: 16px; align-items: center; }
+.accounts-name { display: flex; flex-direction: column; gap: 2px; }
+.accounts-name small, .accounts-muted { color: var(--color-text-muted, #68756e); font-size: 12px; }
+.accounts-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 760px) {
+  .accounts-filters { grid-template-columns: 1fr 1fr; }
+  .accounts-filters > :first-child { grid-column: 1 / -1; }
+}
+.accounts .accounts-nowrap { white-space: nowrap; }
