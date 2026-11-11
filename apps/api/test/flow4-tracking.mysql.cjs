@@ -21,8 +21,8 @@ process.env.DOCUMENT_STORAGE_PROVIDER = 'local';
 // Không bao giờ gọi dịch vụ tính tuyến thật trong test: URL rỗng → tuyến STRAIGHT, không cache.
 process.env.MAP_ROUTING_URL = '';
 
-let admin, db, server, created = false, passed = 0;
-async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
+let admin, db, server, created = false;
+const checks = require('./checks.cjs')(), check = checks.check;
 
 const PNG = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(64, 7)]);
 const minutesAgo = m => new Date(Date.now() - m * 60 * 1000).toISOString();
@@ -945,7 +945,8 @@ async function main() {
     } finally { await runner.release(); }
   });
 
-  console.log(`${passed} Flow 4 tracking integration checks passed`);
+  checks.done();
+  console.log(`${checks.passed} Flow 4 tracking integration checks passed`);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {

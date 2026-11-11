@@ -11,8 +11,8 @@ const { createApp } = require('../src/app');
 const { TokenService } = require('../src/shared/utils/jwt.util');
 const options = require('./mysql-options.cjs');
 const name = 'wdp_flow3_test_' + require('crypto').randomBytes(8).toString('hex');
-let admin, db, server, created = false, passed = 0;
-async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
+let admin, db, server, created = false;
+const checks = require('./checks.cjs')(), check = checks.check;
 async function main() {
   admin = await mysql.createConnection(options);
   assert.match(name, /^wdp_flow3_test_[0-9a-f]{16}$/);
@@ -91,7 +91,8 @@ async function main() {
   await require('./trips-submit-checks.cjs')({ db, base, tokens, read, check });
   await require('./trips-review-checks.cjs')({ db, base, tokens, read, check });
   await require('./trips-crew-checks.cjs')({ db, base, tokens, read, check });
-  console.log(`${passed} Flow 3 read/save/submit/review/crew integration checks passed`);
+  checks.done();
+  console.log(`${checks.passed} Flow 3 read/save/submit/review/crew integration checks passed`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   if (server) await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

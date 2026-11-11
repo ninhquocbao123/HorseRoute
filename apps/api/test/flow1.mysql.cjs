@@ -9,8 +9,8 @@ const {OrderDrafts1800000001000}=require('../src/database/migrations/18000000010
 const {horseDocumentNames}=require('../src/features/documents/required-horse-documents');
 const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
 const options=require('./mysql-options.cjs');
-let admin,db,created=false;let passed=0;
-async function check(label,fn){await fn();passed++;console.log('PASS '+label);}
+let admin,db,created=false;
+const checks = require('./checks.cjs')(), check = checks.check;
 async function main(){
  admin=await mysql.createConnection(options);
  assert.match(name,/^wdp_flow1_test_[0-9a-f]{16}$/);
@@ -54,7 +54,6 @@ async function main(){
  await check('list is scoped and filterable',async()=>{const list=await service.list(customer,{page:1,limit:10,status:'APPROVED'});assert.equal(list.total,1);assert.equal(String(list.items[0].id),id);assert.equal((await service.list(other,{page:1,limit:10,status:'APPROVED'})).total,0);});
  const collision=(await service.save(other,payload)).id;
  await check('duplicate passport returns field error and preserves saved draft',async()=>{await assert.rejects(()=>service.submit(other,collision),e=>e.getStatus()===400);assert.equal((await service.detail(other,collision)).status,'DRAFT');});
- console.log('Integration checks passed: '+passed);
  await check('delete own draft removes row, preserves audit and rejects sent orders',async()=>{
   await assert.rejects(()=>service.deleteDraft(customer,collision),e=>e.getStatus()===404);
   await assert.rejects(()=>service.deleteDraft(manager,collision),e=>e.getStatus()===403);
@@ -74,5 +73,7 @@ async function main(){
   await db.query("UPDATE documents SET status='SUBMITTED'");
   assert.equal((await service.list(manager,{page:1,limit:10,group:'documents'})).total,0);
  });
+ checks.done();
+ console.log('Integration checks passed: '+checks.passed);
 }
 main().catch(e=>{console.error('Integration failed:',e.code||e.name,e instanceof assert.AssertionError?e.message:(typeof e.getResponse==='function'?JSON.stringify(e.getResponse()):e.sqlMessage||'Check local MySQL availability and test setup.'));process.exitCode=1;}).finally(async()=>{if(db?.isInitialized)await db.destroy();if(admin){if(created&&/^wdp_flow1_test_[0-9a-f]{16}$/.test(name))await admin.query('DROP DATABASE `'+name+'`');await admin.end();}});

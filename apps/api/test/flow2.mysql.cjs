@@ -13,8 +13,8 @@ const name='wdp_flow2_test_'+require('crypto').randomBytes(8).toString('hex');
 const options=require('./mysql-options.cjs');
 const storageRoot=path.resolve(__dirname,'../../../test-results');process.env.DOCUMENT_STORAGE_DIR=path.join(storageRoot,name);
 process.env.DOCUMENT_STORAGE_PROVIDER='local';
-let admin,db,created=false;let passed=0;
-async function check(label,fn){await fn();passed++;console.log('PASS '+label);}
+let admin,db,created=false;
+const checks = require('./checks.cjs')(), check = checks.check;
 async function main(){
  admin=await mysql.createConnection(options);
  assert.match(name,/^wdp_flow2_test_[0-9a-f]{16}$/);
@@ -100,7 +100,8 @@ async function main(){
  await docs.review(specialist,id,second,{status:'VALID',versionId:String(detail.documents[1].latest_version_id),expiryDate:future});
  await docs.updateDossier(specialist,id,dossier,{status:'SUBMITTED',date:now,receiptCode:'R2'});
  await check('approval requires permit and preserves terminal outcome',async()=>{await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'APPROVED',date:now}),e=>e.getStatus()===400);await docs.updateDossier(specialist,id,dossier,{status:'APPROVED',date:now,reason:'Cơ quan chấp thuận'},pdf);detail=await docs.detail(customer,id);assert.equal(detail.dossiers[0].status,'APPROVED');assert.deepEqual((await docs.download(customer,id,detail.dossiers[0].permit_attachment_id)).buffer,pdf.buffer);await assert.rejects(()=>docs.updateDossier(specialist,id,dossier,{status:'REJECTED',date:now,reason:'Không đổi kết quả'}),e=>e.getStatus()===409);});
- console.log('Integration checks passed: '+passed);
+ checks.done();
+ console.log('Integration checks passed: '+checks.passed);
 }
 main().catch(e=>{console.error('Integration failed:',e.code||e.name,e instanceof assert.AssertionError?e.message:(typeof e.getResponse==='function'?JSON.stringify(e.getResponse()):e.sqlMessage||'Check local MySQL availability and test setup.'));process.exitCode=1;}).finally(async()=>{if(db?.isInitialized)await db.destroy();const folder=path.resolve(process.env.DOCUMENT_STORAGE_DIR);if(folder===path.join(storageRoot,name)&&/^wdp_flow2_test_[0-9a-f]{16}$/.test(name))fs.rmSync(folder,{recursive:true,force:true});if(admin){if(created&&/^wdp_flow2_test_[0-9a-f]{16}$/.test(name))await admin.query('DROP DATABASE `'+name+'`');await admin.end();}});
 

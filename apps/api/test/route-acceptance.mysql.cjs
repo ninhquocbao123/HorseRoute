@@ -8,7 +8,7 @@ async function main() {
     {id:'rest',kind:'REST_STOP',label:'Điểm nghỉ thử',latitude:21.021,longitude:105.849,note:'Ghi chú kiểm thử'},
     {id:'destination',kind:'DESTINATION',label:'Công viên Thống Nhất',latitude:21.011,longitude:105.841,note:''},
   ];
-  const check = async (label,work) => {await work(); console.log('PASS '+label);};
+  const checks = require('./checks.cjs')(), check = checks.check;
   try {
     await check('legacy trip GET/list and auth/scope boundaries',async()=>{
       const detail = await f.call('GET','/trips/100');
@@ -82,6 +82,7 @@ async function main() {
       const {runBrowser} = await import('../../web/test/route-acceptance.browser.mjs');
       await runBrowser(f);
     }
+    checks.done();
     console.log('PASS route acceptance on '+f.name+(process.env.ROUTE_TEST_KEEP_DB==='1'?' (kept for inspection)':' (dropped after the run)'));
   } finally {await f.close();}
 }

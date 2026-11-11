@@ -13,8 +13,8 @@ const { TokenService } = require('../src/shared/utils/jwt.util');
 const options = require('./mysql-options.cjs');
 
 const name = 'wdp_flow3_test_' + require('crypto').randomBytes(8).toString('hex');
-let admin, db, server, created = false, passed = 0;
-async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
+let admin, db, server, created = false;
+const checks = require('./checks.cjs')(), check = checks.check;
 const ids = { customer: '1', manager: '2', coord: '3', driver: '6' };
 
 async function main() {
@@ -173,7 +173,8 @@ async function main() {
     await expectStatus(400, 'DELETE', '/vehicles/abc', { as: ids.coord });
   });
 
-  console.log(`${passed} Vehicles integration checks passed`);
+  checks.done();
+  console.log(`${checks.passed} Vehicles integration checks passed`);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {

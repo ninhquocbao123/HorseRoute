@@ -14,8 +14,8 @@ const { TrackingRepository } = require('../src/features/tracking/tracking.reposi
 const options = require('./mysql-options.cjs');
 
 const name = 'wdp_flow3_test_' + crypto.randomBytes(8).toString('hex');
-let admin, db, server, created = false, passed = 0;
-const check = async (label, fn) => { await fn(); passed++; console.log('PASS ' + label); };
+let admin, db, server, created = false;
+const checks = require('./checks.cjs')(), check = checks.check;
 
 async function main() {
   admin = await mysql.createConnection(options);
@@ -180,7 +180,8 @@ async function main() {
     assert.equal((await call('GET', '/trips/100', 4)).status, 404);
     assert.equal((await call('GET', '/trips/100', 1)).status, 403);
   });
-  console.log(`${passed} coordinator resource integration checks passed on isolated database ${name}`);
+  checks.done();
+  console.log(`${checks.passed} coordinator resource integration checks passed on isolated database ${name}`);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
