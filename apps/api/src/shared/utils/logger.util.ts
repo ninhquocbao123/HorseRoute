@@ -3,7 +3,7 @@ type LogFields = Record<string, string | number | boolean | undefined>;
 // Never serialize raw errors: drivers may attach SQL, credentials or provider bodies.
 const errorMessages: Record<string, string> = {
   INVALID_ENV: 'Biến môi trường không hợp lệ; kiểm tra các tên trong configFields.',
-  INVALID_SSL_CONFIG: 'Kiểm tra DB_SSL và đường dẫn tuyệt đối DB_SSL_CA_PATH.',
+  INVALID_SSL_CONFIG: 'Kiểm tra DB_SSL, DB_SSL_CA hoặc đường dẫn tuyệt đối DB_SSL_CA_PATH.',
   ENOENT: 'Không tìm thấy file; kiểm tra đường dẫn cấu hình và chứng chỉ SSL.',
   EACCES: 'Không có quyền truy cập tài nguyên.',
   ECONNREFUSED: 'Kết nối bị từ chối; kiểm tra dịch vụ, địa chỉ và cổng.',
