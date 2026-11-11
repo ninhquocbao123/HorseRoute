@@ -27,6 +27,8 @@ async function main() {
   });
   await db.initialize();
   await require('./load-schema.cjs')(db);
+  // DB thật không còn quy định kiểm dịch (migration RemoveQuarantineRules); load-schema giữ lại cho flow2.
+  await db.query('DROP TABLE quarantine_rule_doctypes, quarantine_rules');
   const q = (sql, params) => db.query(sql, params);
   const count = async (sql, params) => Number((await q(sql, params))[0].n);
 
@@ -38,7 +40,6 @@ async function main() {
     (1,'Kho Long An','REST_STOP','VN','Asia/Ho_Chi_Minh',10.638,106.47),(2,'Cửa khẩu Mộc Bài','BORDER','VN','Asia/Ho_Chi_Minh',11.076,106.158),
     (3,'Sân bay Changi','AIRPORT','SG','Asia/Singapore',1.3644,103.9915),(4,'Điểm chưa ghim','REST_STOP','VN','Asia/Ho_Chi_Minh',NULL,NULL),
     (5,'Cửa khẩu Bavet','BORDER','KH','Asia/Phnom_Penh',11.074,106.1545)`);
-  await q(`INSERT INTO quarantine_rules(id,origin_country,destination_country,border_location_id,updated_by,updated_at) VALUES (1,'VN','KH',5,2,UTC_TIMESTAMP())`);
   await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status)
     VALUES (50,'WDP-LOC-50',1,'A','VN','B','SG','2026-10-20','PREPARING')`);
   await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES (5,'MEDIUM',4,'XE-1','AVAILABLE')`);
@@ -103,7 +104,8 @@ async function main() {
     assert.equal(made.address, null);
     assert.equal(made.latitude, 11.031235);
     assert.equal(made.longitude, 106.36);
-    assert.deepEqual([made.legCount, made.ruleCount, made.inActiveUse], [0, 0, false]);
+    assert.deepEqual([made.legCount, made.inActiveUse], [0, false]);
+    assert.equal('ruleCount' in made, false);
     const [entry] = await audits(made.id);
     assert.equal(entry.action, 'CREATE');
     assert.equal(entry.oldValue, null);
@@ -128,7 +130,7 @@ async function main() {
     assert.equal(all.total, 6);
     assert.deepEqual(all.items.map(l => l.name), (await q('SELECT name FROM locations ORDER BY name, id')).map(r => r.name));
     const byId = Object.fromEntries(all.items.map(l => [l.id, l]));
-    assert.deepEqual([byId[1].legCount, byId[2].legCount, byId[3].legCount, byId[5].ruleCount], [1, 2, 1, 1]);
+    assert.deepEqual([byId[1].legCount, byId[2].legCount, byId[3].legCount, byId[5].legCount], [1, 2, 1, 0]);
     assert.deepEqual([byId[2].inActiveUse, byId[5].inActiveUse], [true, false]);
     assert.deepEqual([byId[4].latitude, byId[4].longitude], [null, null]);
     assert.equal(typeof byId[3].latitude, 'number');
@@ -161,16 +163,13 @@ async function main() {
     assert.deepEqual(await routes(), [{ f: '3', t: '1' }], 'moving location 2 drops only its routes');
   });
 
-  await check('Type is locked while in an approved plan of an unfinished order or used as a quarantine border; other fields stay editable', async () => {
+  await check('Type is locked while in an approved plan of an unfinished order; other fields stay editable', async () => {
     const before = await q('SELECT * FROM locations WHERE id IN (2,5) ORDER BY id');
     const auditCount = await count('SELECT COUNT(*) AS n FROM audit_logs');
     const inPlan = await call('PUT', '/locations/2', { ...sp, body: { ...body2, locationType: 'REST_STOP' } });
     assert.equal(inPlan.status, 409);
     assert.match(inPlan.data.message, /kế hoạch đã duyệt/);
     const bavet = { name: 'Cửa khẩu Bavet', locationType: 'BORDER', country: 'KH', timezone: 'Asia/Phnom_Penh', latitude: 11.074, longitude: 106.1545 };
-    const inRule = await call('PUT', '/locations/5', { ...sp, body: { ...bavet, locationType: 'REST_STOP' } });
-    assert.equal(inRule.status, 409);
-    assert.match(inRule.data.message, /quy định kiểm dịch/);
     assert.deepEqual(await q('SELECT * FROM locations WHERE id IN (2,5) ORDER BY id'), before, 'rejected updates change nothing');
     assert.equal(await count('SELECT COUNT(*) AS n FROM audit_logs'), auditCount, 'and write no audit entry');
     assert.equal((await expectStatus(200, 'PUT', '/locations/5', { ...sp, body: { ...bavet, address: 'Svay Rieng' } })).address, 'Svay Rieng');
@@ -181,12 +180,12 @@ async function main() {
     await q("UPDATE orders SET status='PREPARING' WHERE id=50");
   });
 
-  await check('Delete: refused while legs or quarantine rules reference it; unused location removed with its routes and an audit entry', async () => {
-    for (const id of ['1', '2', '5']) {
+  await check('Delete: refused while legs reference it; unused location removed with its routes and an audit entry', async () => {
+    for (const id of ['1', '2']) {
       const r = await call('DELETE', '/locations/' + id, sp);
       assert.equal(r.status, 409, id);
     }
-    assert.equal(await count('SELECT COUNT(*) AS n FROM locations WHERE id IN (1,2,5)'), 3);
+    assert.equal(await count('SELECT COUNT(*) AS n FROM locations WHERE id IN (1,2)'), 2);
     const temp = await expectStatus(201, 'POST', '/locations', { ...sp, body: { ...valid, name: 'Điểm tạm' } });
     await q("INSERT INTO location_routes(from_location_id,to_location_id,mode,coordinates) VALUES (?,1,'ROAD','[]')", [temp.id]);
     await expectStatus(204, 'DELETE', '/locations/' + temp.id, sp);

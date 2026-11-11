@@ -59,7 +59,6 @@ export class LocationsService {
         if (input.locationType !== before.locationType) {
           // Flow 4 requires customs at BORDER destinations; changing the type mid-plan would change that rule.
           if (before.inActiveUse) throw new ConflictException('Địa điểm đang nằm trong kế hoạch đã duyệt của đơn chưa giao xong; chưa thể đổi loại.');
-          if (before.ruleCount > 0) throw new ConflictException('Địa điểm đang là cửa khẩu trong quy định kiểm dịch; chưa thể đổi loại.');
         }
         await repo.update(id, input);
         if (input.latitude !== before.latitude || input.longitude !== before.longitude) await repo.clearRoutes(id);
@@ -80,7 +79,6 @@ export class LocationsService {
         if (!await repo.lock(id)) throw new NotFoundException(NOT_FOUND);
         const before = (await repo.find(id))!;
         if (before.legCount > 0) throw new ConflictException('Địa điểm đã được dùng trong kế hoạch chuyến nên không thể xóa.');
-        if (before.ruleCount > 0) throw new ConflictException('Địa điểm đang là cửa khẩu trong quy định kiểm dịch nên không thể xóa.');
         await repo.remove(id);
         await repo.audit(account.id, id, 'DELETE', snapshot(before), null);
       });

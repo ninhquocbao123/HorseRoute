@@ -182,7 +182,8 @@ test('Locations catalog documents Specialist CRUD with required coordinates and 
  for (const key of ['latitude', 'longitude', 'timezone', 'country']) assert.ok(input.required.includes(key), key);
  assert.ok(!input.required.includes('address'));
  const item = doc.components.schemas.Location;
- for (const key of ['legCount', 'ruleCount', 'inActiveUse']) assert.ok(item.required.includes(key), key);
+ for (const key of ['legCount', 'inActiveUse']) assert.ok(item.required.includes(key), key);
+ assert.equal(item.properties.ruleCount, undefined, 'quy định kiểm dịch đã gỡ khỏi hệ thống');
  assert.equal(item.properties.latitude.nullable, true);
  const option = doc.components.schemas.TripLocationOption;
  assert.equal(option.properties.latitude.nullable, true);

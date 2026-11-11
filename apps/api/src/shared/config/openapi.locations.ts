@@ -17,7 +17,6 @@ export const locationSchemas = {
     latitude: nullable(latitude, 'Vĩ độ WGS84; null khi địa điểm cũ chưa được ghim.'),
     longitude: nullable(longitude, 'Kinh độ WGS84; null cùng lúc với latitude.'),
     legCount: { type: 'integer', minimum: 0, description: 'Số chặng đi từ/đến địa điểm; > 0 thì không xóa được.' },
-    ruleCount: { type: 'integer', minimum: 0, description: 'Số quy định kiểm dịch dùng địa điểm làm cửa khẩu; > 0 thì không xóa được.' },
     inActiveUse: { type: 'boolean', description: 'Nằm trong kế hoạch đã duyệt của đơn APPROVED/PREPARING/READY/IN_TRANSIT: không được đổi loại.' },
   }),
   LocationList: object({ items: { type: 'array', items: ref('Location') }, total: { type: 'integer', minimum: 0 }, page: { type: 'integer', minimum: 1 }, limit: { type: 'integer', minimum: 1, maximum: 100 } }),
@@ -45,7 +44,7 @@ const common = { tags: [locationsTag.name], security: [{ bearer: [] }], 'x-imple
 const json = (schema: string, example: unknown) => ({ required: true, content: { 'application/json': { schema: ref(schema), example } } });
 const locationId = { name: 'id', in: 'path', required: true, description: 'ID địa điểm (locations.id).', schema: id };
 const input = { name: 'Cửa khẩu Mộc Bài', locationType: 'BORDER', country: 'VN', timezone: 'Asia/Ho_Chi_Minh', address: 'QL22, Bến Cầu, Tây Ninh', latitude: 11.076, longitude: 106.158 };
-const location = { id: '3', ...input, legCount: 4, ruleCount: 1, inActiveUse: false };
+const location = { id: '3', ...input, legCount: 4, inActiveUse: false };
 
 export const locationPaths = {
   '/api/v1/locations': {
@@ -63,7 +62,7 @@ export const locationPaths = {
     post: { ...common, operationId: 'createLocation', summary: 'Specialist: thêm địa điểm (bắt buộc tọa độ)',
       description: 'Tọa độ lấy từ ghim trên bản đồ (không lưu kết quả geocoding). Trùng tên trong cùng quốc gia trả 409. Ghi audit (LOCATION/CREATE).',
       requestBody: json('LocationInput', input),
-      responses: { ...ok(201, ref('Location'), { ...location, legCount: 0, ruleCount: 0 }, 'Đã tạo.'), ...errors([400, 401, 403, 409, 429, 500]) } },
+      responses: { ...ok(201, ref('Location'), { ...location, legCount: 0 }, 'Đã tạo.'), ...errors([400, 401, 403, 409, 429, 500]) } },
   },
   '/api/v1/locations/{id}': {
     get: { ...common, operationId: 'getLocation', summary: 'Specialist/Coordinator/Manager: chi tiết địa điểm', parameters: [locationId],
@@ -73,7 +72,7 @@ export const locationPaths = {
       requestBody: json('LocationInput', { ...input, latitude: 11.0758, longitude: 106.1612 }),
       responses: { ...ok(200, ref('Location'), { ...location, latitude: 11.0758, longitude: 106.1612 }), ...errors([400, 401, 403, 404, 409, 429, 500]) } },
     delete: { ...common, operationId: 'deleteLocation', summary: 'Specialist: xóa địa điểm chưa được dùng', parameters: [locationId],
-      description: 'Chỉ xóa được khi `legCount` = 0 và `ruleCount` = 0; ngược lại 409. Tuyến cache đi kèm tự xóa. Ghi audit (LOCATION/DELETE).',
+      description: 'Chỉ xóa được khi `legCount` = 0; ngược lại 409. Tuyến cache đi kèm tự xóa. Ghi audit (LOCATION/DELETE).',
       responses: { 204: { description: 'Đã xóa.', headers: { 'X-Request-ID': requestIdHeader } }, ...errors([400, 401, 403, 404, 409, 429, 500]) } },
   },
 };

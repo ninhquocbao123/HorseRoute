@@ -9,7 +9,6 @@ export interface LocationItem {
   /** Số chặng (mọi chuyến) đi từ hoặc đến địa điểm: > 0 thì không xóa được. */
   legCount: number;
   /** Số quy định kiểm dịch dùng địa điểm làm cửa khẩu: > 0 thì không xóa được. */
-  ruleCount: number;
   /** Nằm trong kế hoạch đã duyệt của đơn chưa giao xong: không được đổi loại (Flow 4 dựa vào loại BORDER). */
   inActiveUse: boolean;
 }
@@ -22,7 +21,6 @@ const ACTIVE_USE = `t.plan_status='APPROVED' AND o.status IN ('APPROVED','PREPAR
 const select = `SELECT CAST(x.id AS CHAR) AS id, x.name, x.location_type AS locationType, x.country, x.timezone, x.address,
   x.latitude, x.longitude,
   (SELECT COUNT(*) FROM legs l WHERE l.from_location_id=x.id OR l.to_location_id=x.id) AS legCount,
-  (SELECT COUNT(*) FROM quarantine_rules r WHERE r.border_location_id=x.id) AS ruleCount,
   EXISTS(SELECT 1 FROM legs l JOIN trips t ON t.id=l.trip_id JOIN orders o ON o.id=t.order_id
     WHERE (l.from_location_id=x.id OR l.to_location_id=x.id) AND ${ACTIVE_USE}) AS inActiveUse
   FROM locations x`;
@@ -31,7 +29,7 @@ const coordinate = (value: unknown) => value === null || value === undefined ? n
 const map = (row: any): LocationItem => ({
   id: row.id, name: row.name, locationType: row.locationType, country: row.country, timezone: row.timezone, address: row.address ?? null,
   latitude: coordinate(row.latitude), longitude: coordinate(row.longitude),
-  legCount: Number(row.legCount), ruleCount: Number(row.ruleCount), inActiveUse: Number(row.inActiveUse) === 1,
+  legCount: Number(row.legCount), inActiveUse: Number(row.inActiveUse) === 1,
 });
 
 export class LocationsRepository {

@@ -164,7 +164,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
       title: 'Sử dụng', key: 'usage',
       render: (_value, location) => (
         <span className="locations-tags">
-          <span className="locations-muted">{location.legCount} chặng{location.ruleCount ? ` · ${location.ruleCount} quy định` : ''}</span>
+          <span className="locations-muted">{location.legCount} chặng</span>
           {location.inActiveUse && <Tooltip title="Nằm trong kế hoạch đã duyệt của đơn chưa giao xong."><Tag color="processing">Đang dùng</Tag></Tooltip>}
         </span>
       ),
@@ -174,7 +174,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
     columns.push({
       title: 'Thao tác', key: 'actions', align: 'right',
       render: (_value, location) => {
-        const blocked = location.legCount > 0 ? 'Địa điểm đã được dùng trong kế hoạch chuyến.' : location.ruleCount > 0 ? 'Địa điểm là cửa khẩu trong quy định kiểm dịch.' : '';
+        const blocked = location.legCount > 0 ? 'Địa điểm đã được dùng trong kế hoạch chuyến.' : '';
         return (
           <span className="locations-actions">
             <Button size="small" onClick={() => openForm(location)} aria-label={`Sửa ${location.name}`}>{location.latitude === null ? 'Ghim vị trí' : 'Sửa'}</Button>
@@ -187,7 +187,7 @@ export default function LocationsWorkspace({ canEdit }: { canEdit: boolean }) {
     });
   }
 
-  const typeLocked = editing !== null && editing !== 'new' && (editing.inActiveUse || editing.ruleCount > 0);
+  const typeLocked = editing !== null && editing !== 'new' && editing.inActiveUse;
   const pinned = typeof latitude === 'number' && typeof longitude === 'number' ? { latitude, longitude } : null;
 
   return (

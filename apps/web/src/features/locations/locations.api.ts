@@ -14,7 +14,6 @@ export type CatalogLocation = {
   /** Số chặng đi từ/đến địa điểm: > 0 thì không xóa được. */
   legCount: number;
   /** Số quy định kiểm dịch dùng địa điểm làm cửa khẩu: > 0 thì không xóa được, không đổi loại được. */
-  ruleCount: number;
   /** Nằm trong kế hoạch đã duyệt của đơn chưa giao xong: không đổi loại được. */
   inActiveUse: boolean;
 };
