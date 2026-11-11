@@ -9,9 +9,10 @@
     "dev:web": "pnpm --filter web dev",
     "dev:api:demo": "node apps/api/scripts/run-demo-api.cjs",
     "dev:web:demo": "node apps/web/scripts/run-demo-web.cjs",
-    "build": "pnpm --filter @my-project/shared build && pnpm -r --filter '!@my-project/shared' build",
+    "build": "pnpm --filter @my-project/shared build && pnpm -r --filter \"!@my-project/shared\" build",
     "lint": "pnpm -r lint",
     "migration:run": "pnpm --filter api migration:run",
-    "db:setup": "pnpm --filter api db:setup"
+    "db:setup": "pnpm --filter api db:setup",
+    "db:create-user": "pnpm --filter api db:create-user"
   }
 }

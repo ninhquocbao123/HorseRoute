@@ -25,7 +25,13 @@ jobs:
       - run: pnpm --filter api test
       - run: pnpm --filter web test
       # Dựng DB từ đầu bằng đúng lệnh người dùng chạy; lần chạy thứ hai phải không làm gì.
-      - run: pnpm db:setup && pnpm db:setup
+      # Rồi tạo tài khoản như README hướng dẫn; tạo trùng email phải bị từ chối.
+      - run: |
+          pnpm db:setup && pnpm db:setup
+          pnpm db:create-user --email admin@ci.test --role ADMIN --password ci-password-123
+          pnpm db:create-user --email driver@ci.test --role DRIVER --password ci-password-123
+          ! pnpm db:create-user --email admin@ci.test --role ADMIN --password ci-password-123
+        shell: bash
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306

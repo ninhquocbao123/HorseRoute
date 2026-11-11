@@ -1,5 +1,7 @@
 # Dữ liệu mẫu WDP v2
 
+> **Tài liệu cũ.** File SQL ở đây nhắm đến schema v2 ban đầu (24 bảng), không khớp schema hiện tại do migration dựng. Dựng database bằng `pnpm db:setup` và dùng dữ liệu demo theo [docs/demo-local.md](../docs/demo-local.md). Chỉ đọc tiếp khi cần nhập lại bộ dữ liệu v2.
+
 `wdp_seed_v2.sql` bổ sung **191 bản ghi cho đủ 24 bảng** của file `wdp_schema_v2.sql` được cung cấp. Dữ liệu tiếng Việt, mốc kịch bản cố định ngày **08/10/2026**, DATETIME theo UTC. Khi chạy vào ngày khác, trạng thái lưu sẵn và cảnh báo tính theo ngày hiện tại có thể khác nhau.
 
 ## Cách nhập bằng MySQL Workbench
@@ -21,7 +23,7 @@ Seed dùng transaction, giữ nguyên kiểm tra khóa ngoại, không xóa hay 
 
 Đây là dữ liệu giả lập. Quy định kiểm dịch không phải quy định pháp lý thực tế. Các mã `DEMO_*` trong system_parameters chỉ để thử bảng cấu hình, chưa ánh xạ các mã L/D/N/S/T vì schema không giải thích chúng.
 
-`password_hash` là chuỗi vô hiệu có chủ đích, không có mật khẩu mẫu. Backend hiện dùng Firebase (`apps/api/src/modules/auth/auth.service.ts`); nhập SQL này không tạo tài khoản Firebase và không bảo đảm đăng nhập hay tương thích entity hiện tại của backend. Seed chỉ nhắm đến schema v2 được cung cấp.
+`password_hash` là chuỗi vô hiệu có chủ đích, không có mật khẩu mẫu, nên không đăng nhập được bằng các tài khoản này. Backend đăng nhập bằng JWT với mật khẩu băm bcrypt trong bảng `users`; tạo tài khoản dùng được bằng `pnpm db:create-user` (xem README gốc).
 
 27 attachment chỉ có metadata, đường dẫn `demo/...` chưa có tệp vật lý. Thông báo EMAIL/SMS chỉ là bản ghi, script không gửi thông báo.
 
