@@ -22,6 +22,7 @@ type Session = {
   error: string;
   request: ReturnType<typeof createApiClient>;
   login: (email: string, password: string) => Promise<IUser>;
+  adopt: (result: { accessToken: string; user: IUser }) => Promise<IUser>;
   logout: () => Promise<void>;
   retrySession: () => Promise<void>;
   revision: number;
@@ -126,6 +127,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         body: { email: email.trim(), password },
       },
     );
+    return adopt(result);
+  };
+  const adopt = async (result: { accessToken: string; user: IUser }): Promise<IUser> => {
     await SecureStore.setItemAsync(storageKey, result.accessToken);
     void SecureStore.setItemAsync(userKey, JSON.stringify(result.user)).catch(
       () => {},
@@ -180,6 +184,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         error,
         request,
         login,
+        adopt,
         logout,
         retrySession,
         revision,

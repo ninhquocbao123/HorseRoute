@@ -58,6 +58,7 @@ import { lightTheme, darkTheme } from "./theme";
 import { SessionProvider, useResource, useSession } from "./session";
 import { API_URL } from "./config";
 import { messageOf } from "./api/http";
+import { ForgotPasswordScreen, VerifyEmailScreen } from "./screens/EmailCodeScreen";
 import { asId, dateTime } from "./live-domain";
 import {
   AvatarPicker,
@@ -158,7 +159,7 @@ const guardedForms = new Set([
 ]);
 type Appearance = "light" | "dark" | "system";
 /** R-35 Đăng ký tài khoản khách hàng; xong thì đăng nhập luôn. */
-function Register({ onBack }: { onBack: () => void }) {
+function Register({ onBack, onVerify }: { onBack: () => void; onVerify: (email: string) => void }) {
   const { request, login } = useSession();
   const { colors: c } = useTheme();
   const [form, setForm] = useState({
@@ -193,7 +194,7 @@ function Register({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await request("/auth/register", {
+      const created = await request<{ verificationRequired?: boolean; email?: string }>("/auth/register", {
         method: "POST",
         anonymous: true,
         body: {
@@ -208,6 +209,8 @@ function Register({ onBack }: { onBack: () => void }) {
             : {}),
         },
       });
+      // Có cấu hình email: phải nhập mã gửi tới email trước khi vào app.
+      if (created?.verificationRequired) { onVerify(created.email || form.email.trim().toLowerCase()); return; }
       await login(form.email, form.password);
     } catch (err) {
       setError(messageOf(err));
@@ -311,12 +314,20 @@ function Login({
 }: {
   changeAppearance: (value: Appearance) => void;
 }) {
-  const [register, setRegister] = useState(false);
-  return register ? (
-    <Register onBack={() => setRegister(false)} />
-  ) : (
+  type Step = { name: "login"; notice?: string } | { name: "register" } | { name: "forgot"; email: string } | { name: "verify"; email: string; sent: boolean };
+  const [step, setStep] = useState<Step>({ name: "login" });
+  if (step.name === "register")
+    return <Register onBack={() => setStep({ name: "login" })} onVerify={(email) => setStep({ name: "verify", email, sent: true })} />;
+  if (step.name === "verify")
+    return <VerifyEmailScreen email={step.email} sent={step.sent} onBack={() => setStep({ name: "login" })} />;
+  if (step.name === "forgot")
+    return <ForgotPasswordScreen initialEmail={step.email} onDone={(notice) => setStep({ name: "login", notice })} />;
+  return (
     <LoginScreen
-      onRegister={() => setRegister(true)}
+      onRegister={() => setStep({ name: "register" })}
+      onForgot={(email) => setStep({ name: "forgot", email })}
+      onUnverified={(email) => setStep({ name: "verify", email, sent: false })}
+      notice={step.notice}
       changeAppearance={changeAppearance}
     />
   );

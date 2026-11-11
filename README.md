@@ -83,6 +83,8 @@ Xem [apps/mobile/README.md](apps/mobile/README.md). App dùng npm trong `apps/mo
 
 API đọc `apps/api/.env` trước rồi tới `.env` ở gốc; biến đặt sẵn trong shell luôn được ưu tiên. Thiếu biến bắt buộc thì API dừng với lỗi `INVALID_ENV` kèm tên biến, xem [apps/api/README.md](apps/api/README.md).
 
+Email (xác minh khi đăng ký, quên mật khẩu) gửi qua Gmail SMTP với mật khẩu ứng dụng: điền `SMTP_USER`, `SMTP_PASSWORD` theo hướng dẫn trong `.env.example`. Chưa điền thì đăng ký kích hoạt ngay và mã quên mật khẩu chỉ ghi vào log của API.
+
 Bản đồ và tìm địa chỉ mặc định dùng OpenFreeMap, OSRM và Photon công khai, không cần token, chỉ cần có mạng. Thanh toán VNPay Sandbox cần khóa riêng ([apps/api/VNPAY-SANDBOX.md](apps/api/VNPAY-SANDBOX.md)); chưa có khóa thì dùng thanh toán mô phỏng.
 
 `pnpm db:setup` và `pnpm db:create-user` chỉ chạy với MySQL trên máy này (`127.0.0.1`, `localhost`). Muốn áp dụng lên database ở xa thì thêm `--allow-remote`, và chỉ làm khi cả nhóm đã đồng ý.

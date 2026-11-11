@@ -41,7 +41,7 @@ import { fontFamily } from "../theme";
 import { useSession } from "../session";
 import { useOverlay } from "../overlay";
 import { discardForeign, foreignItems } from "../queue";
-import { messageOf } from "../api/http";
+import { ApiError, messageOf } from "../api/http";
 import { API_URL } from "../config";
 
 type Appearance = "light" | "dark" | "system";
@@ -452,9 +452,15 @@ function GoldButton({
 
 export function LoginScreen({
   onRegister,
+  onForgot,
+  onUnverified,
+  notice,
   changeAppearance,
 }: {
   onRegister: () => void;
+  onForgot: (email: string) => void;
+  onUnverified: (email: string) => void;
+  notice?: string;
   changeAppearance: (value: Appearance) => void;
 }) {
   const theme = useTheme();
@@ -496,6 +502,10 @@ export function LoginScreen({
         else await logout();
       }
     } catch (e) {
+      if (e instanceof ApiError && e.code === "EMAIL_NOT_VERIFIED") {
+        onUnverified(email.trim().toLowerCase());
+        return;
+      }
       setError(messageOf(e));
     } finally {
       setBusy(false);
@@ -631,6 +641,7 @@ export function LoginScreen({
                 </Pressable>
               }
             />
+            {notice && !message ? <Banner text={notice} /> : null}
             {message ? <Banner warning text={message} /> : null}
             <View style={{ marginTop: 8 }}>
               <GoldButton
@@ -641,6 +652,17 @@ export function LoginScreen({
             </View>
           </View>
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quên mật khẩu"
+            disabled={busy}
+            onPress={() => onForgot(email.trim())}
+            style={{ marginTop: 12, minHeight: 48, justifyContent: "center" }}
+          >
+            <Text style={{ textAlign: "center", fontFamily: fontFamily.bold, fontSize: 17, color: p.link }}>
+              Quên mật khẩu?
+            </Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Chưa có tài khoản? Đăng ký"

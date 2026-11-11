@@ -284,3 +284,15 @@ test("N4: hết đếm ngược đặt cọc khi đã cọc đủ; còn nhắc k
   assert.equal(depositTimeLeft({ deposit: 300, paid: "1000", expires_at }, now), null);
   assert.equal(depositTimeLeft({ deposit: 300, paid: null, expires_at: null }, now), null);
 });
+
+test("A2: lỗi API giữ mã máy đọc được, đăng nhập tài khoản chưa xác minh trả EMAIL_NOT_VERIFIED", async () => {
+  const req = createApiClient({
+    baseUrl: "https://example.test",
+    getToken: () => null,
+    fetcher: async () => Response.json({ statusCode: 403, message: "Email chưa được xác minh.", code: "EMAIL_NOT_VERIFIED" }, { status: 403 }),
+  });
+  await assert.rejects(req("/auth/login", { method: "POST", anonymous: true, body: {} }),
+    (error: ApiError) => error instanceof ApiError && error.status === 403 && error.code === "EMAIL_NOT_VERIFIED");
+  const plain = createApiClient({ baseUrl: "https://example.test", getToken: () => null, fetcher: async () => Response.json({ message: "Sai" }, { status: 400 }) });
+  await assert.rejects(plain("/x"), (error: ApiError) => error.code === undefined);
+});

@@ -3,6 +3,8 @@ export class ApiError extends Error {
   fields: Record<string, string>;
   /** Lỗi gốc khi không gọi được máy chủ, hiện trong Hàng chờ gửi để biết vì sao chưa gửi được. */
   detail?: string;
+  /** Mã lỗi của API, ví dụ EMAIL_NOT_VERIFIED. */
+  code?: string;
   constructor(
     message: string,
     status: number,
@@ -83,7 +85,7 @@ export function createApiClient(options: {
       }
       if (!response.ok) {
         const data = body as
-          | { message?: string | string[]; fields?: Record<string, string> }
+          | { message?: string | string[]; fields?: Record<string, string>; code?: string }
           | undefined;
         if (response.status === 401 && token && token === options.getToken())
           options.onUnauthorized?.();
@@ -93,12 +95,14 @@ export function createApiClient(options: {
         const details = data?.fields
           ? Object.values(data.fields).join(" ")
           : "";
-        throw new ApiError(
+        const failure = new ApiError(
           [message, details].filter(Boolean).join(" ") ||
             `Không thực hiện được yêu cầu (${response.status}).`,
           response.status,
           data?.fields,
         );
+        failure.code = data?.code;
+        throw failure;
       }
       return body as T;
     } catch (error) {
