@@ -3,7 +3,7 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
-const files = ['allocate-crew.test.cjs', 'driver-map-theme.cjs', 'map-labels.cjs', 'map-view-plan.cjs', 'route-progress.cjs', 'trip-phase.cjs'];
+const files = ['allocate-crew.test.cjs', 'auth-errors.cjs', 'driver-map-theme.cjs', 'map-labels.cjs', 'map-view-plan.cjs', 'route-progress.cjs', 'trip-phase.cjs'];
 const failed = [];
 for (const file of files) {
   const result = spawnSync(process.execPath, [path.join(__dirname, file)], { stdio: 'inherit' });

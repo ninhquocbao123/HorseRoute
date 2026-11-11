@@ -311,6 +311,8 @@ Mỗi mục ghi: hiện trạng, bằng chứng, hậu quả, hướng sửa. "�
 
 **N14 (P3). Số hộ chiếu FEI không có dấu bắt buộc nhưng lại bắt buộc khi đặt chuyến.** Phát hiện khi viết test E2E (11/11/2026). Form hồ sơ ngựa không đánh dấu `*` cho ô này, nhưng bước chọn ngựa khi đặt chuyến chặn nếu thiếu và chỉ báo bằng một thông báo nổi vài giây (`CustomerJourney.tsx`). Nên đánh dấu bắt buộc ngay trên form hồ sơ, hoặc hiện lỗi ngay trên thẻ ngựa.
 
+**N15 (P1, phát hiện 11/11/2026 khi chạy trên dữ liệu thật). Mở nhiều màn liên tiếp thì bị đá ra màn đăng nhập.** API giới hạn 100 request/phút cho mỗi IP, kể cả người đã đăng nhập; cả nhóm chung wifi hay demo nhiều vai trò trên một laptop là chung một IP. Khi `/users/me` gặp 429, `AuthProvider` xóa token và báo phiên hết hạn. Đã sửa cùng ngày: API giới hạn theo tài khoản (300/phút), theo IP chỉ còn chống dội (1000/phút), đăng nhập và đăng ký có giới hạn IP riêng 30/phút; web chỉ đăng xuất khi 401, 403, 404, còn 429, lỗi máy chủ, mất mạng thì giữ phiên, thử lại theo Retry-After và hiện màn "Thử lại".
+
 ## 5. Điểm mạnh nên trình bày với hội đồng
 
 - Phân quyền kiểm tra ở máy chủ theo vai trò đọc từ DB, không tin vai trò trong token; có test chứng minh ("JWT ADMIN claim cannot grant Manager authority"). Điều phối chỉ thấy chuyến mình phụ trách, tài xế chỉ thấy chuyến được phân công.

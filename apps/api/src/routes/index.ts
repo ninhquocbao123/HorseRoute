@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { Services } from '../shared/config/services';
 import { TokenService } from '../shared/utils/jwt.util';
 import { authenticate } from '../shared/middlewares/auth.middleware';
+import { AUTH_REQUEST_LIMIT, TRACKMAP_PATH, USER_REQUEST_LIMIT, createRateLimiter, createUserRateLimiter } from '../shared/middlewares/rateLimiter.middleware';
 import { authRoutes } from '../features/auth/auth.routes';
 import { healthRoutes } from '../features/health/health.routes';
 import { usersRoutes } from '../features/users/users.routes';
@@ -20,14 +21,15 @@ import { paymentsRoutes } from '../features/payments/payments.routes';
 import { mapsRoutes } from '../features/trips/maps.routes';
 import { accountsRoutes } from '../features/accounts/accounts.routes';
 
-export function apiRoutes(services: Services, tokens: TokenService) {
+export function apiRoutes(services: Services, tokens: TokenService, userRequestLimit = USER_REQUEST_LIMIT) {
   const router = Router();
-  router.use('/auth', authRoutes(services.auth));
+  router.use('/auth', createRateLimiter(AUTH_REQUEST_LIMIT), authRoutes(services.auth));
   router.use('/health', healthRoutes(services.health));
   router.use('/pricing', publicPricingRoutes(services.pricing));
   router.get('/payments/vnpay/ipn', async(req,res)=>{try{res.json(await services.payments.vnpayIpn(req.query));}catch{res.json({RspCode:'99',Message:'Unable to process'});}});
   // Every route below this boundary is authenticated by default.
   router.use(authenticate(services.users, tokens));
+  router.use(createUserRateLimiter(userRequestLimit, { skip: req => TRACKMAP_PATH.test(req.path) }));
   router.use('/customer', customerRoutes(services.customer));
   router.use('/specialist', specialistRoutes(services.specialist));
   router.use('/users', usersRoutes(services.users));

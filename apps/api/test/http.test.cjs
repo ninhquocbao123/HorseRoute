@@ -187,3 +187,18 @@ test('request IDs correlate HTTP failures and completion logs without logging se
     await f.close();
   }
 });
+
+test('rate limit: người đã đăng nhập tính theo tài khoản, nhiều người chung một IP không chặn nhau; đăng nhập có giới hạn IP riêng', async () => {
+  const f = await fixture({ userRequestLimit: 3 });
+  try {
+    for (let i = 0; i < 3; i++) assert.equal((await f.request('/api/v1/users/me', { id: '2' })).status, 200);
+    const limited = await f.request('/api/v1/users/me', { id: '2' });
+    assert.equal(limited.status, 429, 'tài khoản 2 hết lượt');
+    assert.ok(limited.headers.get('retry-after') || limited.headers.get('ratelimit'), 'có header cho client biết khi nào thử lại');
+    assert.equal((await f.request('/api/v1/users/me', { id: '5' })).status, 200, 'tài khoản khác cùng IP vẫn dùng được');
+    const { AUTH_REQUEST_LIMIT } = require('../src/shared/middlewares/rateLimiter.middleware');
+    let last;
+    for (let i = 0; i <= AUTH_REQUEST_LIMIT; i++) last = await f.request('/api/v1/auth/login', { method: 'POST', body: { email: 'one@example.com', password: 'sai-mat-khau' } });
+    assert.equal(last.status, 429, 'dò mật khẩu từ một IP bị chặn');
+  } finally { await f.close(); }
+});
