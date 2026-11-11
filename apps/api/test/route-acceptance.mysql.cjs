@@ -82,7 +82,7 @@ async function main() {
       const {runBrowser} = await import('../../web/test/route-acceptance.browser.mjs');
       await runBrowser(f);
     }
-    console.log('PASS acceptance database preserved for inspection: '+f.name);
+    console.log('PASS route acceptance on '+f.name+(process.env.ROUTE_TEST_KEEP_DB==='1'?' (kept for inspection)':' (dropped after the run)'));
   } finally {await f.close();}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -38,13 +38,17 @@ async function main() {
     (11,'driver-free@resource.test','!','Driver Free','DRIVER_ESCORT','ACTIVE'),
     (12,'escort-free@resource.test','!','Escort Free','DRIVER_ESCORT','ACTIVE'),
     (13,'missing-profile@resource.test','!','Missing Profile','DRIVER_ESCORT','ACTIVE'),
-    (14,'locked@resource.test','!','Locked Crew','DRIVER_ESCORT','LOCKED')`);
+    (14,'locked@resource.test','!','Locked Crew','DRIVER_ESCORT','LOCKED'),
+    (15,'d103@resource.test','!','Driver 103','DRIVER_ESCORT','ACTIVE'),(16,'e103@resource.test','!','Escort 103','DRIVER_ESCORT','ACTIVE'),
+    (17,'d104@resource.test','!','Driver 104','DRIVER_ESCORT','ACTIVE'),(18,'e104@resource.test','!','Escort 104','DRIVER_ESCORT','ACTIVE'),
+    (19,'d102@resource.test','!','Driver 102','DRIVER_ESCORT','ACTIVE'),(20,'e102@resource.test','!','Escort 102','DRIVER_ESCORT','ACTIVE')`);
   await q(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES
-    (10,'DRIVER','AVAILABLE'),(11,'DRIVER','AVAILABLE'),(12,'ESCORT','AVAILABLE'),(14,'ESCORT','AVAILABLE')`);
+    (10,'DRIVER','AVAILABLE'),(11,'DRIVER','AVAILABLE'),(12,'ESCORT','AVAILABLE'),(14,'ESCORT','AVAILABLE'),
+    (15,'DRIVER','RESERVED'),(16,'ESCORT','RESERVED'),(17,'DRIVER','RESERVED'),(18,'ESCORT','RESERVED'),(19,'DRIVER','AVAILABLE'),(20,'ESCORT','AVAILABLE')`);
   await q(`INSERT INTO locations(id,name,location_type,country,timezone) VALUES
     (1,'Depot A','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'Depot B','REST_STOP','VN','Asia/Ho_Chi_Minh')`);
   await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES
-    (20,'LIGHT',2,'LIGHT-20','AVAILABLE'),(21,'MEDIUM',5,'MEDIUM-21','RESERVED'),(22,'HEAVY',9,'HEAVY-22','IN_TRANSIT')`);
+    (20,'LIGHT',2,'LIGHT-20','AVAILABLE'),(21,'MEDIUM',5,'MEDIUM-21','RESERVED'),(22,'HEAVY',9,'HEAVY-22','IN_TRANSIT'),(23,'MEDIUM',4,'MEDIUM-23','RESERVED'),(24,'MEDIUM',4,'MEDIUM-24','AVAILABLE')`);
 
   for (const [id, code, status] of [[100,'TARGET-100','APPROVED'],[101,'BUSY-101','READY'],[102,'ADJ-102','APPROVED'],[103,'RACE-103','PREPARING'],[104,'RACE-104','PREPARING']]) {
     await q('INSERT INTO orders(id,order_code,customer_id,status) VALUES (?,?,1,?)', [id, code, status]);
@@ -59,11 +63,18 @@ async function main() {
     (1000,100,1,1,2,21,'2031-01-01 01:00:00','2031-01-01 03:00:00'),
     (1001,101,1,1,2,20,'2031-01-01 02:00:00','2031-01-01 04:00:00'),
     (1002,102,1,1,2,20,'2031-01-01 04:00:00','2031-01-01 05:00:00'),
-    (1003,103,1,1,2,20,'2031-01-02 01:00:00','2031-01-02 03:00:00'),
-    (1004,104,1,1,2,20,'2031-01-02 01:00:00','2031-01-02 03:00:00')`);
+    (1003,103,1,1,2,NULL,'2031-01-02 01:00:00','2031-01-02 03:00:00'),
+    (1004,104,1,1,2,NULL,'2031-01-02 01:00:00','2031-01-02 03:00:00')`);
+  // Mô hình đội xe: xe chạy xuyên suốt chuyến được ghi ở trip_vehicles; xe 21 là xe của chính chuyến 100.
+  await q("INSERT INTO trip_vehicles(trip_id,vehicle_id,horse_count) VALUES (100,21,1),(101,20,1),(103,23,1),(104,23,1)");
+  // Hai kế hoạch chờ duyệt cùng giữ xe 23 (dữ liệu cũ hoặc ghi đồng thời), mỗi kế hoạch có tổ lái riêng.
+  await q(`INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at,trip_vehicle_id) VALUES
+    (103,15,'DRIVER',3,UTC_TIMESTAMP(),(SELECT id FROM trip_vehicles WHERE trip_id=103)),(103,16,'ESCORT',3,UTC_TIMESTAMP(),(SELECT id FROM trip_vehicles WHERE trip_id=103)),
+    (104,17,'DRIVER',3,UTC_TIMESTAMP(),(SELECT id FROM trip_vehicles WHERE trip_id=104)),(104,18,'ESCORT',3,UTC_TIMESTAMP(),(SELECT id FROM trip_vehicles WHERE trip_id=104))`);
   await q("INSERT INTO horses(order_id,owner_id,name,passport_no) VALUES (100,1,'H100','P100'),(101,1,'H101','P101'),(102,1,'H102','P102'),(103,1,'H103','P103'),(104,1,'H104','P104')");
   await q("INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (101,10,'DRIVER',3,UTC_TIMESTAMP())");
 
+  const count = async (sql, params) => Number((await q(sql, params))[0].n);
   const tokens = new TokenService('resource-integration-secret-at-least-thirty-two-characters');
   server = createApp({ services: createServices(db, tokens), tokens, corsOrigin: 'http://localhost:5173', requestLimit: 5000 }).listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -95,9 +106,9 @@ async function main() {
     assert.equal(detail.data.legs[0].vehicleStatus, 'RESERVED');
     const optionsResponse = await call('GET', '/trips/100/plan-options');
     assert.equal(optionsResponse.status, 200);
-    assert.deepEqual(optionsResponse.data.vehicles.map(v => v.vehicleType).sort(), ['HEAVY','LIGHT','MEDIUM']);
+    assert.deepEqual(optionsResponse.data.vehicles.map(v => v.vehicleType).sort(), ['HEAVY','LIGHT','MEDIUM','MEDIUM','MEDIUM']);
     assert.equal(optionsResponse.data.vehicles.find(v => v.id === '22').selectable, false);
-    assert.equal(optionsResponse.data.vehicles.find(v => v.id === '21').selectable, null, 'self resource is eligible but draft schedule is not evaluated');
+    assert.equal(optionsResponse.data.vehicles.find(v => v.id === '21').selectable, true, 'a trip may keep its own reserved vehicle');
     const tracked = await new TrackingRepository(db).getTripVehicles('100');
     assert.equal(tracked[0].code, 'MEDIUM-21');
   });
@@ -109,41 +120,59 @@ async function main() {
     assert.equal(createdVehicle.status, 201); assert.equal(createdVehicle.data.status, 'AVAILABLE');
   });
 
-  await check('crew options expose profile/status blockers without hiding missing profiles', async () => {
+  await check('crew options show people without a crew profile as not selectable instead of hiding them', async () => {
     const response = await call('GET', '/trips/100/assignment-options');
     assert.equal(response.status, 200);
     const missing = response.data.items.find(item => item.id === '13');
     assert.equal(missing.selectable, false); assert.equal(missing.crewType, null);
-    assert.equal(missing.blockingReasons[0].code, 'MISSING_CREW_PROFILE');
     assert.ok(!response.data.items.some(item => item.id === '14'), 'locked accounts are not offered');
   });
 
   await check('assignment write rechecks role/profile, schedule and supports multiple valid people', async () => {
-    const mismatch = await call('PUT', '/trips/100/assignments', 3, { assignments: [{ userId: '11', role: 'ESCORT' }, { userId: '12', role: 'DRIVER' }] });
-    assert.equal(mismatch.status, 400);
-    const overlap = await call('PUT', '/trips/100/assignments', 3, { assignments: [{ userId: '10', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }] });
-    assert.equal(overlap.status, 400);
-    const valid = await call('PUT', '/trips/100/assignments', 3, { assignments: [{ userId: '11', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }] });
+    const fleet = crew => ({ vehicles: [{ vehicleId: '21', horseCount: 1, crew }] });
+    const legacy = await call('PUT', '/trips/100/assignments', 3, { assignments: [{ userId: '11', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }] });
+    assert.equal(legacy.status, 400, 'the flat assignment list is no longer accepted');
+    const mismatch = await call('PUT', '/trips/100/assignments', 3, fleet([{ userId: '11', role: 'ESCORT' }, { userId: '12', role: 'DRIVER' }]));
+    assert.equal(mismatch.status, 400, JSON.stringify(mismatch.data));
+    const overlap = await call('PUT', '/trips/100/assignments', 3, fleet([{ userId: '10', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }]));
+    assert.equal(overlap.status, 400, 'driver 10 already works on approved trip 101');
+    const valid = await call('PUT', '/trips/100/assignments', 3, fleet([{ userId: '11', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }]));
+    assert.equal(valid.status, 200, JSON.stringify(valid.data));
     assert.equal(valid.status, 200); assert.equal(valid.data.crewReadiness.complete, true);
     const outsider = await call('GET', '/trips/100/assignments', 4);
     assert.equal(outsider.status, 404);
   });
 
-  await check('draft save allows self resource and adjacent time, but blocks approved overlap', async () => {
-    const self = await call('PUT', '/trips/100/plan', 3, { legs: [leg('21','2031-01-01T01:00:00.000Z','2031-01-01T03:00:00.000Z','1000')] });
-    assert.equal(self.status, 200, JSON.stringify(self.data));
-    const overlap = await call('PUT', '/trips/100/plan', 3, { legs: [leg('20','2031-01-01T02:30:00.000Z','2031-01-01T03:30:00.000Z','1000')] });
-    assert.equal(overlap.status, 400);
-    const adjacent = await call('PUT', '/trips/102/plan', 3, { legs: [leg('20','2031-01-01T04:00:00.000Z','2031-01-01T05:00:00.000Z','1002')] });
-    assert.equal(adjacent.status, 200, JSON.stringify(adjacent.data));
+  await check('plan keeps legs only; a vehicle held by another active trip cannot be assigned', async () => {
+    const perLeg = await call('PUT', '/trips/100/plan', 3, { legs: [leg('21','2031-01-01T01:00:00.000Z','2031-01-01T03:00:00.000Z','1000')] });
+    assert.equal(perLeg.status, 400);
+    assert.ok(perLeg.data.fields['legs.0.vehicleId'], 'vehicles are assigned through the assignments API');
+    const legs = await call('PUT', '/trips/100/plan', 3, { legs: [{ ...leg(undefined,'2031-01-01T01:00:00.000Z','2031-01-01T03:00:00.000Z','1000'), vehicleId: undefined }] });
+    assert.equal(legs.status, 200, JSON.stringify(legs.data));
+    const crew = [{ userId: '11', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }];
+    const held = await call('PUT', '/trips/100/assignments', 3, { vehicles: [{ vehicleId: '20', horseCount: 1, crew }] });
+    assert.equal(held.status, 409, JSON.stringify(held.data));
+    assert.match(held.data.message, /Xe 20 không khả dụng/);
+    const own = await call('PUT', '/trips/100/assignments', 3, { vehicles: [{ vehicleId: '21', horseCount: 1, crew }] });
+    assert.equal(own.status, 200, JSON.stringify(own.data));
   });
 
-  await check('two concurrent approvals cannot reserve overlapping use of one vehicle', async () => {
+  await check('two plans holding one vehicle can never both be approved', async () => {
     const responses = await Promise.all([
       call('POST', '/trips/103/review-plan', 2, { decision: 'APPROVED' }),
       call('POST', '/trips/104/review-plan', 2, { decision: 'APPROVED' }),
     ]);
-    assert.deepEqual(responses.map(response => response.status).sort(), [200,409]);
+    assert.ok(!responses.some(response => response.status === 200), JSON.stringify(responses.map(r => [r.status, r.data?.message])));
+    assert.equal(await count("SELECT COUNT(*) n FROM trips WHERE id IN (103,104) AND plan_status='APPROVED'"), 0);
+  });
+
+  await check('two concurrent assignments of one free vehicle: exactly one trip gets it', async () => {
+    const responses = await Promise.all([
+      call('PUT', '/trips/100/assignments', 3, { vehicles: [{ vehicleId: '24', horseCount: 1, crew: [{ userId: '11', role: 'DRIVER' }, { userId: '12', role: 'ESCORT' }] }] }),
+      call('PUT', '/trips/102/assignments', 3, { vehicles: [{ vehicleId: '24', horseCount: 1, crew: [{ userId: '19', role: 'DRIVER' }, { userId: '20', role: 'ESCORT' }] }] }),
+    ]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 409], JSON.stringify(responses.map(r => [r.status, r.data?.message])));
+    assert.equal(await count('SELECT COUNT(*) n FROM trip_vehicles WHERE vehicle_id=24'), 1);
   });
 
   await check('auth and scope remain enforced', async () => {

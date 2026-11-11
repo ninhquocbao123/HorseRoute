@@ -300,6 +300,15 @@ Mỗi mục ghi: hiện trạng, bằng chứng, hậu quả, hướng sửa. "�
 
 **N11 (P3, cần thử máy thật). Ảnh vừa chụp đôi khi không gắn vào form.** 2 trên 4 lần chụp, form không báo gì và vẫn 0/3; sau khi dọn cache thì được. Máy ảo còn 319 MB trống (95%) nên nhiều khả năng do môi trường, chưa khẳng định. Dù vậy `PhotoPicker` trong `live-ui.tsx` im lặng khi không nhận được ảnh, nên nên có thông báo.
 
+**N12 (P2). Lỗi code lộ ra khi sửa test tích hợp (11/11/2026), đã sửa trong mục 0.3 của kế hoạch.**
+
+- Gửi duyệt kế hoạch khi chưa phân công xe trả 400 kèm câu tiếng Anh của thư viện kiểm tra dữ liệu ("Array must contain at least 1 element(s)"). Nay trả 409 kèm lời tiếng Việt. Lỗi của dữ liệu đội xe đã lưu (vượt sức chứa, sai tổng số ngựa, tổ lái không hợp lệ) cũng chuyển từ 400 sang 409.
+- Lưu lại đúng đội xe đang có vẫn xóa và tạo lại bản ghi, ghi audit và báo lại tổ lái mỗi lần bấm. Nay không làm gì.
+- Báo sự cố và ghi nhật ký chăm sóc kiểm tra nội dung (ảnh) trước khi kiểm tra người gửi có thuộc chuyến không. Nay kiểm tra phân công trước, người ngoài chuyến luôn nhận 404.
+- Test `route-acceptance` không xóa database thử sau khi chạy. Nay mặc định xóa.
+
+**N13 (P3). Giao diện điều phối hứa hơn API cho phép.** Khi kế hoạch không còn ở trạng thái nháp, màn điều phối ghi "Nhân sự có thể được cập nhật riêng", nhưng API chỉ nhận phân công khi kế hoạch còn nháp (409 với các trạng thái khác). Cần sửa câu chữ hoặc mở API theo đúng nghiệp vụ mong muốn.
+
 ## 5. Điểm mạnh nên trình bày với hội đồng
 
 - Phân quyền kiểm tra ở máy chủ theo vai trò đọc từ DB, không tin vai trò trong token; có test chứng minh ("JWT ADMIN claim cannot grant Manager authority"). Điều phối chỉ thấy chuyến mình phụ trách, tài xế chỉ thấy chuyến được phân công.

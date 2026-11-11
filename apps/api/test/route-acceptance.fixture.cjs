@@ -16,17 +16,17 @@ const { TripFleet1800000015000 } = require('../src/database/migrations/180000001
 const { RepresentativeTripLeg1800000016000 } = require('../src/database/migrations/1800000016000-RepresentativeTripLeg');
 
 module.exports = async function fixture() {
-  const socketPath = process.env.ROUTE_TEST_MYSQL_SOCKET;
-  assert.match(socketPath || '', /^\/tmp\/horseroute-acceptance-mysql-[A-Za-z0-9]+\/mysql\.sock$/);
+  // Cùng cấu hình TEST_DB_* với các test tích hợp khác; chỉ tạo database wdp_flow3_test_* ngẫu nhiên.
+  const testDb = require('./mysql-options.cjs');
   const name = 'wdp_flow3_test_' + crypto.randomBytes(8).toString('hex');
-  const admin = await mysql.createConnection({ socketPath, user: 'root' });
+  const admin = await mysql.createConnection(testDb);
   await admin.query('CREATE DATABASE ' + name + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-  const db = new DataSource({ type: 'mysql', username: 'root', database: name, timezone: 'Z',
+  const db = new DataSource({ type: 'mysql', host: testDb.host, port: testDb.port, username: testDb.user, password: testDb.password, ssl: testDb.ssl, database: name, timezone: 'Z',
     supportBigNumbers: true, bigNumberStrings: true, entities: [User],
     migrations: [TripRoutePlan1800000013000, TripFleet1800000015000, RepresentativeTripLeg1800000016000],
-    extra: { socketPath, connectionLimit: 10 } });
+    extra: { connectionLimit: 10 } });
   await db.initialize();
-  await require('./load-schema.cjs')(db);
+  await require('./load-schema.cjs')(db, { except: ['TripRoutePlan1800000013000','TripFleet1800000015000','RepresentativeTripLeg1800000016000'] });
   const q = (sql, args) => db.query(sql, args);
   await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES
     (1,'customer@acceptance.test','!','Khách kiểm thử','CUSTOMER','ACTIVE'),
@@ -41,7 +41,7 @@ module.exports = async function fixture() {
   for (const id of [100, 101, 102, 103, 104, 105, 106, 107]) {
     await q("INSERT INTO orders(id,order_code,customer_id,origin_address,destination_address,status) VALUES (?,?,1,'Hồ Hoàn Kiếm, Hà Nội','Công viên Thống Nhất, Hà Nội','APPROVED')", [id, 'TEST-' + id]);
     await q("INSERT INTO trips(id,order_id,planned_by,plan_status,planned_departure_at,planned_arrival_at) VALUES (?,?,3,'DRAFT','2031-01-01 01:00:00','2031-01-01 03:00:00')", [id, id]);
-    await q("INSERT INTO legs(id,trip_id,seq_no,from_location_id,to_location_id,vehicle_id,planned_departure_at,planned_arrival_at) VALUES (?,?,1,1,2,1,'2031-01-01 01:00:00','2031-01-01 03:00:00')", [id, id]);
+    await q("INSERT INTO legs(id,trip_id,seq_no,from_location_id,to_location_id,vehicle_id,planned_departure_at,planned_arrival_at) VALUES (?,?,1,1,2,?,'2031-01-01 01:00:00','2031-01-01 03:00:00')", [id, id, id === 100 ? 1 : null]); // Một xe chỉ thuộc một chuyến: chỉ chặng cũ của chuyến 100 có xe.
     await q("INSERT INTO horses(order_id,owner_id,name,passport_no) VALUES (?,1,'Ngựa thử',?)", [id, 'TEST-' + id]);
   }
   await q("INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (100,5,'DRIVER',3,UTC_TIMESTAMP())");
@@ -62,7 +62,8 @@ module.exports = async function fixture() {
   assert.deepEqual(await snapshot(), before);
   const after = await q('SELECT * FROM trips ORDER BY id');
   assert.deepEqual(after.map(({route_plan,route_plan_revision,...rest}) => { assert.equal(route_plan,null); assert.equal(route_plan_revision,0); return rest; }), tripsBefore);
-  assert.equal(Number((await q('SELECT COUNT(*) AS total FROM trip_vehicles'))[0].total), 8);
+  // TripFleet chép xe của chặng cũ sang trip_vehicles: chỉ chuyến 100 có xe.
+  assert.deepEqual((await q('SELECT CAST(trip_id AS CHAR) AS trip, CAST(vehicle_id AS CHAR) AS vehicle FROM trip_vehicles')).map(r => r.trip + ':' + r.vehicle), ['100:1']);
   assert.ok((await q('SELECT trip_vehicle_id FROM trip_assignments WHERE trip_id=100'))[0].trip_vehicle_id);
   assert.equal(await db.showMigrations(), false);
   console.log('PASS route/fleet/representative-leg migrations on isolated MySQL: ' + name + '; old rows preserved');
@@ -103,7 +104,8 @@ module.exports = async function fixture() {
   };
   return { name,db,q,call,token,control,snapshot,close:async()=>{
     await Promise.all([server,provider].map(s=>new Promise(resolve=>{s.close(resolve);s.closeAllConnections();})));
-    await db.destroy(); await admin.end();
-    // Keep the isolated schema for inspection; no DROP or user DB modifications.
+    await db.destroy();
+    // Mặc định xóa database thử; đặt ROUTE_TEST_KEEP_DB=1 để giữ lại xem dữ liệu.
+    try { if (process.env.ROUTE_TEST_KEEP_DB !== '1' && /^wdp_flow3_test_[0-9a-f]{16}$/.test(name)) await admin.query('DROP DATABASE ' + name); } finally { await admin.end(); }
   }};
 };

@@ -6,13 +6,13 @@ const {DataSource}=require('typeorm'),{User}=require('../src/features/users/user
 const {TripsService}=require('../src/features/trips/trips.service'),{TripsRepository}=require('../src/features/trips/trips.repository');
 const {TrackingService}=require('../src/features/tracking/tracking.service'),{TrackingRepository}=require('../src/features/tracking/tracking.repository');
 const {VehiclesService}=require('../src/features/vehicles/vehicles.service'),{VehiclesRepository}=require('../src/features/vehicles/vehicles.repository');
-const socket=process.env.RESOURCE_TEST_MYSQL_SOCKET;
-assert.match(socket||'',/^\/tmp\/horseroute-acceptance-mysql-[a-zA-Z0-9]+\/mysql.sock$/);
-const options={type:'mysql',username:'root',timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,entities:[User],extra:{socketPath:socket,connectionLimit:10}};
+// Cùng cấu hình TEST_DB_* với các test tích hợp khác; chỉ tạo và xóa database wdp_flow3_test_* ngẫu nhiên.
+const testDb=require('./mysql-options.cjs');
+const options={type:'mysql',host:testDb.host,port:testDb.port,username:testDb.user,password:testDb.password,ssl:testDb.ssl,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,entities:[User],extra:{connectionLimit:10}};
 const name='wdp_flow3_test_'+crypto.randomBytes(8).toString('hex');let admin,db;
 (async()=>{try {
  admin=await new DataSource({...options,database:'mysql'}).initialize();await admin.query('CREATE DATABASE '+name+' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
- db=await new DataSource({...options,database:name}).initialize();await require('./load-schema.cjs')(db);
+ db=await new DataSource({...options,database:name}).initialize();await require('./load-schema.cjs')(db, { except: ['TripRoutePlan1800000013000','TripFleet1800000015000','RepresentativeTripLeg1800000016000','CrewReservations1800000091000'] });
  const q=(sql,args)=>db.query(sql,args),runner=db.createQueryRunner();
  for(const [file,klass] of [['1800000013000-TripRoutePlan','TripRoutePlan1800000013000'],['1800000015000-TripFleet','TripFleet1800000015000'],['1800000016000-RepresentativeTripLeg','RepresentativeTripLeg1800000016000'],['1800000091000-CrewReservations','CrewReservations1800000091000']])await new (require('../src/database/migrations/'+file)[klass])().up(runner);
  await runner.release();console.log('PASS migrations on isolated MySQL '+name);

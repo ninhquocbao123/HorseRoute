@@ -32,22 +32,18 @@ jobs:
           DB_USER: root
           DB_PASSWORD: integration-test-only
           DB_SSL: 'false'
-      - run: node apps/api/test/flow2.mysql.cjs
-        env:
-          TEST_DB_HOST: 127.0.0.1
-          TEST_DB_PORT: 3306
-          TEST_DB_USER: root
-          TEST_DB_PASSWORD: integration-test-only
-          TEST_DB_SSL: 'false'
-      - run: node apps/api/test/flow3-read.mysql.cjs
-        env:
-          TEST_DB_HOST: 127.0.0.1
-          TEST_DB_PORT: 3306
-          TEST_DB_USER: root
-          TEST_DB_PASSWORD: integration-test-only
-          TEST_DB_SSL: 'false'
-      # Storage provider/dir and the JWT secret are set inside the script itself.
-      - run: node apps/api/test/flow4-tracking.mysql.cjs
+      # Mọi test tích hợp MySQL, mỗi file tạo và xóa database ngẫu nhiên của riêng nó. Chạy hết rồi mới báo các file lỗi.
+      # Storage provider/dir và JWT secret đặt sẵn trong từng script.
+      - name: MySQL integration tests
+        shell: bash
+        run: |
+          failed=()
+          for test in apps/api/test/*.mysql.cjs; do
+            echo "::group::$test"
+            node "$test" || failed+=("$test")
+            echo "::endgroup::"
+          done
+          if [ ${#failed[@]} -gt 0 ]; then printf 'Lỗi: %s\n' "${failed[@]}"; exit 1; fi
         env:
           TEST_DB_HOST: 127.0.0.1
           TEST_DB_PORT: 3306

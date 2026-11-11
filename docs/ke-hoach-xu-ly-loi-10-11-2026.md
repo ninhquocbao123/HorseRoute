@@ -10,6 +10,7 @@ Trạng thái: **Long đã duyệt ngày 10/11/2026. Đang làm giai đoạn 0. 
 | --- | --- | --- |
 | 0.1 | Xong 11/11/2026 | Lệnh `pnpm db:setup`; migration Init dựng 25 bảng gốc trên DB trống, bỏ qua DB đã có bảng; `migration:run` chạy được bằng `-t each`; gỡ 5 script `apply-*`. Đã thử: DB trống, chạy lại, CLI, DB có sẵn dữ liệu, từ chối DB ở xa; cấu trúc giống hệt cách dựng cũ (358 cột, 145 chỉ mục, 179 ràng buộc). **Khác kế hoạch:** không đổi tên 5 cặp migration trùng timestamp, xem ghi chú ở mục 0.1 |
 | 0.2 | Xong 11/11/2026 | Seed dựng schema bằng đúng migration của `db:setup`; xe theo `license_plate`, `status`, mỗi chuyến một xe qua `trip_vehicles`; hồ sơ tổ lái; báo giá và biên nhận cho mọi đơn đã duyệt; thêm đơn mới chờ tiếp nhận. Đã thử bằng API với cả 8 tài khoản: đăng nhập, chuyến của tài xế và hộ tống, báo giá, doanh thu, quản lý duyệt đơn mới, tài xế ghi mốc |
+| 0.3 | Xong 11/11/2026 | 16/16 file test tích hợp đạt (174 ca), CI chạy cả 16 file trong một bước và báo mọi file lỗi. Viết lại theo mô hình đội xe: `vehicles`, `coordinator-resources`, `trips-*-checks`; `flow1` theo 3 giấy tờ bắt buộc; `flow4` theo phản hồi sự cố nhiều lần và ảnh bắt buộc; 3 file dùng `TEST_DB_*` thay socket `/tmp` và cổng cố định. Sửa 4 lỗi code lộ ra khi chạy test, xem N12 trong báo cáo. **Khác kế hoạch:** chưa tách để mỗi ca lỗi không chặn ca sau trong cùng file; CI vẫn chạy hết mọi file. **Nên có Tiến xem lại** phần viết lại `trips-*-checks`, vì nghiệp vụ "một xe chỉ thuộc một chuyến đang hoạt động, bất kể giờ" thay cho kiểm tra trùng giờ cũ |
 
 ## 1. Nguyên tắc
 

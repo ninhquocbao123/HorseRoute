@@ -9,11 +9,13 @@ const {TripFleet1800000015000}=require('../src/database/migrations/1800000015000
 const {TripRoutePlan1800000013000}=require('../src/database/migrations/1800000013000-TripRoutePlan');
 const {RepresentativeTripLeg1800000016000}=require('../src/database/migrations/1800000016000-RepresentativeTripLeg');
 const {issueRouteToken,routeInputKey}=require('../src/features/trips/trip-route-plan');
-const options={type:'mysql',host:'127.0.0.1',port:33379,username:'root',password:'fleet-test-local-only',timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,entities:[User]};
+// Cùng cấu hình TEST_DB_* với các test tích hợp khác.
+const testDb=require('./mysql-options.cjs');
+const options={type:'mysql',host:testDb.host,port:testDb.port,username:testDb.user,password:testDb.password,ssl:testDb.ssl,timezone:'Z',supportBigNumbers:true,bigNumberStrings:true,entities:[User]};
 const name='wdp_flow3_test_'+crypto.randomBytes(8).toString('hex');let admin,db;
 (async()=>{try{
  admin=await new DataSource({...options,database:'mysql'}).initialize();await admin.query('CREATE DATABASE `'+name+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
- db=await new DataSource({...options,database:name}).initialize();await require('./load-schema.cjs')(db);
+ db=await new DataSource({...options,database:name}).initialize();await require('./load-schema.cjs')(db, { except: ['TripRoutePlan1800000013000','TripFleet1800000015000','RepresentativeTripLeg1800000016000'] });
  const q=(s,p)=>db.query(s,p); const runner=db.createQueryRunner();await new TripRoutePlan1800000013000().up(runner);await new TripFleet1800000015000().up(runner);await new RepresentativeTripLeg1800000016000().up(runner);await runner.release();
  await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES
  (1,'customer@test','x','Customer','CUSTOMER','ACTIVE'),(3,'coord@test','x','Coordinator','COORDINATOR','ACTIVE'),

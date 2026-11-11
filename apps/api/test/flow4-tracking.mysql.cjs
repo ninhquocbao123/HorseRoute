@@ -471,7 +471,8 @@ async function main() {
     assert.equal(snap.order, 'IN_TRANSIT');
     assert.equal(snap.legs[0].status, 'MOVING');
     assert.equal(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='ORDER' AND action='STATUS_CHANGE'"), 1);
-    const notified = await q("SELECT recipient_id AS r, event_type AS e FROM notifications ORDER BY recipient_id, event_type");
+    // Ca nhật ký chăm sóc ở trên đã báo khách (CARE_ACTIVITY); ở đây chỉ xét thông báo do bước xuất phát tạo ra.
+    const notified = await q("SELECT recipient_id AS r, event_type AS e FROM notifications WHERE event_type<>'CARE_ACTIVITY' ORDER BY recipient_id, event_type");
     assert.deepEqual(notified.map(n => `${n.r}:${n.e}`), ['1:ORDER_IN_TRANSIT', '3:LEG_MILESTONE_UPDATED']);
     const dup = await depart(minutesAgo(59));
     assert.equal(dup.status, 409, 'recording the same milestone again is a conflict');
@@ -608,14 +609,17 @@ async function main() {
     globalThis.__incident = incident.id;
   });
 
-  await check('Incident handling: only the owning coordinator; close requires a note; one-way flow with audit and reporter notice', async () => {
+  // Từ migration IncidentResponses: mỗi lần điều phối phản hồi (tiếp nhận) đều cần ghi hướng xử lý, có thể phản hồi nhiều lần trước khi đóng.
+  await check('Incident handling: only the owning coordinator; every response needs a note; several responses then one close, with audit and reporter notices', async () => {
     const id = globalThis.__incident;
-    await expectStatus(404, 'PATCH', `/incidents/${id}`, { as: ids.coordB, body: { status: 'ACKNOWLEDGED' } });
+    await expectStatus(404, 'PATCH', `/incidents/${id}`, { as: ids.coordB, body: { status: 'ACKNOWLEDGED', handlingNote: 'Không phải chuyến của tôi' } });
+    await expectStatus(400, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'ACKNOWLEDGED' } });
     await expectStatus(400, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'CLOSED' } });
     await expectStatus(400, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'CLOSED', handlingNote: '   ' } });
-    const ack = await expectStatus(200, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'ACKNOWLEDGED' } });
+    const ack = await expectStatus(200, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'ACKNOWLEDGED', handlingNote: 'Đang liên hệ thú y gần nhất', waitMinutes: 30 } });
     assert.equal(ack.status, 'ACKNOWLEDGED');
-    await expectStatus(409, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'ACKNOWLEDGED' } });
+    await expectStatus(200, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'ACKNOWLEDGED', handlingNote: 'Thú y đang tới' } });
+    assert.equal(await count("SELECT COUNT(*) AS n FROM incident_responses WHERE incident_id=? AND kind='RESPONSE'", [id]), 2);
     const closed = await expectStatus(200, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'CLOSED', handlingNote: 'Đã đưa ngựa tới thú y' } });
     assert.equal(closed.status, 'CLOSED');
     const [row] = await q('SELECT status, received_by AS receiver, handling_note AS note, closed_at AS closed FROM incidents WHERE id=?', [id]);
@@ -624,8 +628,8 @@ async function main() {
     assert.equal(row.note, 'Đã đưa ngựa tới thú y');
     assert.ok(row.closed);
     await expectStatus(409, 'PATCH', `/incidents/${id}`, { as: ids.coordA, body: { status: 'CLOSED', handlingNote: 'lần hai' } });
-    assert.equal(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='INCIDENT' AND entity_id=?", [id]), 3);
-    assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=6 AND event_type IN ('INCIDENT_ACKNOWLEDGED','INCIDENT_CLOSED')"), 2);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='INCIDENT' AND entity_id=?", [id]), 4);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=6 AND event_type IN ('INCIDENT_ACKNOWLEDGED','INCIDENT_CLOSED')"), 3);
   });
 
   await check('Alert: owning coordinator only; stored with author; crew, managers and the order customer notified', async () => {
@@ -756,7 +760,7 @@ async function main() {
     assert.deepEqual(snap.legs.map(l => l.status), ['COMPLETED', 'COMPLETED']);
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_DELIVERED'"), 1);
     assert.equal(await count("SELECT COUNT(*) AS n FROM notifications WHERE recipient_id=1 AND event_type='ORDER_LEG_PROGRESS'"), 4);
-    await expectStatus(409, 'POST', '/trips/100/incidents', { as: ids.driver, body: { incidentType: 'LONG_TRAFFIC_JAM', description: 'Sau khi giao', severity: 'YELLOW', damageTarget: 'VEHICLE' } });
+    await expectStatus(409, 'POST', '/trips/100/incidents', { as: ids.driver, body: photoForm({ incidentType: 'LONG_TRAFFIC_JAM', description: 'Sau khi giao', severity: 'YELLOW', damageTarget: 'VEHICLE' }) });
     await expectStatus(409, 'POST', '/trips/100/positions', { as: ids.driver, body: { points: [{ latitude: 1.36, longitude: 103.99, recordedAt: minutesAgo(1) }] } });
     assert.equal((await expectStatus(200, 'GET', '/trips/100/map', { as: ids.manager })).remainingKm, 0, 'delivered → nothing left');
     await expectStatus(409, 'POST', '/trips/100/alerts', { as: ids.coordA, body: { alertType: 'TRAFFIC', content: 'Sau khi giao hàng' } });
@@ -921,6 +925,10 @@ async function main() {
       assert.deepEqual(await checkNames('horse_care_activities'), expectedCareChecks);
       // down(): bỏ cột/bảng mới, nhật ký cũ giữ nguyên; up() lại như trước
       const logs = await count('SELECT COUNT(*) AS n FROM horse_logs');
+      // CareActivityPhotos (chạy sau) thêm khóa ngoại tới horse_care_activities: hoàn tác theo thứ tự ngược như TypeORM.
+      const { CareActivityPhotos1800000018000 } = require('../src/database/migrations/1800000018000-CareActivityPhotos');
+      const photos = new CareActivityPhotos1800000018000();
+      await photos.down(runner);
       await migration.down(runner);
       assert.ok(!(await tableExists()));
       for (const column of newColumns) assert.ok(!(await columns()).includes(column), 'still has ' + column);
@@ -929,6 +937,7 @@ async function main() {
       assert.equal(await count('SELECT COUNT(*) AS n FROM horse_logs'), logs, 'down() keeps every horse_logs row');
       await migration.down(runner); // down() chạy lại cũng không lỗi
       await migration.up(runner);
+      await photos.up(runner);
       for (const column of newColumns) assert.ok((await columns()).includes(column), 'missing after up ' + column);
       assert.ok(await tableExists());
       assert.deepEqual(await checkNames('horse_logs'), expectedLogChecks);

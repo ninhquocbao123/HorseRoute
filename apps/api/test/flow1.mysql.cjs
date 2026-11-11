@@ -6,6 +6,7 @@ const fs=require('fs');const path=require('path');const assert=require('node:ass
 const mysql=require('mysql2/promise');const {DataSource}=require('typeorm');
 const {OrdersService}=require('../src/features/orders/orders.service');
 const {OrderDrafts1800000001000}=require('../src/database/migrations/1800000001000-OrderDrafts');
+const {horseDocumentNames}=require('../src/features/documents/required-horse-documents');
 const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
 const options=require('./mysql-options.cjs');
 let admin,db,created=false;let passed=0;
@@ -19,10 +20,8 @@ async function main(){
  const runner=db.createQueryRunner();await runner.connect();
  try{await new OrderDrafts1800000001000().up(runner);await new OrderDrafts1800000001000().up(runner);}finally{await runner.release();}
  await db.query("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (1,'one@example.com','!','Khách 1','CUSTOMER','ACTIVE'),(2,'two@example.com','!','Khách 2','CUSTOMER','ACTIVE'),(3,'manager@example.com','!','Quản lý','MANAGER','ACTIVE'),(4,'coordinator@example.com','!','Điều phối','COORDINATOR','ACTIVE')");
- await db.query("INSERT INTO authorities(id,name,authority_type,country) VALUES (1,'Test authority','QUARANTINE','SG')");
+ // Danh mục cũ, chưa có đủ 3 giấy tờ bắt buộc theo tên: duyệt đơn phải thất bại và không để lại dữ liệu.
  await db.query("INSERT INTO document_types(id,name,has_expiry) VALUES (1,'Passport',0),(2,'Health',1)");
- await db.query("INSERT INTO quarantine_rules(id,origin_country,destination_country,authority_id,updated_by,updated_at) VALUES (1,'VN','SG',1,3,UTC_TIMESTAMP()),(2,'VN','SG',1,3,UTC_TIMESTAMP()),(3,'VN','TH',1,3,UTC_TIMESTAMP())");
- await db.query('INSERT INTO quarantine_rule_doctypes(rule_id,document_type_id) VALUES (1,1),(1,2)');
  const service=new OrdersService(db);const customer={id:'1',role:'CUSTOMER'},other={id:'2',role:'CUSTOMER'},manager={id:'3',role:'MANAGER'};
  const requestId=require('crypto').randomUUID();let id;
  await check('save empty draft and idempotent retry',async()=>{id=(await service.save(customer,{requestId,horses:[]})).id;assert.equal((await service.save(customer,{requestId,horses:[]})).id,id);const [n]=await db.query('SELECT COUNT(*) n FROM orders');assert.equal(Number(n.n),1);});
@@ -45,11 +44,11 @@ async function main(){
  payload.horses[0].id=String(horseId);payload.horses[0].breed='Thoroughbred';
  await service.save(customer,payload,id);await service.submit(customer,id);
  await check('resubmission retains horse ID and review history',async()=>{const result=await service.detail(customer,id);assert.equal(String(result.horses[0].id),String(horseId));assert.ok(result.history.some(h=>h.action==='REVIEW'));assert.equal(result.horses[0].breed,'Thoroughbred');});
- await check('invalid coordinator and foreign route rules are rejected',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'2',ruleIds:['1','2']}),e=>e.getStatus()===400);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['3']}),e=>e.getStatus()===400);});
- await check('approval failure rolls back previously created checklist and dossiers',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);for(const table of ['documents','dossiers','trips']){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),0);}assert.equal((await service.detail(customer,id)).status,'PENDING');});
- await db.query('INSERT INTO quarantine_rule_doctypes(rule_id,document_type_id) VALUES (2,1)');
- await check('approval creates distinct checklist, dossiers and one draft trip',async()=>{await service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']});for(const [table,count]of [['documents',2],['dossiers',1],['trips',1]]){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),count);}assert.equal((await service.detail(customer,id)).status,'APPROVED');});
- await check('approved order cannot be edited or reviewed again',async()=>{await assert.rejects(()=>service.save(customer,payload,id),e=>e.getStatus()===409);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4',ruleIds:['1','2']}),e=>e.getStatus()===409);});
+ await check('invalid coordinator is rejected',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'2'}),e=>e.getStatus()===400);});
+ await check('approval without the three required document types fails and rolls back',async()=>{await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'}),e=>e.getStatus()===409);for(const table of ['documents','trips']){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),0);}assert.equal((await service.detail(customer,id)).status,'PENDING');});
+ for(const [index,docName] of horseDocumentNames.entries())await db.query('INSERT INTO document_types(id,name,has_expiry) VALUES (?,?,?)',[11+index,docName,index===0?0:1]);
+ await check('approval creates the three documents per horse, one draft trip and the requirements snapshot',async()=>{await service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'});for(const [table,count]of [['documents',3],['trips',1]]){const [n]=await db.query('SELECT COUNT(*) n FROM '+table);assert.equal(Number(n.n),count);}assert.equal((await service.detail(customer,id)).status,'APPROVED');const [order]=await db.query('SELECT requirements_snapshot s FROM orders WHERE id=?',[id]);const snapshot=typeof order.s==='string'?JSON.parse(order.s):order.s;assert.equal(snapshot.horses.length,1);assert.deepEqual(snapshot.horses[0].documents.map(d=>d.documentTypeId),['11','12','13']);});
+ await check('approved order cannot be edited or reviewed again',async()=>{await assert.rejects(()=>service.save(customer,payload,id),e=>e.getStatus()===409);await assert.rejects(()=>service.review(manager,id,{decision:'APPROVED',coordinatorId:'4'}),e=>e.getStatus()===409);});
  const otherId=(await service.save(other,{...payload,horses:[{name:'Ngựa Hai',passportNo:'TEST-TWO'}]})).id;await service.submit(other,otherId);
  await check('rejection records reason and creates no trip',async()=>{await service.review(manager,otherId,{decision:'REJECTED',reason:'Không phục vụ tuyến này'});const detail=await service.detail(other,otherId);assert.equal(detail.status,'REJECTED');assert.equal(detail.manager_note,'Không phục vụ tuyến này');const [n]=await db.query('SELECT COUNT(*) n FROM trips WHERE order_id=?',[otherId]);assert.equal(Number(n.n),0);});
  await check('list is scoped and filterable',async()=>{const list=await service.list(customer,{page:1,limit:10,status:'APPROVED'});assert.equal(list.total,1);assert.equal(String(list.items[0].id),id);assert.equal((await service.list(other,{page:1,limit:10,status:'APPROVED'})).total,0);});

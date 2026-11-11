@@ -41,7 +41,7 @@ async function main() {
   await q(`INSERT INTO quarantine_rules(id,origin_country,destination_country,border_location_id,updated_by,updated_at) VALUES (1,'VN','KH',5,2,UTC_TIMESTAMP())`);
   await q(`INSERT INTO orders(id,order_code,customer_id,origin_address,origin_country,destination_address,destination_country,desired_departure_date,status)
     VALUES (50,'WDP-LOC-50',1,'A','VN','B','SG','2026-10-20','PREPARING')`);
-  await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (5,'TRUCK',4,'XE-1',1)`);
+  await q(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES (5,'MEDIUM',4,'XE-1','AVAILABLE')`);
   await q(`INSERT INTO trips(id,order_id,plan_status,planned_departure_at,planned_arrival_at,planned_by) VALUES (100,50,'APPROVED',UTC_TIMESTAMP(),UTC_TIMESTAMP() + INTERVAL 9 HOUR,3)`);
   await q(`INSERT INTO legs(id,trip_id,seq_no,from_location_id,to_location_id,vehicle_id,planned_departure_at,planned_arrival_at) VALUES
     (10,100,1,1,2,5,UTC_TIMESTAMP(),UTC_TIMESTAMP() + INTERVAL 3 HOUR),(11,100,2,2,3,5,UTC_TIMESTAMP() + INTERVAL 4 HOUR,UTC_TIMESTAMP() + INTERVAL 9 HOUR)`);

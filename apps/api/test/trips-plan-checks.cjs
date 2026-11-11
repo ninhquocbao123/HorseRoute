@@ -1,12 +1,12 @@
 const assert = require('node:assert/strict');
 module.exports = async function planChecks({ db, base, tokens, read, check }) {
   const id = '9007199254740995', vehicle = '9007199254740993', a = '9007199254740993', b = '9007199254740994';
-  await db.query('UPDATE vehicles SET is_active=1 WHERE id=?', [vehicle]);
-  const leg = (from, to, departure, arrival) => ({ fromLocationId: from, toLocationId: to, vehicleId: vehicle, plannedDepartureAt: `2026-10-20T${departure}:00:00Z`, plannedArrivalAt: `2026-10-20T${arrival}:00:00Z` });
+  // Chặng chỉ còn lộ trình và giờ; xe gán cho cả chuyến qua API assignments (trip_vehicles).
+  const leg = (from, to, departure, arrival) => ({ fromLocationId: from, toLocationId: to, plannedDepartureAt: `2026-10-20T${departure}:00:00Z`, plannedArrivalAt: `2026-10-20T${arrival}:00:00Z` });
   const initial = { legs: [leg(a,b,'01','03'), leg(b,a,'04','05')] };
   const put = (body, user = '3', tripId = id) => fetch(`${base}/${tripId}/plan`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(user ? { Authorization: 'Bearer ' + tokens.sign({ sub: user, email: 'test@test.local', role: 'ADMIN' }) } : {}) }, body: JSON.stringify(body) });
   const save = async body => { const res = await put(body); const data = await res.json(); assert.equal(res.status, 200, JSON.stringify(data)); return data; };
-  const input = detail => ({ legs: detail.legs.map(l => ({ id: l.id, fromLocationId: l.fromLocationId, toLocationId: l.toLocationId, vehicleId: l.vehicleId, plannedDepartureAt: l.plannedDepartureAt, plannedArrivalAt: l.plannedArrivalAt })) });
+  const input = detail => ({ legs: detail.legs.map(l => ({ id: l.id, fromLocationId: l.fromLocationId, toLocationId: l.toLocationId, plannedDepartureAt: l.plannedDepartureAt, plannedArrivalAt: l.plannedArrivalAt })) });
   const auditCount = async () => Number((await db.query("SELECT COUNT(*) n FROM audit_logs WHERE entity_type='TRIP' AND entity_id=?", [id]))[0].n);
   let detail;
   await check('PUT enforces authentication and ownership, including Manager denied', async () => {
@@ -41,8 +41,8 @@ module.exports = async function planChecks({ db, base, tokens, read, check }) {
       body => { body.planStatus = 'APPROVED'; }, body => { body.legs[0].actualDepartureAt = '2026-10-20T01:00:00Z'; },
       body => { body.legs.pop(); }, body => { body.legs.reverse(); }, body => { body.legs[0].id = '9007199254740993'; },
       body => { body.legs[1].id = body.legs[0].id; }, body => { delete body.legs[0].id; },
-      body => { body.legs[0].fromLocationId = '999'; }, body => { body.legs[0].vehicleId = '999'; },
-      body => { body.legs[0].vehicleId = '9007199254740994'; }, body => { body.legs[0].toLocationId = a; },
+      body => { body.legs[0].fromLocationId = '999'; }, body => { body.legs[0].vehicleId = vehicle; },
+      body => { body.legs[0].toLocationId = a; },
       body => { body.legs[1].plannedDepartureAt = '2026-10-20T00:00:00Z'; },
       body => { body.legs[1].fromLocationId = a; }, body => { body.legs[0].plannedDepartureAt = '2026-02-30T01:00:00Z'; },
     ];
