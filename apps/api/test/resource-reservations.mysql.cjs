@@ -51,7 +51,7 @@ const name='wdp_flow3_test_'+crypto.randomBytes(8).toString('hex');let admin,db;
  await svc.savePlan(actor,'100',{plannedDepartureAt:'2031-01-01T01:00:00Z',plannedArrivalAt:'2031-01-02T01:00:00Z',routePlanRevision:1});
  await svc.submitPlan(actor,'100',{});await svc.reviewPlan(manager,'100',{decision:'RETURNED',reason:'Test return retains resources'});assert.equal((await q('SELECT status FROM vehicles WHERE id=21'))[0].status,'RESERVED');
  await svc.submitPlan(actor,'100',{});await svc.reviewPlan(manager,'100',{decision:'APPROVED'});assert.equal((await svc.readiness(manager,'100')).canStart,true);
- await svc.releaseToDriver(manager,'100',{});assert.equal((await q('SELECT status FROM vehicles WHERE id=21'))[0].status,'RESERVED');assert.equal((await q('SELECT work_status FROM crew_profiles WHERE user_id=10'))[0].work_status,'RESERVED');console.log('PASS submit/return/review/readiness/READY retains reservations');
+ await svc.releaseToDriver(manager,'100',{depositWaiverReason:'Kiểm thử giữ chỗ xe và tổ lái'});assert.equal((await q('SELECT status FROM vehicles WHERE id=21'))[0].status,'RESERVED');assert.equal((await q('SELECT work_status FROM crew_profiles WHERE user_id=10'))[0].work_status,'RESERVED');console.log('PASS submit/return/review/readiness/READY retains reservations');
  const leg=(await svc.detail(actor,'100')).legs[0].id,driver={id:'10',role:'DRIVER_ESCORT'};
  const milestone=type=>tracking.recordMilestone(driver,leg,{milestoneType:type,occurredAt:new Date(Math.floor(Date.now()/1000)*1000).toISOString()});
  await milestone('DEPARTED');assert.equal((await q('SELECT status FROM vehicles WHERE id=21'))[0].status,'IN_TRANSIT');assert.equal((await q('SELECT work_status FROM crew_profiles WHERE user_id=10'))[0].work_status,'IN_TRIP');

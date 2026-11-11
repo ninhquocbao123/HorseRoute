@@ -275,6 +275,16 @@ export class TripsRepository {
     const result = await this.db.query("UPDATE orders SET status='READY' WHERE id=? AND status='PREPARING'", [orderId]);
     return Number(result?.affectedRows) === 1;
   }
+  /** Tiền cọc của báo giá đã duyệt mới nhất và tổng tiền khách đã trả (mọi biên nhận của đơn). */
+  async depositStatus(orderId: string): Promise<{ deposit: number | null; paid: number }> {
+    const [row] = await this.db.query(`SELECT (SELECT q.deposit FROM order_quotes q WHERE q.order_id=? AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1) deposit,
+      (SELECT COALESCE(SUM(r.amount),0) FROM order_receipts r WHERE r.order_id=?) paid`, [orderId, orderId]);
+    return { deposit: row?.deposit === null || row?.deposit === undefined ? null : Number(row.deposit), paid: Number(row?.paid ?? 0) };
+  }
+  async auditDepositWaiver(actor: string, orderId: string, tripId: string, status: { deposit: number | null; paid: number }, reason: string) {
+    await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason)
+      VALUES (?,'ORDER',?,'START_WITHOUT_DEPOSIT',?,?,?)`, [actor, orderId, JSON.stringify(status), JSON.stringify({ tripId }), reason]);
+  }
   async auditOrderReady(actor: string, orderId: string, tripId: string, oldStatus: string) {
     await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value)
       VALUES (?,'ORDER',?,'MARK_READY',?,?)`, [actor, orderId,

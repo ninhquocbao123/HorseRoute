@@ -64,6 +64,10 @@ export type LegacyTripPlanInput = z.infer<typeof legacyTripPlanSchema>;
 export type TripScheduleInput = z.infer<typeof tripScheduleSchema>;
 
 export const submitTripPlanSchema = z.object({}).strict();
+/** Chuyển chuyến cho tài xế. Khách chưa đủ cọc thì quản lý phải nêu lý do ngoại lệ (A5). */
+export const startTransportSchema = z.object({
+  depositWaiverReason: z.string().trim().min(5, 'Nêu lý do ít nhất 5 ký tự.').max(255).optional(),
+}).strict();
 
 export const reviewTripPlanSchema = z.discriminatedUnion('decision', [
   z.object({ decision: z.literal('APPROVED') }).strict(),

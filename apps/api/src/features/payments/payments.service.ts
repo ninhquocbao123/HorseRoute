@@ -6,7 +6,7 @@ import { Role } from '@my-project/shared';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
 import { socketService, PaymentEventPayload } from '../../shared/socket/socket.service';
 import { CreatePaymentSessionDto, CompletePaymentSessionDto } from './payments.validation';
-import { notifyDeliveryCleared } from './payment-notices';
+import { settleReceipt } from './payment-notices';
 
 export class PaymentsService {
   constructor(private readonly db: DataSource) { }
@@ -217,23 +217,10 @@ export class PaymentsService {
 
       // Check order status updates:
       // If paid >= deposit and current order is APPROVED, advance to PREPARING
-      let nextOrderStatus = session.order_status;
-      if (session.order_status === 'APPROVED' && newPaid >= deposit) {
-        nextOrderStatus = 'PREPARING';
-        await m.query("UPDATE orders SET status='PREPARING' WHERE id=? AND status='APPROVED'", [session.order_id]);
-        await m.query(
-          "INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value, reason) VALUES (?, 'ORDER', ?, 'STATUS_CHANGE', ?, ?)",
-          [user.id, session.order_id, JSON.stringify({ status: 'PREPARING', trigger: 'DEPOSIT_PAID', paid: newPaid }), 'Đã đủ tiền đặt cọc, chuyển sang chuẩn bị chuyến']
-        );
-      }
-
-      if (newPaid >= total) {
-        await m.query(
-          "INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value, reason) VALUES (?, 'ORDER', ?, 'FULLY_PAID', ?, ?)",
-          [user.id, session.order_id, JSON.stringify({ paid: newPaid, total }), 'Đã thanh toán đủ toàn bộ chi phí vận chuyển']
-        );
-        await notifyDeliveryCleared(m, session.order_id, session.order_code);
-      }
+      const nextOrderStatus = await settleReceipt(m, {
+        orderId: session.order_id, orderCode: session.order_code, orderStatus: session.order_status,
+        deposit, total, paidAfter: newPaid, actorId: user.id,
+      });
 
       // Record audit for receipt
       await m.query(

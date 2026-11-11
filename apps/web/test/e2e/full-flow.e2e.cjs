@@ -300,13 +300,22 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     assert.equal(trip.dep, '08:00', 'giờ khởi hành lưu đúng giờ Việt Nam');
   });
 
-  await phase('Quản lý duyệt kế hoạch và chuyển chuyến cho tài xế', async () => {
+  await phase('Quản lý duyệt kế hoạch; chưa đủ cọc thì phải nêu lý do (A5); đủ cọc thì chuyển chuyến cho tài xế', async () => {
     await login('manager@e2e.test');
     await page.goto(`${base}/dashboard?view=orders&order=${orderId}`);
     await page.getByRole('button', { name: /Duyệt đơn$/ }).click();
     await until('duyệt kế hoạch', async () => await planStatus() === 'APPROVED');
     const start = page.getByRole('button', { name: /Bắt đầu vận chuyển$/ });
     await start.waitFor();
+    // Tạm nâng tiền cọc trên mức khách đã trả: bấm chuyển chuyến phải hỏi lý do, không gửi yêu cầu nào.
+    await db.query("UPDATE order_quotes SET deposit=deposit+1000 WHERE order_id=? AND status='APPROVED'", [orderId]);
+    await start.click();
+    const waiver = page.getByRole('dialog').filter({ hasText: 'Chuyển chuyến khi khách chưa đủ cọc' });
+    await waiver.getByText(/Khách mới trả .* trên .* tiền cọc/).waitFor();
+    assert.equal(await waiver.getByRole('button', { name: 'Vẫn chuyển chuyến' }).isDisabled(), true, 'chưa nhập lý do thì không chuyển được');
+    await waiver.getByRole('button', { name: 'Quay lại' }).click();
+    assert.equal(await orderStatus(), 'PREPARING');
+    await db.query("UPDATE order_quotes SET deposit=deposit-1000 WHERE order_id=? AND status='APPROVED'", [orderId]);
     const response = page.waitForResponse(r => r.url().endsWith('/start-transport'));
     await start.click();
     const result = await response;

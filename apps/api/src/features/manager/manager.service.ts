@@ -2,7 +2,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { Role, calculateEstimate } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { PricingService } from '../pricing/pricing.service';
-import { notifyDeliveryCleared } from '../payments/payment-notices';
+import { settleReceipt } from '../payments/payment-notices';
+import { socketService, type PaymentEventPayload } from '../../shared/socket/socket.service';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
 import { parse } from '../../shared/utils/validation.util';
 import { quoteSchema, quoteReviewSchema, receiptSchema, reportSchema } from './manager.validation';
@@ -75,8 +76,15 @@ export class ManagerService {
   const [q]=await m.query('SELECT * FROM order_quotes WHERE id=? FOR UPDATE',[id]);if(q.status!=='APPROVED')throw new ConflictException('Chỉ ghi nhận thu tiền cho báo giá đã duyệt.');
   const paidRows=await m.query('SELECT amount FROM order_receipts WHERE order_id=? FOR UPDATE',[q.order_id]);if(paidRows.reduce((sum:number,r:any)=>sum+Number(r.amount),0)+dto.amount>Number(q.total))throw new BadRequestException('Số tiền thu vượt số còn phải thanh toán.');
   const [duplicate]=await m.query('SELECT id FROM order_receipts WHERE reference=?',[dto.reference]);if(duplicate)throw new ConflictException('Mã chứng từ đã được ghi nhận.');
-  const result=await m.query('INSERT INTO order_receipts(order_id,quote_id,amount,method,source,reference,received_at,recorded_by) VALUES(?,?,?,?,?,?,?,?)',[q.order_id,id,dto.amount,'MANUAL','MANUAL',dto.reference,new Date(dto.receivedAt),u.id]);await this.audit(m,u,id,'RECEIPT',dto);if(paidRows.reduce((sum:number,r:any)=>sum+Number(r.amount),0)+dto.amount>=Number(q.total)){const [o]=await m.query('SELECT order_code FROM orders WHERE id=?',[q.order_id]);await notifyDeliveryCleared(m,q.order_id,o.order_code);}return {id:String(result.insertId)};
- });}
+  const result=await m.query('INSERT INTO order_receipts(order_id,quote_id,amount,method,source,reference,received_at,recorded_by) VALUES(?,?,?,?,?,?,?,?)',[q.order_id,id,dto.amount,'MANUAL','MANUAL',dto.reference,new Date(dto.receivedAt),u.id]);await this.audit(m,u,id,'RECEIPT',dto);
+  // A5: biên nhận thủ công có cùng hệ quả với thanh toán trực tuyến (đổi trạng thái, báo khách, cập nhật màn hình).
+  const paidAfter=paidRows.reduce((sum:number,r:any)=>sum+Number(r.amount),0)+dto.amount;
+  const [o]=await m.query('SELECT order_code,status,customer_id FROM orders WHERE id=?',[q.order_id]);
+  const orderStatus=await settleReceipt(m,{orderId:q.order_id,orderCode:o.order_code,orderStatus:o.status,deposit:Number(q.deposit),total:Number(q.total),paidAfter,actorId:u.id});
+  await m.query("INSERT INTO notifications (recipient_id, event_type, content, related_type, related_id, channel) VALUES (?, 'PAYMENT_SUCCESS', ?, 'ORDER', ?, 'IN_APP')",[o.customer_id,`Quản lý đã ghi nhận khoản thanh toán ${dto.amount.toLocaleString('vi-VN')} đ cho đơn ${o.order_code}.`,q.order_id]);
+  const event:PaymentEventPayload={orderId:String(q.order_id),orderCode:o.order_code,customerId:String(o.customer_id),paymentType:paidAfter-dto.amount<Number(q.deposit)?'DEPOSIT':'BALANCE',paymentMethod:'MANUAL',amount:dto.amount,status:'SUCCESS',paid:paidAfter,total:Number(q.total),balance:Math.max(0,Number(q.total)-paidAfter),orderStatus,message:'Quản lý đã ghi nhận thanh toán.'};
+  return {id:String(result.insertId),event};
+ }).then(({id,event})=>{socketService.notifyPayment(event);return {id};});}
  async revenue(u:User,query:unknown){this.allow(u);const dto=parse(reportSchema,query);
   const [cash]=await this.db.query(`SELECT COALESCE(SUM(amount),0) collected FROM order_receipts WHERE YEAR(CONVERT_TZ(received_at,'+00:00','+07:00'))=? AND (? IS NULL OR MONTH(CONVERT_TZ(received_at,'+00:00','+07:00'))=?)`,[dto.year,dto.month||null,dto.month||null]);
   const [debt]=await this.db.query(`SELECT COALESCE(SUM(GREATEST(q.total-COALESCE(r.paid,0),0)),0) outstanding FROM orders o JOIN order_quotes q ON q.order_id=o.id AND q.status='APPROVED' AND q.id=(SELECT MAX(q2.id) FROM order_quotes q2 WHERE q2.order_id=o.id AND q2.status='APPROVED') LEFT JOIN (SELECT order_id,SUM(amount) paid FROM order_receipts GROUP BY order_id) r ON r.order_id=o.id WHERE o.status IN ('APPROVED','PREPARING','READY','IN_TRANSIT','DELIVERED')`);

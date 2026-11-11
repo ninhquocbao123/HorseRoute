@@ -52,7 +52,9 @@ const name='wdp_flow3_test_'+crypto.randomBytes(8).toString('hex');let admin,db;
  await assert.rejects(()=>svc.releaseToDriver(manager,'100',{}));
  assert.equal((await svc.detail(actor,'100')).orderStatus,'PREPARING');
  await q("UPDATE crew_profiles SET work_status='AVAILABLE' WHERE user_id=10");
- const releases=await Promise.allSettled([svc.releaseToDriver(manager,'100',{}),svc.releaseToDriver(manager,'100',{})]);
+ // Đơn mẫu chưa có báo giá: test phân bổ xe nên chuyển chuyến với lý do ngoại lệ cọc (A5, xem trips-review-checks).
+ const waiver={depositWaiverReason:'Kiểm thử phân bổ xe và tổ lái'};
+ const releases=await Promise.allSettled([svc.releaseToDriver(manager,'100',waiver),svc.releaseToDriver(manager,'100',waiver)]);
  assert.equal(releases.filter(r=>r.status==='fulfilled').length,1);
  assert.equal((await svc.detail(actor,'100')).orderStatus,'READY');
  console.log('PASS Manager review/return, read-only readiness, fresh validation, role gate and concurrent release');

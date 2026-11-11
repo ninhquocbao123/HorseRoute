@@ -1,6 +1,6 @@
 import { tripFleetSchema, TripFleetInput } from './trip-fleet.schema';
 import { parse } from '../../shared/utils/validation.util';
-import { isSameVietnamCalendarDate, legacyTripPlanSchema, tripIdSchema, tripPlanSchema, submitTripPlanSchema, LegacyTripPlanInput, reviewTripPlanSchema, tripAssignmentsSchema, routePlanWriteSchema, routePreviewSchema } from './trips.validation';
+import { isSameVietnamCalendarDate, legacyTripPlanSchema, tripIdSchema, tripPlanSchema, submitTripPlanSchema, startTransportSchema, LegacyTripPlanInput, reviewTripPlanSchema, tripAssignmentsSchema, routePlanWriteSchema, routePreviewSchema } from './trips.validation';
 import { Role } from '@my-project/shared';
 import { User } from '../users/users.model';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '../../shared/core/error.response';
@@ -10,6 +10,9 @@ import { checkCrewReadiness } from './trips.crew';
 import { TripsRepository, TripRow, TripScope } from './trips.repository';
 import { routeInputKey, routePlanSchema, verifyRouteToken } from './trip-route-plan';
 import { previewRoutes } from './trip-map-provider';
+
+/** Đủ cọc: có báo giá đã duyệt và tổng tiền đã trả ít nhất bằng tiền cọc. Chưa có báo giá thì coi là chưa đủ. */
+export const depositSatisfied = (money: { deposit: number | null; paid: number }) => money.deposit !== null && money.paid >= money.deposit;
 
 function scope(account: Pick<User, 'id' | 'role'>): TripScope {
   if (account.role === Role.COORDINATOR) return { coordinatorId: account.id };
@@ -273,20 +276,30 @@ export class TripsService {
         const response = error.getResponse();
         blockers.push({ code: 'PLAN_NOT_READY', message: typeof response === 'string' ? response : String(response.message || 'Kế hoạch chưa hợp lệ.') });
       }
+      // Cọc không chặn canStart: quản lý vẫn chuyển được nếu nêu lý do ngoại lệ (A5). Giao diện dựa vào deposit để hỏi lý do.
+      const money = await repo.depositStatus(orderId);
+      const deposit = { required: money.deposit, paid: money.paid, satisfied: depositSatisfied(money) };
       return { tripId: id, planStatus: detail.planStatus, orderStatus: detail.orderStatus,
-        valid: blockers.length === 0, canStart: blockers.length === 0 && detail.planStatus === 'APPROVED' && detail.orderStatus === 'PREPARING', blockers };
+        valid: blockers.length === 0, canStart: blockers.length === 0 && detail.planStatus === 'APPROVED' && detail.orderStatus === 'PREPARING', blockers, deposit };
     });
   }
   async releaseToDriver(account: User, rawId: string, body: unknown): Promise<TripDetail> {
     if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Manager được chuyển chuyến cho tài xế.');
     const id = parse(tripIdSchema, rawId);
-    parse(submitTripPlanSchema, body);
+    const { depositWaiverReason } = parse(startTransportSchema, body ?? {});
     return this.repository.transaction(async repo => {
       const orderId = await repo.orderId(id);
       if (!orderId) throw new NotFoundException('Không tìm thấy chuyến.');
       const order = await repo.lockOrder(orderId), trip = await repo.lockTrip(id);
       if (!order || !trip || trip.orderId !== orderId || trip.planStatus !== 'APPROVED' || order.status !== 'PREPARING') {
         throw new ConflictException('Chỉ chuyển chuyến khi kế hoạch APPROVED và đơn PREPARING.');
+      }
+      // A5: khách chưa đủ cọc thì không chuyển chuyến, trừ khi quản lý nêu lý do ngoại lệ (ghi audit).
+      const money = await repo.depositStatus(orderId);
+      if (!depositSatisfied(money) && !depositWaiverReason) {
+        throw new ConflictException({ code: 'DEPOSIT_REQUIRED', message: money.deposit === null
+          ? 'Đơn chưa có báo giá được duyệt nên chưa xác định được tiền cọc. Nêu lý do nếu vẫn chuyển chuyến.'
+          : `Khách mới trả ${money.paid.toLocaleString('vi-VN')} đ trên ${money.deposit.toLocaleString('vi-VN')} đ tiền cọc. Nêu lý do nếu vẫn chuyển chuyến.` });
       }
       const legs = await repo.lockLegs(id);
       if (legs.some(l => l.status !== 'NOT_STARTED' || l.actualDepartureAt || l.actualArrivalAt) || await repo.hasHistory(id)) {
@@ -296,6 +309,7 @@ export class TripsService {
       await this.validateStoredPlan(repo, detail, legs.length, orderId, true);
       if (!await repo.markOrderReady(orderId)) throw new ConflictException('Trạng thái đơn đã thay đổi.');
       await repo.auditOrderReady(account.id, orderId, id, order.status);
+      if (!depositSatisfied(money) && depositWaiverReason) await repo.auditDepositWaiver(account.id, orderId, id, money, depositWaiverReason);
       await repo.notifyOrderReady(orderId, id);
       return service.detail(account, id);
     });

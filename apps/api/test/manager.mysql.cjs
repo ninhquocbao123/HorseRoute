@@ -26,7 +26,11 @@ const name='wdp_flow1_test_'+require('crypto').randomBytes(8).toString('hex');
  const detail=await s.quotes(m,'1'),quote=detail.quotes.find(q=>q.status==='APPROVED');assert.ok(quote);assert.ok(quote.expires_at);assert.equal(Number(quote.revision),2);
  await assert.rejects(()=>s.create(m,'1',body),e=>e.getStatus()===409);
  await assert.rejects(()=>s.receipt(m,quote.id,{amount:Number(quote.total)+1,reference:'OVERPAY',receivedAt:new Date().toISOString()}),e=>e.getStatus()===400);
- const now=new Date().toISOString();await s.receipt(m,quote.id,{amount:Number(quote.deposit),reference:'DEPOSIT-1',receivedAt:now});
+ const now=new Date().toISOString();await db.query("UPDATE orders SET status='APPROVED' WHERE id=1");await s.receipt(m,quote.id,{amount:Number(quote.deposit),reference:'DEPOSIT-1',receivedAt:now});
+ // A5: biên nhận cọc thủ công có cùng hệ quả với thanh toán trực tuyến.
+ assert.equal((await db.query('SELECT status FROM orders WHERE id=1'))[0].status,'PREPARING','đủ cọc thì đơn sang chuẩn bị chuyến');
+ assert.equal(Number((await db.query("SELECT COUNT(*) n FROM notifications WHERE recipient_id=2 AND event_type='PAYMENT_SUCCESS' AND related_id=1"))[0].n),1,'khách nhận thông báo');
+ assert.equal(Number((await db.query("SELECT COUNT(*) n FROM audit_logs WHERE entity_id=1 AND action='STATUS_CHANGE'"))[0].n),1);
  await assert.rejects(()=>s.receipt(m,quote.id,{amount:1,reference:'DEPOSIT-1',receivedAt:now}),e=>e.getStatus()===409);
  let report=await s.revenue(m,{year:new Date().getUTCFullYear()});assert.equal(report.count,0);
  assert.equal(report.collected,Number(quote.deposit));assert.equal(report.outstanding,Number(quote.total)-Number(quote.deposit));

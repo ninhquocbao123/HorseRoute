@@ -82,10 +82,16 @@ module.exports = async function reviewChecks({ db, base, tokens, read, check }) 
     assert.deepEqual(audits.map(a=>a.action),['REVIEW_PLAN','SAVE_PLAN','SUBMIT_PLAN','REVIEW_PLAN']);
     await unchanged(id,409);assert.equal((await request(id,body,'3','plan','PUT')).status,409);
   });
-  await run('Approval keeps the Order PREPARING; start-transport marks it READY, audits and notifies customer, coordinator and crew',async()=>{
+  await run('Approval keeps the Order PREPARING; start-transport needs the deposit or a stated waiver (A5), marks READY, audits and notifies customer, coordinator and crew',async()=>{
     const id=await fixture();
     const data=await review(id);assert.equal(data.planStatus,'APPROVED');assert.equal(data.orderStatus,'PREPARING');
-    const started=await request(id,{},'2','start-transport'),startedBody=await started.json();
+    const readiness=await (await request(id,undefined,'2','readiness','GET')).json();
+    assert.deepEqual([readiness.canStart,readiness.deposit.satisfied,readiness.deposit.required],[true,false,null],'plan ready, deposit missing');
+    const blocked=await request(id,{},'2','start-transport'),blockedBody=await blocked.json();
+    assert.deepEqual([blocked.status,blockedBody.code],[409,'DEPOSIT_REQUIRED'],JSON.stringify(blockedBody));
+    assert.equal((await request(id,{depositWaiverReason:'abc'},'2','start-transport')).status,400,'reason too short');
+    const started=await request(id,{depositWaiverReason:'Khách quen, cam kết chuyển khoản trước ngày giao'},'2','start-transport'),startedBody=await started.json();
+    const [waiver]=await db.query("SELECT reason FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='START_WITHOUT_DEPOSIT'",[id]);assert.match(waiver.reason,/cam kết/);
     assert.equal(started.status,200,JSON.stringify(startedBody));assert.equal(startedBody.orderStatus,'READY');
     const [audit]=await db.query("SELECT CAST(actor_id AS CHAR) actor FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='MARK_READY'",[id]);assert.equal(audit.actor,'2');
     const [notes]=await db.query("SELECT COUNT(*) n FROM notifications WHERE related_type='ORDER' AND related_id=? AND event_type='ORDER_READY'",[id]);assert.equal(Number(notes.n),4);

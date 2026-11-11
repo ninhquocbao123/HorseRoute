@@ -3,12 +3,18 @@ import { createPortal } from 'react-dom';
 import { Alert, App, Button, Card, Input, Modal, Space, Spin } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/axios';
+import { isAxiosError } from 'axios';
 import { getTripAssignments, getTripDetail, reviewTripPlan } from '../../modules/trips/api/trips.api';
 import { RouteMap } from '../../modules/coordinator/maps/RouteMap';
 import { errorMessage } from '../tracking/tracking.api';
 import './manager-trip-plan.css';
 
-type Readiness = { valid: boolean; canStart: boolean; blockers: { code: string; message: string }[] };
+type Readiness = { valid: boolean; canStart: boolean; blockers: { code: string; message: string }[]; deposit?: { required: number | null; paid: number; satisfied: boolean } };
+const money = (value: number) => value.toLocaleString('vi-VN') + ' đ';
+/** A5: khách chưa đủ cọc thì quản lý phải nêu lý do mới chuyển chuyến được. */
+const depositText = (d: NonNullable<Readiness['deposit']>) => d.required === null
+  ? 'Đơn chưa có báo giá được duyệt nên chưa xác định được tiền cọc.'
+  : `Khách mới trả ${money(d.paid)} trên ${money(d.required)} tiền cọc.`;
 const formatTime = (value: string | null) => value ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Chưa có';
 const hiddenReadinessMessages = new Set([
   'Chỉ kiểm tra kế hoạch chờ duyệt hoặc đã duyệt của đơn đang chuẩn bị.',
@@ -16,6 +22,7 @@ const hiddenReadinessMessages = new Set([
 
 export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarget }: { tripId: string; onUpdated: () => void; contentTarget: HTMLElement | null }) {
   const [reject, setReject] = useState(false), [reason, setReason] = useState('');
+  const [waiver, setWaiver] = useState<string | null>(null), [waiverReason, setWaiverReason] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const { message } = App.useApp(), qc = useQueryClient();
   const detail = useQuery({ queryKey: ['manager-trip-plan', tripId], queryFn: ({ signal }) => getTripDetail(tripId, signal) });
@@ -25,14 +32,23 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
     queryFn: async ({ signal }) => (await api.get<Readiness>(`/trips/${tripId}/readiness`, { signal })).data,
     enabled: !!trip && trip.orderStatus === 'PREPARING' && ['PENDING_APPROVAL', 'APPROVED'].includes(trip.planStatus) });
   const visibleReadinessBlockers = readiness.data?.blockers.filter(blocker => !hiddenReadinessMessages.has(blocker.message)) ?? [];
-  async function act(action: 'APPROVED' | 'RETURNED' | 'START') {
+  async function act(action: 'APPROVED' | 'RETURNED' | 'START', depositWaiverReason?: string) {
     if (busy) return;
     setBusy(true); setError('');
     try {
       if (action === 'START') {
         const { data } = await api.get<Readiness>(`/trips/${tripId}/readiness`);
         if (!data.canStart) { setError(data.blockers.map(b => b.message).join(' ') || 'Trạng thái chuyến đã thay đổi.'); await detail.refetch(); return; }
-        await api.post(`/trips/${tripId}/start-transport`, {});
+        if (data.deposit && !data.deposit.satisfied && !depositWaiverReason) { setWaiver(depositText(data.deposit)); return; }
+        try {
+          await api.post(`/trips/${tripId}/start-transport`, depositWaiverReason ? { depositWaiverReason } : {});
+        } catch (failure) {
+          // Khách vừa hủy hoặc tiền thay đổi giữa hai lần gọi: hỏi lý do thay vì báo lỗi chung.
+          const body = isAxiosError(failure) ? failure.response?.data as { code?: string; message?: string } | undefined : undefined;
+          if (body?.code === 'DEPOSIT_REQUIRED' && !depositWaiverReason) { setWaiver(body.message || 'Khách chưa đủ cọc.'); return; }
+          throw failure;
+        }
+        setWaiver(null); setWaiverReason('');
       } else {
         await reviewTripPlan(tripId, action === 'APPROVED' ? { decision: action } : { decision: action, reason: reason.trim() });
       }
@@ -60,12 +76,21 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
       <Input.TextArea aria-label="Lý do từ chối" value={reason} onChange={e => setReason(e.target.value)} maxLength={255} rows={4} placeholder="Nhập lý do từ chối" />
       {error && <Alert type="error" title={error} />}
     </Modal>
+    <Modal title="Chuyển chuyến khi khách chưa đủ cọc" open={waiver !== null} onCancel={() => !busy && setWaiver(null)} closable={!busy} maskClosable={!busy}
+      okText="Vẫn chuyển chuyến" cancelText="Quay lại" confirmLoading={busy} cancelButtonProps={{ disabled: busy }}
+      okButtonProps={{ danger: true, disabled: waiverReason.trim().length < 5 }} onOk={() => void act('START', waiverReason.trim())}>
+      <p>{waiver}</p>
+      <p>Tài xế sẽ nhận chuyến dù khách chưa đặt cọc đủ. Nêu lý do để lưu vào nhật ký (ít nhất 5 ký tự).</p>
+      <Input.TextArea aria-label="Lý do ngoại lệ tiền cọc" value={waiverReason} onChange={e => setWaiverReason(e.target.value)} maxLength={255} rows={3} showCount placeholder="Ví dụ: khách quen, cam kết chuyển khoản trước ngày giao" />
+      {error && <Alert type="error" title={error} />}
+    </Modal>
     {contentTarget && createPortal(<div className="ois-proposed-route">
       <Spin spinning={detail.isPending || assignments.isPending}>
         <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           {readiness.isFetching && <p>Đang kiểm tra điều kiện và xung đột lịch…</p>}
           {readiness.isError && <Alert type="error" title="Chưa kiểm tra được điều kiện kế hoạch" action={<Button onClick={() => void readiness.refetch()}>Thử lại</Button>} />}
           {visibleReadinessBlockers.map((b, i) => <Alert key={i} type="warning" showIcon title={b.message} />)}
+          {readiness.data?.deposit && !readiness.data.deposit.satisfied && <Alert type="warning" showIcon title="Khách chưa đủ tiền cọc" description={`${depositText(readiness.data.deposit)} Chỉ chuyển chuyến cho tài xế khi có lý do ngoại lệ; lý do được lưu vào nhật ký.`} />}
           {readiness.data?.valid && <Alert className="mgr-plan-valid-alert" type="success" showIcon title="Kế hoạch hợp lệ tại thời điểm kiểm tra. Hệ thống sẽ kiểm tra lại khi duyệt hoặc chuyển chuyến." />}
           {route ? <>
             <div className="coordinator-scope"><RouteMap readOnly geometry={route.selectedRoute?.geometry} waypoints={route.waypoints.map(p => ({ id: p.id, label: p.label, kind: p.kind === 'ORIGIN' ? 'origin' : p.kind === 'DESTINATION' ? 'destination' : 'stop', position: [p.latitude, p.longitude] }))} /></div>
