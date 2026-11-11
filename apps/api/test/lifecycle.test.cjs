@@ -4,8 +4,9 @@ const { EventEmitter } = require('node:events');
 const { createServer } = require('node:http');
 const { once } = require('node:events');
 require('ts-node').register({ project: require('node:path').resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
-const { startServer } = require('../src/index');
+const { startServer, createServerlessHandler } = require('../src/index');
 const { mysqlSsl } = require('../src/database/mysql-ssl');
+const { envValidationSchema } = require('../src/shared/config/env.validation');
 const { safeError, ConfigurationError } = require('../src/shared/utils/logger.util');
 const { DocumentsService } = require('../src/features/documents/documents.service');
 
@@ -118,3 +119,80 @@ test('diagnostics omit raw messages, SQL, credentials and provider bodies', () =
   assert.equal(safeError(new Error('unknown-secret')).code, 'UNKNOWN_ERROR');
   assert.equal(safeError(new ConfigurationError('INVALID_ENV', ['JWT_SECRET'])).configFields, 'JWT_SECRET');
 });
+
+test('mysqlSsl and envValidationSchema support inline DB_SSL_CA without DB_SSL_CA_PATH', () => {
+  const multilinePem = '-----BEGIN CERTIFICATE-----\nABC\n-----END CERTIFICATE-----';
+  assert.deepEqual(mysqlSsl(true, undefined, `  ${multilinePem}\n`), { ca: multilinePem, rejectUnauthorized: true });
+  assert.deepEqual(
+    mysqlSsl('true', undefined, '-----BEGIN CERTIFICATE-----\\nABC\\n-----END CERTIFICATE-----'),
+    { ca: multilinePem, rejectUnauthorized: true },
+  );
+  assert.throws(() => mysqlSsl(true, undefined, '   '), { code: 'INVALID_SSL_CONFIG' });
+
+  const base = {
+    CORS_ORIGIN: 'https://example.vercel.app',
+    DB_HOST: 'db.example.com',
+    DB_NAME: 'wdp',
+    DB_USER: 'avnadmin',
+    DB_PASSWORD: 'secret-password',
+    REDIS_HOST: 'redis.example.com',
+    JWT_SECRET: 'a'.repeat(32),
+  };
+  assert.equal(envValidationSchema.validate({ ...base, DB_SSL: true, DB_SSL_CA: multilinePem }).error, undefined);
+  assert.equal(envValidationSchema.validate({ ...base, DB_SSL: true, DB_SSL_CA_PATH: '/etc/ssl/ca.pem' }).error, undefined);
+  assert.ok(envValidationSchema.validate({ ...base, DB_SSL: true }).error);
+  assert.ok(envValidationSchema.validate({ ...base, DB_SSL: true, DB_SSL_CA: '   ' }).error);
+});
+
+test('serverless handler initializes DB lazily once, skips port/timers, and recovers after failure', async () => capture(async logs => {
+  const f = fixture();
+  let dbInitCount = 0;
+  f.db.initialize = async () => {
+    dbInitCount++;
+    f.calls.push('mysql.connect');
+    f.db.isInitialized = true;
+  };
+  let failFirst = true;
+  const originalLoad = f.dependencies.loadEnvironment;
+  f.dependencies.loadEnvironment = () => {
+    if (failFirst) {
+      failFirst = false;
+      throw Object.assign(new Error('secret-env-failure'), { code: 'INVALID_ENV' });
+    }
+    return originalLoad();
+  };
+  f.dependencies.createApp = () => (_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  };
+
+  const handler = createServerlessHandler(f.dependencies);
+  const makeRes = () => {
+    const headers = {};
+    return {
+      headersSent: false,
+      statusCode: 200,
+      body: '',
+      setHeader(k, v) { headers[k] = v; },
+      end(chunk) { this.headersSent = true; this.body = chunk || ''; },
+      headers,
+    };
+  };
+
+  const firstRes = makeRes();
+  await handler({}, firstRes);
+  assert.equal(firstRes.statusCode, 500);
+  assert.doesNotMatch(firstRes.body, /secret-env-failure/);
+  assert.equal(logs.find(x => x.event === 'serverless_startup_failed').code, 'INVALID_ENV');
+
+  const secondRes = makeRes();
+  const thirdRes = makeRes();
+  await Promise.all([handler({}, secondRes), handler({}, thirdRes)]);
+  assert.equal(secondRes.statusCode, 200);
+  assert.equal(thirdRes.statusCode, 200);
+  assert.equal(dbInitCount, 1);
+  assert.ok(!f.calls.includes('http.listen'));
+  assert.ok(!f.calls.includes('redis.connect'));
+  assert.ok(!f.calls.includes('job.start'));
+  assert.ok(!f.calls.includes('positions.start'));
+}));

@@ -9,6 +9,10 @@ module.exports = {
   port: Number(process.env.TEST_DB_PORT || env.DB_PORT || 3306),
   user: process.env.TEST_DB_USER || env.DB_USER,
   password: process.env.TEST_DB_PASSWORD || env.DB_PASSWORD,
-  ssl: mysqlSsl(process.env.TEST_DB_SSL || env.DB_SSL, process.env.TEST_DB_SSL_CA_PATH || env.DB_SSL_CA_PATH),
+  ssl: mysqlSsl(
+    process.env.TEST_DB_SSL || env.DB_SSL,
+    process.env.TEST_DB_SSL_CA_PATH || env.DB_SSL_CA_PATH,
+    process.env.TEST_DB_SSL_CA || env.DB_SSL_CA,
+  ),
   connectTimeout: 10000,
 };

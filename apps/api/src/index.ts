@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { createServer } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { createApp } from './app';
 import { loadEnvironment } from './shared/config/env';
 import { createDatabase } from './shared/config/db';
@@ -113,6 +113,81 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
     throw error;
   }
 }
+
+type ServerlessRuntime = {
+  app: ReturnType<typeof createApp>;
+  db: ReturnType<typeof createDatabase>;
+};
+
+/** Build a lazy, race-free HTTP handler for Vercel serverless without binding a port or background timers. */
+export function createServerlessHandler(overrides: Partial<typeof defaults> = {}) {
+  const dependencies = { ...defaults, ...overrides };
+  let runtimePromise: Promise<ServerlessRuntime> | undefined;
+  let reconnectPromise: Promise<void> | undefined;
+
+  const ensureInitialized = async (db: ReturnType<typeof createDatabase>) => {
+    if (db.isInitialized) return;
+    if (!reconnectPromise) {
+      reconnectPromise = db.initialize().then(() => undefined).finally(() => {
+        reconnectPromise = undefined;
+      });
+    }
+    await reconnectPromise;
+  };
+
+  const getRuntime = async (): Promise<ServerlessRuntime> => {
+    if (!runtimePromise) {
+      let created: Promise<ServerlessRuntime> | undefined;
+      created = (async () => {
+        await Promise.resolve();
+        let db: ReturnType<typeof createDatabase> | undefined;
+        try {
+          const env = dependencies.loadEnvironment();
+          db = dependencies.createDatabase(env);
+          const tokens = new TokenService(env.JWT_SECRET);
+          const services = dependencies.createServices(db, tokens);
+          const app = dependencies.createApp({
+            services,
+            tokens,
+            corsOrigin: env.CORS_ORIGIN,
+            production: env.NODE_ENV === 'production',
+          });
+          await ensureInitialized(db);
+          return { app, db };
+        } catch (error) {
+          if (runtimePromise === created) {
+            runtimePromise = undefined;
+          }
+          if (db?.isInitialized) {
+            try { await db.destroy(); } catch { /* ignore cleanup failure */ }
+          }
+          throw error;
+        }
+      })();
+      runtimePromise = created;
+    }
+    const runtime = await runtimePromise;
+    await ensureInitialized(runtime.db);
+    return runtime;
+  };
+
+  return async function handleVercelRequest(req: IncomingMessage, res: ServerResponse) {
+    try {
+      const { app } = await getRuntime();
+      app(req, res);
+    } catch (error) {
+      logger.error('serverless_startup_failed', safeError(error));
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ statusCode: 500, message: 'Internal Server Error' }));
+      }
+    }
+  };
+}
+
+const serverlessHandler = createServerlessHandler();
+export default serverlessHandler;
 
 if (require.main === module) {
   void startServer().catch(() => { process.exitCode = 1; });

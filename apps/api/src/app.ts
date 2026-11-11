@@ -15,6 +15,9 @@ import { requestContext } from './shared/middlewares/request.middleware';
 export function createApp(options: { services: Services; tokens: TokenService; corsOrigin: string; production?: boolean; requestLimit?: number }) {
   const app = express();
   app.disable('x-powered-by');
+  if (options.production || process.env.VERCEL) {
+    app.set('trust proxy', 1);
+  }
   app.use(requestContext);
   app.use(helmet());
   app.use(compression());
