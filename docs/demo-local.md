@@ -18,7 +18,7 @@ cd apps/api
 DEMO_DB_PORT=33062 DEMO_DB_PASSWORD=demo node scripts/seed-flow4-demo.cjs
 ```
 
-Seed (`apps/api/scripts/seed-flow4-demo.cjs`) từ chối mọi host khác ngoài máy này và chỉ đụng database `wdp_flow4_demo` (mặc định; đặt `DEMO_DB_NAME=wdp_flow4_demo_x` để seed một DB riêng mà không ghi đè DB đang dùng — tên phải bắt đầu bằng `wdp_flow4_demo`). Nó nạp `test/fixtures/schema.sql` rồi chạy **tất cả** migration trong `src/database/migrations` (trừ Init) theo thứ tự timestamp, nên DB luôn khớp code hiện tại. Chạy lại seed bất cứ lúc nào để làm mới dữ liệu (đặc biệt tín hiệu GPS, xem mục 4).
+Seed (`apps/api/scripts/seed-flow4-demo.cjs`) từ chối mọi host khác ngoài máy này và chỉ đụng database `wdp_flow4_demo` (mặc định; đặt `DEMO_DB_NAME=wdp_flow4_demo_x` để seed một DB riêng mà không ghi đè DB đang dùng — tên phải bắt đầu bằng `wdp_flow4_demo`). Nó chạy **đúng các migration** mà `pnpm db:setup` chạy (migration Init dựng các bảng gốc, rồi mọi migration sau đó), nên DB luôn khớp code hiện tại. Chạy lại seed bất cứ lúc nào để làm mới dữ liệu (đặc biệt tín hiệu GPS, xem mục 4).
 
 ## 2. Chạy
 
@@ -49,6 +49,9 @@ Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng.
 - **Sắp tới** `WDP-DEMO-F4-NEXT` (chuyến #205, READY): cùng tài xế, nên màn chuyến hiện dòng "Còn 1 chuyến sắp tới".
 - **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng). H1–H3: tài xế 5 + hộ tống 6. **H4 đổi vai** (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: `driver@example.com` và `escort@example.com` đều chỉ thấy H1–H3 ở lịch sử của khung mình, H4 chỉ xuất hiện ở khung ngược lại. Lịch sử hộ tống (chi tiết chỉ xem): H2 có hoạt động chăm sóc trải trên 2 ngày, **13 hoạt động trong một ngày** (thử phân trang 10 dòng/trang) và 1 bản đính chính; H1 có 3 hoạt động và 1 báo cáo sức khỏe đã gửi, khách đã xem.
 - `WDP-DEMO-F4-B` (tài xế khác, READY) và `WDP-DEMO-F4-C` (kế hoạch chờ duyệt) để thử cô lập quyền.
+- **Đơn mới** `WDP-DEMO-F4-NEW` (PENDING): có đủ thông tin đặt chuyến, quản lý tiếp nhận và tính giá được ngay.
+- **Thanh toán:** mọi đơn đã duyệt có báo giá chính thức. Các chuyến đã giao đã trả đủ (có số liệu ở trang Doanh thu). `WDP-DEMO-F4-A` mới đặt cọc, nên khi tài xế tới điểm giao sẽ thấy "Chờ khách thanh toán" cho tới khi khách trả nốt. Các đơn còn lại đã đặt cọc.
+- **Xe:** mỗi chuyến chưa xong dùng một xe riêng (xe 5 đang chạy, xe 6, 7, 8 đã giữ chỗ), xe 9 còn rảnh để thử phân công. Tài xế 5, hộ tống 6 và tài xế 11 có hồ sơ tổ lái.
 
 **Tín hiệu GPS chỉ "LIVE" trong 2 phút** sau khi seed (điểm cuối cách đây ~1 phút). Muốn thẻ Tốc độ và vị trí xe luôn tươi, chạy trình mô phỏng (xe chạy dọc chặng 2):
 

@@ -12,6 +12,7 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const { DataSource } = require('typeorm');
 const { User } = require('../src/features/users/users.model');
+const { calculateEstimate } = require('@my-project/shared');
 
 const DB_NAME = process.env.DEMO_DB_NAME || 'wdp_flow4_demo';
 if (!/^wdp_flow4_demo\w*$/.test(DB_NAME)) { console.error('DEMO_DB_NAME phải bắt đầu bằng wdp_flow4_demo.'); process.exit(1); }
@@ -37,28 +38,16 @@ async function main() {
   const db = new DataSource({
     type: 'mysql', host, port, username: user, password, database: DB_NAME, timezone: 'Z',
     supportBigNumbers: true, bigNumberStrings: true, entities: [User], extra: { multipleStatements: true },
+    migrations: [path.join(__dirname, '../src/database/migrations/*.ts')],
   });
   await db.initialize();
+  // Schema: chạy đúng các migration mà `pnpm db:setup` chạy, nên DB demo luôn khớp code hiện tại.
+  const migrated = await db.runMigrations({ transaction: 'each' });
+  console.log(`Đã chạy ${migrated.length} migration.`);
   const runner = db.createQueryRunner();
   await runner.connect();
   let accounts;
   try {
-    // Schema: cùng nguồn với test tích hợp (fixtures/schema.sql) + TOÀN BỘ migration sau bản dump (kể cả của Pricing/Customer/Specialist/Payment),
-    // chạy theo thứ tự timestamp rồi tên file giống TypeORM. Init bị bỏ vì schema.sql đã thay nó.
-    const source = fs.readFileSync(path.join(__dirname, '../test/fixtures/schema.sql'), 'utf8');
-    const statements = source.match(/CREATE TABLE `\w+` \([\s\S]*?\) ENGINE=[^\r\n]+;/g);
-    if (!statements?.length) throw new Error('Không đọc được schema.sql');
-    await runner.query('SET FOREIGN_KEY_CHECKS=0');
-    for (const statement of statements) await runner.query(statement);
-    const migrationDir = path.join(__dirname, '../src/database/migrations');
-    const files = fs.readdirSync(migrationDir).filter(f => /^18\d+-.+\.ts$/.test(f)).sort();
-    for (const file of files) {
-      const mod = require(path.join(migrationDir, file));
-      const Migration = Object.values(mod).find(value => typeof value === 'function');
-      await new Migration().up(runner);
-    }
-    await runner.query('SET FOREIGN_KEY_CHECKS=1');
-    console.log(`Đã chạy ${files.length} migration: ${files.map(f => f.replace('.ts', '')).join(', ')}`);
 
     const hash = await bcrypt.hash(PASSWORD, 10);
     accounts = [
@@ -79,6 +68,8 @@ async function main() {
         [id, email, hash, fullName, role, 'ACTIVE', customerType, address ?? 'Địa chỉ demo', '0901234567']
       );
     }
+    // Hồ sơ tổ lái: điều phối chỉ chọn được người có crew_profiles đúng loại.
+    await runner.query(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (5,'DRIVER','AVAILABLE'),(6,'ESCORT','AVAILABLE'),(11,'DRIVER','AVAILABLE')`);
 
     // Địa điểm có tọa độ; tuyến đường bộ giữa các cặp liên tiếp được ghi sẵn vào cache location_routes (mode ROAD, hình học xấp xỉ quốc lộ)
     // nên demo không cần gọi dịch vụ tính tuyến. Cặp không có cache (vd. 1→3) rơi về đường thẳng ước lượng.
@@ -92,7 +83,10 @@ async function main() {
       await runner.query('INSERT INTO location_routes(from_location_id,to_location_id,mode,coordinates,distance_m,duration_s,fetched_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP())',
         [from, to, 'ROAD', JSON.stringify(line), meters, seconds]);
     }
-    await runner.query(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,plate_or_code,is_active) VALUES (5,'TRUCK',4,'51C-123.45',1),(6,'TRUCK',2,'51D-678.90',1)`);
+    // Mỗi chuyến chưa xong dùng một xe riêng (một xe chỉ thuộc một chuyến đang hoạt động); xe 9 để điều phối thử phân công.
+    await runner.query(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES
+      (5,'MEDIUM',4,'51C-123.45','AVAILABLE'),(6,'LIGHT',2,'51D-678.90','AVAILABLE'),(7,'LIGHT',2,'51E-246.80','AVAILABLE'),
+      (8,'MEDIUM',6,'51F-135.79','AVAILABLE'),(9,'HEAVY',9,'51G-864.20','AVAILABLE')`);
 
     const horseNames = ['Bạch Mã', 'Hắc Mã', 'Xích Thố', 'Ô Vân', 'Tuyết Sơn', 'Thiên Lý', 'Phong Vân', 'Kim Sa', 'Hồng Ngọc', 'Thanh Long'];
     let horseId = 21;
@@ -113,12 +107,36 @@ async function main() {
       }
       return ids;
     };
-    const addTrip = async (id, orderId, plan, plannedBy, dep, arr, crew) => {
+    // Xe chạy xuyên suốt chuyến (trip_vehicles), tổ lái gắn với xe đó (trip_assignments.trip_vehicle_id).
+    const addTrip = async (id, orderId, plan, plannedBy, dep, arr, crew, vehicle, horseCount) => {
       await runner.query(
         'INSERT INTO trips(id,order_id,plan_status,planned_departure_at,planned_arrival_at,planned_by,approved_by,approved_at) VALUES (?,?,?,?,?,?,?,?)',
         [id, orderId, plan, dep, arr, plannedBy, plan === 'APPROVED' ? 2 : null, plan === 'APPROVED' ? new Date() : null]
       );
-      for (const [user, role] of crew) await runner.query('INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (?,?,?,?,UTC_TIMESTAMP())', [id, user, role, plannedBy]);
+      const tripVehicle = (await runner.query('INSERT INTO trip_vehicles(trip_id,vehicle_id,horse_count) VALUES (?,?,?)', [id, vehicle, horseCount])).insertId;
+      for (const [user, role] of crew) {
+        await runner.query('INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at,trip_vehicle_id) VALUES (?,?,?,?,UTC_TIMESTAMP(),?)', [id, user, role, plannedBy, tripVehicle]);
+      }
+    };
+    // Báo giá đã duyệt tính bằng bảng giá hiện hành và biên nhận theo mức đã trả: 'none', 'deposit' hoặc 'full'.
+    const [pricing] = await runner.query("SELECT id,config FROM pricing_versions WHERE status='PUBLISHED' ORDER BY id DESC LIMIT 1");
+    const pricingConfig = typeof pricing.config === 'string' ? JSON.parse(pricing.config) : pricing.config;
+    const addQuote = async (orderId, horseCount, vehicleClass, paid, approvedAt) => {
+      const input = { distanceKm: 501, vehicleClass, horseCount, durationDays: 2, insurance: 'NONE', feed: 'STANDARD', extraStall: false,
+        international: true, water: 'EVERY_2_HOURS', waterRounds: 0 };
+      const estimate = calculateEstimate(pricingConfig, input, String(pricing.id));
+      const quote = (await runner.query(
+        `INSERT INTO order_quotes(order_id,pricing_version_id,status,input,items,subtotal,adjustment,adjustment_reason,vat_percent,vat_amount,total,deposit,deposit_percent,validity_hours,expires_at,created_by,approved_by,approved_at)
+         VALUES (?,?,'APPROVED',?,?,?,0,'',0,0,?,?,?,?,?,2,2,?)`,
+        [orderId, pricing.id, JSON.stringify(input), JSON.stringify(estimate.items), estimate.total, estimate.total, estimate.deposit, estimate.depositPercent,
+          estimate.quoteValidityHours, new Date(approvedAt.getTime() + estimate.quoteValidityHours * 3600000), approvedAt])).insertId;
+      await runner.query('UPDATE orders SET reviewed_at=?, reviewed_by=2 WHERE id=?', [approvedAt, orderId]);
+      const receipts = paid === 'full' ? [['DEPOSIT', estimate.deposit], ['BALANCE', estimate.total - estimate.deposit]] : paid === 'deposit' ? [['DEPOSIT', estimate.deposit]] : [];
+      for (const [kind, amount] of receipts) {
+        await runner.query(
+          "INSERT INTO order_receipts(order_id,quote_id,amount,method,source,reference,received_at,recorded_by) VALUES (?,?,?,'BANK_TRANSFER','MANUAL',?,?,2)",
+          [orderId, quote, amount, `DEMO-${orderId}-${kind}`, new Date(approvedAt.getTime() + 3600000)]);
+      }
     };
     let legSeq = 300;
     const addLeg = async (tripId, seq, from, to, vehicle, dep, arr, status = 'NOT_STARTED', actualDep = null, actualArr = null) => {
@@ -134,12 +152,14 @@ async function main() {
 
     // ── Chuyến ĐANG CHẠY (tài xế 5 + hộ tống 6): chặng 1 xong, chặng 2 (đường bộ, qua cửa khẩu sang Campuchia) đang chạy, chặng 3 chưa đi ──
     const [h1, h2, h3] = await addOrder(100, 'WDP-DEMO-F4-A', 7, 'IN_TRANSIT', 3, { date: hoursFromNow(-7) });
-    await addTrip(200, 100, 'APPROVED', 4, hoursFromNow(-7), hoursFromNow(8), crew);
+    await addTrip(200, 100, 'APPROVED', 4, hoursFromNow(-7), hoursFromNow(8), crew, 5, 3);
+    // Mới đặt cọc: tới điểm giao tài xế sẽ thấy "Chờ khách thanh toán" cho tới khi khách trả nốt.
+    await addQuote(100, 3, 'MEDIUM', 'deposit', hoursFromNow(-72));
     const l1 = await addLeg(200, 1, 1, 2, 5, hoursFromNow(-7), hoursFromNow(-5), 'COMPLETED', hoursFromNow(-7), hoursFromNow(-4.4));
     await milestone(l1, 'DEPARTED', hoursFromNow(-7)); await milestone(l1, 'ARRIVED_AT_STOP', hoursFromNow(-5)); await milestone(l1, 'CUSTOMS_CLEARED', hoursFromNow(-4.4));
-    const l2 = await addLeg(200, 2, 2, 3, 6, hoursFromNow(-4), hoursFromNow(3), 'MOVING', hoursFromNow(-4));
+    const l2 = await addLeg(200, 2, 2, 3, 5, hoursFromNow(-4), hoursFromNow(3), 'MOVING', hoursFromNow(-4));
     await milestone(l2, 'DEPARTED', hoursFromNow(-4));
-    await addLeg(200, 3, 3, 4, 6, hoursFromNow(4), hoursFromNow(8));
+    await addLeg(200, 3, 3, 4, 5, hoursFromNow(4), hoursFromNow(8));
     // GPS: 14 điểm dọc tuyến chặng 2, mỗi 4 phút, điểm cuối cách đây ~1 phút (tín hiệu LIVE).
     const hav = ([a, b], [c, d]) => { const r = x => x * Math.PI / 180; const h = Math.sin(r(d - b) / 2) ** 2 + Math.cos(r(b)) * Math.cos(r(d)) * Math.sin(r(c - a) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
     const total = R23.slice(1).reduce((sum, p, i) => sum + hav(R23[i], p), 0);
@@ -205,9 +225,10 @@ async function main() {
 
     // ── Chuyến READY sắp tới của cùng tài xế (dữ liệu "sai quy tắc một chuyến hoạt động": UI hiện dòng "Còn 1 chuyến sắp tới") ──
     await addOrder(103, 'WDP-DEMO-F4-NEXT', 8, 'READY', 2, { date: hoursFromNow(26) });
-    await addTrip(205, 103, 'APPROVED', 4, hoursFromNow(26), hoursFromNow(32), crew);
-    await addLeg(205, 1, 1, 2, 5, hoursFromNow(26), hoursFromNow(28));
-    await addLeg(205, 2, 2, 3, 5, hoursFromNow(29), hoursFromNow(32));
+    await addTrip(205, 103, 'APPROVED', 4, hoursFromNow(26), hoursFromNow(32), crew, 6, 2);
+    await addQuote(103, 2, 'LIGHT', 'deposit', hoursFromNow(-48));
+    await addLeg(205, 1, 1, 2, 6, hoursFromNow(26), hoursFromNow(28));
+    await addLeg(205, 2, 2, 3, 6, hoursFromNow(29), hoursFromNow(32));
 
     // ── Lịch sử: 4 chuyến ĐÃ GIAO của tài xế 5 + hộ tống 6 (5, 12, 20, 35 ngày trước) ──
     // H4: hai tài khoản đổi vai (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: tài xế 5 và hộ tống 6 chỉ thấy H1–H3.
@@ -218,8 +239,10 @@ async function main() {
       const start = hoursFromNow(-daysAgo * 24);
       const at = h => new Date(start.getTime() + h * 3600000);
       const horseIds = await addOrder(orderId, code, orderId % 2 ? 8 : 7, 'DELIVERED', horses, { date: start });
-      await addTrip(tripId, orderId, 'APPROVED', 4, start, at(9), tripCrew);
-      const vehicle = tripId % 2 ? 6 : 5;
+      // Xe 6 chỉ chở được 2 ngựa, chuyến 3 ngựa dùng xe 5.
+      const vehicle = horses > 2 ? 5 : tripId % 2 ? 6 : 5;
+      await addTrip(tripId, orderId, 'APPROVED', 4, start, at(9), tripCrew, vehicle, horses);
+      await addQuote(orderId, horses, vehicle === 5 ? 'MEDIUM' : 'LIGHT', 'full', at(-72));
       const a = await addLeg(tripId, 1, 1, 2, vehicle, start, at(2.5), 'COMPLETED', start, at(2.4));
       await milestone(a, 'DEPARTED', start); await milestone(a, 'ARRIVED_AT_STOP', at(2.4)); await milestone(a, 'CUSTOMS_CLEARED', at(3));
       const b = await addLeg(tripId, 2, 2, 3, vehicle, at(3.5), at(9), 'COMPLETED', at(3.5), at(8.8));
@@ -274,11 +297,34 @@ async function main() {
 
     // ── Đơn khác dùng thử cô lập quyền ──
     await addOrder(101, 'WDP-DEMO-F4-B', 8, 'READY', 1, { date: hoursFromNow(24) });
-    await addTrip(201, 101, 'APPROVED', 12, hoursFromNow(0), hoursFromNow(9), [[11, 'DRIVER']]);
-    await addLeg(201, 1, 1, 3, 5, hoursFromNow(0), hoursFromNow(9));
+    await addTrip(201, 101, 'APPROVED', 12, hoursFromNow(0), hoursFromNow(9), [[11, 'DRIVER']], 7, 1);
+    await addQuote(101, 1, 'LIGHT', 'deposit', hoursFromNow(-48));
+    await addLeg(201, 1, 1, 3, 7, hoursFromNow(0), hoursFromNow(9));
     await addOrder(102, 'WDP-DEMO-F4-C', 7, 'PREPARING', 1, { date: hoursFromNow(24) });
-    await addTrip(202, 102, 'PENDING_APPROVAL', 4, hoursFromNow(0), hoursFromNow(9), []);
-    await addLeg(202, 1, 1, 3, 5, hoursFromNow(0), hoursFromNow(9));
+    await addTrip(202, 102, 'PENDING_APPROVAL', 4, hoursFromNow(0), hoursFromNow(9), [], 8, 1);
+    await addQuote(102, 1, 'MEDIUM', 'deposit', hoursFromNow(-48));
+    await addLeg(202, 1, 1, 3, 8, hoursFromNow(0), hoursFromNow(9));
+
+    // ── Đơn mới chờ quản lý tiếp nhận (đầu luồng): đủ thông tin đặt chuyến để quản lý tính giá, ngựa có hồ sơ của khách ──
+    const contact = (name, address, city, ward, country) => ({ name, phone: '0912345678', address, city, ward, identityNumber: '079204000001', country });
+    const booking = {
+      sender: contact('Khách Hàng Demo', 'Khu chuồng ngựa Demo', 'Tỉnh Tây Ninh', 'Phường Tân Ninh', 'VN'),
+      recipient: contact('Trại Ngựa Phnom Penh', 'Trạm nghỉ Phnom Penh', 'Phnom Penh', 'Chamkar Mon', 'KH'),
+      pickupTime: '08:00 – 10:00', vehicleClass: 'LIGHT', vehicleCapacity: 2, distanceKm: 240, durationDays: 1, insurance: 'NONE', feed: 'STANDARD',
+      extraStall: false, water: 'EVERY_2_HOURS', waterRounds: 0, border: 'Cửa khẩu Mộc Bài', documentLanguage: '', customsCode: '', importPermit: '',
+      paymentMethod: 'BANK', termsAccepted: true,
+    };
+    const [newHorse] = await addOrder(104, 'WDP-DEMO-F4-NEW', 7, 'PENDING', 1, { date: hoursFromNow(24 * 7) });
+    await runner.query('UPDATE orders SET booking_details=? WHERE id=104', [JSON.stringify(booking)]);
+    const [horse] = await runner.query('SELECT name,passport_no,breed FROM horses WHERE id=?', [newHorse]);
+    await runner.query('INSERT INTO customer_horse_profiles(owner_id,name,passport_no,payload) VALUES (7,?,?,?)',
+      [horse.name, horse.passport_no, JSON.stringify({ name: horse.name, passportNo: horse.passport_no, breed: horse.breed })]);
+
+    // Trạng thái xe và tổ lái khớp với các chuyến đang hoạt động, như API tự ghi khi chuyển trạng thái.
+    await runner.query("UPDATE vehicles SET status='IN_TRANSIT' WHERE id=5");
+    await runner.query("UPDATE vehicles SET status='RESERVED' WHERE id IN (6,7,8)");
+    await runner.query("UPDATE crew_profiles SET work_status='IN_TRIP' WHERE user_id IN (5,6)");
+    await runner.query("UPDATE crew_profiles SET work_status='RESERVED' WHERE user_id=11");
   } finally {
     await runner.release();
     await db.destroy();
