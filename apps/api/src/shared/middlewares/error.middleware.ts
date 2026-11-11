@@ -9,11 +9,13 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   let statusCode = 500;
   let message: string | string[] = 'Internal server error';
   let fields: Record<string, string> | undefined;
+  let code: string | undefined;
   if (error instanceof HttpError) {
     statusCode = error.getStatus();
     const body = error.getResponse();
     message = typeof body === 'string' ? body : body.message;
     fields = typeof body === 'string' ? undefined : body.fields;
+    code = typeof body === 'string' ? undefined : body.code;
   } else if (error instanceof MulterError) {
     statusCode = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
     message = error.code === 'LIMIT_FILE_SIZE' ? 'File không được vượt quá 5 MB.' : 'Dữ liệu tải lên không hợp lệ.';
@@ -24,6 +26,6 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   }
   // Avoid logging credentials, raw SQL, or provider response bodies.
   if (statusCode >= 500) logger.error('request_failed', { ...safeError(error), requestId: req.requestId, route: requestRoute(req), statusCode });
-  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), requestId: req.requestId, path: req.originalUrl, timestamp: new Date().toISOString() });
+  res.status(statusCode).json({ statusCode, message, ...(fields ? { fields } : {}), ...(code ? { code } : {}), requestId: req.requestId, path: req.originalUrl, timestamp: new Date().toISOString() });
 };
 

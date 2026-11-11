@@ -23,8 +23,9 @@ import { PricingService } from '../../features/pricing/pricing.service';
 import { ManagerService } from '../../features/manager/manager.service';
 import { PaymentsService } from '../../features/payments/payments.service';
 import { AccountsService } from '../../features/accounts/accounts.service';
+import { createMailer, type Mailer } from '../mail/mailer';
 
-export function createServices(db: DataSource, tokens: TokenService) {
+export function createServices(db: DataSource, tokens: TokenService, mailer: Mailer = createMailer()) {
   const users = new UsersService(new UsersRepository(db.getRepository(User)));
   return {
     customer: new CustomerService(db),
@@ -33,7 +34,7 @@ export function createServices(db: DataSource, tokens: TokenService) {
     locations: new LocationsService(new LocationsRepository(db)),
     tracking: new TrackingService(new TrackingRepository(db)),
     users,
-    auth: new AuthService(users, tokens),
+    auth: new AuthService(users, tokens, db, mailer),
     orders: new OrdersService(db),
     documents: new DocumentsService(db),
     notifications: new NotificationsService(new NotificationsRepository(db)),
@@ -42,7 +43,7 @@ export function createServices(db: DataSource, tokens: TokenService) {
     manager: new ManagerService(db),
     specialist: new SpecialistService(db),
     payments: new PaymentsService(db),
-    accounts: new AccountsService(db),
+    accounts: new AccountsService(db, mailer),
   };
 }
 

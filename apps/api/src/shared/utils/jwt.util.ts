@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { UnauthorizedException } from '../core/error.response';
 export class TokenService {
   constructor(private readonly secret: string) {}
-  sign(payload: { sub: string; email: string; role: string }) {
+  sign(payload: { sub: string; email: string; role: string; ver?: number }) {
     return jwt.sign(payload, this.secret, { algorithm: 'HS256', expiresIn: '7d' });
   }
   verify(token: string) {

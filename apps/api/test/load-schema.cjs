@@ -40,7 +40,7 @@ module.exports = async function loadSchema(db, { except = [] } = {}) {
     // RemoveQuarantineRules is left out on purpose: it seeds document_types, and flow2 tests approval before they exist.
     for (const file of ['1800000007000-PricingVersions', '1800000008000-ManagerQuotes',
       '1800000012000-PaymentSimulation', '1800000013000-TripRoutePlan', '1800000015000-TripFleet', '1800000016000-RepresentativeTripLeg',
-      '1800000017000-LegWaypointCheckins', '1800000018000-CareActivityPhotos', '1800000019000-IncidentResponses', '1800000090000-AccountAvatars']) {
+      '1800000017000-LegWaypointCheckins', '1800000018000-CareActivityPhotos', '1800000019000-IncidentResponses', '1800000090000-AccountAvatars', '1800000094000-AuthCodes']) {
       const Migration = Object.values(require('../src/database/migrations/' + file))[0];
       await up(Migration);
     }

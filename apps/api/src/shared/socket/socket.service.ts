@@ -41,9 +41,9 @@ export class SocketService {
         if (!token) {
           return next(new Error('AUTHENTICATION_REQUIRED'));
         }
-        const payload = tokens.verify(token) as { sub: string; email: string; role: string };
-        const [account] = db ? await db.query("SELECT id,role,account_status FROM users WHERE id=?",[payload.sub]) : [];
-        if (!account || account.account_status !== 'ACTIVE') return next(new Error('INVALID_ACCOUNT'));
+        const payload = tokens.verify(token) as { sub: string; email: string; role: string; ver?: number };
+        const [account] = db ? await db.query("SELECT id,role,account_status,token_version FROM users WHERE id=?",[payload.sub]) : [];
+        if (!account || account.account_status !== 'ACTIVE' || Number(account.token_version ?? 0) !== Number(payload.ver ?? 0)) return next(new Error('INVALID_ACCOUNT'));
         socket.data.user = {
           id: payload.sub,
           email: payload.email,

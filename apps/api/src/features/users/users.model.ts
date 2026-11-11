@@ -14,6 +14,8 @@ export class User {
   @Column({ name: 'organization_name', type: 'varchar', length: 150, nullable: true }) organizationName: string | null;
   @Column({ name: 'account_status', type: 'enum', enum: ['ACTIVE', 'LOCKED', 'PENDING'] }) accountStatus: 'ACTIVE' | 'LOCKED' | 'PENDING';
   @Column({ name: 'created_at', type: 'datetime', default: () => 'UTC_TIMESTAMP()' }) createdAt: Date;
+  /** Tăng khi đổi, đặt lại mật khẩu hoặc khóa: JWT mang số cũ hết hiệu lực. Không trả ra ngoài API. */
+  @Column({ name: 'token_version', type: 'int', unsigned: true, default: 0, select: false }) tokenVersion: number;
 }
 
 

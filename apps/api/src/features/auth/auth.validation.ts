@@ -2,8 +2,14 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(100), password: z.string().min(1).max(72),
 }).strict();
+const newPassword = z.string().min(8, 'Mật khẩu cần ít nhất 8 ký tự.').max(72).regex(/\S/, 'Mật khẩu không được chỉ gồm khoảng trắng.').refine(value => Buffer.byteLength(value, 'utf8') <= 72, 'Mật khẩu không được vượt quá 72 byte UTF-8.');
+const email = z.string().trim().toLowerCase().email('Email không hợp lệ.').max(100);
+const code = z.string().trim().regex(/^\d{6}$/, 'Mã gồm 6 chữ số.');
+export const emailSchema = z.object({ email }).strict();
+export const verifyEmailSchema = z.object({ email, code }).strict();
+export const resetPasswordSchema = z.object({ email, code, password: newPassword }).strict();
 export const registerSchema = loginSchema.extend({
-  password: z.string().min(8).max(72).regex(/\S/, 'Mật khẩu không được chỉ gồm khoảng trắng.').refine(value => Buffer.byteLength(value, 'utf8') <= 72, 'Mật khẩu không được vượt quá 72 byte UTF-8.'),
+  password: newPassword,
   fullName: z.string().trim().min(2).max(100),
   phone: z.string().trim().regex(/^\+?[0-9]{9,15}$/, 'Số điện thoại cần 9–15 chữ số, có thể bắt đầu bằng +.'),
   address: z.string().trim().min(5).max(255),

@@ -17,7 +17,7 @@ export class UsersService {
   async updateProfile(id: string, body: unknown) {
     const dto = parse(z.object({fullName:z.string().trim().min(1).max(100),phone:z.string().trim().max(20).regex(/^[+0-9 ()-]*$/),address:z.string().trim().max(255)}).strict(), body);
     await this.repo.updateProfile(id, dto);
-    return this.getById(id);
+    return UsersService.publicUser(await this.getById(id));
   }
   async changePassword(id: string, body: unknown) {
     const dto = parse(z.object({currentPassword:z.string().min(1).max(72),newPassword:z.string().min(8).max(72)}).strict(), body);
@@ -28,8 +28,10 @@ export class UsersService {
     if(await bcrypt.compare(dto.newPassword,user.passwordHash)) throw new BadRequestException('Mật khẩu mới phải khác mật khẩu hiện tại.');
     const result = await this.repo.changePassword(id,user.passwordHash,await bcrypt.hash(dto.newPassword,12));
     if(!result.affected) throw new BadRequestException('Mật khẩu đã thay đổi. Vui lòng thử lại.');
-    return {message:'Đã đổi mật khẩu thành công.'};
+    return {message:'Đã đổi mật khẩu thành công. Các thiết bị khác đã bị đăng xuất.'};
   }
+  /** Bỏ trường nội bộ trước khi trả tài khoản ra ngoài. */
+  static publicUser(user: User) { const { tokenVersion: _version, passwordHash: _hash, ...rest } = user as User; return rest; }
   async getById(id: string) { const user = await this.repo.findById(id); if (!user) throw new NotFoundException('Không tìm thấy tài khoản.'); return user; }
   findByEmailWithPassword(email: string) { return this.repo.findByEmailWithPassword(email); }
   create(data: Partial<User>) { return this.repo.create(data); }

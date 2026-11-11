@@ -136,7 +136,10 @@ async function main() {
     await expectStatus(200, 'POST', `/admin/accounts/${second.id}/lock`, { ...as, body: { reason: 'Bàn giao' } });
     await expectStatus(403, 'GET', '/admin/accounts', { as: second.id });
     await expectStatus(200, 'POST', `/admin/accounts/${second.id}/unlock`, { ...as, body: { reason: 'Mở lại' } });
-    assert.equal((await expectStatus(200, 'GET', '/admin/accounts?kind=ADMIN', { as: second.id })).total, 2);
+    // Khóa đã thu hồi phiên cũ (token_version tăng): mở khóa xong phải đăng nhập lại.
+    await expectStatus(401, 'GET', '/admin/accounts', { as: second.id });
+    const fresh = tokens.sign({ sub: second.id, email: 'admin2@t.local', role: 'ADMIN', ver: 1 });
+    assert.equal((await expectStatus(200, 'GET', '/admin/accounts?kind=ADMIN', { token: fresh })).total, 2);
   });
 
   checks.done();

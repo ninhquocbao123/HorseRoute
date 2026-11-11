@@ -4,6 +4,9 @@ import type { DataSource, EntityManager } from 'typeorm';
 import type { User } from '../users/users.model';
 import { BadRequestException, ConflictException, NotFoundException } from '../../shared/core/error.response';
 import { parse } from '../../shared/utils/validation.util';
+import type { Mailer } from '../../shared/mail/mailer';
+import { Logger } from '../../shared/utils/logger.util';
+const logger = new Logger('Accounts');
 
 // Quản trị tài khoản (A3): ADMIN tạo nhân sự, đổi vai trò, khóa và mở, đặt lại mật khẩu. Khách tự đăng ký, admin chỉ khóa hoặc mở.
 // "kind" gộp vai trò và loại tổ lái: DRIVER và ESCORT đều là DRIVER_ESCORT kèm hồ sơ tổ lái đúng loại.
@@ -43,7 +46,7 @@ const view = (row: Row) => ({
 });
 
 export class AccountsService {
-  constructor(private readonly db: DataSource) {}
+  constructor(private readonly db: DataSource, private readonly mailer?: Mailer) {}
 
   async list(query: unknown) {
     const p = parse(listSchema, query);
@@ -71,7 +74,7 @@ export class AccountsService {
       if (roleOf(dto.kind) === 'DRIVER_ESCORT') await m.query("INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (?,?,'AVAILABLE')", [id, dto.kind]);
       await this.audit(m, admin, id, 'CREATE', null, { email: dto.email, fullName: dto.fullName, kind: dto.kind });
       return this.get(m, id);
-    });
+    }).then(async account => { await this.welcome(account); return account; });
   }
 
   async update(admin: User, id: string, body: unknown) {
@@ -107,7 +110,8 @@ export class AccountsService {
           throw new ConflictException('Nhân sự đang được giữ chỗ hoặc đang chạy chuyến. Điều phối đổi người trước rồi mới khóa.');
         await this.lastAdminGuard(m, before, 'khóa');
       }
-      await m.query('UPDATE users SET account_status=? WHERE id=?', [status, id]);
+      // Khóa thì mọi phiên đang mở hết hiệu lực ngay (token_version).
+      await m.query(`UPDATE users SET account_status=?${status === 'LOCKED' ? ',token_version=token_version+1' : ''} WHERE id=?`, [status, id]);
       await this.audit(m, admin, id, status === 'LOCKED' ? 'LOCK' : 'UNLOCK', { status: before.status }, { status }, reason);
       return this.get(m, id);
     });
@@ -117,10 +121,21 @@ export class AccountsService {
     const dto = parse(resetSchema, body);
     return this.db.transaction(async m => {
       await this.lock(m, id);
-      await m.query('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(dto.password, 12), id]);
+      await m.query('UPDATE users SET password_hash=?,token_version=token_version+1 WHERE id=?', [await bcrypt.hash(dto.password, 12), id]);
       await this.audit(m, admin, id, 'RESET_PASSWORD', null, null);
       return { message: 'Đã đặt lại mật khẩu. Gửi mật khẩu mới cho người dùng qua kênh riêng.' };
     });
+  }
+
+  /** Báo cho nhân sự mới qua email (không gửi mật khẩu). Gửi lỗi không làm hỏng việc tạo tài khoản. */
+  private async welcome(account: { email: string; fullName: string; kind: string }) {
+    if (!this.mailer?.configured) return;
+    try {
+      await this.mailer.send({ to: account.email, subject: 'HorseRoute: tài khoản của bạn đã được tạo', text: [
+        `Xin chào ${account.fullName},`, '', 'Quản trị viên đã tạo tài khoản HorseRoute cho bạn với email này.',
+        'Mật khẩu ban đầu được quản trị viên gửi riêng. Bạn cũng có thể tự đặt mật khẩu bằng mục "Quên mật khẩu" ở màn đăng nhập nhân viên.',
+        '', 'HorseRoute'].join('\n') });
+    } catch (error) { logger.warn('mail_send_failed', { purpose: 'WELCOME', code: (error as { code?: string }).code || 'UNKNOWN' }); }
   }
 
   private async get(m: EntityManager, id: string) {
