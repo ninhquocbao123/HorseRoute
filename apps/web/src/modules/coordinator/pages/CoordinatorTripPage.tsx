@@ -8,7 +8,6 @@ import {
   CheckOutlined,
   UserOutlined,
   SaveOutlined,
-  StopOutlined,
   WarningOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
@@ -848,14 +847,6 @@ function TripWorkspace({ id }: { id: string }) {
 
         {/* Hàng nút */}
         <div className="trip-action-bar__row">
-          {editable && (
-            <span title="Chưa có API từ chối đơn dành cho Coordinator">
-              <Button type="text" danger disabled icon={<StopOutlined />}>
-                Từ chối đơn
-              </Button>
-            </span>
-          )}
-
           <span className="trip-action-bar__spacer" />
 
           <Button

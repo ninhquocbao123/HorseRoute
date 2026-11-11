@@ -399,6 +399,37 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await main.getByText(/chưa có xe phục vụ/).first().waitFor();
   });
 
+  await phase('Khách tự hủy đơn chờ duyệt; quản lý hủy đơn đã duyệt phải nêu lý do (A4)', async () => {
+    const [{ id: customerId }] = await db.query('SELECT id FROM users WHERE email=?', [customer]);
+    const day = new Date(Date.now() + 25 * 86400e3).toISOString().slice(0, 10);
+    const ids = [];
+    for (const [code, status] of [['E2E-CANCEL-1', 'PENDING'], ['E2E-CANCEL-2', 'APPROVED']]) {
+      const r = await db.query("INSERT INTO orders(order_code,customer_id,status,origin_country,destination_country,origin_address,destination_address,desired_departure_date) VALUES (?,?,?,'VN','VN','Huế','Đà Lạt',?)", [code, customerId, status, day]);
+      await db.query("INSERT INTO horses(order_id,owner_id,name,passport_no) VALUES (?,?,'Gió Lào',?)", [r.insertId, customerId, 'FEI-' + code]);
+      ids.push(r.insertId);
+    }
+    const cancelStatus = async id => (await db.query('SELECT status s FROM orders WHERE id=?', [id]))[0].s;
+    await login(customer, false);
+    await page.goto(`${base}/dashboard?view=orders&order=${ids[0]}`);
+    await main.getByRole('button', { name: 'Hủy đơn', exact: true }).click();
+    const own = page.getByRole('dialog').filter({ hasText: 'Hủy đơn E2E-CANCEL-1' });
+    await own.getByLabel(/Lý do hủy/).fill('Đổi lịch thi đấu');
+    await own.getByRole('button', { name: 'Hủy đơn', exact: true }).click();
+    await until('khách hủy đơn', async () => await cancelStatus(ids[0]) === 'CANCELLED');
+    await main.getByText('Đơn đã hủy').first().waitFor();
+    await login('manager@e2e.test');
+    await page.goto(`${base}/dashboard?view=orders&order=${ids[1]}`);
+    await page.getByRole('button', { name: 'Hủy đơn', exact: true }).first().click();
+    const dialog = page.getByRole('dialog').filter({ hasText: 'Hủy đơn E2E-CANCEL-2' });
+    const confirm = dialog.getByRole('button', { name: 'Hủy đơn', exact: true });
+    assert.equal(await confirm.isDisabled(), true, 'quản lý phải nêu lý do');
+    await dialog.getByLabel(/Lý do hủy/).fill('Khách không liên lạc được trước ngày đi');
+    await confirm.click();
+    await until('quản lý hủy đơn', async () => await cancelStatus(ids[1]) === 'CANCELLED');
+    const [audit] = await db.query("SELECT reason FROM audit_logs WHERE entity_type='ORDER' AND entity_id=? AND action='CANCEL'", [ids[1]]);
+    assert.match(audit.reason, /không liên lạc/);
+  });
+
   await phase('Admin tạo tài khoản tài xế trên web; tài xế đăng nhập được; Admin khóa thì không vào được nữa', async () => {
     await login('admin@e2e.test');
     await page.getByRole('button', { name: 'Quản lý tài khoản' }).first().click();

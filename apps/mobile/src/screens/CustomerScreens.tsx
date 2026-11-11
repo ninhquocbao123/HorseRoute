@@ -658,6 +658,31 @@ export function OrderScreen({
       setError(messageOf(e));
     }
   };
+  // A4: khách tự hủy đơn khi còn chờ duyệt hoặc cần bổ sung (chưa trả tiền). Đơn đã duyệt thì liên hệ quản lý.
+  const cancel = async () => {
+    const ok = await confirm({
+      title: `Hủy đơn ${order.order_code}?`,
+      body: "Quản lý sẽ nhận thông báo. Đơn đã hủy không mở lại được; muốn đi chuyến khác thì đặt đơn mới.",
+      confirmLabel: "Hủy đơn",
+      cancelLabel: "Giữ đơn",
+      destructive: true,
+    });
+    if (!ok) return;
+    setError("");
+    try {
+      await write(async () => {
+        await request(`/orders/${asId(id)}/cancel`, { method: "POST", body: {} });
+        refresh();
+        notify(`Đã hủy đơn ${order.order_code}`);
+        go("orders");
+      });
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  };
+  const cancelButton = ["PENDING", "NEED_INFO"].includes(order.status) ? (
+    <Button title="Hủy đơn" kind="destructive" disabled={writing} onPress={() => void cancel()} />
+  ) : null;
   let footer: React.ReactNode = null;
   if (documents)
     footer =
@@ -686,8 +711,13 @@ export function OrderScreen({
     );
   else if (order.status === "NEED_INFO")
     footer = (
-      <Button title="Sửa và gửi lại" onPress={() => go("booking", { id })} />
+      <>
+        {cancelButton}
+        <Button title="Sửa và gửi lại" onPress={() => go("booking", { id })} />
+      </>
     );
+  else if (order.status === "PENDING")
+    footer = cancelButton;
   else if (missing.length && uploadable)
     footer = (
       <Button
