@@ -38,6 +38,37 @@ Trạng thái: **Long đã duyệt ngày 10/11/2026. Đang làm giai đoạn 0. 
 | Q7 | Có làm iOS không? | Không, nói rõ phạm vi Android khi bảo vệ, trừ khi có máy Mac và tài khoản Apple | D4 |
 | Q8 | Ngày bảo vệ là ngày nào? | Long cho biết để cắt phạm vi: thiếu thời gian thì dừng sau giai đoạn C | Toàn kế hoạch |
 
+### Long trả lời ngày 11/11/2026
+
+| # | Trả lời | Áp dụng |
+| --- | --- | --- |
+| Q1 | Có khóa VNPay Sandbox và địa chỉ API công khai. Long tự đặt khóa vào `.env` | A1 làm đủ: giao dịch sandbox thật qua IPN, mô phỏng tắt ở production |
+| Q2 | Theo đề xuất | A4: trước khi duyệt khách tự hủy; sau khi duyệt, trước khi xuất phát quản lý hủy, nhập mức hoàn cọc và lý do; đang chạy không hủy |
+| Q3 | Có, quản lý được ngoại lệ có lý do | A5 theo đề xuất |
+| Q4 | Không cho khách xem GPS thật | D3: giữ mốc hành trình, ghi lý do trong tài liệu (riêng tư tổ lái, an toàn hàng giá trị cao) |
+| Q5 | Ngựa nghỉ sau mỗi 3 đến 6 giờ chạy liên tục, nghỉ 30 phút rồi đi tiếp | B5: chạy liên tục quá 3 giờ chưa có điểm nghỉ thì cảnh báo; quá 6 giờ thì chặn gửi duyệt; điểm nghỉ tối thiểu 30 phút. Ba con số là tham số hệ thống |
+| Q6 | Long hỏi lại lý do, chưa quyết | Xem giải thích ở dưới. Đề xuất trước bảo vệ: chỉ xóa file bằng commit mới, chưa ghi đè lịch sử |
+| Q7 | Chỉ Android | D4 không làm iOS, nói rõ phạm vi khi bảo vệ |
+| Q8 | Khoảng 7 ngày nữa ra hội đồng (khoảng 18/11/2026) | Không đủ cho cả kế hoạch (29–42 ngày công). Làm theo mục "Phạm vi 7 ngày" dưới đây |
+
+**Vì sao Q6 hỏi về file backup.** `backups/wdp_before_trip_fleet_20261028.sql` là bản sao DB đã nằm trên GitHub (nhánh `main` và các nhánh khác, từ commit `3f54b9d` ngày 29/10/2026). Trong đó có bảng `users` với chuỗi băm mật khẩu và địa chỉ email: phần lớn là email giả `@wdp.example`, nhưng có 5 địa chỉ Gmail và vài tên miền trông như thật. Ai clone repo cũng đọc được. Nếu đó là email thật của người trong nhóm hay khách thật, đây là lộ dữ liệu cá nhân và hội đồng có thể hỏi. Xóa file bằng commit mới chỉ làm nó biến mất ở bản hiện tại, lịch sử git vẫn giữ. Muốn mất hẳn phải viết lại lịch sử và force-push, cả nhóm phải clone lại, dễ mất việc của người khác. Một tuần trước bảo vệ thì không nên làm. Đề xuất: (1) xóa file và thêm `backups/` vào `.gitignore` bằng commit thường (C4); (2) nếu 5 Gmail là thật thì đổi mật khẩu các tài khoản đó trên DB chung; (3) để việc viết lại lịch sử sau bảo vệ, hoặc không làm nếu email là giả.
+
+### Phạm vi 7 ngày
+
+Ưu tiên thứ hội đồng thấy khi demo và hỏi. Mỗi việc vẫn có test và commit riêng.
+
+| Ngày | Việc | Lý do |
+| --- | --- | --- |
+| 1 | A7 màn xe và địa điểm; A6 quản lý từ chối, yêu cầu bổ sung; B2, B6 | Lỗ hổng thấy ngay khi bấm demo, sửa nhỏ |
+| 2 | A3 màn Admin tạo, khóa tài khoản nhân sự | Hiện phải dùng lệnh dòng lệnh để có nhân viên |
+| 3 | A5 ép đặt cọc; A4 hủy đơn và hoàn cọc | Câu hỏi nghiệp vụ hội đồng hay hỏi |
+| 4 | A1 VNPay Sandbox thật, tắt mô phỏng ở production | Thanh toán thật là điểm nhấn demo |
+| 5 | B5 quy tắc nghỉ cho ngựa theo Q5; B4 | Nghiệp vụ đặc thù của đề tài |
+| 6 | B8 câu chữ; phần giới hạn đăng nhập của A2; C4 dọn repo; D3 ghi tài liệu | Đánh bóng, giảm câu hỏi bảo mật |
+| 7 | Không thêm tính năng: chạy lại toàn bộ test, seed demo, tập kịch bản demo trên web và điện thoại Android | Đóng băng trước bảo vệ |
+
+Dời sau bảo vệ: phần còn lại của A2 (refresh token, quên mật khẩu), B3, B7, B9–B12, C1–C3, C5, D1, D2, D4–D6, E, F. Khi hội đồng hỏi, trả lời theo báo cáo đánh giá và kế hoạch này.
+
 ## 3. Tổng quan
 
 | Giai đoạn | Mục tiêu | Lỗi xử lý | Công ước lượng |
