@@ -13,6 +13,8 @@
     "lint": "pnpm -r lint",
     "migration:run": "pnpm --filter api migration:run",
     "db:setup": "pnpm --filter api db:setup",
-    "db:create-user": "pnpm --filter api db:create-user"
+    "db:create-user": "pnpm --filter api db:create-user",
+    "db:local": "node docker/local-db/local-db.cjs",
+    "db:local:reset": "node docker/local-db/local-db.cjs --reset"
   }
 }

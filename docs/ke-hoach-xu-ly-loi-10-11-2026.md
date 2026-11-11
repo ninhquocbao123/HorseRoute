@@ -199,7 +199,7 @@ Tổng khoảng 29–42 ngày công, chưa tính F. Nhóm nhiều người có t
 - **C1 (P1-5).** Thêm khối `location /socket.io/` có `Upgrade` vào `docker/nginx/default.conf`.
 - **C2 (P1-5).** Thêm `app.set('trust proxy', 1)`, đưa số hop vào biến môi trường để không bị giả IP.
 - **C3 (P1-5).** Thêm volume cho kho file. Hoặc dùng Redis làm kho cho rate limit, hoặc bỏ Redis khỏi điều kiện khởi động.
-- **C4 (P2-4).** Phụ thuộc Q6. Gỡ `backups/`, `.idea/`, `database/__pycache__/`, `package-lock.json` ở gốc khỏi git, thêm vào `.gitignore`. Kiểm tra `ca.pem` là chứng chỉ công khai. Xử lý lịch sử nếu Q6 đồng ý.
+- **C4 (P2-4).** Phụ thuộc Q6. **Cập nhật 11/11/2026:** Aiven không truy cập được, `backups/wdp_before_trip_fleet_20261028.sql` thành nguồn của bản sao database (`pnpm db:local`, `docs/db-local-copy.md`), nên giữ file này cho tới khi nhóm có database chung mới. Gỡ phần còn lại của `backups/`, `.idea/`, `database/__pycache__/`, `package-lock.json` ở gốc khỏi git, thêm vào `.gitignore`. Kiểm tra `ca.pem` là chứng chỉ công khai. Xử lý lịch sử nếu Q6 đồng ý.
 - **C5 (P3).** Thêm Sentry hoặc tương đương, kịch bản sao lưu DB.
 - Nghiệm thu: `docker compose up` từ máy sạch; socket nối được qua nginx; nhiều người dùng không chung hạn mức; tạo lại container file vẫn còn.
 

@@ -60,6 +60,10 @@ pnpm dev:web    # http://localhost:5173
 
 Sửa `packages/shared` thì chạy lại `pnpm --filter @my-project/shared build` (API đang chạy sẽ tự nạp lại).
 
+### Bản sao database chung của nhóm
+
+Không vào được database Aiven của nhóm thì dựng bản sao trên máy mình (dữ liệu tới 28/10/2026, đã cập nhật theo mọi migration): `pnpm db:local`, rồi trỏ `.env` vào cổng 3307. Xem [docs/db-local-copy.md](docs/db-local-copy.md).
+
 ### Dữ liệu demo có sẵn
 
 Muốn có ngay đơn, chuyến đang chạy, lịch sử, GPS và tài khoản đủ vai trò, dùng môi trường demo riêng (MySQL cổng 33062, API 3010, web 5180), không đụng database ở trên: xem [docs/demo-local.md](docs/demo-local.md).
