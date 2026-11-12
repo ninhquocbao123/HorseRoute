@@ -51,7 +51,7 @@ import { Sheet, useOverlay } from "../overlay";
 import { useResource, useSession } from "../session";
 import { TripMapView, type TripMapHandle } from "../map/TripMapView";
 import { crewMapNotes } from "../map/map-scene";
-import { tripStats, type Stat } from "../map/trip-stats";
+import { restInfoOf, tripStats, type Stat } from "../map/trip-stats";
 import {
   KeepScreenAwake,
   useLiveTripMap,
@@ -1752,6 +1752,7 @@ export function TripMapScreen({
     map: map.data ?? null,
     ownFix,
     waypoint,
+    rest: restInfoOf(map.data ?? null, trip.legs.length, trip.legs[0]?.waypointCheckins ?? []),
     now,
   });
   const notes = crewMapNotes(map.data ?? null);

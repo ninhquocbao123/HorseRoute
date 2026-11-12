@@ -4,6 +4,7 @@ import { isAxiosError } from 'axios';
 import { trackingApi, errorMessage } from '../tracking.api';
 import CheckInDialog from './CheckInDialog';
 import { stopNote } from './driver-ui';
+import type { RestInfo } from './trip-phase';
 
 export type ViaStop = { id: string; name: string; index: number; total: number; note: string };
 
@@ -24,6 +25,10 @@ export function useWaypointCheckins(trip: IDriverTripSummary, mapStops: ITripMap
   const via: ViaStop[] = routePlan
     ? stops.slice(1, -1).map((stop, i) => ({ id: stop.locationId, name: stop.name, index: i + 1, total: stops.length - 2, note: stopNote(stop.locationType, stop.name) }))
     : [];
+  // B4: lần nghỉ là điểm nghỉ hoặc phía "tới cửa khẩu" (dừng kiểm tra giấy tờ); phía "đã qua cửa khẩu" không tính.
+  const restStops = routePlan ? stops.slice(1, -1).filter(stop => stop.locationType === 'REST_STOP' || (stop.locationType === 'BORDER' && !/đã qua cửa khẩu$/.test(stop.name))) : [];
+  const restAt = restStops.map(stop => visited[stop.locationId]).filter((at): at is string => !!at).sort();
+  const rest: RestInfo | null = routePlan ? { lastRestAt: restAt.at(-1) ?? null, restAhead: restStops.some(stop => !visited[stop.locationId]) } : null;
   const active = running && routePlan && leg.status === 'MOVING';
   const next = active ? via.find(item => !visited[item.id]) ?? null : null;
 
@@ -65,5 +70,5 @@ export function useWaypointCheckins(trip: IDriverTripSummary, mapStops: ITripMap
     />
   );
 
-  return { visited, next, open, modal };
+  return { visited, next, open, modal, rest };
 }

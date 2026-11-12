@@ -147,7 +147,34 @@ function speedStat(
   return speedValue(gps.speedKmh);
 }
 
-function elapsedStat(phase: Phase, legs: StatLeg[], now: number): Stat {
+/** B4: giờ nghỉ gần nhất và còn điểm nghỉ phía trước; null khi chuyến không theo lộ trình có điểm nghỉ. */
+export type RestInfo = { lastRestAt: string | null; restAhead: boolean };
+/** Luật: không lái liên tục quá 4 giờ, cũng là mốc nghỉ trễ nhất của lộ trình tự lập. */
+export const REST_LIMIT_MS = 4 * 3_600_000;
+
+/**
+ * Lần nghỉ của chuyến một chặng theo lộ trình: điểm nghỉ, hoặc phía "tới cửa khẩu" (dừng kiểm tra giấy tờ);
+ * phía "đã qua cửa khẩu" không tính. Cùng quy tắc với useWaypointCheckins.tsx của web.
+ */
+export function restInfoOf(
+  map: ITripMap | null,
+  legCount: number,
+  checkins: { waypointId: string; occurredAt: string }[],
+): RestInfo | null {
+  if (!map || legCount !== 1 || map.stops.length <= 2) return null;
+  const rests = map.stops
+    .slice(1, -1)
+    .filter(
+      (stop) =>
+        stop.locationType === "REST_STOP" ||
+        (stop.locationType === "BORDER" && !/đã qua cửa khẩu$/.test(stop.name)),
+    );
+  const at = (id: string) => checkins.find((c) => c.waypointId === id)?.occurredAt ?? null;
+  const done = rests.map((stop) => at(stop.locationId)).filter((t): t is string => !!t).sort();
+  return { lastRestAt: done.at(-1) ?? null, restAhead: rests.some((stop) => !at(stop.locationId)) };
+}
+
+function elapsedStat(phase: Phase, legs: StatLeg[], now: number, rest: RestInfo | null): Stat {
   const first = [...legs].sort((a, b) => a.seqNo - b.seqNo)[0];
   const value = first?.actualDepartureAt
     ? formatDuration(now - Date.parse(first.actualDepartureAt))
@@ -163,10 +190,28 @@ function elapsedStat(phase: Phase, legs: StatLeg[], now: number): Stat {
   const leg =
     phase.kind === "moving" ? phase.leg : phase.kind === "not_started" ? phase.next : null;
   if (!leg) return { value, sub: "—", warn: false };
+  if (phase.kind !== "moving") {
+    const planned = Date.parse(leg.plannedDepartureAt);
+    return now > planned
+      ? { value, sub: `trễ xuất phát ${formatDuration(now - planned)}`, warn: true }
+      : { value, sub: `dự kiến xuất phát ${clockOf(leg.plannedDepartureAt, now)}`, warn: false };
+  }
+  // B4: đếm ngược tới lần nghỉ trễ nhất (4 giờ từ lần nghỉ gần nhất hoặc từ lúc xuất phát), không tính theo giờ giao.
+  const since = Math.max(
+    leg.actualDepartureAt ? Date.parse(leg.actualDepartureAt) : -Infinity,
+    rest?.lastRestAt ? Date.parse(rest.lastRestAt) : -Infinity,
+  );
+  if (Number.isFinite(since)) {
+    const driving = now - since;
+    if (driving > REST_LIMIT_MS)
+      return { value, sub: `lái liên tục ${formatDuration(driving)} · cần nghỉ`, warn: true };
+    if (rest?.restAhead)
+      return { value, sub: `nghỉ chậm nhất sau ${formatDuration(REST_LIMIT_MS - driving)}`, warn: false };
+  }
   const remaining = Date.parse(leg.plannedArrivalAt) - now;
   return remaining >= 0
-    ? { value, sub: `nghỉ tiếp sau ${formatDuration(remaining)}`, warn: false }
-    : { value, sub: `trễ ${formatDuration(-remaining)}`, warn: true };
+    ? { value, sub: `tới nơi dự kiến ${clockOf(leg.plannedArrivalAt, now)}`, warn: false }
+    : { value, sub: `trễ ${formatDuration(-remaining)} so với giờ đến dự kiến`, warn: true };
 }
 
 export function tripStats(input: {
@@ -174,12 +219,13 @@ export function tripStats(input: {
   map: ITripMap | null;
   ownFix: OwnFix | null;
   waypoint?: string | null;
+  rest?: RestInfo | null;
   now: number;
 }) {
   const phase = tripPhase(input.legs);
   return {
     next: nextStat(phase, input.map, input.waypoint ?? null, input.now),
     speed: speedStat(phase, input.map, input.ownFix, input.now),
-    elapsed: elapsedStat(phase, input.legs, input.now),
+    elapsed: elapsedStat(phase, input.legs, input.now, input.rest ?? null),
   };
 }

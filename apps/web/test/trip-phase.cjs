@@ -57,7 +57,17 @@ const esbuild = require(require.resolve('esbuild', { paths: [require.resolve('vi
     assert.deepEqual(flags(legs), { A: 'reached', B: 'reached', C: 'current', D: '-' });
     const view = nextStopView(phase, mapOf(legs, 350));
     assert.deepEqual([view.name, view.km, view.arrived], ['C', 50, false], '350 − 300 (chặng 3) = 50 km còn lại tới C');
-    assert.match(elapsedSub(phase, now).text, /^nghỉ tiếp sau /);
+    // B4: chưa có giờ xuất phát thực tế, không có điểm nghỉ → giờ dự kiến tới nơi, không ghi "nghỉ tiếp" tính theo giờ giao.
+    assert.match(elapsedSub(phase, now).text, /^tới nơi dự kiến /);
+    assert.equal(elapsedSub(phase, now + 5 * 3600e3).text, 'trễ 1 giờ so với giờ đến dự kiến');
+    // Lộ trình có điểm nghỉ: đếm ngược 4 giờ từ lần nghỉ gần nhất, hoặc từ lúc xuất phát nếu chưa nghỉ.
+    const moving = tripPhase([{ ...legs[1], actualDepartureAt: at(-1) }]);
+    assert.equal(elapsedSub(moving, now, { lastRestAt: null, restAhead: true }).text, 'nghỉ chậm nhất sau 3 giờ');
+    assert.equal(elapsedSub(moving, now, { lastRestAt: at(-0.5), restAhead: true }).text, 'nghỉ chậm nhất sau 3 giờ 30');
+    const tired = elapsedSub(moving, now + 4 * 3600e3, { lastRestAt: null, restAhead: true });
+    assert.deepEqual([tired.text, tired.warn], ['lái liên tục 5 giờ · cần nghỉ', true]);
+    // Đã qua mọi điểm nghỉ: không đếm ngược nữa mà hiện giờ tới nơi.
+    assert.match(elapsedSub(moving, now, { lastRestAt: at(-0.5), restAhead: false }).text, /^tới nơi dự kiến /);
   }
 
   // 3. Đang DỪNG giữa đường: chặng 2 AT_STOP tại C, chặng 3 chưa đi

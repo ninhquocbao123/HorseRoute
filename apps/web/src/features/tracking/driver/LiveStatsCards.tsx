@@ -3,7 +3,7 @@ import { Tooltip } from 'antd';
 import { ClockCircleOutlined, DashboardOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import type { ILegTracking, ITripMap } from '@my-project/shared';
 import { formatDayTime, formatDuration, formatKm } from './driver-ui';
-import { elapsedSub, isStopped, nextStopView, tripPhase } from './trip-phase';
+import { elapsedSub, isStopped, nextStopView, tripPhase, type RestInfo } from './trip-phase';
 import type { GpsFix } from './useGpsSharing';
 
 /** Số đo GPS trên máy còn được coi là "đang có tín hiệu" trong khoảng này (máy lấy mẫu mỗi 5 giây). */
@@ -44,9 +44,9 @@ function Stat({ label, icon, value, sub, tone, clamp, valueTone }: {
  * - "Chặng tiếp": thêm "còn X km" khi /map tính được (km còn lại của cả chuyến trừ các chặng sau).
  * - "Tốc độ": ưu tiên số đo GPS vừa lấy trên máy tài xế (cập nhật ~5 giây, không chờ gửi/tải lại /map); không có thì dùng GPS mới
  *   nhất của server khi còn LIVE; so với VMAX; GPS cũ → "GPS cũ n phút"; chưa có GPS → "—".
- * - "Đã chạy" = giờ hiện tại − giờ xuất phát thực tế chặng 1; dòng phụ = giờ đến dự kiến của chặng hiện tại − giờ hiện tại.
+ * - "Đã chạy" = giờ hiện tại − giờ xuất phát thực tế chặng 1; dòng phụ: lần nghỉ trễ nhất (B4, xem `elapsedSub`) hoặc giờ dự kiến tới nơi.
  */
-export default function LiveStatsCards({ legs, map, ownFix = null, nextWaypoint = null }: { legs: ILegTracking[]; map: ITripMap | null; ownFix?: GpsFix | null; nextWaypoint?: string | null }) {
+export default function LiveStatsCards({ legs, map, ownFix = null, nextWaypoint = null, rest = null }: { legs: ILegTracking[]; map: ITripMap | null; ownFix?: GpsFix | null; nextWaypoint?: string | null; rest?: RestInfo | null }) {
   const now = useNow();
   // Đồng hồ riêng 5 giây cho tốc độ trên máy: số đo cũ quá 30 giây thì quay về dữ liệu server.
   const tick = useNow(5_000);
@@ -58,7 +58,7 @@ export default function LiveStatsCards({ legs, map, ownFix = null, nextWaypoint 
   const speed = local !== null ? liveSpeed(local, map?.speedLimitKmh ?? null) : speedView(map, now, isStopped(phase));
   const departedAt = legs[0]?.actualDepartureAt ? Date.parse(legs[0].actualDepartureAt) : null;
   const arrival = next?.arrivalAt ? new Date(next.arrivalAt) : null;
-  const elapsed = elapsedSub(phase, now);
+  const elapsed = elapsedSub(phase, now, rest);
   return (
     <div className="drv-stats-row" aria-label="Tình hình chuyến">
       <Stat

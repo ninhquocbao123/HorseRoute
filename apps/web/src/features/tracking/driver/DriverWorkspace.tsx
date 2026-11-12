@@ -213,7 +213,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} mapStops={map?.stops} visited={waypoints.visited} />
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
-          {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} nextWaypoint={viaNext?.name ?? null} />}
+          {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} nextWaypoint={viaNext?.name ?? null} rest={waypoints.rest} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
           {running && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
         </div>

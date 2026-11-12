@@ -80,8 +80,17 @@ export function nextStopView(phase: TripPhase, map: ITripMap | null): { name: st
   return null;
 }
 
-/** Dòng phụ thẻ "Đã chạy". Đang dừng: giờ xuất phát dự kiến của chặng kế, trễ thì "trễ xuất phát". */
-export function elapsedSub(phase: TripPhase, now: number): { text: string; warn: boolean } {
+/** B4: giờ nghỉ gần nhất (check-in điểm nghỉ hoặc tới cửa khẩu) và còn điểm nghỉ nào phía trước; null khi chuyến không theo lộ trình có điểm nghỉ. */
+export type RestInfo = { lastRestAt: string | null; restAhead: boolean };
+/** Luật: không lái liên tục quá 4 giờ (Điều 64 Luật TTATGTĐB 2024), cũng là mốc nghỉ trễ nhất của lộ trình tự lập. */
+export const REST_LIMIT_MS = 4 * 3_600_000;
+
+/**
+ * Dòng phụ thẻ "Đã chạy". Đang dừng: giờ xuất phát dự kiến của chặng kế, trễ thì "trễ xuất phát".
+ * Đang chạy (B4): còn điểm nghỉ phía trước thì đếm ngược tới lần nghỉ trễ nhất (4 giờ từ lần nghỉ gần nhất hoặc từ lúc xuất phát);
+ * lái quá 4 giờ thì cảnh báo; không còn điểm nghỉ thì hiện giờ dự kiến tới nơi, không ghi "nghỉ tiếp".
+ */
+export function elapsedSub(phase: TripPhase, now: number, rest: RestInfo | null = null): { text: string; warn: boolean } {
   if (phase.kind === 'stopped' || phase.kind === 'between') {
     const next = phase.next;
     if (!next) return { text: 'đang dừng · chờ bàn giao', warn: false };
@@ -91,8 +100,18 @@ export function elapsedSub(phase: TripPhase, now: number): { text: string; warn:
   }
   const leg = headingLeg(phase);
   if (!leg) return { text: '—', warn: false };
+  if (phase.kind !== 'moving') {
+    const planned = Date.parse(leg.plannedDepartureAt);
+    return now > planned ? { text: `trễ xuất phát ${formatDuration(now - planned)}`, warn: true } : { text: `dự kiến xuất phát ${formatClock(leg.plannedDepartureAt, now)}`, warn: false };
+  }
+  const since = Math.max(leg.actualDepartureAt ? Date.parse(leg.actualDepartureAt) : -Infinity, rest?.lastRestAt ? Date.parse(rest.lastRestAt) : -Infinity);
+  if (Number.isFinite(since)) {
+    const driving = now - since;
+    if (driving > REST_LIMIT_MS) return { text: `lái liên tục ${formatDuration(driving)} · cần nghỉ`, warn: true };
+    if (rest?.restAhead) return { text: `nghỉ chậm nhất sau ${formatDuration(REST_LIMIT_MS - driving)}`, warn: false };
+  }
   const remaining = Date.parse(leg.plannedArrivalAt) - now;
-  return remaining >= 0 ? { text: `nghỉ tiếp sau ${formatDuration(remaining)}`, warn: false } : { text: `trễ ${formatDuration(-remaining)}`, warn: true };
+  return remaining >= 0 ? { text: `tới nơi dự kiến ${formatClock(leg.plannedArrivalAt, now)}`, warn: false } : { text: `trễ ${formatDuration(-remaining)} so với giờ đến dự kiến`, warn: true };
 }
 
 /** "HH:mm" nếu cùng ngày với `now`, ngược lại "dd/MM HH:mm". */

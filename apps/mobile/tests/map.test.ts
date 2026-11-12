@@ -8,7 +8,7 @@ import {
   sceneStops,
   sceneVehicle,
 } from "../src/map/map-scene.ts";
-import { formatDuration, formatKm, tripPhase, tripStats } from "../src/map/trip-stats.ts";
+import { formatDuration, formatKm, restInfoOf, tripPhase, tripStats } from "../src/map/trip-stats.ts";
 
 const colors = mapColors(
   { routeDone: "#1", routeAhead: "#2", routeAir: "#3", stop: "#4", stopRing: "#5", vehicle: "#6" },
@@ -218,7 +218,41 @@ test("đã chạy và trễ", () => {
   assert.equal(onTime.value, "2 giờ 30");
   assert.equal(onTime.warn, false);
   const late = tripStats({ legs: [statLeg({ plannedArrivalAt: "2026-11-06T04:00:00.000Z" })], map: null, ownFix: null, now: NOW }).elapsed;
-  assert.deepEqual([late.sub, late.warn], ["trễ 1 giờ", true]);
+  assert.deepEqual([late.sub, late.warn], ["trễ 1 giờ so với giờ đến dự kiến", true]);
+});
+
+test("B4: nghỉ tiếp tính từ lần nghỉ gần nhất, không tính theo giờ giao", () => {
+  const stop = (locationId: string, name: string, locationType: string) => ({ locationId, name, locationType, lat: 0, lng: 0 });
+  const map = baseMap({
+    stops: [
+      stop("o", "Hà Nội", "ORIGIN"),
+      stop("r1", "Điểm nghỉ 1", "REST_STOP"),
+      stop("g1", "Cửa khẩu Cầu Treo (Hà Tĩnh)", "BORDER"),
+      stop("g2", "Cửa khẩu Nậm Phao – đã qua cửa khẩu", "BORDER"),
+      stop("d", "Bangkok", "DESTINATION"),
+    ],
+  });
+  // Xuất phát 02:30, bây giờ 05:00, chưa nghỉ: còn 1 giờ 30 tới lần nghỉ trễ nhất (4 giờ).
+  const fresh = restInfoOf(map, 1, []);
+  assert.deepEqual(fresh, { lastRestAt: null, restAhead: true });
+  assert.equal(tripStats({ legs: [statLeg()], map, ownFix: null, rest: fresh, now: NOW }).elapsed.sub, "nghỉ chậm nhất sau 1 giờ 30");
+  // Đã nghỉ 04:30 ở điểm nghỉ 1: đếm lại từ đó.
+  const rested = restInfoOf(map, 1, [{ waypointId: "r1", occurredAt: "2026-11-06T04:30:00.000Z" }]);
+  assert.equal(tripStats({ legs: [statLeg()], map, ownFix: null, rest: rested, now: NOW }).elapsed.sub, "nghỉ chậm nhất sau 3 giờ 30");
+  // Phía "đã qua cửa khẩu" không phải lần nghỉ; tới cửa khẩu thì là lần nghỉ.
+  const crossed = restInfoOf(map, 1, [
+    { waypointId: "r1", occurredAt: "2026-11-06T03:00:00.000Z" },
+    { waypointId: "g1", occurredAt: "2026-11-06T04:00:00.000Z" },
+    { waypointId: "g2", occurredAt: "2026-11-06T04:40:00.000Z" },
+  ]);
+  assert.deepEqual(crossed, { lastRestAt: "2026-11-06T04:00:00.000Z", restAhead: false });
+  // Hết điểm nghỉ: hiện giờ tới nơi, không ghi "nghỉ tiếp".
+  assert.match(tripStats({ legs: [statLeg()], map, ownFix: null, rest: crossed, now: NOW }).elapsed.sub, /^tới nơi dự kiến /);
+  // Lái quá 4 giờ thì cảnh báo.
+  const tired = tripStats({ legs: [statLeg()], map, ownFix: null, rest: fresh, now: Date.parse("2026-11-06T07:00:00.000Z") }).elapsed;
+  assert.deepEqual([tired.sub, tired.warn], ["lái liên tục 4 giờ 30 · cần nghỉ", true]);
+  // Chuyến nhiều chặng hoặc không có lộ trình: không có thông tin nghỉ.
+  assert.equal(restInfoOf(map, 2, []), null);
 });
 
 test("chặng tiếp: km còn lại trừ các chặng sau; đã tới đích thì không còn km", () => {
