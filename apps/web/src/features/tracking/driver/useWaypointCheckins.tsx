@@ -22,7 +22,7 @@ export function useWaypointCheckins(trip: IDriverTripSummary, mapStops: ITripMap
   const routePlan = trip.legs.length === 1 && stops.length > 2;
   const visited = useMemo(() => Object.fromEntries((leg?.waypointCheckins ?? []).map(c => [c.waypointId, c.occurredAt])), [leg?.waypointCheckins]);
   const via: ViaStop[] = routePlan
-    ? stops.slice(1, -1).map((stop, i) => ({ id: stop.locationId, name: stop.name, index: i + 1, total: stops.length - 2, note: stopNote(stop.locationType) }))
+    ? stops.slice(1, -1).map((stop, i) => ({ id: stop.locationId, name: stop.name, index: i + 1, total: stops.length - 2, note: stopNote(stop.locationType, stop.name) }))
     : [];
   const active = running && routePlan && leg.status === 'MOVING';
   const next = active ? via.find(item => !visited[item.id]) ?? null : null;

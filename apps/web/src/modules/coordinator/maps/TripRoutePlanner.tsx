@@ -173,7 +173,7 @@ export default function TripRoutePlanner({ tripId, originAddress, destinationAdd
   };
   return <div className="osm-planner">
     {error && <Alert type="error" showIcon message={error} />}
-    <AutoPlanPanel readOnly={readOnly} busy={autoBusy || saving} departure={departure} onDepartureChange={setDeparture} corridor={corridor}
+    <AutoPlanPanel readOnly={readOnly} busy={autoBusy || saving} running={autoBusy} departure={departure} onDepartureChange={setDeparture} corridor={corridor}
       onCorridorChange={code => { setCorridor(code); void runAuto('full', code); }} result={auto} points={points} manualEdits={manualEdits} onRun={mode => void runAuto(mode)} />
     <div className="route-stage-heading">
       <span>1</span>

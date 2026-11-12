@@ -11,6 +11,7 @@ const searchResponse = z.object({ features: z.array(z.object({
   properties: z.object({
     osm_type: z.string().max(10).optional(), osm_id: z.number().optional(),
     name: addressPart, housenumber: addressPart, street: addressPart, district: addressPart, city: addressPart, state: addressPart, country: addressPart,
+    countrycode: z.string().max(10).optional(),
   }).refine(p => !!(p.name || p.street)),
 })).max(5) });
 const routesResponse = z.object({
@@ -51,7 +52,8 @@ function configuredUrl(value: string): string {
   return value;
 }
 
-export async function searchAddresses(query: string, fetchImpl: typeof fetch = fetch) {
+/** `country` (mã ISO) chỉ giữ kết quả thuộc nước đó; Photon không lọc theo nước nên lọc sau khi nhận. */
+export async function searchAddresses(query: string, fetchImpl: typeof fetch = fetch, country?: string) {
   const url = new URL(configuredUrl(geocodingUrl()));
   url.searchParams.set('q', query);
   url.searchParams.set('limit', '5');
@@ -61,7 +63,7 @@ export async function searchAddresses(query: string, fetchImpl: typeof fetch = f
   url.searchParams.set('lon', '106');
   const parsed = searchResponse.safeParse(await request(url, 10_000, fetchImpl));
   if (!parsed.success) throw new ServiceUnavailableException('Dịch vụ tìm địa chỉ trả dữ liệu không hợp lệ.');
-  return parsed.data.features.map(feature => {
+  return parsed.data.features.filter(feature => !country || feature.properties.countrycode?.toUpperCase() === country).map(feature => {
     const { osm_type, osm_id, name, housenumber, street, district, city, state, country } = feature.properties;
     const address = [housenumber, street].filter(Boolean).join(' ');
     const label = [...new Set([name, address, district, city, state, country].filter(Boolean))].join(', ');

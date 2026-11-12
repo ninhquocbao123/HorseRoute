@@ -659,7 +659,10 @@ export class TrackingService {
     }
     const legId = parse(legIdSchema, rawLegId);
     const waypointId = parse(waypointIdSchema, rawWaypointId);
-    const input = parse(buildWaypointCheckinSchema(await this.repository.getMaxRetroactiveMinutes()), body);
+    const parsed = parse(buildWaypointCheckinSchema(await this.repository.getMaxRetroactiveMinutes()), body);
+    // Cột DATETIME làm tròn phần lẻ giây lên: 12:10:40.6 lưu thành 12:10:41 rồi lượt check-in kế tiếp lúc 12:10:40.9 bị coi là sớm hơn.
+    // Bỏ phần lẻ giây trước khi so và lưu để giờ đã lưu không bao giờ vượt giờ thật.
+    const input = { ...parsed, occurredAt: new Date(Math.floor(Date.parse(parsed.occurredAt) / 1000) * 1000).toISOString() };
 
     return this.repository.transaction(async repo => {
       const leg = await repo.lockLegForUpdate(legId);
@@ -687,7 +690,7 @@ export class TrackingService {
       await repo.insertWaypointCheckin(legId, waypointId, label, input.occurredAt, String(account.id));
       await repo.audit(String(account.id), 'LEG', legId, 'WAYPOINT_CHECKIN', null, JSON.stringify({ waypointId, label, borderStage, occurredAt: input.occurredAt }), null);
       // Cửa khẩu: phía rời đi = xe đang ở cửa khẩu chờ kiểm tra giấy tờ; phía bên kia = đã qua cửa khẩu.
-      const text = borderStage === 'ARRIVED' ? `xe đang ở ${label}, đang kiểm tra giấy tờ thông quan` : borderStage === 'CLEARED' ? `xe đã qua cửa khẩu (${label.replace(/s*–s*đã qua cửa khẩu$/, '')})` : `xe đã tới điểm dừng ${label}`;
+      const text = borderStage === 'ARRIVED' ? `xe đang ở ${label}, đang kiểm tra giấy tờ thông quan` : borderStage === 'CLEARED' ? `xe đã qua cửa khẩu (${label.replace(/\s*–\s*đã qua cửa khẩu$/, '')})` : `xe đã tới điểm dừng ${label}`;
       await repo.notify(leg.plannedBy, 'LEG_MILESTONE_UPDATED', `Chuyến ${leg.tripId}: ${text}.`, 'TRIP', leg.tripId);
       await repo.notify(leg.customerId, 'ORDER_LEG_PROGRESS', `Đơn hàng ${leg.orderCode}: ${text}.`, 'ORDER', leg.orderId);
       return { legId, waypointId, occurredAt: input.occurredAt };

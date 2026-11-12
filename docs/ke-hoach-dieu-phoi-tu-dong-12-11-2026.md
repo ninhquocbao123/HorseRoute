@@ -10,13 +10,33 @@ Long đã chốt H1–H6 ngày 12/11/2026 (xem mục 7).
 |---|---|---|
 | T1 tọa độ hai đầu | Xong, làm khác kế hoạch | Không lưu tọa độ lúc đặt đơn. Khi điều phối mở trang, máy chủ tự tra: địa chỉ đầy đủ (chỉ nhận nếu cách phường/tỉnh trong đơn ≤ 25 km), không thì tâm phường hoặc tỉnh; trả kèm độ chính xác để giao diện nhắc kéo ghim. Ưu điểm: dùng được cho cả đơn cũ, không đổi luồng đặt đơn |
 | T2 giờ xuất phát | Xong | Ngày khách chọn + đầu khung giờ lấy ngựa (giờ Việt Nam), thiếu khung giờ thì 08:00; đơn thiếu ngày thì lịch để trống và nhắc nhập; ngày khách chọn đã qua thì cảnh báo |
-| T3 thuật toán, ETA, API | Xong | `route-autoplan.ts` (hàm thuần), `trip-autoplan.ts`, `POST /trips/:id/route-plan/auto` (điều phối phụ trách, 10 lần/phút). Tham số đọc từ `system_parameters` (mã ≤ 10 ký tự: `REST_TGT`, `REST_MIN`, `REST_MAX`, `REST_DWELL`, `DRIVE_DAY`, `OVERNIGHT`, `TRUCK_FACT`, `ETA_BUFFER`, `LOADING`, `BORDER_DWL`, `REST_WARN`, `REST_BLOCK`), thiếu thì dùng mặc định đã chốt, **không cần migration**. Điểm nghỉ không có trạm trong danh mục thì đặt ngay trên tuyến và đặt tên theo địa danh (Photon reverse). Giới hạn điểm lộ trình nâng từ 12 lên 25 |
+| T3 thuật toán, ETA, API | Xong | `route-autoplan.ts` (hàm thuần), `trip-autoplan.ts`, `POST /trips/:id/route-plan/auto` (điều phối phụ trách, 10 lần/phút). Tham số đọc từ `system_parameters` (mã ≤ 10 ký tự: `REST_TGT`, `REST_MIN`, `REST_MAX`, `REST_DWELL`, `DRIVE_DAY`, `OVERNIGHT`, `TRUCK_FACT`, `ETA_BUFFER`, `LOADING`, `BORDER_DWL`, `REST_WARN`, `REST_BLOCK`, `DAY_START`), thiếu thì dùng mặc định đã chốt, **không cần migration**. Điểm nghỉ không có trạm trong danh mục thì đặt ngay trên tuyến và đặt tên theo địa danh (Photon reverse). Giới hạn điểm lộ trình nâng từ 12 lên 25 |
 | B5 quy tắc nghỉ | Xong (gộp vào T3) | Gửi duyệt, duyệt và kiểm tra sẵn sàng đều chặn (409 `REST_RULE`) khi có đoạn lái liên tục quá 6 giờ không có điểm nghỉ; lịch tự lập cảnh báo khi quá 4 giờ |
 | T4 giao diện điều phối | Xong | Bảng "Tự lập lộ trình" trên trang lập kế hoạch: tự chạy khi chuyến chưa có lộ trình; ô giờ xuất phát, ô hành lang cửa khẩu, nút "Lập lại tự động" và "Tính lại giờ theo các điểm hiện tại" (sau khi sửa tay); dòng thời gian từng điểm và cách tính giờ đến; giờ đi, giờ đến điền sẵn vào phần thời gian dự kiến |
 | T5 danh mục cửa khẩu | Xong, làm khác kế hoạch | Danh sách 5 cửa khẩu Trung Quốc và 3 hành lang sang Thái Lan để trong code (`border-gates.ts`) thay vì bảng `border_gates`, nên **không cần migration**. Tọa độ đã thử với OSRM: tuyến Hà Nội → Nam Ninh, Hà Nội → Côn Minh, Hà Nội/Vinh/TP.HCM → Bangkok qua đủ các hành lang đều đi được. Chưa có giờ mở cửa |
 | T6 chọn cửa khẩu | Xong (bản đầy đủ, không phải bản rút gọn) | Hệ thống tự chọn hành lang theo quãng đường chim bay qua cửa khẩu, ưu tiên cửa khẩu khách ghi trong đơn; điều phối đổi bằng ô chọn |
 | T7 check-in cửa khẩu | Xong, làm khác kế hoạch | Mỗi cửa khẩu là **hai điểm** trên lộ trình: phía rời đi (`ARRIVED`, tài xế báo đã đến, dừng 30 phút kiểm tra giấy tờ, tính là một lần nghỉ) và phía bên kia (`CLEARED`, đã qua cửa khẩu). Dùng lại cơ chế check-in tuần tự sẵn có nên **không cần migration**. Khách (web, mobile) thấy "Xe đang ở cửa khẩu …, đang kiểm tra giấy tờ" hoặc "Đã qua cửa khẩu …"; thông báo cho khách và điều phối theo đúng giai đoạn. Chưa làm trạng thái "bị giữ lại" |
-| Kiểm thử | Đạt | API đơn vị 11 ca mới (tổng 210 đạt); tích hợp MySQL tạm `route-autoplan.mysql.cjs` 4 ca; route-acceptance, trip-fleet, resource-reservations, flow4-tracking vẫn đạt; mobile 70/70; web 7 file; E2E 23/23: điều phối nhận lộ trình tự lập (không nhập tay điểm nào), tài xế check-in lần lượt các điểm nghỉ rồi mới tới điểm giao. Chưa thử với bản đồ thật trên giao diện, chưa thử đơn quốc tế trên giao diện |
+| Kiểm thử | Đạt | API đơn vị 14 ca cho phần này (tổng 213 đạt); tích hợp MySQL tạm `route-autoplan.mysql.cjs` 4 ca (ca cửa khẩu chạy qua service thật, gồm hai lượt check-in trong cùng một giây); route-acceptance, trip-fleet, resource-reservations, flow4-tracking vẫn đạt; mobile 70/70; web 10 file; E2E 23/23 |
+| Thử trên giao diện với bản đồ thật (12/11 tối) | Đạt sau khi sửa | Dựng app trên MySQL tạm, bản đồ Photon/OSRM thật, 4 đơn: Hà Nội → TP.HCM, Hà Nội → Nam Ninh, Hà Nội → Bangkok (cả 3 hành lang), TP.HCM → Bình Dương. Điều phối tự lập, lưu lộ trình; tài xế check-in điểm nghỉ, tới cửa khẩu, qua cửa khẩu; khách thấy "đang kiểm tra giấy tờ" rồi "đã qua cửa khẩu". Các lỗi tìm được và đã sửa ở bảng dưới |
+
+**Lỗi tìm được khi thử với bản đồ thật (đã sửa 12/11):**
+
+| Lỗi | Cách sửa |
+|---|---|
+| OSRM công khai cho đơn Hà Nội → TP.HCM đi tắt qua Lào và Campuchia (1.492 km), điểm nghỉ rơi sang Lào | `vn-territory.ts`: biên giới phía tây xấp xỉ, có biên độ ~27 km; đoạn trong nước (cả tuyến trong nước, hoặc từ điểm gửi tới cửa khẩu phía Việt Nam) đi sang Lào/Campuchia thì tính lại qua các điểm trên Quốc lộ 1. Tuyến cuối vẫn ra ngoài thì cảnh báo. Hà Nội → TP.HCM giờ 1.680 km, toàn trong nước |
+| "Nghỉ qua đêm" kết thúc lúc nửa đêm rồi xe chạy xuyên đêm, có ngày dừng nghỉ đêm lúc 10 giờ sáng | Nghỉ đêm ít nhất 8 giờ **và** không đi tiếp trước 05:00 sáng hôm sau (tham số mới `DAY_START` = 300 phút) |
+| Ngày đầu dừng nghỉ đêm từ 14:49 vì chặng nghỉ kế tiếp sẽ vượt 10 giờ | Điểm nghỉ cuối ngày đặt vừa giới hạn 10 giờ lái (trừ hao 15 phút); nếu cửa khẩu kế tiếp làm vượt giới hạn ngày thì nghỉ đêm sau khi qua cửa khẩu trước, không chờ 15 tiếng ở cửa khẩu |
+| Điểm nghỉ sát ngay trước điểm nhận (32 phút) | Đoạn cuối chỉ hơi quá 4 giờ thì nghỉ ở quãng giữa (không sớm hơn 2 giờ 30) |
+| Nhãn "Điểm nghỉ sau 3 giờ 30 phút" lệch với lịch (3 giờ 47) | Nhãn chỉ còn "Điểm nghỉ N gần …", giờ đúng nằm trong lịch |
+| Tên địa danh chữ Lào/Thái | Lấy tên tiếng Anh; phần vẫn là chữ bản địa thì bỏ |
+| Tra tên địa danh song song bị Photon từ chối, nhiều điểm không có tên | Tối đa 2 yêu cầu cùng lúc |
+| Tìm địa chỉ không giới hạn nước ("Bangkok" ra Indonesia) | Chỉ nhận kết quả thuộc nước của đơn |
+| Không có chữ báo đang xử lý trong 10–30 giây đầu | Thêm dòng "Đang tra vị trí hai đầu, tính tuyến và đặt điểm nghỉ…" |
+| Màn tài xế ghi "Thông quan cửa khẩu" cho cả hai lượt; app tài xế không hiện điểm cửa khẩu trong dòng thời gian | Hiện "Đến cửa khẩu · kiểm tra giấy tờ" và "Đã qua cửa khẩu" trên web và app |
+| Thông báo gửi khách lặp chữ "– đã qua cửa khẩu" (biểu thức thiếu `\s`) | Sửa biểu thức |
+| Hai lượt check-in trong cùng một giây bị báo "sớm hơn mốc trước" (DATETIME làm tròn phần lẻ giây lên) | Bỏ phần lẻ giây trước khi so và lưu |
+
+**Còn lại, không thuộc phần này:** ô "nghỉ tiếp sau" trên màn tài xế vẫn đếm tới giờ giao của cả chặng (ví dụ "71 giờ 59") thay vì tới điểm nghỉ kế tiếp: đây là việc B4 (`trip-stats` trên app và phần tương ứng trên web). Quy tắc cũ "ngày giao phải khác ngày đi" vẫn áp dụng nên chuyến ngắn trong ngày (Hà Nội → Nam Ninh, TP.HCM → Bình Dương) có cảnh báo và điều phối phải sửa giờ đến.
 
 **Chưa làm:** giờ mở cửa của cửa khẩu, trạng thái "bị giữ lại" ở cửa khẩu, xác minh cửa khẩu nhận ngựa sống (để khi mở rộng dự án theo H4, H5).
 

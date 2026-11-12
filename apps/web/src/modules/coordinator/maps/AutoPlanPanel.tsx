@@ -31,8 +31,8 @@ const kindName = (point: RoutePlanWaypoint) => point.kind === 'ORIGIN' ? 'Điể
   : point.kind === 'BORDER' ? (point.borderStage === 'ARRIVED' ? 'Đến cửa khẩu' : 'Qua cửa khẩu') : 'Điểm nghỉ';
 
 /** Bảng điều khiển tự lập lộ trình: giờ xuất phát, hành lang cửa khẩu, lịch dự kiến từng điểm và cách tính giờ đến. */
-export default function AutoPlanPanel({ readOnly, busy, departure, onDepartureChange, corridor, onCorridorChange, result, points, manualEdits, onRun }: {
-  readOnly: boolean; busy: boolean; departure: string; onDepartureChange: (value: string) => void;
+export default function AutoPlanPanel({ readOnly, busy, running, departure, onDepartureChange, corridor, onCorridorChange, result, points, manualEdits, onRun }: {
+  readOnly: boolean; busy: boolean; running: boolean; departure: string; onDepartureChange: (value: string) => void;
   corridor: string | undefined; onCorridorChange: (value: string) => void; result: AutoPlanResult | null;
   points: RoutePlanWaypoint[]; manualEdits: boolean; onRun: (mode: 'full' | 'recalc') => void;
 }) {
@@ -54,6 +54,7 @@ export default function AutoPlanPanel({ readOnly, busy, departure, onDepartureCh
         {result && <Button icon={<ReloadOutlined />} disabled={busy || !manualEdits} onClick={() => onRun('recalc')}>Tính lại giờ theo các điểm hiện tại</Button>}
       </div>}
     </div>
+    {running && <p className="auto-plan-source" role="status">Đang tra vị trí hai đầu, tính tuyến và đặt điểm nghỉ… Tuyến dài có thể mất 10–30 giây.</p>}
     {source && <p className="auto-plan-source">{source.source === 'CUSTOMER'
       ? `Giờ xuất phát lấy theo đơn: ngày khách chọn ${source.customerDate?.split('-').reverse().join('/')}${source.pickupTime ? `, khung giờ lấy ngựa ${source.pickupTime}` : ', chưa có khung giờ nên lấy 08:00'}.`
       : source.source === 'INPUT' ? 'Giờ xuất phát do bạn nhập.' : 'Đơn chưa có ngày khởi hành: hãy nhập giờ xuất phát rồi bấm lập lại.'}</p>}

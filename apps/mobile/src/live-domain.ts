@@ -468,7 +468,9 @@ export function tripTimeline(
   const single = legs.length === 1;
   const rests =
     single && map
-      ? map.stops.slice(1, -1).filter((s) => s.locationType === "REST_STOP")
+      ? map.stops
+          .slice(1, -1)
+          .filter((s) => s.locationType === "REST_STOP" || s.locationType === "BORDER")
       : [];
   const checkins = single ? legs[0].waypointCheckins : [];
   const checkinAt = (id: string) =>
@@ -486,7 +488,12 @@ export function tripTimeline(
       const at = checkinAt(r.locationId);
       return {
         name: r.name,
-        note: "Điểm nghỉ",
+        note:
+          r.locationType !== "BORDER"
+            ? "Điểm nghỉ"
+            : /đã qua cửa khẩu$/.test(r.name)
+              ? "Đã qua cửa khẩu"
+              : "Đến cửa khẩu · kiểm tra giấy tờ",
         time: at ? `Đến ${clock(at)}` : "Chưa đến",
       };
     }),

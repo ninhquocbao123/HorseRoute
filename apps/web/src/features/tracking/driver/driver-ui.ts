@@ -50,7 +50,10 @@ const STOP_NOTE: Record<string, string> = {
   REST_STOP: 'Dừng nghỉ', FUEL_STOP: 'Tiếp nhiên liệu', BORDER: 'Thông quan cửa khẩu', QUARANTINE_STATION: 'Kiểm dịch', AIRPORT: 'Sân bay',
 };
 
-export const stopNote = (locationType: string) => STOP_NOTE[locationType] ?? 'Điểm dừng';
+/** Cửa khẩu có hai điểm: phía rời đi (tới cửa khẩu, kiểm tra giấy tờ) và phía bên kia (nhãn kết thúc bằng "đã qua cửa khẩu"). */
+export const stopNote = (locationType: string, name = '') => locationType === 'BORDER'
+  ? (/đã qua cửa khẩu$/.test(name) ? 'Đã qua cửa khẩu' : 'Đến cửa khẩu · kiểm tra giấy tờ')
+  : STOP_NOTE[locationType] ?? 'Điểm dừng';
 /** Khóa một điểm dừng giữa đường của lộ trình mới (cũng là khóa lưu check-in trên máy tài xế). */
 export const viaKey = (stop: ITripMapStop, index: number) => `via-${stop.locationId}-${index}`;
 
@@ -106,7 +109,7 @@ function routePlanStops(leg: ILegTracking, horseCount: number, running: boolean,
     return {
       key: index === 0 ? 'start' : end ? leg.id : key,
       name: stop.name,
-      note: index === 0 ? `Nhận ${horseCount} ngựa` : end ? 'Bàn giao' : at ? `Đã check-in · ${stopNote(stop.locationType)}` : stopNote(stop.locationType),
+      note: index === 0 ? `Nhận ${horseCount} ngựa` : end ? 'Bàn giao' : at ? `Đã check-in · ${stopNote(stop.locationType, stop.name)}` : stopNote(stop.locationType, stop.name),
       plannedAt: index === 0 ? leg.plannedDepartureAt : end ? leg.plannedArrivalAt : at,
       dayOffset: end ? localDay(leg.plannedArrivalAt) - startDay : at ? Math.max(0, localDay(at) - startDay) : 0,
       reached: index === 0 ? started : end ? done : !!at || done,

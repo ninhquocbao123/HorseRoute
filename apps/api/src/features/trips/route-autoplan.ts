@@ -6,18 +6,20 @@ export type AutoplanParams = {
   restTargetMin: number; restEarliestMin: number; restLatestMin: number; restDwellMin: number;
   dailyDriveMaxMin: number; overnightMin: number; truckFactor: number; etaBufferMin: number;
   loadingMin: number; borderDwellMin: number; restWarnMin: number; restBlockMin: number;
+  /** Nghỉ qua đêm kết thúc không sớm hơn giờ này sáng hôm sau (phút trong ngày, giờ Việt Nam). */
+  dayStartMin: number;
 };
 /** Đã chốt H1, H3, H6: nghỉ sau 3h30 (trễ nhất 4h theo Điều 64 Luật TTATGTĐB 2024), cảnh báo 4h, chặn 6h. */
 export const DEFAULT_AUTOPLAN_PARAMS: AutoplanParams = {
   restTargetMin: 210, restEarliestMin: 150, restLatestMin: 240, restDwellMin: 30,
   dailyDriveMaxMin: 600, overnightMin: 480, truckFactor: 1.25, etaBufferMin: 60,
-  loadingMin: 30, borderDwellMin: 30, restWarnMin: 240, restBlockMin: 360,
+  loadingMin: 30, borderDwellMin: 30, restWarnMin: 240, restBlockMin: 360, dayStartMin: 300,
 };
 /** Mã tham số trong bảng system_parameters (param_code tối đa 10 ký tự). */
 export const AUTOPLAN_PARAM_CODES: Record<keyof AutoplanParams, string> = {
   restTargetMin: 'REST_TGT', restEarliestMin: 'REST_MIN', restLatestMin: 'REST_MAX', restDwellMin: 'REST_DWELL',
   dailyDriveMaxMin: 'DRIVE_DAY', overnightMin: 'OVERNIGHT', truckFactor: 'TRUCK_FACT', etaBufferMin: 'ETA_BUFFER',
-  loadingMin: 'LOADING', borderDwellMin: 'BORDER_DWL', restWarnMin: 'REST_WARN', restBlockMin: 'REST_BLOCK',
+  loadingMin: 'LOADING', borderDwellMin: 'BORDER_DWL', restWarnMin: 'REST_WARN', restBlockMin: 'REST_BLOCK', dayStartMin: 'DAY_START',
 };
 
 /** Đọc tham số từ system_parameters; giá trị thiếu hoặc vô lý thì giữ mặc định. */
@@ -81,6 +83,7 @@ function pointAt(coords: LngLat[], times: number[], atMin: number): LngLat {
 
 const formatDrive = (minutes: number) => `${Math.floor(minutes / 60)} giờ${Math.round(minutes % 60) ? ` ${Math.round(minutes % 60)} phút` : ''}`;
 export const MAX_CATALOG_DETOUR_M = 3_000;
+const DAY_MARGIN_MIN = 15, MIN_LEG_MIN = 30;
 
 /**
  * Đặt điểm nghỉ dọc tuyến: sau mỗi lần nghỉ, nhắm mốc `restTargetMin`; tìm trạm trong danh mục cách tuyến ≤ 3 km
@@ -91,13 +94,25 @@ export function placeRestStops(coords: LngLat[], times: number[], fixedRestMin: 
   const total = times.at(-1) ?? 0;
   const fixed = [...fixedRestMin].sort((a, b) => a - b);
   const rests: PlannedRest[] = [];
-  let last = 0;
+  // Lái trong ngày: khi phần còn lại của ngày không đủ một chặng nghỉ, điểm nghỉ kế tiếp đặt vừa hết giới hạn ngày
+  // (trừ hao `DAY_MARGIN_MIN` vì tuyến cuối lệch vài phút) để lịch nghỉ qua đêm ở đó, thay vì dừng sớm từ giữa chiều.
+  const dayCap = params.dailyDriveMaxMin - DAY_MARGIN_MIN;
+  let last = 0, day = 0;
   for (let guard = 0; guard < 200; guard++) {
     const gate = fixed.find(t => t > last + 1e-6);
-    if (gate !== undefined && gate - last <= params.restLatestMin) { last = gate; continue; }
-    if (total - last <= params.restLatestMin) break;
-    const target = last + params.restTargetMin;
-    const from = last + params.restEarliestMin, to = Math.min(last + params.restLatestMin, gate ?? Infinity);
+    // Cửa khẩu kế tiếp là lần nghỉ sẵn, trừ khi tới đó thì quá giới hạn ngày: khi ấy đặt điểm nghỉ đêm trước cửa khẩu.
+    if (gate !== undefined && gate - last <= params.restLatestMin && (day + gate - last <= params.dailyDriveMaxMin || dayCap - day < MIN_LEG_MIN)) {
+      day = day + gate - last > dayCap ? gate - last : day + gate - last; last = gate; continue;
+    }
+    let budget = dayCap - day;
+    if (budget < MIN_LEG_MIN) { day = 0; budget = dayCap; } // điểm vừa qua là nơi nghỉ qua đêm
+    if (total - last <= params.restLatestMin && total - last <= budget + DAY_MARGIN_MIN) break;
+    const endOfDay = budget < params.restTargetMin;
+    // Đoạn cuối chỉ hơi quá giới hạn thì nghỉ quãng giữa, không để điểm nghỉ sát ngay trước điểm nhận.
+    const tail = total - last <= params.restTargetMin * 2 ? Math.max(params.restEarliestMin, (total - last) / 2) : params.restTargetMin;
+    const target = last + (endOfDay ? budget : tail);
+    const from = last + (endOfDay ? Math.max(MIN_LEG_MIN, budget - 60) : params.restEarliestMin);
+    const to = Math.min(last + (endOfDay ? budget : params.restLatestMin), gate ?? Infinity);
     let best: { stop: CatalogStop; at: number } | null = null;
     for (const stop of catalog) {
       let nearest = Infinity, at = 0;
@@ -110,12 +125,13 @@ export function placeRestStops(coords: LngLat[], times: number[], fixedRestMin: 
     }
     if (best) {
       rests.push({ atMin: best.at, latitude: best.stop.latitude, longitude: best.stop.longitude, label: best.stop.name, catalogId: best.stop.id });
-      last = best.at;
+      day = endOfDay ? 0 : day + best.at - last; last = best.at;
     } else {
       const at = Math.min(target, to);
       const [longitude, latitude] = pointAt(coords, times, at);
-      rests.push({ atMin: at, latitude, longitude, label: `Điểm nghỉ sau ${formatDrive(at)} lái xe`, catalogId: null });
-      last = at;
+      // Không ghi số giờ lái vào nhãn: tuyến cuối đi qua điểm nghỉ nên giờ thật lệch vài phút; giờ đúng nằm trong lịch.
+      rests.push({ atMin: at, latitude, longitude, label: `Điểm nghỉ ${rests.length + 1}`, catalogId: null });
+      day = endOfDay ? 0 : day + at - last; last = at;
     }
   }
   return rests;
@@ -132,6 +148,15 @@ export type Schedule = {
 /** Điểm được tính là một lần nghỉ cho ngựa: điểm nghỉ, và phía đến của cửa khẩu (dừng kiểm tra giấy tờ). */
 const isRest = (stop: ScheduleStop) => stop.kind === 'REST_STOP' || (stop.kind === 'BORDER' && stop.borderStage === 'ARRIVED');
 const dwellOf = (stop: ScheduleStop, params: AutoplanParams) => stop.kind === 'REST_STOP' ? params.restDwellMin : stop.kind === 'BORDER' && stop.borderStage === 'ARRIVED' ? params.borderDwellMin : 0;
+
+const VN_OFFSET_MS = 7 * 3_600_000, DAY_MS = 86_400_000;
+/** Mốc `startMin` (giờ Việt Nam) đầu tiên sau thời điểm `ms`. */
+function nextDayStart(ms: number, startMin: number) {
+  const local = ms + VN_OFFSET_MS;
+  let start = Math.floor(local / DAY_MS) * DAY_MS + startMin * 60_000;
+  if (start <= local) start += DAY_MS;
+  return start - VN_OFFSET_MS;
+}
 
 /**
  * Lịch dự kiến theo tuyến cuối cùng: `legDriveMin[i]` là phút lái xe tải từ điểm i đến điểm i+1.
@@ -156,7 +181,12 @@ export function computeSchedule(stops: ScheduleStop[], legDriveMin: number[], de
     let ahead = 0;
     for (let j = i + 1; j < stops.length; j++) { ahead += legDriveMin[j - 1] ?? 0; if (isRest(stops[j]) || j === stops.length - 1) break; }
     let dwell = dwellOf(stop, params), overnight = false;
-    if (dayDrive + ahead > params.dailyDriveMaxMin) { overnight = true; overnightMin += Math.max(0, params.overnightMin - dwell); dwell = Math.max(dwell, params.overnightMin); dayDrive = 0; }
+    if (dayDrive + ahead > params.dailyDriveMaxMin) {
+      // Nghỉ ít nhất `overnightMin` và không đi tiếp trước `dayStartMin` sáng hôm sau, để không chạy xuyên đêm.
+      const arrive = departureAt.getTime() + clock * 60_000;
+      const night = Math.ceil((Math.max(arrive + params.overnightMin * 60_000, nextDayStart(arrive, params.dayStartMin)) - arrive) / 60_000);
+      overnight = true; overnightMin += Math.max(0, night - dwell); dwell = Math.max(dwell, night); dayDrive = 0;
+    }
     if (stop.kind === 'BORDER') borderMin += Math.min(dwell, params.borderDwellMin); else restMin += Math.min(dwell, params.restDwellMin);
     scheduled.push({ index: i, arriveAt: at(clock), departAt: at(clock + dwell), dwellMin: dwell, overnight, driveMinFromPrevRest: Math.round(fromPrev) });
     clock += dwell; sinceRest = 0;

@@ -42,7 +42,7 @@ test('tuyến 8 giờ: nghỉ sau khoảng 3h30, không đoạn nào quá 4 gi�
   const marks = [0, ...rests.map(r => r.atMin), times.at(-1)];
   for (let i = 1; i < marks.length; i++) assert.ok(marks[i] - marks[i - 1] <= P.restLatestMin + 1);
   assert.equal(rests[0].catalogId, null);
-  assert.match(rests[0].label, /Điểm nghỉ sau 3 giờ 30 phút lái xe/);
+  assert.equal(rests[0].label, 'Điểm nghỉ 1');
 });
 
 test('ưu tiên trạm trong danh mục gần tuyến, bỏ qua trạm xa hơn 3 km', () => {
@@ -63,9 +63,10 @@ test('dừng ở cửa khẩu tính là một lần nghỉ', () => {
   const { coords, legs } = straightRoute(6); // 450 phút
   const times = routeTimeline(coords, legs, P.truckFactor);
   const rests = placeRestStops(coords, times, [200], [], P);
-  // Đến cửa khẩu ở phút 200 (≤ 240) nên không nghỉ trước đó; còn 250 phút sau cửa khẩu nên nghỉ thêm một lần.
+  // Đến cửa khẩu ở phút 200 (≤ 240) nên không nghỉ trước đó; còn 250 phút sau cửa khẩu nên nghỉ thêm một lần,
+  // ở quãng giữa đoạn còn lại nhưng không sớm hơn 150 phút sau lần nghỉ trước.
   assert.equal(rests.length, 1);
-  assert.ok(Math.abs(rests[0].atMin - 410) < 3);
+  assert.ok(Math.abs(rests[0].atMin - 350) < 3, `nghỉ ở ${rests[0].atMin}`);
 });
 
 test('lịch: bốc ngựa, nghỉ, cửa khẩu, dự phòng; tuyến dài thì nghỉ qua đêm', () => {
@@ -80,13 +81,41 @@ test('lịch: bốc ngựa, nghỉ, cửa khẩu, dự phòng; tuyến dài thì
   assert.deepEqual(short.warnings, []);
 
   // 6 đoạn 210 phút: lái tới điểm nghỉ thứ hai đã 420 phút, đi tiếp sẽ 630 > 600 nên nghỉ qua đêm ở đó.
+  // Đến lúc 16:00 (giờ Việt Nam) nên nghỉ tới 05:00 sáng hôm sau, không chạy xuyên đêm.
   const long = computeSchedule([{ kind: 'ORIGIN' }, ...Array(5).fill({ kind: 'REST_STOP' }), { kind: 'DESTINATION' }], Array(6).fill(210), depart, P);
   const nights = long.stops.filter(s => s.overnight);
   assert.equal(nights.length, 2);
-  assert.equal(nights[0].index, 2); assert.equal(nights[0].dwellMin, P.overnightMin);
-  assert.equal(long.breakdown.overnightMin, 2 * (P.overnightMin - P.restDwellMin));
+  assert.equal(nights[0].index, 2); assert.equal(nights[0].arriveAt, '2026-11-20T09:00:00.000Z'); assert.equal(nights[0].departAt, '2026-11-20T22:00:00.000Z');
+  assert.ok(nights.every(n => n.departAt.endsWith('T22:00:00.000Z') && n.dwellMin >= P.overnightMin));
+  assert.equal(long.breakdown.overnightMin, nights.reduce((sum, n) => sum + n.dwellMin - P.restDwellMin, 0));
   const total = (Date.parse(long.rawArrivalAt) - depart.getTime()) / 60_000;
   assert.equal(total, P.loadingMin + 1260 + long.breakdown.restMin + long.breakdown.overnightMin);
+});
+
+test('tuyến nhiều ngày: điểm nghỉ cuối ngày đặt vừa giới hạn 10 giờ, mỗi ngày lái không quá 10 giờ', () => {
+  const { coords, legs } = straightRoute(20); // 1500 phút xe tải
+  const times = routeTimeline(coords, legs, P.truckFactor);
+  const rests = placeRestStops(coords, times, [], [], P);
+  const marks = [0, ...rests.map(r => r.atMin), times.at(-1)];
+  const legMin = marks.slice(1).map((m, i) => m - marks[i]);
+  assert.ok(legMin.every(m => m <= P.restLatestMin + 1), `đoạn ${legMin}`);
+  const schedule = computeSchedule([{ kind: 'ORIGIN' }, ...rests.map(() => ({ kind: 'REST_STOP' })), { kind: 'DESTINATION' }], legMin, new Date('2026-11-20T00:00:00.000Z'), P);
+  let day = 0;
+  schedule.stops.forEach((stop, i) => { day += legMin[i]; assert.ok(day <= P.dailyDriveMaxMin + 1, `ngày lái ${day}`); if (stop.overnight) day = 0; });
+  // Ngày đầu lái gần đủ 10 giờ rồi mới nghỉ đêm, không dừng từ giữa chiều.
+  const firstNight = schedule.stops.findIndex(s => s.overnight);
+  assert.ok(legMin.slice(0, firstNight + 1).reduce((a, b) => a + b, 0) >= P.dailyDriveMaxMin - 30);
+  assert.deepEqual(schedule.warnings, []);
+});
+
+test('nhận ra đoạn tuyến đi tắt sang Lào/Campuchia, đường sát biên vẫn hợp lệ', () => {
+  const { westOfVietnam, firstExit, ql1Anchors } = require('../src/features/trips/vn-territory');
+  for (const vn of [[106.59, 16.62], [105.147, 18.385], [104.48, 10.38], [105.12, 10.7], [103.02, 21.39], [106.15, 11.07], [108.0, 13.98]]) assert.equal(westOfVietnam(vn), false, String(vn));
+  for (const out of [[105.05, 17.99], [106.0, 13.56], [105.75, 15.18], [104.76, 17.44]]) assert.equal(westOfVietnam(out), true, String(out));
+  assert.deepEqual(firstExit([[105.85, 21.03], [105.05, 17.99], [106.0, 13.56]]), [105.05, 17.99]);
+  const south = ql1Anchors([105.85, 21.03], [106.7, 10.78]);
+  assert.ok(south.length > 8 && south.every((p, i) => !i || p[1] < south[i - 1][1]));
+  assert.deepEqual(ql1Anchors([106.7, 10.78], [105.85, 21.03]), [...south].reverse());
 });
 
 test('cảnh báo khi lái liên tục quá 4 giờ, báo chặn khi quá 6 giờ', () => {
@@ -161,5 +190,46 @@ test('tự lập lộ trình sang Trung Quốc: chọn cửa khẩu gần nhất
     const generated = result.waypoints.filter(w => w.kind === 'REST_STOP');
     assert.ok(generated.length >= 1);
     assert.match(generated[0].label, /gần Huyện Giả, Tỉnh Giả/);
+  } finally { global.fetch = original; }
+});
+
+test('tuyến trong nước bị bản đồ cho đi tắt qua Lào thì tự kéo về Quốc lộ 1; tìm địa chỉ chỉ lấy đúng nước', async () => {
+  const { buildAutoRoutePlan } = require('../src/features/trips/trip-autoplan');
+  const { westOfVietnam } = require('../src/features/trips/vn-territory');
+  const original = global.fetch;
+  const routed = [];
+  global.fetch = async url => {
+    const href = String(url);
+    const json = body => ({ ok: true, status: 200, json: async () => body, body: new Response(JSON.stringify(body)).body });
+    if (href.includes('/reverse')) return json({ features: [{ properties: { district: 'ເມືອງ', state: 'ແຂວງ' } }] });
+    if (!href.includes('/route/')) {
+      // "Hà Nội" có ở Việt Nam và ở nơi khác: chỉ kết quả ở Việt Nam được dùng.
+      return json({ features: [
+        { geometry: { type: 'Point', coordinates: [110.6, -7.3] }, properties: { name: 'Bangkok', countrycode: 'ID' } },
+        { geometry: { type: 'Point', coordinates: [105.85, 21.03] }, properties: { name: 'Hà Nội', countrycode: 'VN' } },
+      ] });
+    }
+    const points = decodeURIComponent(new URL(href).pathname.split('/').pop()).split(';').map(p => p.split(',').map(Number));
+    routed.push(points.length);
+    // Hai điểm thì "đường ngắn nhất" vòng qua Lào; có điểm Quốc lộ 1 ở giữa thì đi thẳng qua các điểm.
+    const path = points.length === 2 && points[0][1] - points[1][1] > 5 ? [points[0], [105.0, 18.0], [105.9, 14.0], points[1]] : points;
+    const coordinates = [];
+    for (let i = 1; i < path.length; i++) for (let k = 0; k < 20; k++) coordinates.push([path[i - 1][0] + (path[i][0] - path[i - 1][0]) * k / 20, path[i - 1][1] + (path[i][1] - path[i - 1][1]) * k / 20]);
+    coordinates.push(path.at(-1));
+    const legs = points.slice(1).map((p, i) => { const d = distanceM(points[i], p) * (path.length > points.length ? 0.9 : 1); return { distance: d, duration: d / (60 / 3.6) }; });
+    return json({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates }, distance: legs.reduce((s, l) => s + l.distance, 0), duration: legs.reduce((s, l) => s + l.duration, 0), legs }], waypoints: points.map(() => ({ distance: 0 })) });
+  };
+  try {
+    const result = await buildAutoRoutePlan('9', { destination: { latitude: 10.78, longitude: 106.7 } }, {
+      source: { originAddress: 'Hà Nội', destinationAddress: 'TP.HCM', originCountry: 'VN', destinationCountry: 'VN', desiredDepartureDate: '2099-01-10', bookingDetails: {} },
+      params: P, catalog: [],
+    });
+    assert.deepEqual([result.waypoints[0].latitude, result.waypoints[0].longitude], [21.03, 105.85]);
+    assert.ok(routed.some(n => n > 3), 'đã tính lại tuyến thô qua các điểm Quốc lộ 1');
+    const rests = result.waypoints.filter(w => w.kind === 'REST_STOP');
+    assert.ok(rests.length >= 3 && rests.every(w => !westOfVietnam([w.longitude, w.latitude])), 'mọi điểm nghỉ nằm trong Việt Nam');
+    assert.ok(!result.warnings.some(w => /Lào hoặc Campuchia/.test(w)), result.warnings.join(' | '));
+    // Tên địa danh chỉ có chữ Lào (cả bản tiếng Anh) thì bỏ, không đưa chữ bản địa vào nhãn.
+    assert.equal(rests[0].label, 'Điểm nghỉ 1');
   } finally { global.fetch = original; }
 });

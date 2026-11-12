@@ -10,6 +10,7 @@ import {
   AutoplanParams, CatalogStop, LngLat, Schedule, computeSchedule, customerDeparture, distanceM, placeRestStops, routeTimeline,
 } from './route-autoplan';
 import { isSameVietnamCalendarDate } from './trips.validation';
+import { firstExit, ql1Anchors, westOfVietnam } from './vn-territory';
 
 const position = z.object({ latitude: z.number().finite().min(-90).max(90), longitude: z.number().finite().min(-180).max(180) }).strict();
 export const autoRoutePlanSchema = z.object({
@@ -54,7 +55,7 @@ async function locateContact(contact: Contact | undefined, fallbackText: string 
   const text = [contact?.address, contact?.ward, contact?.city].filter(Boolean).join(', ') || fallbackText?.trim() || '';
   if (text.length >= 3) {
     try {
-      const results = await searchAddresses(text.slice(0, 200));
+      const results = await searchAddresses(text.slice(0, 200), fetch, country ?? undefined);
       const near = results.find(result => !area || distanceM([result.longitude, result.latitude], area.point) <= 25_000);
       if (near) return { latitude: near.latitude, longitude: near.longitude, precision: (area ? 'ADDRESS' : 'SEARCH') as Precision };
     } catch { /* dùng tâm khu vực nếu có */ }
@@ -67,16 +68,25 @@ async function locateContact(contact: Contact | undefined, fallbackText: string 
 async function placeName(latitude: number, longitude: number): Promise<string | null> {
   const base = geocodingUrl();
   if (!base) return null;
-  try {
+  const lookup = async (lang: string) => {
     const url = new URL(base.replace(/\/api\/?$/, '/reverse'));
-    url.searchParams.set('lat', String(latitude)); url.searchParams.set('lon', String(longitude)); url.searchParams.set('lang', 'default');
+    url.searchParams.set('lat', String(latitude)); url.searchParams.set('lon', String(longitude)); url.searchParams.set('lang', lang);
     const response = await fetch(url, { signal: AbortSignal.timeout(5_000), headers: MAP_REQUEST_HEADERS });
     if (!response.ok) return null;
     const props = ((await response.json()) as { features?: { properties?: Record<string, string> }[] }).features?.[0]?.properties;
     const place = [props?.district || props?.city || props?.county || props?.name, props?.state].filter(Boolean);
     return place.length ? place.join(', ').slice(0, 200) : null;
+  };
+  try {
+    // Tên gốc giữ dấu tiếng Việt; ở Lào, Thái Lan, Trung Quốc tên gốc là chữ bản địa nên lấy tên tiếng Anh.
+    const local = await lookup('default');
+    if (!local || LATIN.test(local)) return local;
+    // Bản tiếng Anh vẫn có thể còn tên bản địa (làng nhỏ): chỉ giữ phần đọc được, không có thì bỏ tên.
+    const latin = ((await lookup('en')) ?? local).split(', ').filter(part => LATIN.test(part));
+    return latin.length ? latin.join(', ') : null;
   } catch { return null; }
 }
+const LATIN = /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{M}]*$/u;
 
 /** Xếp hành lang theo đường chim bay qua các cửa khẩu (rẻ, không gọi bản đồ); khách đã ghi cửa khẩu dự kiến thì ưu tiên. */
 function rankCorridors(corridors: BorderCorridor[], origin: LngLat, destination: LngLat, preferred: string | undefined) {
@@ -89,7 +99,29 @@ function rankCorridors(corridors: BorderCorridor[], origin: LngLat, destination:
   }).sort((a, b) => Number(b.named) - Number(a.named) || a.km - b.km);
 }
 
-export type AutoplanDeps = { source: AutoplanSource; params: AutoplanParams; catalog: CatalogStop[] };
+/** Tuyến thô qua các điểm, kèm phút lái xe tải ở từng tọa độ và ở từng điểm cố định (`fixedIdx` là vị trí của chúng trong `points`). */
+async function timedRoute(points: Parameters<typeof rawRoute>[0], fixedIdx: number[], truckFactor: number) {
+  const raw = await rawRoute(points);
+  const times = routeTimeline(raw.coordinates, raw.legs, truckFactor);
+  const cumulative = [0];
+  for (const leg of raw.legs) cumulative.push(cumulative.at(-1)! + leg.durationS * truckFactor / 60);
+  return { raw, times, fixedAt: fixedIdx.map(i => cumulative[i] ?? cumulative.at(-1)!) };
+}
+
+/** Đoạn tuyến trước cửa khẩu đầu tiên (cả tuyến nếu đi trong nước) có đi sâu sang Lào/Campuchia không. Chỉ xét tuyến đi từ Việt Nam. */
+function outsideVietnam(waypoints: RouteWaypoint[], coords: LngLat[]) {
+  const origin = waypoints[0];
+  if (!origin || westOfVietnam([origin.longitude, origin.latitude])) return false;
+  const gate = waypoints.find(w => w.kind === 'BORDER');
+  let end = coords.length;
+  if (gate) {
+    let best = Infinity;
+    coords.forEach((c, i) => { const d = distanceM(c, [gate.longitude, gate.latitude]); if (d < best) { best = d; end = i + 1; } });
+  }
+  return !!firstExit(coords.slice(0, end));
+}
+
+export type AutoplanDeps ={ source: AutoplanSource; params: AutoplanParams; catalog: CatalogStop[] };
 export type AutoplanResult = {
   waypoints: RouteWaypoint[];
   route: Awaited<ReturnType<typeof routeWithLegs>>;
@@ -136,20 +168,32 @@ export async function buildAutoRoutePlan(tripId: string, input: AutoRoutePlanInp
       }
     }
     const fixed = [start, ...gates, end];
-    const raw = await rawRoute(fixed);
-    const times = routeTimeline(raw.coordinates, raw.legs, params.truckFactor);
-    let elapsed = 0; const fixedAt = [0];
-    for (const leg of raw.legs) { elapsed += leg.durationS * params.truckFactor / 60; fixedAt.push(elapsed); }
-    const rests = placeRestStops(raw.coordinates, times, fixed.flatMap((p, i) => p.borderStage === 'ARRIVED' ? [fixedAt[i]] : []), deps.catalog, params);
-    let named = 0;
-    for (const rest of rests) {
-      if (rest.catalogId || named >= 12) continue;
-      const place = await placeName(rest.latitude, rest.longitude); named++;
-      if (place) rest.label = `${rest.label} · gần ${place}`.slice(0, 255);
+    let { raw, times, fixedAt } = await timedRoute(fixed, fixed.map((_, i) => i), params.truckFactor);
+    // Đoạn đầu (từ điểm gửi tới cửa khẩu phía Việt Nam, hoặc cả tuyến trong nước) phải nằm trong lãnh thổ Việt Nam.
+    if (fromCountry === 'VN' && firstExit(raw.coordinates.filter((_, i) => times[i] <= fixedAt[1] + 1e-6))) {
+      const anchors = ql1Anchors([start.longitude, start.latitude], [fixed[1].longitude, fixed[1].latitude]);
+      if (anchors.length) {
+        const via = anchors.map(([longitude, latitude]) => ({ latitude, longitude, label: 'Quốc lộ 1' }));
+        ({ raw, times, fixedAt } = await timedRoute([start, ...via, ...fixed.slice(1)], fixed.map((_, i) => i ? i + via.length : 0), params.truckFactor));
+      }
     }
+    const rests = placeRestStops(raw.coordinates, times, fixed.flatMap((p, i) => p.borderStage === 'ARRIVED' ? [fixedAt[i]] : []), deps.catalog, params);
+    const unnamed = rests.filter(rest => !rest.catalogId).slice(0, 12);
+    // Hai yêu cầu cùng lúc: nhanh hơn tra lần lượt mà không bị Photon công khai từ chối vì gọi dồn.
+    let next = 0;
+    const worker = async () => {
+      while (next < unnamed.length) {
+        const rest = unnamed[next++];
+        const place = await placeName(rest.latitude, rest.longitude);
+        if (place) rest.label = `${rest.label} gần ${place}`.slice(0, 255);
+      }
+    };
+    await Promise.all([worker(), worker()]);
     waypoints = [start];
     for (let i = 1; i < fixed.length; i++) {
-      for (const rest of rests) if (rest.atMin > fixedAt[i - 1] && rest.atMin <= fixedAt[i]) {
+      // Hai điểm của một cửa khẩu phải liền nhau: điểm nghỉ rơi giữa "đến" và "qua" cửa khẩu được xếp sau điểm "qua".
+      const after = fixed[i - 1].borderStage === 'CLEARED' ? fixedAt[i - 2] : fixedAt[i - 1];
+      if (fixed[i].borderStage !== 'CLEARED') for (const rest of rests) if (rest.atMin > after && rest.atMin <= fixedAt[i]) {
         waypoints.push({ id: `wp-${randomUUID()}`, kind: 'REST_STOP', label: rest.label.slice(0, 255), latitude: Number(rest.latitude.toFixed(7)), longitude: Number(rest.longitude.toFixed(7)),
           note: rest.catalogId ? 'Trạm trong danh mục' : 'Điểm tự sinh, chưa xác minh' });
       }
@@ -158,6 +202,7 @@ export async function buildAutoRoutePlan(tripId: string, input: AutoRoutePlanInp
     if (waypoints.length > MAX_ROUTE_WAYPOINTS) throw new BadRequestException(`Tuyến cần ${waypoints.length} điểm, quá giới hạn ${MAX_ROUTE_WAYPOINTS}. Hãy chia chuyến hoặc lập tay.`);
   }
   const route = await routeWithLegs(tripId, waypoints);
+  if (outsideVietnam(waypoints, route.geometry.coordinates as LngLat[])) warnings.push('Tuyến tìm được có đoạn trong nước đi qua lãnh thổ Lào hoặc Campuchia. Hãy thêm hoặc kéo điểm nghỉ dọc Quốc lộ 1 để tuyến đi trong nước.');
   const schedule = departureAt ? computeSchedule(waypoints, route.legs.map(leg => leg.durationS * params.truckFactor / 60), departureAt, params) : null;
   if (schedule) {
     warnings.push(...schedule.warnings);

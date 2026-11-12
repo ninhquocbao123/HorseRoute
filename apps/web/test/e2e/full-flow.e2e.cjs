@@ -326,7 +326,7 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
   const milestones = async () => (await db.query('SELECT m.milestone_type t FROM leg_milestones m JOIN legs l ON l.id=m.leg_id JOIN trips t2 ON t2.id=l.trip_id WHERE t2.order_id=? ORDER BY m.id', [orderId])).map(r => r.t);
   const dump = async label => {
     console.log(label + ' BUTTONS', JSON.stringify(await page.locator('button:visible').allInnerTexts()));
-    console.log(label + ' MAIN', (await page.locator('main').innerText()).replace(/s+/g, ' ').slice(0, 900));
+    console.log(label + ' MAIN', (await page.locator('main').innerText()).replace(/\s+/g, ' ').slice(0, 900));
   };
 
   await phase('Tài xế xác nhận xuất phát, đơn chuyển sang đang vận chuyển', async () => {

@@ -6,6 +6,7 @@ const assert = require('node:assert/strict'), crypto = require('node:crypto');
 const { DataSource } = require('typeorm'); const { User } = require('../src/features/users/users.model');
 const { TripsRepository } = require('../src/features/trips/trips.repository'); const { TripsService } = require('../src/features/trips/trips.service');
 const { TrackingRepository } = require('../src/features/tracking/tracking.repository');
+const { TrackingService } = require('../src/features/tracking/tracking.service');
 const { TripFleet1800000015000 } = require('../src/database/migrations/1800000015000-TripFleet');
 const { TripRoutePlan1800000013000 } = require('../src/database/migrations/1800000013000-TripRoutePlan');
 const { RepresentativeTripLeg1800000016000 } = require('../src/database/migrations/1800000016000-RepresentativeTripLeg');
@@ -102,17 +103,31 @@ function fakeMaps() {
       await assert.rejects(() => svc.submitPlan(actor, '101', {}), error => error.getResponse?.().code !== 'REST_RULE');
     });
 
-    await check('tài xế check-in cả hai phía cửa khẩu; khách thấy giai đoạn cửa khẩu', async () => {
+    await check('tài xế check-in lần lượt tới cả hai phía cửa khẩu (kể cả hai lượt trong cùng một giây); khách nhận đúng thông báo', async () => {
       const tracking = new TrackingRepository(db);
       const stops = await tracking.getRestStops('100');
       const gate = stops.filter(s => s.kind === 'BORDER');
       assert.deepEqual(gate.map(s => s.borderStage), ['ARRIVED', 'CLEARED']);
-      const [leg] = await q(`SELECT CAST(id AS CHAR) id FROM legs WHERE trip_id=100`).then(rows => rows.length ? rows : q(`INSERT INTO legs(trip_id,seq_no,planned_departure_at,planned_arrival_at,status) VALUES(100,1,'2099-03-10 00:00:00','2099-03-11 00:00:00','NOT_STARTED')`).then(() => q(`SELECT CAST(id AS CHAR) id FROM legs WHERE trip_id=100`)));
-      await tracking.insertWaypointCheckin(leg.id, gate[0].id, gate[0].label, '2099-03-10T05:00:00.000Z', '3');
-      await tracking.insertWaypointCheckin(leg.id, gate[1].id, gate[1].label, '2099-03-10T05:40:00.000Z', '3');
+      await q(`INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (7,'driver@test','x','Driver','DRIVER_ESCORT','ACTIVE')`);
+      await q(`INSERT INTO trip_assignments(trip_id,user_id,role,assigned_by,assigned_at) VALUES (100,7,'DRIVER',3,UTC_TIMESTAMP())`);
+      await q(`DELETE FROM legs WHERE trip_id=100`);
+      await q(`INSERT INTO legs(trip_id,seq_no,planned_departure_at,planned_arrival_at,status,actual_departure_at) VALUES(100,1,UTC_TIMESTAMP()-INTERVAL 2 HOUR,UTC_TIMESTAMP()+INTERVAL 1 DAY,'MOVING',UTC_TIMESTAMP()-INTERVAL 2 HOUR)`);
+      await q(`UPDATE orders SET status='IN_TRANSIT' WHERE id=100`);
+      const [leg] = await q(`SELECT CAST(id AS CHAR) id FROM legs WHERE trip_id=100`);
+      const service = new TrackingService(tracking, undefined, { emitToUsers() {} });
+      const driver = { id: '7', role: 'DRIVER_ESCORT' };
+      // Hai lượt trong cùng một giây: DATETIME làm tròn phần lẻ giây lên nên trước đây lượt sau bị báo "sớm hơn mốc trước".
+      const second = Math.floor(Date.now() / 1000) * 1000 - 60_000;
+      const ids = stops.map(s => s.id), at = ms => new Date(second + ms).toISOString();
+      let ms = 100;
+      for (const id of ids.slice(0, ids.indexOf(gate[0].id))) await service.recordWaypointCheckin(driver, leg.id, id, { occurredAt: at(ms++) });
+      await service.recordWaypointCheckin(driver, leg.id, gate[0].id, { occurredAt: at(600) });
+      await service.recordWaypointCheckin(driver, leg.id, gate[1].id, { occurredAt: at(900) });
       const rows = await tracking.getWaypointCheckins([leg.id]);
-      assert.deepEqual(rows.map(r => [r.kind, r.borderStage]), [['BORDER', 'ARRIVED'], ['BORDER', 'CLEARED']]);
-      assert.match(rows[1].label, /đã qua cửa khẩu$/);
+      assert.deepEqual(rows.filter(r => r.kind === 'BORDER').map(r => r.borderStage), ['ARRIVED', 'CLEARED']);
+      const notes = (await q(`SELECT content FROM notifications WHERE recipient_id=1 ORDER BY id`)).map(r => r.content).join('\n');
+      assert.match(notes, /đang ở Cửa khẩu Hữu Nghị \(Lạng Sơn\), đang kiểm tra giấy tờ thông quan/);
+      assert.match(notes, /xe đã qua cửa khẩu \(Cửa khẩu Hữu Nghị Quan \(Quảng Tây\)\)\./);
     });
     done();
   } finally {
