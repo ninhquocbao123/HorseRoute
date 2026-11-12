@@ -42,6 +42,7 @@ Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng.
 | `coordinator@example.com`, `coordinator2@example.com` | Điều phối |
 | `manager@example.com`, `specialist@example.com`, `admin@example.com` | Quản lý, chuyên viên, quản trị |
 | `customer@example.com`, `customer2@example.com` | Khách hàng (đăng nhập ở `/login`) |
+| `driver3@example.com`, `escort2@example.com` | Tài xế và hộ tống còn rảnh, để điều phối phân công cho các đơn `WDP-DEMO-AUTO-*` |
 
 ## 4. Dữ liệu mẫu cho tài xế / hộ tống
 
@@ -49,6 +50,7 @@ Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng.
 - **Sắp tới** `WDP-DEMO-F4-NEXT` (chuyến #205, READY): cùng tài xế, nên màn chuyến hiện dòng "Còn 1 chuyến sắp tới".
 - **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng). H1–H3: tài xế 5 + hộ tống 6. **H4 đổi vai** (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: `driver@example.com` và `escort@example.com` đều chỉ thấy H1–H3 ở lịch sử của khung mình, H4 chỉ xuất hiện ở khung ngược lại. Lịch sử hộ tống (chi tiết chỉ xem): H2 có hoạt động chăm sóc trải trên 2 ngày, **13 hoạt động trong một ngày** (thử phân trang 10 dòng/trang) và 1 bản đính chính; H1 có 3 hoạt động và 1 báo cáo sức khỏe đã gửi, khách đã xem.
 - `WDP-DEMO-F4-B` (tài xế khác, READY) và `WDP-DEMO-F4-C` (kế hoạch chờ duyệt) để thử cô lập quyền.
+- **Chờ lập kế hoạch** `WDP-DEMO-AUTO-VN`, `-CN`, `-TH` (thêm 12/11/2026): đơn đã duyệt và đặt cọc, kế hoạch nháp của `coordinator@example.com` chưa có lộ trình. Mở chuyến là hệ thống tự lập lộ trình (cần mạng): Hà Nội → TP.HCM, Hà Nội → Nam Ninh (cửa khẩu Hữu Nghị, đã có số tờ khai), Hà Nội → Bangkok (qua Lào, **chưa có số tờ khai** để demo B13). Xe `29C-246.13` và `51G-864.20` còn rảnh. Kịch bản demo đầy đủ: [kich-ban-demo.md](kich-ban-demo.md).
 - **Đơn mới** `WDP-DEMO-F4-NEW` (PENDING): có đủ thông tin đặt chuyến, quản lý tiếp nhận và tính giá được ngay.
 - **Thanh toán:** mọi đơn đã duyệt có báo giá chính thức. Các chuyến đã giao đã trả đủ (có số liệu ở trang Doanh thu). `WDP-DEMO-F4-A` mới đặt cọc, nên khi tài xế tới điểm giao sẽ thấy "Chờ khách thanh toán" cho tới khi khách trả nốt. Các đơn còn lại đã đặt cọc.
 - **Xe:** mỗi chuyến chưa xong dùng một xe riêng (xe 5 đang chạy, xe 6, 7, 8 đã giữ chỗ), xe 9 còn rảnh để thử phân công. Tài xế 5, hộ tống 6 và tài xế 11 có hồ sơ tổ lái.

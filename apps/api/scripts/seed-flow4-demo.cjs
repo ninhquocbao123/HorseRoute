@@ -61,6 +61,9 @@ async function main() {
       [8, 'customer2@example.com', 'Khách Hàng Hai', 'CUSTOMER', 'INDIVIDUAL', 'Trang trại Demo, Tây Ninh'],
       [11, 'driver2@example.com', 'Tài Xế Khác', 'DRIVER_ESCORT', null, null],
       [12, 'coordinator2@example.com', 'Điều Phối Khác', 'COORDINATOR', null, null],
+      // Tổ lái còn rảnh để điều phối phân công cho các đơn chờ lập kế hoạch (demo tự lập lộ trình).
+      [13, 'driver3@example.com', 'Tài Xế Ba', 'DRIVER_ESCORT', null, null],
+      [14, 'escort2@example.com', 'Hộ Tống Hai', 'DRIVER_ESCORT', null, null],
     ];
     for (const [id, email, fullName, role, customerType, address] of accounts) {
       await runner.query(
@@ -69,7 +72,7 @@ async function main() {
       );
     }
     // Hồ sơ tổ lái: điều phối chỉ chọn được người có crew_profiles đúng loại.
-    await runner.query(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (5,'DRIVER','AVAILABLE'),(6,'ESCORT','AVAILABLE'),(11,'DRIVER','AVAILABLE')`);
+    await runner.query(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (5,'DRIVER','AVAILABLE'),(6,'ESCORT','AVAILABLE'),(11,'DRIVER','AVAILABLE'),(13,'DRIVER','AVAILABLE'),(14,'ESCORT','AVAILABLE')`);
 
     // Địa điểm có tọa độ; tuyến đường bộ giữa các cặp liên tiếp được ghi sẵn vào cache location_routes (mode ROAD, hình học xấp xỉ quốc lộ)
     // nên demo không cần gọi dịch vụ tính tuyến. Cặp không có cache (vd. 1→3) rơi về đường thẳng ước lượng.
@@ -86,7 +89,7 @@ async function main() {
     // Mỗi chuyến chưa xong dùng một xe riêng (một xe chỉ thuộc một chuyến đang hoạt động); xe 9 để điều phối thử phân công.
     await runner.query(`INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES
       (5,'MEDIUM',4,'51C-123.45','AVAILABLE'),(6,'LIGHT',2,'51D-678.90','AVAILABLE'),(7,'LIGHT',2,'51E-246.80','AVAILABLE'),
-      (8,'MEDIUM',6,'51F-135.79','AVAILABLE'),(9,'HEAVY',9,'51G-864.20','AVAILABLE')`);
+      (8,'MEDIUM',6,'51F-135.79','AVAILABLE'),(9,'HEAVY',9,'51G-864.20','AVAILABLE'),(10,'LIGHT',2,'29C-246.13','AVAILABLE')`);
 
     const horseNames = ['Bạch Mã', 'Hắc Mã', 'Xích Thố', 'Ô Vân', 'Tuyết Sơn', 'Thiên Lý', 'Phong Vân', 'Kim Sa', 'Hồng Ngọc', 'Thanh Long'];
     let horseId = 21;
@@ -121,8 +124,8 @@ async function main() {
     // Báo giá đã duyệt tính bằng bảng giá hiện hành và biên nhận theo mức đã trả: 'none', 'deposit' hoặc 'full'.
     const [pricing] = await runner.query("SELECT id,config FROM pricing_versions WHERE status='PUBLISHED' ORDER BY id DESC LIMIT 1");
     const pricingConfig = typeof pricing.config === 'string' ? JSON.parse(pricing.config) : pricing.config;
-    const addQuote = async (orderId, horseCount, vehicleClass, paid, approvedAt) => {
-      const input = { distanceKm: 501, vehicleClass, horseCount, durationDays: 2, insurance: 'NONE', feed: 'STANDARD', extraStall: false,
+    const addQuote = async (orderId, horseCount, vehicleClass, paid, approvedAt, distanceKm = 501, durationDays = 2) => {
+      const input = { distanceKm, vehicleClass, horseCount, durationDays, insurance: 'NONE', feed: 'STANDARD', extraStall: false,
         international: true, water: 'EVERY_2_HOURS', waterRounds: 0 };
       const estimate = calculateEstimate(pricingConfig, input, String(pricing.id));
       const quote = (await runner.query(
@@ -320,6 +323,27 @@ async function main() {
     await runner.query('INSERT INTO customer_horse_profiles(owner_id,name,passport_no,payload) VALUES (7,?,?,?)',
       [horse.name, horse.passport_no, JSON.stringify({ name: horse.name, passportNo: horse.passport_no, breed: horse.breed })]);
 
+    // ── Đơn đã duyệt, chờ điều phối lập kế hoạch (demo tự lập lộ trình 12/11, cửa khẩu, thông quan B13) ──
+    // Kế hoạch nháp chưa có lộ trình: điều phối mở trang là hệ thống tự lập (cần mạng để gọi Photon, OSRM công khai).
+    const planDemo = async (orderId, tripId, code, to, toCountry, recipient, horses, km, days, extra) => {
+      await addOrder(orderId, code, 7, 'APPROVED', horses, { date: hoursFromNow(24 * 5) });
+      const details = { ...booking, sender: contact('Khách Hàng Demo', '1 Tràng Tiền', 'Thành phố Hà Nội', 'Phường Hoàn Kiếm', 'VN'), recipient,
+        pickupTime: '07:00 – 09:00', vehicleClass: 'LIGHT', vehicleCapacity: 2, distanceKm: km, durationDays: days, border: '', customsCode: '', importPermit: '', ...extra };
+      await runner.query('UPDATE orders SET origin_address=?,origin_country=?,destination_address=?,destination_country=?,booking_details=?,recipient_name=?,recipient_phone=? WHERE id=?',
+        ['1 Tràng Tiền, Phường Hoàn Kiếm, Thành phố Hà Nội', 'VN', to, toCountry, JSON.stringify(details), recipient.name, recipient.phone, orderId]);
+      await runner.query("INSERT INTO trips(id,order_id,plan_status,planned_by) VALUES (?,?,'DRAFT',4)", [tripId, orderId]);
+      // Bảng giá chỉ tới 1.500 km; báo giá mẫu tính theo mức trần, quãng đường đơn vẫn giữ số thật.
+      await addQuote(orderId, horses, 'LIGHT', 'deposit', hoursFromNow(-24), Math.min(km, 1500), days);
+    };
+    await planDemo(120, 220, 'WDP-DEMO-AUTO-VN', '12 Nguyễn Huệ, Phường Sài Gòn, Thành phố Hồ Chí Minh', 'VN',
+      contact('Trại Ngựa Sài Gòn', '12 Nguyễn Huệ', 'Thành phố Hồ Chí Minh', 'Phường Sài Gòn', 'VN'), 2, 1680, 3, {});
+    // Sang Trung Quốc, đã có số tờ khai; tuyến xong trong ngày nên điều phối phải dời giờ giao sang hôm sau (quy định ngày giao khác ngày đi).
+    await planDemo(121, 221, 'WDP-DEMO-AUTO-CN', 'Nam Ninh, Quảng Tây, Trung Quốc', 'CN',
+      contact('Câu lạc bộ Ngựa Nam Ninh', 'Thanh Tú', 'Quảng Tây · 广西壮族自治区', 'Nam Ninh · 南宁市 / 青秀区', 'CN'), 1, 440, 1, { border: 'Hữu Nghị', customsCode: '30598765432', importPermit: 'CN-IMP-2026-0112' });
+    // Sang Thái Lan qua Lào (nhiều ngày), chưa có số tờ khai: khách bổ sung ở chi tiết đơn; quản lý chuyển chuyến bị hỏi lý do (B13).
+    await planDemo(122, 222, 'WDP-DEMO-AUTO-TH', 'Bangkok, Thái Lan', 'TH',
+      contact('Royal Bangkok Sports Club', 'Phra Nakhon', 'Bangkok · กรุงเทพมหานคร', 'Phra Nakhon · พระนคร', 'TH'), 1, 1400, 3, {});
+
     // Trạng thái xe và tổ lái khớp với các chuyến đang hoạt động, như API tự ghi khi chuyển trạng thái.
     await runner.query("UPDATE vehicles SET status='IN_TRANSIT' WHERE id=5");
     await runner.query("UPDATE vehicles SET status='RESERVED' WHERE id IN (6,7,8)");
@@ -337,7 +361,8 @@ async function main() {
   console.log('  • WDP-DEMO-F4-A      IN_TRANSIT, chuyến #200: chặng 1 xong, chặng 2 đang chạy (GPS LIVE), 2 cảnh báo điều phối, ghi chú hộ tống, 1 sự cố vàng, 7 hoạt động chăm sóc hôm nay (có 1 bản đính chính), 1 báo cáo sức khỏe đã gửi khách + 1 nháp');
   console.log('  • WDP-DEMO-F4-NEXT   READY, chuyến #205 khởi hành sau ~26 giờ (cùng tài xế → dòng "Còn 1 chuyến sắp tới")');
   console.log('  • WDP-DEMO-F4-H1..H4 DELIVERED (5/12/20/35 ngày trước) → trang Lịch sử giao hàng');
-  console.log('  • WDP-DEMO-F4-B      READY, tài xế khác (driver2@example.com) → thử cô lập quyền;  WDP-DEMO-F4-C  PREPARING, kế hoạch chờ duyệt\n');
+  console.log('  • WDP-DEMO-F4-B      READY, tài xế khác (driver2@example.com) → thử cô lập quyền;  WDP-DEMO-F4-C  PREPARING, kế hoạch chờ duyệt');
+  console.log('  • WDP-DEMO-AUTO-VN/CN/TH  APPROVED, kế hoạch nháp của coordinator@example.com: mở là tự lập lộ trình (Hà Nội → TP.HCM, Nam Ninh, Bangkok); CN đã có số tờ khai, TH chưa có (demo B13); tổ lái rảnh: driver3 + escort2, xe 10 và xe 9\n');
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

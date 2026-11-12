@@ -10,7 +10,7 @@ export default function LandingMarkup(){return (<div id="home"><header><div clas
 <main>
 <section className="hero" style={{"paddingBottom": "96px"}}><div className="wrap hg">
 <div><span className="badge"><i></i>{"Xe chuyên dụng 2 – 9 ngăn"}</span>
-<h1>{"Vận chuyển ngựa đua "}<em>{"Việt Nam · Trung Quốc · Thailand"}</em></h1>
+<h1>{"Vận chuyển ngựa đua "}<em>{"Việt Nam · Trung Quốc · Thái Lan"}</em></h1>
 <p>{"Xe nguyên chuyến chỉ chở ngựa của bạn, mỗi xe có tài xế và nhân viên chăm sóc riêng. Bạn theo dõi xe đang ở đâu trên bản đồ."}</p>
 <div className="cta"><a className="btn" href="#/login">{"Đặt chuyến ngay"}</a><a className="btn line" href="#quy-trinh">{"Xem quy trình"}</a></div>
 <div className="pts"><span><b>{"3"}</b>{"quốc gia"}</span><span><b>{"10+"}</b>{"cửa khẩu"}</span><span><b>{"24 giờ"}</b>{"hiệu lực báo giá"}</span></div></div>
@@ -69,7 +69,7 @@ export default function LandingMarkup(){return (<div id="home"><header><div clas
 <section className="alt" id="dich-vu"><div className="wrap"><div className="head rv"><span className="lab">{"Dịch vụ"}</span><h2 className="h2">{"Mọi thứ ngựa của bạn cần trên đường"}</h2></div>
 <div className="g4">
 <a className="sv rv" href="#/login"><div className="art"><img src={serviceImages[0]} alt="Xe container vận chuyển nội địa" loading="lazy" style={{"objectPosition": "35% 50%"}} /></div><div className="sb"><h3>{"Vận chuyển nội địa"}</h3><p>{"Giữa các kho và câu lạc bộ trong nước, có trạm nghỉ cho ngựa."}</p><span>{"Xem giá cước"}</span></div></a>
-<a className="sv rv" style={{"--d": "100ms"} as CSSProperties} href="#mang-luoi"><div className="art"><img src={serviceImages[1]} alt="Xe container tại bãi hàng quốc tế" loading="lazy" style={{"objectPosition": "55% 50%"}} /></div><div className="sb"><h3>{"Xuyên biên giới"}</h3><p>{"Việt Nam – Trung Quốc, Việt Nam – Thailand, nhà xe làm thủ tục cửa khẩu."}</p><span>{"Xem mạng lưới"}</span></div></a>
+<a className="sv rv" style={{"--d": "100ms"} as CSSProperties} href="#mang-luoi"><div className="art"><img src={serviceImages[1]} alt="Xe container tại bãi hàng quốc tế" loading="lazy" style={{"objectPosition": "55% 50%"}} /></div><div className="sb"><h3>{"Xuyên biên giới"}</h3><p>{"Việt Nam – Trung Quốc, Việt Nam – Thái Lan, nhà xe làm thủ tục cửa khẩu."}</p><span>{"Xem mạng lưới"}</span></div></a>
 <a className="sv rv" style={{"--d": "200ms"} as CSSProperties} href="#quy-trinh"><div className="art"><img src={serviceImages[2]} alt="Kiểm dịch viên khám ngựa" loading="lazy" style={{"objectPosition": "25% 40%"}} /></div><div className="sb"><h3>{"Kiểm dịch, thủ tục"}</h3><p>{"Giấy kiểm dịch và tờ khai hải quan do nhà xe làm trọn gói."}</p><span>{"Xem quy trình"}</span></div></a>
 <a className="sv rv" style={{"--d": "300ms"} as CSSProperties} href="#/login"><div className="art"><img src={serviceImages[3]} alt="Ngựa bên cạnh xe vận chuyển chuyên dụng" loading="lazy" style={{"objectPosition": "60% 40%"}} /></div><div className="sb"><h3>{"Chăm sóc, bảo hiểm"}</h3><p>{"Hộ tống đi kèm, khoang đơn mở rộng, bảo hiểm động vật sống."}</p><span>{"Xem giá cước"}</span></div></a>
 </div></div></section>
@@ -80,7 +80,7 @@ export default function LandingMarkup(){return (<div id="home"><header><div clas
 <div className="rv"><b data-n="10" data-s="+">{"0"}</b><span>{"cửa khẩu"}</span></div><div className="rv"><b data-n="30" data-s="%">{"0"}</b><span>{"đặt cọc nhận vận đơn"}</span></div></div></div>
 <section id="dat-chuyen"><div className="wrap"><div className="cb2 rv"><h2>{"Đặt chuyến vận chuyển ngựa đua"}</h2><p>{"Đặt trước tối thiểu 20 ngày. Báo giá cố định, đặt cọc 30% để nhận vận đơn."}</p><a className="btn" href="#/login">{"Đặt chuyến ngay"}</a></div></div></section>
 </main>
-<footer><div className="wrap"><div className="fg"><div><a className="logo" href="#/" style={{"color": "#fff"}}><BrandLogo />{"HorseRoute"}</a><p style={{"maxWidth": "40ch"}}>{"Vận chuyển ngựa đua đường bộ trong Việt Nam và giữa Việt Nam với Trung Quốc, Thailand."}</p></div>
+<footer><div className="wrap"><div className="fg"><div><a className="logo" href="#/" style={{"color": "#fff"}}><BrandLogo />{"HorseRoute"}</a><p style={{"maxWidth": "40ch"}}>{"Vận chuyển ngựa đua đường bộ trong Việt Nam và giữa Việt Nam với Trung Quốc, Thái Lan."}</p></div>
 <div><h4>{"Tra cứu"}</h4><a href="#tra-cuu">{"Tra cứu đơn hàng"}</a><a href="#tra-cuu">{"Bảng giá"}</a><a href="#mang-luoi">{"Mạng lưới"}</a></div>
 <div><h4>{"Khách hàng"}</h4><a href="#/login">{"Đăng nhập"}</a><a href="#/register">{"Đăng ký"}</a><a href="#/login">{"Đặt chuyến"}</a></div></div><div className="cp">{"© 2026 Vận chuyển ngựa"}</div></div></footer>
 </div>);}
