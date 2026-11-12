@@ -1,4 +1,5 @@
 import { lockResources, resourceOwners, assertResourceOwner, syncTripResources, writeResourceStatus } from './trip-resources';
+import { customsOf, isInternational } from '../orders/order-customs';
 import { DataSource, EntityManager } from 'typeorm';
 import { TripSummary, TripLeg, TripPlanOptions, TripAssignment, CrewOption } from './trips.dto';
 
@@ -280,6 +281,15 @@ export class TripsRepository {
     const [row] = await this.db.query(`SELECT (SELECT q.deposit FROM order_quotes q WHERE q.order_id=? AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1) deposit,
       (SELECT COALESCE(SUM(r.amount),0) FROM order_receipts r WHERE r.order_id=?) paid`, [orderId, orderId]);
     return { deposit: row?.deposit === null || row?.deposit === undefined ? null : Number(row.deposit), paid: Number(row?.paid ?? 0) };
+  }
+  /** B13: chuyến quốc tế và số tờ khai hải quan trong booking_details. */
+  async customsStatus(orderId: string): Promise<{ international: boolean; customsCode: string; importPermit: string; border: string }> {
+    const [row] = await this.db.query('SELECT origin_country, destination_country, booking_details FROM orders WHERE id=?', [orderId]);
+    return { international: isInternational(row?.origin_country, row?.destination_country), ...customsOf(row?.booking_details) };
+  }
+  async auditCustomsWaiver(actor: string, orderId: string, tripId: string, reason: string) {
+    await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason)
+      VALUES (?,'ORDER',?,'START_WITHOUT_CUSTOMS',?,?,?)`, [actor, orderId, JSON.stringify({ customsCode: null }), JSON.stringify({ tripId }), reason]);
   }
   async auditDepositWaiver(actor: string, orderId: string, tripId: string, status: { deposit: number | null; paid: number }, reason: string) {
     await this.db.query(`INSERT INTO audit_logs(actor_id,entity_type,entity_id,action,old_value,new_value,reason)

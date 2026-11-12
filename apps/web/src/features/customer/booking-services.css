@@ -16,3 +16,10 @@
 @media(max-width:700px) { .bs-options-3 { grid-template-columns:1fr; }.bs-options-2 { grid-template-columns:1fr; } }
 .customer .cj .booking-services .bs-options input { accent-color:#0c655b!important; background:transparent; }
 .bs-back-action { margin-top:20px; }
+
+/* B13: thông quan chuyến quốc tế (đặt đơn, chi tiết đơn) */
+.customer .cj-customs { border: 1px solid #dfe9e8; border-radius: 12px; padding: 16px 18px; margin: 18px 0 0; min-width: 0; }
+.customer .cj-customs legend { font-size: 13px; font-weight: 700; color: #173a40; padding: 0 6px; }
+.customer .cj-customs legend small { font-weight: 400; color: #7e9296; }
+.customer .cj-customs .cj-grid { margin: 12px 0 0; }
+@media (max-width: 640px) { .customer .cj-customs .cj-grid.two { grid-template-columns: minmax(0, 1fr); } }

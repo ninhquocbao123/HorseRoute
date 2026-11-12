@@ -65,6 +65,7 @@ import {
   WebButton,
 } from "../live-ui";
 import { SkeletonLines } from "../skeleton";
+import { CustomsCard } from "./CustomsCard";
 import type {
   ICareActivityList,
   IOrderTimeline,
@@ -869,6 +870,7 @@ export function OrderScreen({
               value={day(order.desired_departure_date)}
             />
           </Card>
+          <CustomsCard order={order} onSaved={resource.reload} />
           <Section
             title={`Ngựa trong đơn · ${(order.draft?.horses ?? order.horses).length}`}
           />

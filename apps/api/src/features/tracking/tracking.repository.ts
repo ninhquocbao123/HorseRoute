@@ -228,7 +228,8 @@ export class TrackingRepository {
       `SELECT c.full_name AS customerName,
         COALESCE(NULLIF(o.recipient_name, ''), NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.booking_details, '$.recipient.name')), '')) AS recipientName,
         COALESCE(NULLIF(o.recipient_phone, ''), NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.booking_details, '$.recipient.phone')), '')) AS recipientPhone,
-        p.full_name AS coordinatorName, p.phone AS coordinatorPhone
+        p.full_name AS coordinatorName, p.phone AS coordinatorPhone,
+        o.origin_country AS originCountry, o.destination_country AS destinationCountry, o.booking_details AS bookingDetails
       FROM trips t
       JOIN orders o ON o.id = t.order_id
       JOIN users c ON c.id = o.customer_id

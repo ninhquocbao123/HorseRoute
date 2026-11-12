@@ -382,6 +382,15 @@ export interface IDriverTripDetail {
   paymentCleared: boolean;
   /** Lý do khi điều phối đã mở ngoại lệ giao ngựa */
   deliveryExceptionReason: string | null;
+  /** B13: thông tin thông quan của chuyến quốc tế; null với chuyến trong nước */
+  customs?: ICustomsInfo | null;
+}
+
+/** B13: số tờ khai hải quan, giấy phép nhập khẩu, cửa khẩu dự kiến (null khi chưa có) */
+export interface ICustomsInfo {
+  customsCode: string | null;
+  importPermit: string | null;
+  border: string | null;
 }
 
 // ─── Timeline (Customer-facing and internal) ──────────────────────────────────

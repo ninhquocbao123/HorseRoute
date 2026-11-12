@@ -17,6 +17,7 @@ export function ordersRoutes(service: OrdersService) {
   router.post('/:id/submit', authorize(Role.CUSTOMER), c.submit);
   router.post('/:id/review', authorize(Role.MANAGER), c.review);
   router.post('/:id/cancel', authorize(Role.CUSTOMER, Role.MANAGER), c.cancel);
+  router.put('/:id/customs', authorize(Role.CUSTOMER, Role.SPECIALIST, Role.MANAGER), async(req,res)=>{res.json(await service.updateCustoms(req.account,parse(idSchema,req.params.id),req.body));});
   return router;
 }
 

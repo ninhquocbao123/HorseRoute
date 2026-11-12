@@ -74,6 +74,7 @@ route('post', '/orders', 'Customer: lưu nháp, requestId chống tạo trùng',
 route('get', '/orders/{id}', 'Chi tiết đơn và lịch sử', 'Flow 1 - Orders');
 route('delete', '/orders/{id}', 'Customer: xóa đơn DRAFT của chính mình; đơn đã gửi trả 409', 'Flow 1 - Orders');
 route('put', '/orders/{id}', 'Customer: sửa đơn DRAFT hoặc NEED_INFO', 'Flow 1 - Orders', { body: 'DraftOrderDto' });
+route('put', '/orders/{id}/customs', 'B13: Customer (chủ đơn), Specialist, Manager bổ sung số tờ khai hải quan (customsCode), giấy phép nhập khẩu (importPermit), cửa khẩu dự kiến (border) cho chuyến quốc tế, từ khi gửi đơn tới khi đang vận chuyển. Body strict cả ba trường (chuỗi, có thể rỗng). Ghi audit UPDATE_CUSTOMS và báo điều phối viên phụ trách. Đơn trong nước hoặc trạng thái khác trả 409', 'Flow 1 - Orders');
 route('get', '/orders/{id}/review-options', 'Manager: điều phối viên và quy định phù hợp', 'Flow 1 - Orders');
 route('post', '/orders/{id}/submit', 'Customer: gửi duyệt đơn hoàn chỉnh', 'Flow 1 - Orders', { status: 201 });
 route('post', '/orders/{id}/review', 'Manager: duyệt, yêu cầu bổ sung hoặc từ chối', 'Flow 1 - Orders', { body: 'ReviewDto', status: 201 });

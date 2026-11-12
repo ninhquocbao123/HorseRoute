@@ -3,6 +3,7 @@ import {
   type HorseConditionStatus, type IHorseReport, type IDeliveryClearance,
 } from '@my-project/shared';
 import { User } from '../users/users.model';
+import { customsOf, isInternational } from '../orders/order-customs';
 import { TrackingRepository } from './tracking.repository';
 import {
   legIdSchema,
@@ -54,6 +55,7 @@ import {
   ICoordinatorIncident,
   IIncidentResponse,
   IWaypointCheckin,
+  ICustomsInfo,
   ITimelineLeg,
   ITripTimeline,
   IActiveTrips,
@@ -193,6 +195,13 @@ function latestUpdate(legs: { updatedAt: Date | null; updatedByName: string | nu
     if (leg.updatedAt && (!latest || leg.updatedAt > latest.updatedAt)) latest = { updatedAt: leg.updatedAt, updatedByName: leg.updatedByName };
   }
   return { at: latest ? latest.updatedAt.toISOString() : null, byName: latest ? latest.updatedByName : null };
+}
+
+/** B13: tài xế mang theo số tờ khai, giấy phép nhập khẩu khi qua cửa khẩu; chuyến trong nước thì không có. */
+function customsView(contacts: { originCountry: string | null; destinationCountry: string | null; bookingDetails: unknown } | undefined): ICustomsInfo | null {
+  if (!contacts || !isInternational(contacts.originCountry, contacts.destinationCountry)) return null;
+  const info = customsOf(contacts.bookingDetails);
+  return { customsCode: info.customsCode || null, importPermit: info.importPermit || null, border: info.border || null };
 }
 
 function assertNotBefore(occurredAt: string, previous: Date | null | undefined, label: string) {
@@ -368,6 +377,7 @@ export class TrackingService {
         .map(l => (showPhone ? l : { ...l, milestones: l.milestones.map(m => ({ ...m, actualRecipientPhone: null })) })),
       paymentCleared: clearance.cleared,
       deliveryExceptionReason: exceptionReason(clearance),
+      customs: customsView(contacts),
     };
   }
 

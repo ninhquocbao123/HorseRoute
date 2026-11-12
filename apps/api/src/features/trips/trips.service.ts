@@ -307,14 +307,17 @@ export class TripsService {
       // Cọc không chặn canStart: quản lý vẫn chuyển được nếu nêu lý do ngoại lệ (A5). Giao diện dựa vào deposit để hỏi lý do.
       const money = await repo.depositStatus(orderId);
       const deposit = { required: money.deposit, paid: money.paid, satisfied: depositSatisfied(money) };
+      // B13: tương tự cọc, thiếu số tờ khai không chặn canStart nhưng giao diện phải hỏi lý do.
+      const status = await repo.customsStatus(orderId);
+      const customs = { required: status.international, customsCode: status.customsCode || null, satisfied: !status.international || !!status.customsCode };
       return { tripId: id, planStatus: detail.planStatus, orderStatus: detail.orderStatus,
-        valid: blockers.length === 0, canStart: blockers.length === 0 && detail.planStatus === 'APPROVED' && detail.orderStatus === 'PREPARING', blockers, deposit };
+        valid: blockers.length === 0, canStart: blockers.length === 0 && detail.planStatus === 'APPROVED' && detail.orderStatus === 'PREPARING', blockers, deposit, customs };
     });
   }
   async releaseToDriver(account: User, rawId: string, body: unknown): Promise<TripDetail> {
     if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Manager được chuyển chuyến cho tài xế.');
     const id = parse(tripIdSchema, rawId);
-    const { depositWaiverReason } = parse(startTransportSchema, body ?? {});
+    const { depositWaiverReason, customsWaiverReason } = parse(startTransportSchema, body ?? {});
     return this.repository.transaction(async repo => {
       const orderId = await repo.orderId(id);
       if (!orderId) throw new NotFoundException('Không tìm thấy chuyến.');
@@ -329,6 +332,12 @@ export class TripsService {
           ? 'Đơn chưa có báo giá được duyệt nên chưa xác định được tiền cọc. Nêu lý do nếu vẫn chuyển chuyến.'
           : `Khách mới trả ${money.paid.toLocaleString('vi-VN')} đ trên ${money.deposit.toLocaleString('vi-VN')} đ tiền cọc. Nêu lý do nếu vẫn chuyển chuyến.` });
       }
+      // B13: chuyến quốc tế chưa có số tờ khai hải quan thì không chuyển chuyến, trừ khi quản lý nêu lý do (ghi audit).
+      const customs = await repo.customsStatus(orderId);
+      const missingCustoms = customs.international && !customs.customsCode;
+      if (missingCustoms && !customsWaiverReason) {
+        throw new ConflictException({ code: 'CUSTOMS_REQUIRED', message: 'Chuyến quốc tế chưa có số tờ khai hải quan. Khách hoặc chuyên viên bổ sung ở chi tiết đơn, hoặc nêu lý do nếu vẫn chuyển chuyến.' });
+      }
       const legs = await repo.lockLegs(id);
       if (legs.some(l => l.status !== 'NOT_STARTED' || l.actualDepartureAt || l.actualArrivalAt) || await repo.hasHistory(id)) {
         throw new ConflictException('Chuyến đã có dữ liệu vận hành.');
@@ -338,6 +347,7 @@ export class TripsService {
       if (!await repo.markOrderReady(orderId)) throw new ConflictException('Trạng thái đơn đã thay đổi.');
       await repo.auditOrderReady(account.id, orderId, id, order.status);
       if (!depositSatisfied(money) && depositWaiverReason) await repo.auditDepositWaiver(account.id, orderId, id, money, depositWaiverReason);
+      if (missingCustoms && customsWaiverReason) await repo.auditCustomsWaiver(account.id, orderId, id, customsWaiverReason);
       await repo.notifyOrderReady(orderId, id);
       return service.detail(account, id);
     });

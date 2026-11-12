@@ -10,6 +10,7 @@ import { DraftOrderDto, OrderDto, OrderQueryDto, ReviewDto } from './orders.dto'
 import { parse } from '../../shared/utils/validation.util';
 import { orderSchema } from './orders.validation';
 import { cancelOrder } from './order-cancel';
+import { updateCustoms } from './order-customs';
 
 type Row = Record<string, any>;
 const editable = ['DRAFT','NEED_INFO'];
@@ -58,6 +59,10 @@ export class OrdersService {
   async cancel(user:User,id:string,body:unknown){
     if(user.role!==Role.CUSTOMER&&user.role!==Role.MANAGER)throw new ForbiddenException('Không đủ quyền hủy đơn.');
     return this.db.transaction(async m=>cancelOrder(m,user,await this.owned(m,user,id,true) as any,body,(tx,recipient,orderId,event,content)=>this.notify(tx,recipient,orderId,event,content)));
+  }
+  /** B13: bổ sung, sửa số tờ khai hải quan, giấy phép nhập khẩu, cửa khẩu dự kiến của chuyến quốc tế. */
+  async updateCustoms(user:User,id:string,body:unknown){
+    return this.db.transaction(m=>updateCustoms(m,user,id,body));
   }
   async deleteDraft(user:User,id:string){
     if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ Customer được xóa đơn nháp.');

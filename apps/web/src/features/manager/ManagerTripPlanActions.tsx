@@ -9,7 +9,11 @@ import { RouteMap } from '../../modules/coordinator/maps/RouteMap';
 import { errorMessage } from '../tracking/tracking.api';
 import './manager-trip-plan.css';
 
-type Readiness = { valid: boolean; canStart: boolean; blockers: { code: string; message: string }[]; deposit?: { required: number | null; paid: number; satisfied: boolean } };
+type Readiness = { valid: boolean; canStart: boolean; blockers: { code: string; message: string }[]; deposit?: { required: number | null; paid: number; satisfied: boolean };
+  customs?: { required: boolean; customsCode: string | null; satisfied: boolean } };
+/** Lý do ngoại lệ khi chuyển chuyến: thiếu cọc (A5), chuyến quốc tế chưa có số tờ khai hải quan (B13). */
+type Waivers = { deposit?: string; customs?: string };
+const CUSTOMS_TEXT = 'Chuyến quốc tế chưa có số tờ khai hải quan. Khách hoặc chuyên viên có thể bổ sung ở chi tiết đơn.';
 const money = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 /** A5: khách chưa đủ cọc thì quản lý phải nêu lý do mới chuyển chuyến được. */
 const depositText = (d: NonNullable<Readiness['deposit']>) => d.required === null
@@ -22,7 +26,8 @@ const hiddenReadinessMessages = new Set([
 
 export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarget }: { tripId: string; onUpdated: () => void; contentTarget: HTMLElement | null }) {
   const [reject, setReject] = useState(false), [reason, setReason] = useState('');
-  const [waiver, setWaiver] = useState<string | null>(null), [waiverReason, setWaiverReason] = useState('');
+  // Hộp lý do: mỗi khoản thiếu (cọc, tờ khai) một ô lý do; null là hộp đang đóng.
+  const [waiver, setWaiver] = useState<{ deposit?: string; customs?: string } | null>(null), [waiverReason, setWaiverReason] = useState<Waivers>({});
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const { message } = App.useApp(), qc = useQueryClient();
   const detail = useQuery({ queryKey: ['manager-trip-plan', tripId], queryFn: ({ signal }) => getTripDetail(tripId, signal) });
@@ -32,23 +37,30 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
     queryFn: async ({ signal }) => (await api.get<Readiness>(`/trips/${tripId}/readiness`, { signal })).data,
     enabled: !!trip && trip.orderStatus === 'PREPARING' && ['PENDING_APPROVAL', 'APPROVED'].includes(trip.planStatus) });
   const visibleReadinessBlockers = readiness.data?.blockers.filter(blocker => !hiddenReadinessMessages.has(blocker.message)) ?? [];
-  async function act(action: 'APPROVED' | 'RETURNED' | 'START', depositWaiverReason?: string) {
+  async function act(action: 'APPROVED' | 'RETURNED' | 'START', reasons: Waivers = {}) {
     if (busy) return;
     setBusy(true); setError('');
     try {
       if (action === 'START') {
         const { data } = await api.get<Readiness>(`/trips/${tripId}/readiness`);
         if (!data.canStart) { setError(data.blockers.map(b => b.message).join(' ') || 'Trạng thái chuyến đã thay đổi.'); await detail.refetch(); return; }
-        if (data.deposit && !data.deposit.satisfied && !depositWaiverReason) { setWaiver(depositText(data.deposit)); return; }
+        const need = {
+          ...(data.deposit && !data.deposit.satisfied && !reasons.deposit ? { deposit: depositText(data.deposit) } : {}),
+          ...(data.customs && !data.customs.satisfied && !reasons.customs ? { customs: CUSTOMS_TEXT } : {}),
+        };
+        if (need.deposit || need.customs) { setWaiver({ ...(reasons.deposit ? { deposit: waiver?.deposit } : {}), ...need }); return; }
         try {
-          await api.post(`/trips/${tripId}/start-transport`, depositWaiverReason ? { depositWaiverReason } : {});
+          await api.post(`/trips/${tripId}/start-transport`, {
+            ...(reasons.deposit ? { depositWaiverReason: reasons.deposit } : {}), ...(reasons.customs ? { customsWaiverReason: reasons.customs } : {}),
+          });
         } catch (failure) {
-          // Khách vừa hủy hoặc tiền thay đổi giữa hai lần gọi: hỏi lý do thay vì báo lỗi chung.
+          // Khách vừa hủy, tiền hoặc tờ khai thay đổi giữa hai lần gọi: hỏi lý do thay vì báo lỗi chung.
           const body = isAxiosError(failure) ? failure.response?.data as { code?: string; message?: string } | undefined : undefined;
-          if (body?.code === 'DEPOSIT_REQUIRED' && !depositWaiverReason) { setWaiver(body.message || 'Khách chưa đủ cọc.'); return; }
+          if (body?.code === 'DEPOSIT_REQUIRED' && !reasons.deposit) { setWaiver({ ...waiver, deposit: body.message || 'Khách chưa đủ cọc.' }); return; }
+          if (body?.code === 'CUSTOMS_REQUIRED' && !reasons.customs) { setWaiver({ ...waiver, customs: body.message || CUSTOMS_TEXT }); return; }
           throw failure;
         }
-        setWaiver(null); setWaiverReason('');
+        setWaiver(null); setWaiverReason({});
       } else {
         await reviewTripPlan(tripId, action === 'APPROVED' ? { decision: action } : { decision: action, reason: reason.trim() });
       }
@@ -76,12 +88,21 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
       <Input.TextArea aria-label="Lý do từ chối" value={reason} onChange={e => setReason(e.target.value)} maxLength={255} rows={4} placeholder="Nhập lý do từ chối" />
       {error && <Alert type="error" title={error} />}
     </Modal>
-    <Modal title="Chuyển chuyến khi khách chưa đủ cọc" open={waiver !== null} onCancel={() => !busy && setWaiver(null)} closable={!busy} maskClosable={!busy}
+    <Modal title={waiver?.deposit && waiver?.customs ? 'Chuyển chuyến khi còn thiếu cọc và tờ khai' : waiver?.customs ? 'Chuyển chuyến khi chưa có số tờ khai hải quan' : 'Chuyển chuyến khi khách chưa đủ cọc'}
+      open={waiver !== null} onCancel={() => !busy && setWaiver(null)} closable={!busy} maskClosable={!busy}
       okText="Vẫn chuyển chuyến" cancelText="Quay lại" confirmLoading={busy} cancelButtonProps={{ disabled: busy }}
-      okButtonProps={{ danger: true, disabled: waiverReason.trim().length < 5 }} onOk={() => void act('START', waiverReason.trim())}>
-      <p>{waiver}</p>
-      <p>Tài xế sẽ nhận chuyến dù khách chưa đặt cọc đủ. Nêu lý do để lưu vào nhật ký (ít nhất 5 ký tự).</p>
-      <Input.TextArea aria-label="Lý do ngoại lệ tiền cọc" value={waiverReason} onChange={e => setWaiverReason(e.target.value)} maxLength={255} rows={3} showCount placeholder="Ví dụ: khách quen, cam kết chuyển khoản trước ngày giao" />
+      okButtonProps={{ danger: true, disabled: (!!waiver?.deposit && (waiverReason.deposit ?? '').trim().length < 5) || (!!waiver?.customs && (waiverReason.customs ?? '').trim().length < 5) }}
+      onOk={() => void act('START', { deposit: waiver?.deposit ? waiverReason.deposit?.trim() : undefined, customs: waiver?.customs ? waiverReason.customs?.trim() : undefined })}>
+      {waiver?.deposit && <>
+        <p>{waiver.deposit}</p>
+        <p>Tài xế sẽ nhận chuyến dù khách chưa đặt cọc đủ. Nêu lý do để lưu vào nhật ký (ít nhất 5 ký tự).</p>
+        <Input.TextArea aria-label="Lý do ngoại lệ tiền cọc" value={waiverReason.deposit ?? ''} onChange={e => setWaiverReason({ ...waiverReason, deposit: e.target.value })} maxLength={255} rows={3} showCount placeholder="Ví dụ: khách quen, cam kết chuyển khoản trước ngày giao" />
+      </>}
+      {waiver?.customs && <>
+        <p style={waiver.deposit ? { marginTop: 16 } : undefined}>{waiver.customs}</p>
+        <p>Tài xế sẽ qua cửa khẩu khi chưa có số tờ khai trên hệ thống. Nêu lý do để lưu vào nhật ký (ít nhất 5 ký tự).</p>
+        <Input.TextArea aria-label="Lý do ngoại lệ tờ khai hải quan" value={waiverReason.customs ?? ''} onChange={e => setWaiverReason({ ...waiverReason, customs: e.target.value })} maxLength={255} rows={3} showCount placeholder="Ví dụ: tờ khai nộp trực tiếp tại cửa khẩu, đại lý hải quan sẽ gửi số" />
+      </>}
       {error && <Alert type="error" title={error} />}
     </Modal>
     {contentTarget && createPortal(<div className="ois-proposed-route">
@@ -90,11 +111,13 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
           {readiness.isFetching && <p>Đang kiểm tra điều kiện và xung đột lịch…</p>}
           {readiness.isError && <Alert type="error" title="Chưa kiểm tra được điều kiện kế hoạch" action={<Button onClick={() => void readiness.refetch()}>Thử lại</Button>} />}
           {visibleReadinessBlockers.map((b, i) => <Alert key={i} type="warning" showIcon title={b.message} />)}
+          {readiness.data?.customs && !readiness.data.customs.satisfied && <Alert type="warning" showIcon title="Chưa có số tờ khai hải quan" description={`${CUSTOMS_TEXT} Chỉ chuyển chuyến cho tài xế khi có lý do ngoại lệ; lý do được lưu vào nhật ký.`} />}
+          {readiness.data?.customs?.customsCode && <Alert type="info" showIcon title={`Số tờ khai hải quan: ${readiness.data.customs.customsCode}`} />}
           {readiness.data?.deposit && !readiness.data.deposit.satisfied && <Alert type="warning" showIcon title="Khách chưa đủ tiền cọc" description={`${depositText(readiness.data.deposit)} Chỉ chuyển chuyến cho tài xế khi có lý do ngoại lệ; lý do được lưu vào nhật ký.`} />}
           {readiness.data?.valid && <Alert className="mgr-plan-valid-alert" type="success" showIcon title="Kế hoạch hợp lệ tại thời điểm kiểm tra. Hệ thống sẽ kiểm tra lại khi duyệt hoặc chuyển chuyến." />}
           {route ? <>
             <div className="coordinator-scope"><RouteMap readOnly geometry={route.selectedRoute?.geometry} waypoints={route.waypoints.map(p => ({ id: p.id, label: p.label, kind: p.kind === 'ORIGIN' ? 'origin' : p.kind === 'DESTINATION' ? 'destination' : 'stop', position: [p.latitude, p.longitude] }))} /></div>
-            <ol>{route.waypoints.map(p => <li key={p.id} style={{ marginBottom: 12 }}><strong>{p.kind === 'ORIGIN' ? 'Điểm gửi' : p.kind === 'DESTINATION' ? 'Điểm nhận' : 'Điểm nghỉ'}: </strong>{p.label}{p.note && <div>Ghi chú: {p.note}</div>}</li>)}</ol>
+            <ol>{route.waypoints.map(p => <li key={p.id} style={{ marginBottom: 12 }}><strong>{p.kind === 'ORIGIN' ? 'Điểm gửi' : p.kind === 'DESTINATION' ? 'Điểm nhận' : p.kind === 'BORDER' ? (p.borderStage === 'ARRIVED' ? 'Đến cửa khẩu' : 'Qua cửa khẩu') : 'Điểm nghỉ'}: </strong>{p.label}{p.note && <div>Ghi chú: {p.note}</div>}</li>)}</ol>
             <p><strong>Tổng quãng đường: </strong>{route.selectedRoute ? `${(route.selectedRoute.distanceM / 1000).toLocaleString('vi-VN')} km` : 'Chưa chọn tuyến'}<br />
               <strong>Thời gian lái xe dự kiến: </strong>{route.selectedRoute ? `${Math.floor(route.selectedRoute.durationS / 3600)} giờ ${Math.round(route.selectedRoute.durationS % 3600 / 60)} phút` : 'Chưa có'}</p>
           </> : <Alert type="warning" title="Chưa có lộ trình bản đồ đã lưu." />}

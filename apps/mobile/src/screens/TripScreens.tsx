@@ -22,6 +22,7 @@ import {
   Banner,
   Button,
   Card,
+  InfoLine,
   Chip,
   DateField,
   Field,
@@ -511,6 +512,20 @@ export function DriverTrip({
           <Contact name="Cứu hộ 24/7" phone={trip.emergencyHotline} />
         ) : null}
       </Card>
+      {trip.customs ? (
+        <>
+          {/* B13: giấy tờ mang theo qua cửa khẩu của chuyến quốc tế */}
+          <Section title="Giấy tờ thông quan" />
+          <Card>
+            <InfoLine label="Số tờ khai hải quan" value={trip.customs.customsCode ?? "Chưa có, hỏi điều phối trước khi tới cửa khẩu"} />
+            <InfoLine label="Giấy phép nhập khẩu" value={trip.customs.importPermit ?? "Chưa có"} />
+            <InfoLine label="Cửa khẩu dự kiến" value={trip.customs.border ?? "Theo lộ trình"} />
+            <Txt size={15} color={c.textSecondary}>
+              Mang theo tờ khai đã thông quan, chứng nhận kiểm dịch xuất khẩu, giấy phép nhập khẩu và hộ chiếu từng con ngựa.
+            </Txt>
+          </Card>
+        </>
+      ) : null}
       <Section title={`Ngựa trên xe · ${trip.horses.length}`} />
       <Card>
         {trip.horses.map((h) => (

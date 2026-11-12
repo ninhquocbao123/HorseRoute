@@ -79,6 +79,9 @@ export interface TripContactsRow {
   recipientPhone: string | null;
   coordinatorName: string | null;
   coordinatorPhone: string | null;
+  originCountry: string | null;
+  destinationCountry: string | null;
+  bookingDetails: unknown;
 }
 
 export interface TripVehicleRow {

@@ -167,3 +167,14 @@ test("old free-text drafts keep horses, date and notes, and ask for the address 
   assert.equal(d.booking.recipient.city, "");
   assert.equal(d.step, 0);
 });
+
+test("B13: đọc thông quan từ booking_details, cửa khẩu theo nước bên kia", async () => {
+  const { customsOf, borderGates, CUSTOMS_EDITABLE } = await import("../src/booking-domain.ts");
+  assert.deepEqual(customsOf('{"customsCode":"TK-1","border":"Hữu Nghị"}'), { customsCode: "TK-1", importPermit: "", border: "Hữu Nghị" });
+  assert.deepEqual(customsOf({ importPermit: "GP-2" }), { customsCode: "", importPermit: "GP-2", border: "" });
+  assert.deepEqual(customsOf("hỏng"), { customsCode: "", importPermit: "", border: "" });
+  assert.deepEqual(borderGates("VN", "TH"), ["Lao Bảo", "Cầu Treo", "Mộc Bài"]);
+  assert.equal(borderGates("CN", "VN")[0], "Hữu Nghị");
+  assert.deepEqual(borderGates("VN", "VN"), []);
+  assert.ok(CUSTOMS_EDITABLE.includes("IN_TRANSIT") && !CUSTOMS_EDITABLE.includes("DRAFT"));
+});

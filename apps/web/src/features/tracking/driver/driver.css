@@ -328,3 +328,12 @@
 /* Ảnh hiện trường bắt buộc (PHOTO_REQUIRED.INCIDENT) */
 .drv-photo-required { display: grid; gap: 6px; }
 .drs .drv-photo-required.is-invalid .drv-photo-add { border-color: var(--drs-red); color: var(--drs-red-text); }
+
+/* B13: giấy tờ thông quan chuyến quốc tế */
+.drv-customs { display: grid; gap: 10px; }
+.drv-customs .drv-card-title { display: flex; gap: 8px; align-items: center; margin: 0; }
+.drv-customs-row { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 8px; font-size: 14px; }
+.drv-customs-row span { color: #5b6b63; }
+.drv-customs-row strong { overflow-wrap: anywhere; }
+.drv-customs-row strong.is-missing { color: #b45309; font-weight: 600; }
+.drv-customs-note { color: #5b6b63; }

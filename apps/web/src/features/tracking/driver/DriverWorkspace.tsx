@@ -9,6 +9,7 @@ import TripHeaderCard from './TripHeaderCard';
 import StopTimeline from './StopTimeline';
 import PreDepartureChecklist from './PreDepartureChecklist';
 import LiveStatsCards from './LiveStatsCards';
+import CustomsCard from './CustomsCard';
 import EscortNoteCard from './EscortNoteCard';
 import RouteMapCard from './RouteMapCard';
 import { useTripMap } from './useTripMap';
@@ -215,6 +216,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
           {/* D1b: ba thẻ số liệu nằm dưới "Các chặng" ở cột phải; màn < 1200px CSS đưa về dưới bản đồ */}
           {running && <LiveStatsCards legs={trip.legs} map={map} ownFix={gps.active ? gps.lastFix : null} nextWaypoint={viaNext?.name ?? null} rest={waypoints.rest} />}
           {ready && <PreDepartureChecklist checked={checked} onChange={setChecked} />}
+          {(ready || running) && <CustomsCard customs={detail?.customs} horses={detail?.horses ?? []} />}
           {running && <EscortNoteCard tripId={trip.id} refreshKey={trip.legs} />}
         </div>
       </div>

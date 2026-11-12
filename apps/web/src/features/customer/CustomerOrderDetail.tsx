@@ -5,6 +5,7 @@ import {statuses,type OrderDetail} from '../orders/types';
 import CustomerQuote from '../manager/CustomerQuote';
 import CustomerOrderDocuments from './CustomerOrderDocuments';
 import CancelOrderDialog from '../orders/CancelOrderDialog';
+import OrderCustomsCard from '../orders/OrderCustomsCard';
 import {useOrderSocket} from '../../lib/socket';
 import './customer-order-detail.css';
 
@@ -41,7 +42,7 @@ export default function CustomerOrderDetail({detail,...p}:Props){
  {cancelling&&<CancelOrderDialog orderId={String(d.id)} orderCode={d.order_code} onClose={()=>setCancelling(false)} onDone={()=>{setCancelling(false);refreshDetail();p.onSaved();}}/>}
  {d.manager_note&&<Alert type={d.status==='REJECTED'?'error':'info'} showIcon title={d.status==='REJECTED'?'Đơn hàng bị từ chối':'Phản hồi quản lý'} description={d.manager_note}/>}
  <section className="cod-card cod-itinerary"><h3>Hành trình</h3><div className="cod-route"><div><small>Điểm đi</small><p>{d.origin_address} ({d.origin_country})</p></div><div><small>Điểm đến</small><p>{d.destination_address} ({d.destination_country})</p></div></div><footer><span>Khởi hành <strong>{d.desired_departure_date?new Date(d.desired_departure_date).toLocaleDateString('vi-VN'):'Chưa chọn'}</strong></span><span>{d.horses.length} ngựa</span></footer>{d.special_requirements&&<p>{d.special_requirements}</p>}</section>
- <section className="cod-card"><CustomerOrderDocuments orderId={d.id} status={d.status} horseDetails={d.horses} initialHorseId={horse} initialDocumentId={p.initialDocumentId} onPendingChange={p.onPendingChange} onSaved={()=>{p.onSaved();refreshDetail();}}/></section>
+ <OrderCustomsCard className="cod-card order-customs" order={d} onSaved={refreshDetail}/><section className="cod-card"><CustomerOrderDocuments orderId={d.id} status={d.status} horseDetails={d.horses} initialHorseId={horse} initialDocumentId={p.initialDocumentId} onPendingChange={p.onPendingChange} onSaved={()=>{p.onSaved();refreshDetail();}}/></section>
  <details className="cod-card cod-history"><summary>Lịch sử xử lý</summary>{d.history.length?d.history.map(h=><p key={h.id}><strong>{h.actor_name}</strong> · {new Date(h.occurred_at).toLocaleString('vi-VN')}<br/>{h.reason||({SUBMIT:'Gửi đơn',REVIEW:'Xét duyệt đơn',CREATE:'Tạo đơn',UPDATE:'Cập nhật đơn',REJECT:'Từ chối đơn'} as Record<string,string>)[h.action]||h.action}</p>):<p>Chưa có lịch sử xử lý.</p>}</details>
  </main><aside className="cod-quote"><CustomerQuote orderId={d.id} orderCode={d.order_code} orderStatus={d.status} onPaymentSuccess={()=>{refreshDetail();p.onSaved();}}/></aside></div></section>;
 }

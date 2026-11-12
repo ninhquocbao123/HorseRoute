@@ -43,6 +43,7 @@ import { day, fromYmd, money, ymd } from "../../live-domain";
 import {
   COUNTRY_NAMES,
   INSURANCE_GROUPS,
+  borderGates,
   PICKUP_TIMES,
   VEHICLES,
   accountContact,
@@ -892,6 +893,40 @@ export function ServicesStep({
               />
             ))}
           </View>
+        </View>
+      ) : null}
+      {draft.international ? (
+        <View style={{ gap: 8 }}>
+          <Txt bold>Thông quan (không bắt buộc, có thể bổ sung sau)</Txt>
+          <Txt size={15} color={c.textSecondary}>
+            Số tờ khai hải quan thường có sau khi có giấy kiểm dịch. Chưa có thì để trống và bổ sung ở chi tiết đơn trước ngày xe chạy.
+          </Txt>
+          <Txt size={15}>Cửa khẩu dự kiến</Txt>
+          <View style={s.wrap}>
+            {["", ...borderGates(b.sender.country, b.recipient.country)].map((gate) => (
+              <Chip
+                key={gate || "auto"}
+                compact
+                label={gate || "Để điều phối chọn"}
+                selected={b.border === gate}
+                onPress={() => setBooking({ border: gate })}
+              />
+            ))}
+          </View>
+          <Field
+            label="Số tờ khai hải quan"
+            maxLength={80}
+            value={b.customsCode}
+            placeholder="Ví dụ: 30512345678"
+            onChangeText={(customsCode) => setBooking({ customsCode })}
+          />
+          <Field
+            label="Số giấy phép nhập khẩu"
+            maxLength={80}
+            value={b.importPermit}
+            placeholder="Do nước nhận cấp"
+            onChangeText={(importPermit) => setBooking({ importPermit })}
+          />
         </View>
       ) : null}
       <Field

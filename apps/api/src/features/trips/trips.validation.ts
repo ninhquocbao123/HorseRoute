@@ -67,6 +67,8 @@ export const submitTripPlanSchema = z.object({}).strict();
 /** Chuyển chuyến cho tài xế. Khách chưa đủ cọc thì quản lý phải nêu lý do ngoại lệ (A5). */
 export const startTransportSchema = z.object({
   depositWaiverReason: z.string().trim().min(5, 'Nêu lý do ít nhất 5 ký tự.').max(255).optional(),
+  /** B13: chuyến quốc tế chưa có số tờ khai hải quan thì phải nêu lý do mới chuyển được. */
+  customsWaiverReason: z.string().trim().min(5, 'Nêu lý do ít nhất 5 ký tự.').max(255).optional(),
 }).strict();
 
 export const reviewTripPlanSchema = z.discriminatedUnion('decision', [

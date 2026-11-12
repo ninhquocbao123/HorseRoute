@@ -44,6 +44,31 @@ export type BookingData = {
   paymentMethod: "BANK" | "WALLET" | "CARD";
   termsAccepted: boolean;
 };
+/** B13: cửa khẩu phía Việt Nam của các hành lang API tự lập lộ trình (apps/api/src/features/trips/border-gates.ts). */
+const BORDER_GATES: Record<string, string[]> = {
+  CN: ["Hữu Nghị", "Móng Cái", "Lào Cai", "Tà Lùng", "Thanh Thủy"],
+  TH: ["Lao Bảo", "Cầu Treo", "Mộc Bài"],
+};
+/** Cửa khẩu chọn được cho chuyến quốc tế: theo nước không phải Việt Nam ở hai đầu. */
+export function borderGates(sender: string, recipient: string) {
+  return BORDER_GATES[recipient !== "VN" ? recipient : sender] ?? [];
+}
+
+/** B13: trạng thái đơn còn bổ sung được thông quan (khớp CUSTOMS_EDITABLE ở API). */
+export const CUSTOMS_EDITABLE = ["PENDING", "APPROVED", "PREPARING", "READY", "IN_TRANSIT"];
+export type CustomsValue = { customsCode: string; importPermit: string; border: string };
+/** Thông quan lưu trong booking_details của đơn (chuỗi JSON hoặc object). */
+export function customsOf(booking: unknown): CustomsValue {
+  let data: Record<string, unknown> = {};
+  try {
+    data = (typeof booking === "string" ? JSON.parse(booking) : (booking ?? {})) as Record<string, unknown>;
+  } catch {
+    /* booking hỏng: coi như trống */
+  }
+  const text = (v: unknown) => (typeof v === "string" ? v : "");
+  return { customsCode: text(data.customsCode), importPermit: text(data.importPermit), border: text(data.border) };
+}
+
 export type BookingDraft = {
   requestId: string;
   savedId?: string;
