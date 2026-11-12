@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { BadRequestException } from '../../shared/core/error.response';
+import { BadRequestException, ServiceUnavailableException } from '../../shared/core/error.response';
 import { MAP_REQUEST_HEADERS, geocodingUrl } from '../../shared/config/map-services';
-import { RouteDistanceService } from '../customer/route-distance';
+import { RouteDistanceService, nativeName } from '../customer/route-distance';
+import { nominatimPlace, nominatimSearch, photonHealth } from '../../shared/config/nominatim';
 import { BORDER_CORRIDORS, BorderCorridor, corridorsTo, findCorridor } from './border-gates';
 import { rawRoute, routeWithLegs, searchAddresses } from './trip-map-provider';
 import { MAX_ROUTE_WAYPOINTS, RouteWaypoint, routeWaypointsSchema } from './trip-route-plan';
@@ -48,19 +49,39 @@ const distance = new RouteDistanceService();
 /** Tọa độ một đầu tuyến: ưu tiên địa chỉ đầy đủ nếu nằm gần phường/tỉnh trong đơn; không thì lấy tâm phường hoặc tỉnh. */
 async function locateContact(contact: Contact | undefined, fallbackText: string | null, country: 'VN' | 'CN' | 'TH' | null, side: string) {
   let area: { point: LngLat; precision: Precision } | null = null;
+  // Phân biệt "không tìm thấy" với "dịch vụ bản đồ không phản hồi" để báo đúng nguyên nhân cho điều phối viên.
+  let serviceDown = false;
   if (contact?.city && country) {
     try { const found = await distance.locate({ country, city: contact.city, ward: contact.ward ?? '' }); area = { point: found.coordinates, precision: found.precision === 'ward' ? 'WARD' : 'CITY' }; }
-    catch { /* thử tìm theo địa chỉ bên dưới */ }
+    catch (error) { if (!(error instanceof BadRequestException)) serviceDown = true; /* thử tìm theo địa chỉ bên dưới */ }
   }
   const text = [contact?.address, contact?.ward, contact?.city].filter(Boolean).join(', ') || fallbackText?.trim() || '';
   if (text.length >= 3) {
-    try {
-      const results = await searchAddresses(text.slice(0, 200), fetch, country ?? undefined);
-      const near = results.find(result => !area || distanceM([result.longitude, result.latitude], area.point) <= 25_000);
-      if (near) return { latitude: near.latitude, longitude: near.longitude, precision: (area ? 'ADDRESS' : 'SEARCH') as Precision };
-    } catch { /* dùng tâm khu vực nếu có */ }
+    const accept = (point: LngLat | null) => point && (!area || distanceM(point, area.point) <= 25_000)
+      ? { latitude: point[1], longitude: point[0], precision: (area ? 'ADDRESS' : 'SEARCH') as Precision } : null;
+    if (!photonHealth.isDown()) {
+      try {
+        const results = await searchAddresses(text.slice(0, 200), fetch, country ?? undefined);
+        const near = results.map(result => accept([result.longitude, result.latitude])).find(Boolean);
+        if (near) return near;
+      } catch (error) { if (!(error instanceof BadRequestException)) { serviceDown = true; photonHealth.markDown(); } }
+    }
+    // Photon không phản hồi: tra địa chỉ đầy đủ bằng Nominatim; không có thì dùng tâm khu vực nếu có.
+    if (photonHealth.isDown() && country) {
+      serviceDown = true;
+      const near = accept(await nominatimSearch(text, country));
+      if (near) return near;
+    }
   }
   if (area) return { latitude: area.point[1], longitude: area.point[0], precision: area.precision };
+  // Photon không phản hồi: thử Nominatim (phường + tỉnh, rồi chỉ tỉnh) trước khi báo lỗi.
+  if (serviceDown && country) {
+    const ward = contact?.ward ? nativeName(contact.ward) : '', city = contact?.city ? nativeName(contact.city) : '';
+    const byWard = ward && city ? await nominatimSearch(`${ward}, ${city}`, country) : null;
+    const point = byWard ?? (city ? await nominatimSearch(city, country) : null) ?? (fallbackText ? await nominatimSearch(fallbackText, country) : null);
+    if (point) return { latitude: point[1], longitude: point[0], precision: (byWard ? 'WARD' : 'CITY') as Precision };
+  }
+  if (serviceDown) throw new ServiceUnavailableException(`Dịch vụ bản đồ công khai đang chậm hoặc không phản hồi nên chưa tra được ${side}. Thử lại sau ít phút, hoặc tìm, chọn vị trí trên bản đồ.`);
   throw new BadRequestException(`Chưa xác định được ${side} trên bản đồ từ địa chỉ trong đơn. Hãy tìm hoặc chọn vị trí trên bản đồ.`);
 }
 
@@ -68,6 +89,8 @@ async function locateContact(contact: Contact | undefined, fallbackText: string 
 async function placeName(latitude: number, longitude: number): Promise<string | null> {
   const base = geocodingUrl();
   if (!base) return null;
+  if (photonHealth.isDown()) return latinPlace(await nominatimPlace(latitude, longitude));
+
   const lookup = async (lang: string) => {
     const url = new URL(base.replace(/\/api\/?$/, '/reverse'));
     url.searchParams.set('lat', String(latitude)); url.searchParams.set('lon', String(longitude)); url.searchParams.set('lang', lang);
@@ -82,9 +105,17 @@ async function placeName(latitude: number, longitude: number): Promise<string | 
     const local = await lookup('default');
     if (!local || LATIN.test(local)) return local;
     // Bản tiếng Anh vẫn có thể còn tên bản địa (làng nhỏ): chỉ giữ phần đọc được, không có thì bỏ tên.
-    const latin = ((await lookup('en')) ?? local).split(', ').filter(part => LATIN.test(part));
-    return latin.length ? latin.join(', ') : null;
-  } catch { return null; }
+    return latinPlace((await lookup('en')) ?? local);
+  } catch {
+    photonHealth.markDown();
+    return latinPlace(await nominatimPlace(latitude, longitude));
+  }
+}
+/** Chỉ giữ phần tên đọc được bằng chữ Latin (tên làng nhỏ ở Lào, Thái Lan có thể chỉ có chữ bản địa). */
+function latinPlace(place: string | null) {
+  if (!place) return null;
+  const latin = place.split(', ').filter(part => LATIN.test(part));
+  return latin.length ? latin.join(', ') : null;
 }
 const LATIN = /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{M}]*$/u;
 

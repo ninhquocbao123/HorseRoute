@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BadRequestException, ServiceUnavailableException } from '../../shared/core/error.response';
+import { nominatimSearch, photonHealth } from '../../shared/config/nominatim';
 const point = z.object({ country:z.enum(['VN','CN','TH']), city:z.string().trim().min(1).max(100), ward:z.string().trim().max(100) }).strict();
 export const routeDistanceSchema = z.object({ from:point, to:point }).strict();
 type Point = z.infer<typeof point>;
@@ -20,12 +21,13 @@ const request:JsonRequest = url => {
   queue = work.then(() => undefined, () => undefined);
   return work;
 };
-const nativeName = (name:string) => name.split(' / ').map(part => part.split(' · ').slice(-1)[0]).join(', ').replace(/\s*\([^)]*\)/g,'').replace(/^(Tỉnh|Thành phố|Phường|Xã)\s+/i,'');
+export const nativeName = (name:string) => name.split(' / ').map(part => part.split(' · ').slice(-1)[0]).join(', ').replace(/\s*\([^)]*\)/g,'').replace(/^(Tỉnh|Thành phố|Phường|Xã)\s+/i,'');
 const normalized = (name:string) => nativeName(name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/đ/g,'d').replace(/^(tinh|thanh pho|phuong|xa)\s+/,'').replace(/\s/g,'');
 export class RouteDistanceService {
   private cache = new Map<string,{until:number;value:any}>();
   private pending = new Map<string,Promise<any>>();
-  constructor(private get:JsonRequest = request) {}
+  /** `fallback`: tra dự phòng khi Photon lỗi mạng hoặc quá thời gian (mặc định Nominatim, chỉ khi dùng request thật, test giả `get` thì không gọi mạng). */
+  constructor(private get:JsonRequest = request, private fallback: ((query:string,country:string)=>Promise<[number,number]|null>)|null = get===request ? nominatimSearch : null) {}
   private async cached(key:string, work:()=>Promise<any>) {
     const entry=this.cache.get(key);
     if(entry&&entry.until>Date.now())return entry.value;
@@ -36,6 +38,24 @@ export class RouteDistanceService {
   /** Tọa độ phường hoặc tỉnh (Photon, có kiểm tra quốc gia). Tự lập lộ trình dùng lại khi đơn chưa có tọa độ. */
   locate(p:Point):Promise<{coordinates:[number,number];precision:"ward"|"city"}> {
     return this.cached('point:'+JSON.stringify(p),async()=>{
+      let failure: unknown = new ServiceUnavailableException('Dịch vụ bản đồ đang chậm hoặc không phản hồi.');
+      try { if (!this.fallback || !photonHealth.isDown()) return await this.locatePhoton(p); }
+      catch (error) {
+        // Không tìm thấy (400) thì báo như cũ; Photon lỗi mạng hoặc quá chậm thì thử dịch vụ dự phòng.
+        if (error instanceof BadRequestException || !this.fallback) throw error;
+        photonHealth.markDown(); failure = error;
+      }
+      {
+        const ward = p.ward ? nativeName(p.ward) : '', city = nativeName(p.city);
+        const byWard = ward ? await this.fallback!(`${ward}, ${city}`, p.country) : null;
+        const point = byWard ?? await this.fallback!(city, p.country);
+        if (!point) throw failure;
+        return { coordinates: point, precision: byWard ? 'ward' as const : 'city' as const };
+      }
+    });
+  }
+  private locatePhoton(p:Point):Promise<{coordinates:[number,number];precision:"ward"|"city"}> {
+    return (async()=>{
       for(const local of p.ward?[true,false]:[false]) {
         const url=new URL('/api/',process.env.ROUTE_GEOCODER_URL||'https://photon.komoot.io');
         url.searchParams.set('q',[local?nativeName(p.ward):'',nativeName(p.city)].filter(Boolean).join(', '));
@@ -51,7 +71,7 @@ export class RouteDistanceService {
         if(match)return {coordinates:match.geometry.coordinates,precision:local?'ward':'city'};
       }
       throw new BadRequestException('Chưa xác định được khu vực trên bản đồ. Vui lòng kiểm tra tỉnh/thành và xã/phường.');
-    });
+    })();
   }
   async estimate(input:z.infer<typeof routeDistanceSchema>) {
     try {

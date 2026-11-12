@@ -233,3 +233,16 @@ test('tuyến trong nước bị bản đồ cho đi tắt qua Lào thì tự k�
     assert.equal(rests[0].label, 'Điểm nghỉ 1');
   } finally { global.fetch = original; }
 });
+
+test('dịch vụ bản đồ không phản hồi: báo đúng nguyên nhân thay vì "không tìm thấy địa chỉ"', async () => {
+  const { buildAutoRoutePlan } = require('../src/features/trips/trip-autoplan');
+  const original = global.fetch;
+  global.fetch = async () => { throw new Error('The operation was aborted due to timeout'); };
+  try {
+    await assert.rejects(() => buildAutoRoutePlan('9', {}, {
+      source: { originAddress: 'Hà Nội', destinationAddress: 'TP.HCM', originCountry: 'VN', destinationCountry: 'VN', desiredDepartureDate: '2099-01-10',
+        bookingDetails: { sender: { country: 'VN', city: 'Thành phố Hà Nội', ward: 'Phường Hoàn Kiếm' }, recipient: { country: 'VN', city: 'Thành phố Hồ Chí Minh', ward: 'Phường Sài Gòn' } } },
+      params: P, catalog: [],
+    }), error => error.getStatus?.() === 503 && /Dịch vụ bản đồ công khai đang chậm/.test(error.message));
+  } finally { global.fetch = original; }
+});

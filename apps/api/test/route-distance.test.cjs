@@ -23,3 +23,17 @@ test('same mapped area is not presented as zero or a fabricated distance',async(
  const service=new RouteDistanceService(async()=>({features:[feature('Đồng Tháp',[105,10])]}));
  await assert.rejects(service.estimate({from:input.from,to:input.from}),/cùng khu vực/);
 });
+
+test('Photon lỗi mạng thì tra dự phòng (Nominatim); không tìm thấy (400) thì không gọi dự phòng', async () => {
+  const calls = [];
+  const fallback = async (query, country) => { calls.push([query, country]); return query.startsWith('Hoàn Kiếm') ? [105.85, 21.03] : null; };
+  const down = new RouteDistanceService(async () => { throw new Error('The operation was aborted due to timeout'); }, fallback);
+  assert.deepEqual(await down.locate({ country: 'VN', city: 'Thành phố Hà Nội', ward: 'Phường Hoàn Kiếm' }), { coordinates: [105.85, 21.03], precision: 'ward' });
+  assert.deepEqual(calls[0], ['Hoàn Kiếm, Hà Nội', 'VN']);
+  // Cầu dao đã bật vì Photon vừa lỗi: 5 phút tới đi thẳng sang dự phòng. Tắt lại để thử nhánh "không tìm thấy".
+  const { photonHealth } = require('../src/shared/config/nominatim');
+  assert.equal(photonHealth.isDown(), true);
+  photonHealth.downUntil = 0;
+  const missing = new RouteDistanceService(async () => ({ features: [] }), async () => { throw new Error('không được gọi'); });
+  await assert.rejects(() => missing.locate({ country: 'VN', city: 'Thành phố Hà Nội', ward: 'Phường Không Có' }), /Chưa xác định được khu vực/);
+});
