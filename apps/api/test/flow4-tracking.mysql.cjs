@@ -721,6 +721,13 @@ async function main() {
     assert.equal(track.find(p => p.lat === 10.96).speedKmh, 64.1);
     assert.equal((await expectStatus(200, 'GET', `/trips/100/positions?since=${encodeURIComponent(minutesAgo(1.5))}`, { as: ids.specialist })).length, 2);
     await expectStatus(403, 'GET', '/trips/100/positions', { as: ids.customer });
+    // D3 (Q4): khách không thấy GPS thật kể cả khi tài xế đang gửi vị trí: chỉ vị trí theo mốc đã ghi, không có latestPosition, không có tốc độ.
+    const customerMap = await expectStatus(200, 'GET', '/orders/50/map', { as: ids.customer });
+    assert.equal(customerMap.latestPosition, null);
+    assert.equal(customerMap.position.source, 'ESTIMATED');
+    assert.notEqual(customerMap.position.lat, 10.96, 'không lộ tọa độ GPS mới nhất');
+    assert.equal(customerMap.speedLimitKmh, null);
+    assert.deepEqual(customerMap.warnings, []);
 
     // Migration 1800000010000: cache tuyến ROAD (bản simplified cũ) bị xóa, STRAIGHT ("không có đường bộ") giữ nguyên.
     await q("INSERT INTO location_routes(from_location_id,to_location_id,mode,coordinates) VALUES (1,2,'ROAD','[[106.6,10.85],[106.158,11.076]]'),(2,3,'STRAIGHT','[[106.158,11.076],[103.9915,1.3644]]')");
