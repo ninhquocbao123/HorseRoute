@@ -9,6 +9,7 @@ import { User } from '../users/users.model';
 import { emailVerificationEnabled, type Mailer } from '../../shared/mail/mailer';
 import { Logger } from '../../shared/utils/logger.util';
 const logger = new Logger('Auth');
+import { MAX_FAILED_LOGINS, clearFailedLogins, lockedUntil, recordFailedLogin } from './login-lockout';
 import { CODE_MAX_ATTEMPTS, CODE_RESEND_SECONDS, CODE_TTL_MINUTES, consumeCode, issueCode, type CodePurpose } from './auth-codes';
 
 const SENT = 'Nếu email này có tài khoản, mã gồm 6 số đã được gửi tới hộp thư. Mã có hiệu lực trong ' + CODE_TTL_MINUTES + ' phút.';
@@ -25,7 +26,16 @@ export class AuthService {
 
  async login(email:string,password:string){
   const user=await this.users.findByEmailWithPassword(email);
-  if(!user||!user.passwordHash||!await bcrypt.compare(password,user.passwordHash))throw new UnauthorizedException('Email hoặc mật khẩu không đúng, hoặc tài khoản không hoạt động.');
+  // A2: tài khoản đang tạm khóa vì sai nhiều lần thì không kiểm tra mật khẩu (chặn dò mật khẩu).
+  if(user&&this.db){
+   const until=await lockedUntil(this.db,user.id);
+   if(until)throw new ForbiddenException({code:'LOGIN_LOCKED',message:`Bạn đã nhập sai mật khẩu ${MAX_FAILED_LOGINS} lần. Đăng nhập tạm khóa ${Math.max(1,Math.ceil((until-Date.now())/60_000))} phút; dùng "Quên mật khẩu" để mở ngay.`});
+  }
+  if(!user||!user.passwordHash||!await bcrypt.compare(password,user.passwordHash)){
+   if(user&&this.db)await recordFailedLogin(this.db,user.id);
+   throw new UnauthorizedException('Email hoặc mật khẩu không đúng, hoặc tài khoản không hoạt động.');
+  }
+  if(this.db)await clearFailedLogins(this.db,user.id);
   // Đúng mật khẩu nhưng chưa xác minh email: báo riêng để web, mobile hiện bước nhập mã.
   if(user.accountStatus==='PENDING'&&user.role===Role.CUSTOMER)throw notVerified();
   if(user.accountStatus!=='ACTIVE')throw new UnauthorizedException('Email hoặc mật khẩu không đúng, hoặc tài khoản không hoạt động.');

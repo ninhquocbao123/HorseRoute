@@ -140,6 +140,44 @@ async function main() {
     await expect(401, 'GET', '/users/me', { token: d });
   });
 
+  await check('A2: sai mật khẩu 5 lần trong 15 phút thì tạm khóa (kể cả nhập đúng); hết 15 phút hoặc đặt lại mật khẩu thì mở; đăng nhập đúng giữa chừng xóa bộ đếm', async () => {
+    const hash = await require('bcrypt').hash(PASSWORD, 4);
+    // Gọi thẳng AuthService: các ca trước đã dùng hết giới hạn 30 lần đăng nhập/phút theo IP (N15), không liên quan tới khóa theo tài khoản.
+    const auth = createServices(db, tokens, mailer).auth;
+    const status = e => e?.status ?? e?.statusCode ?? e?.getStatus?.();
+    const login = async (email, password = PASSWORD) => {
+      try { return { status: 200, data: await auth.login(email, password) }; }
+      catch (e) { const body = e.getResponse?.(); return { status: status(e), data: typeof body === 'string' ? { message: body } : body }; }
+    };
+    await q("INSERT INTO users(id,email,password_hash,full_name,role,account_status) VALUES (50,'lock@t.local',?,'Khóa Thử','CUSTOMER','ACTIVE')", [hash]);
+    const failed = async () => Number((await q("SELECT COUNT(*) n FROM audit_logs WHERE entity_id=50 AND action='LOGIN_FAILED'"))[0].n);
+    for (let i = 0; i < 4; i++) assert.equal((await login('lock@t.local', 'sai-mat-khau')).status, 401);
+    assert.equal((await login('lock@t.local')).status, 200, 'đăng nhập đúng sau 4 lần sai vẫn vào được');
+    assert.equal(Number((await q("SELECT COUNT(*) n FROM audit_logs WHERE entity_id=50 AND action='LOGIN_RESET'"))[0].n), 1);
+    for (let i = 0; i < 5; i++) assert.equal((await login('lock@t.local', 'sai-mat-khau')).status, 401);
+    const locked = await login('lock@t.local');
+    assert.equal(locked.status, 403);
+    assert.equal(locked.data.code, 'LOGIN_LOCKED');
+    assert.match(locked.data.message, /tạm khóa 15 phút/);
+    // Đang khóa thì không kiểm tra mật khẩu, cũng không ghi thêm lần sai.
+    const before = await failed();
+    assert.equal((await login('lock@t.local', 'sai-mat-khau')).status, 403);
+    assert.equal(await failed(), before);
+    // Hết 15 phút thì tự mở.
+    await q("UPDATE audit_logs SET occurred_at=occurred_at - INTERVAL 16 MINUTE WHERE entity_id=50 AND action='LOGIN_FAILED'");
+    assert.equal((await login('lock@t.local')).status, 200);
+    // Khóa lại rồi tự đặt lại mật khẩu qua email thì mở ngay.
+    for (let i = 0; i < 5; i++) await login('lock@t.local', 'sai-mat-khau');
+    assert.equal((await login('lock@t.local')).status, 403);
+    await auth.forgotPassword('lock@t.local');
+    await auth.resetPassword('lock@t.local', lastCode('lock@t.local'), 'Mat-khau-moi-44');
+    assert.equal((await login('lock@t.local', 'Mat-khau-moi-44')).status, 200);
+    // Email không có tài khoản: không ghi gì (giới hạn theo IP của N15 lo phần này).
+    const total = Number((await q("SELECT COUNT(*) n FROM audit_logs WHERE action='LOGIN_FAILED'"))[0].n);
+    assert.equal((await login('ghost@t.local', 'sai-mat-khau')).status, 401);
+    assert.equal(Number((await q("SELECT COUNT(*) n FROM audit_logs WHERE action='LOGIN_FAILED'"))[0].n), total);
+  });
+
   await check('Admin tạo nhân sự: gửi email báo tài khoản, không kèm mật khẩu', async () => {
     const adminToken = tokens.sign({ sub: '1', email: 'admin@t.local', role: 'ADMIN' });
     await expect(201, 'POST', '/admin/accounts', { token: adminToken, body: { email: 'staff@t.local', fullName: 'Nhân Sự', kind: 'MANAGER', password: 'Mat-khau-staff-5' } });
