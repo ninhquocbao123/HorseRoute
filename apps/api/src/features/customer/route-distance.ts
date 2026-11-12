@@ -33,7 +33,8 @@ export class RouteDistanceService {
     const pending=work().then(value=>{if(this.cache.size>=1000)this.cache.delete(this.cache.keys().next().value!);this.cache.set(key,{value,until:Date.now()+86400000});return value;}).finally(()=>this.pending.delete(key));
     this.pending.set(key,pending);return pending;
   }
-  private locate(p:Point) {
+  /** Tọa độ phường hoặc tỉnh (Photon, có kiểm tra quốc gia). Tự lập lộ trình dùng lại khi đơn chưa có tọa độ. */
+  locate(p:Point):Promise<{coordinates:[number,number];precision:"ward"|"city"}> {
     return this.cached('point:'+JSON.stringify(p),async()=>{
       for(const local of p.ward?[true,false]:[false]) {
         const url=new URL('/api/',process.env.ROUTE_GEOCODER_URL||'https://photon.komoot.io');

@@ -333,6 +333,18 @@ export class TripsRepository {
       FROM legs l LEFT JOIN locations f ON f.id=l.from_location_id LEFT JOIN locations dest ON dest.id=l.to_location_id
       LEFT JOIN vehicles v ON v.id=l.vehicle_id WHERE l.trip_id=? ORDER BY l.seq_no ASC, l.id ASC`, [id]);
   }
+  /** Dữ liệu đơn để tự lập lộ trình: địa chỉ, quốc gia, ngày khởi hành khách chọn và booking_details. */
+  async autoplanSource(id: string): Promise<import('./trip-autoplan').AutoplanSource | undefined> {
+    const [row] = await this.db.query(`SELECT o.origin_address AS originAddress, o.destination_address AS destinationAddress,
+      o.origin_country AS originCountry, o.destination_country AS destinationCountry,
+      DATE_FORMAT(o.desired_departure_date, '%Y-%m-%d') AS desiredDepartureDate, o.booking_details AS bookingDetails
+      FROM trips t JOIN orders o ON o.id=t.order_id WHERE t.id=?`, [id]);
+    return row;
+  }
+  systemParameters(codes: string[]): Promise<{ code: string; value: unknown }[]> {
+    if (!codes.length) return Promise.resolve([]);
+    return this.db.query('SELECT param_code AS code, param_value AS value FROM system_parameters WHERE param_code IN (?)', [codes]);
+  }
   locations(): Promise<(Omit<TripPlanOptions['locations'][number], 'latitude' | 'longitude'> & { latitude: string | null; longitude: string | null })[]> {
     return this.db.query(`SELECT CAST(id AS CHAR) AS id, name, location_type AS locationType, country, timezone, address, latitude, longitude
       FROM locations ORDER BY name ASC, id ASC`);

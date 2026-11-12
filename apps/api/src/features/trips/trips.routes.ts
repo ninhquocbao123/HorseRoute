@@ -17,6 +17,8 @@ export function tripsRoutes(service: TripsService) {
   router.put('/:id/plan', authorize(Role.COORDINATOR), controller.save);
   router.post('/:id/route-preview', authorize(Role.COORDINATOR), createUserRateLimiter(20), controller.previewRoute);
   router.put('/:id/route-plan', authorize(Role.COORDINATOR), controller.saveRoutePlan);
+  // Tự lập lộ trình gọi bản đồ nhiều lần (tra địa chỉ, tuyến thô, tuyến cuối) nên giới hạn chặt hơn.
+  router.post('/:id/route-plan/auto', authorize(Role.COORDINATOR), createUserRateLimiter(10), controller.autoRoutePlan);
   router.get('/', controller.list);
   router.get('/:id/plan-options', controller.options);
   router.get('/:id', controller.detail);

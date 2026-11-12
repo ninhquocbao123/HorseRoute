@@ -13,6 +13,7 @@ export class TripsController {
   submit: RequestHandler = async (req, res) => { res.json(await this.service.submitPlan(req.account, parse(tripIdSchema, req.params.id), req.body)); };
   save: RequestHandler = async (req, res) => { res.json(await this.service.savePlan(req.account, parse(tripIdSchema, req.params.id), req.body)); };
   previewRoute: RequestHandler = async (req, res) => { res.json(await this.service.previewRoute(req.account, parse(tripIdSchema, req.params.id), req.body)); };
+  autoRoutePlan: RequestHandler = async (req, res) => { res.json(await this.service.autoRoutePlan(req.account, parse(tripIdSchema, req.params.id), req.body)); };
   saveRoutePlan: RequestHandler = async (req, res) => { res.json(await this.service.saveRoutePlan(req.account, parse(tripIdSchema, req.params.id), req.body)); };
   list: RequestHandler = async (req, res) => { res.json(await this.service.list(req.account, parse(tripQuerySchema, req.query))); };
   detail: RequestHandler = async (req, res) => { res.json(await this.service.detail(req.account, parse(tripIdSchema, req.params.id))); };

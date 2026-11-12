@@ -397,7 +397,10 @@ export function driverAction(
       const next = nextRestStop(map, leg.waypointCheckins);
       if (next)
         return {
-          label: `Đã đến ${shortName(next.name)}`,
+          // Cửa khẩu có hai điểm: phía rời đi (đã đến cửa khẩu) và phía bên kia (đã qua cửa khẩu).
+          label: /đã qua cửa khẩu$/.test(next.name)
+            ? `Đã qua cửa khẩu ${shortName(next.name.replace(/\s*–\s*đã qua cửa khẩu$/, ""))}`
+            : `Đã đến ${shortName(next.name)}`,
           path: `${base}/waypoints/${asId(next.locationId)}/checkin`,
           body: {},
           legId: leg.id,
@@ -450,7 +453,7 @@ export function driverAction(
 function nextRestStop(map: ITripMap, checkins: { waypointId: string }[]) {
   return map.stops
     .slice(1, -1)
-    .filter((stop) => stop.locationType === "REST_STOP")
+    .filter((stop) => stop.locationType === "REST_STOP" || stop.locationType === "BORDER")
     .find((stop) => !checkins.some((c) => c.waypointId === stop.locationId));
 }
 

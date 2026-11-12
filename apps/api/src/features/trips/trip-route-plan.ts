@@ -2,7 +2,8 @@ import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { BadRequestException, ServiceUnavailableException } from '../../shared/core/error.response';
 
-export const MAX_ROUTE_WAYPOINTS = 12;
+// Tự lập lộ trình: tuyến dài nhiều ngày cộng 2–4 điểm cửa khẩu vượt 12 điểm cũ (kế hoạch điều phối tự động, mục 2).
+export const MAX_ROUTE_WAYPOINTS = 25;
 export const MAX_ROUTE_COORDINATES = 5_000;
 // Stable through MySQL JSON's numeric round-trip; ~1 cm coordinate resolution.
 const stableCoordinate = (value: number) => Number(value.toFixed(7));
@@ -13,20 +14,29 @@ const coordinate = z.tuple([
 ]);
 export const routeWaypointSchema = z.object({
   id: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
-  kind: z.enum(['ORIGIN', 'REST_STOP', 'DESTINATION']),
+  kind: z.enum(['ORIGIN', 'REST_STOP', 'BORDER', 'DESTINATION']),
   label: z.string().trim().min(1).max(255),
   latitude: z.number().finite().min(-90).max(90).transform(stableCoordinate),
   longitude: z.number().finite().min(-180).max(180).transform(stableCoordinate),
   note: z.string().trim().max(500).default(''),
-}).strict();
+  /** Điểm cửa khẩu: ARRIVED = phía rời đi (tài xế báo đã đến, dừng kiểm tra giấy tờ), CLEARED = phía bên kia (đã qua cửa khẩu). */
+  borderStage: z.enum(['ARRIVED', 'CLEARED']).optional(),
+  gateCode: z.string().trim().max(40).regex(/^[A-Z0-9_]+$/).optional(),
+}).strict().superRefine((point, context) => {
+  if ((point.kind === 'BORDER') !== (point.borderStage !== undefined)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['borderStage'], message: 'Chỉ điểm cửa khẩu mới có giai đoạn ARRIVED/CLEARED, và điểm cửa khẩu phải có.' });
+});
 
 export const routeWaypointsSchema = z.array(routeWaypointSchema).min(2).max(MAX_ROUTE_WAYPOINTS).superRefine((points, context) => {
   const ids = new Set<string>();
   points.forEach((point, index) => {
     if (ids.has(point.id)) context.addIssue({ code: z.ZodIssueCode.custom, path: [index, 'id'], message: 'ID điểm hành trình bị trùng.' });
     ids.add(point.id);
-    const wanted = index === 0 ? 'ORIGIN' : index === points.length - 1 ? 'DESTINATION' : 'REST_STOP';
-    if (point.kind !== wanted) context.addIssue({ code: z.ZodIssueCode.custom, path: [index, 'kind'], message: `Điểm thứ ${index + 1} phải là ${wanted}.` });
+    const wanted = index === 0 ? 'ORIGIN' : index === points.length - 1 ? 'DESTINATION' : 'REST_STOP hoặc BORDER';
+    const ok = index === 0 ? point.kind === 'ORIGIN' : index === points.length - 1 ? point.kind === 'DESTINATION' : point.kind === 'REST_STOP' || point.kind === 'BORDER';
+    if (!ok) context.addIssue({ code: z.ZodIssueCode.custom, path: [index, 'kind'], message: `Điểm thứ ${index + 1} phải là ${wanted}.` });
+    // Mỗi cửa khẩu đi theo cặp: ARRIVED rồi ngay sau là CLEARED cùng mã.
+    if (point.borderStage === 'ARRIVED' && (points[index + 1]?.borderStage !== 'CLEARED' || points[index + 1]?.gateCode !== point.gateCode)) context.addIssue({ code: z.ZodIssueCode.custom, path: [index, 'borderStage'], message: `Cửa khẩu "${point.label}" thiếu điểm đã qua cửa khẩu ngay sau.` });
+    if (point.borderStage === 'CLEARED' && (points[index - 1]?.borderStage !== 'ARRIVED' || points[index - 1]?.gateCode !== point.gateCode)) context.addIssue({ code: z.ZodIssueCode.custom, path: [index, 'borderStage'], message: `Điểm "${point.label}" phải đi ngay sau điểm đến cửa khẩu.` });
   });
 });
 

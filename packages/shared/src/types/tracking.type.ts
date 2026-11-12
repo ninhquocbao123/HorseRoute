@@ -63,6 +63,9 @@ export interface IWaypointCheckin {
   label: string;
   occurredAt: string; // ISO UTC
   recordedByName: string;
+  /** BORDER: điểm cửa khẩu; ARRIVED = xe đang ở cửa khẩu, CLEARED = đã qua cửa khẩu. Thiếu ở dữ liệu cũ = điểm nghỉ. */
+  kind?: 'REST_STOP' | 'BORDER';
+  borderStage?: 'ARRIVED' | 'CLEARED' | null;
 }
 
 // ─── Leg with operational data (legs + leg_milestones) ───────────────────────

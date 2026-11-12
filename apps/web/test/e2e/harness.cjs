@@ -37,11 +37,17 @@ async function fakeMaps() {
         properties: { name, state: rest.join(' ') || name, countrycode: (url.searchParams.get('countrycode') || 'VN').toUpperCase(), street: name } }] }));
       return;
     }
+    if (url.pathname === '/reverse') { res.end(JSON.stringify({ features: [{ properties: { district: 'Huyện E2E', state: 'Tỉnh E2E' } }] })); return; }
     const points = decodeURIComponent(url.pathname.split('/').pop()).split(';').map(p => p.split(',').map(Number));
-    const mid = [(points[0][0] + points.at(-1)[0]) / 2, (points[0][1] + points.at(-1)[1]) / 2];
+    // Ước tính quãng đường lúc đặt đơn (không lấy đường vẽ): giữ con số cố định 838 km mà chặng đặt đơn kiểm tra.
+    if (url.searchParams.get('overview') === 'false') { res.end(JSON.stringify({ code: 'Ok', routes: [{ distance: 838000, duration: 36000 }] })); return; }
+    // Đường thẳng qua các điểm, 60 km/h, có thời gian từng chặng như OSRM (tự lập lộ trình đặt điểm nghỉ theo đó).
+    const km = (a, b) => Math.hypot((b[0] - a[0]) * 109, (b[1] - a[1]) * 111);
+    const legs = points.slice(1).map((p, i) => { const distance = Math.max(1000, km(points[i], p) * 1000); return { distance, duration: distance / (60 / 3.6) }; });
+    const total = legs.reduce((s, l) => ({ distance: s.distance + l.distance, duration: s.duration + l.duration }), { distance: 0, duration: 0 });
     res.end(JSON.stringify({ code: 'Ok', waypoints: points.map(() => ({ distance: 10 })),
-      routes: [0, 1].map(i => ({ distance: 838000 + i * 20000, duration: 36000 + i * 1800,
-        geometry: { type: 'LineString', coordinates: [points[0], [mid[0] + i * 0.05, mid[1]], ...points.slice(1)] } })) }));
+      routes: [0, 1].map(i => ({ distance: total.distance + i * 20000, duration: total.duration + i * 1800, legs,
+        geometry: { type: 'LineString', coordinates: i ? [points[0], [(points[0][0] + points[1][0]) / 2 + 0.05, (points[0][1] + points[1][1]) / 2], ...points.slice(1)] : points } })) }));
   }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   return server;

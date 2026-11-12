@@ -3,6 +3,7 @@ import type { RoutePlan } from '../../coordinator/maps/TripRoutePlanner';
 const waypointLabels = {
   ORIGIN: 'Điểm gửi',
   REST_STOP: 'Điểm nghỉ',
+  BORDER: 'Cửa khẩu',
   DESTINATION: 'Điểm nhận',
 } as const;
 

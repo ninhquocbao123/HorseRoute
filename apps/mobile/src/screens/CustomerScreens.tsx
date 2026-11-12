@@ -1449,8 +1449,13 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
         list.push({
           kind: "stop",
           key: `w-${l.seqNo}-${w.waypointId}`,
-          name: w.label,
-          note: `Đã qua ${clock(w.occurredAt)}`,
+          // Cửa khẩu: phía rời đi = đang kiểm tra giấy tờ, phía bên kia = đã thông quan.
+          name: w.borderStage === "CLEARED" ? w.label.replace(/\s*–\s*đã qua cửa khẩu$/, "") : w.label,
+          note: w.borderStage === "ARRIVED"
+            ? `Đến cửa khẩu ${clock(w.occurredAt)} · kiểm tra giấy tờ`
+            : w.borderStage === "CLEARED"
+              ? `Đã thông quan ${clock(w.occurredAt)}`
+              : `Đã qua ${clock(w.occurredAt)}`,
           time: w.occurredAt,
           done: true,
           current: false,
@@ -1516,6 +1521,19 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
                 {`Dự kiến ${clock(leg.status === "NOT_STARTED" ? leg.plannedDepartureAt : leg.plannedArrivalAt)}`}
               </Txt>
             ) : null}
+            {(() => {
+              // Đơn quốc tế: lần check-in cửa khẩu gần nhất cho biết xe đang ở cửa khẩu hay đã qua.
+              const border = legs.flatMap((l) => l.waypointCheckins).filter((w) => w.borderStage)
+                .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)).at(-1);
+              if (!border || t.orderStatus === "DELIVERED") return null;
+              return (
+                <Txt size={15} bold color={c.onBrand}>
+                  {border.borderStage === "ARRIVED"
+                    ? `Đang ở ${border.label}, kiểm tra giấy tờ thông quan`
+                    : `Đã qua ${border.label.replace(/\s*–\s*đã qua cửa khẩu$/, "")}`}
+                </Txt>
+              );
+            })()}
             {late && t.orderStatus !== "DELIVERED" ? (
               <View style={s.wrap}>
                 <StatusBadge

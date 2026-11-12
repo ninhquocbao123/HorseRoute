@@ -507,6 +507,14 @@ function TripWorkspace({ id }: { id: string }) {
               initialRevision={trip.routePlanRevision}
               readOnly={!editable}
               onDirtyChange={setRouteChanged}
+              onSchedule={(departureAt, arrivalAt) => {
+                // Lịch tự lập điền sẵn vào thời gian dự kiến; điều phối viên vẫn sửa được trước khi lưu kế hoạch.
+                setLegs((current) => {
+                  const first = current[0] ?? { fromLocationId: "", toLocationId: "", plannedDepartureAt: "", plannedArrivalAt: "" };
+                  return [{ ...first, plannedDepartureAt: utcToInput(departureAt), plannedArrivalAt: utcToInput(arrivalAt) }, ...current.slice(1)];
+                });
+                setChanged(true);
+              }}
               onSaved={(routePlan, routePlanRevision) => {
                 qc.setQueryData(
                   tripQueryKeys.detail(account?.id, id),

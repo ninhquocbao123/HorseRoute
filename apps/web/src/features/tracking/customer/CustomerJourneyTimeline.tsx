@@ -38,8 +38,12 @@ function events(timeline: IOrderTimeline): JourneyEvent[] {
     return { key: `${leg.seqNo}-${m.milestoneType}-${m.occurredAt}`, at: m.occurredAt, title, detail };
   }));
   // Điểm nghỉ giữa đường tài xế đã check-in (lộ trình có nhiều điểm dừng).
+  // Cửa khẩu: phía rời đi = xe đang ở cửa khẩu kiểm tra giấy tờ; phía bên kia = đã qua cửa khẩu.
   const stops = timeline.legs.flatMap(leg => (leg.waypointCheckins ?? []).map(c => ({
-    key: `wp-${leg.seqNo}-${c.waypointId}`, at: c.occurredAt, title: `Xe đã đến điểm dừng ${c.label}`, detail: 'Điểm nghỉ trên hành trình · xe sẽ tiếp tục sau khi nghỉ',
+    key: `wp-${leg.seqNo}-${c.waypointId}`, at: c.occurredAt,
+    ...(c.borderStage === 'ARRIVED' ? { title: `Xe đang ở ${c.label}`, detail: 'Đang kiểm tra giấy tờ thông quan' }
+      : c.borderStage === 'CLEARED' ? { title: `Đã qua cửa khẩu: ${c.label.replace(/\s*–\s*đã qua cửa khẩu$/, '')}`, detail: 'Đã thông quan, xe tiếp tục hành trình' }
+      : { title: `Xe đã đến điểm dừng ${c.label}`, detail: 'Điểm nghỉ trên hành trình · xe sẽ tiếp tục sau khi nghỉ' }),
   })));
   // Mới nhất trên cùng.
   return [...list, ...stops].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
@@ -69,6 +73,12 @@ export default function CustomerJourneyTimeline({ timeline, now = Date.now() }: 
   const delivered = list.find(event => event.title === 'Giao ngựa thành công');
   const arrival = timeline.plannedArrivalAt;
   const first = timeline.legs[0], lastLeg = timeline.legs[timeline.legs.length - 1];
+  // Trạng thái cửa khẩu cho đơn quốc tế: lần check-in cửa khẩu gần nhất cho biết xe đang ở cửa khẩu hay đã qua.
+  const borders = timeline.legs.flatMap(leg => leg.waypointCheckins ?? []).filter(c => c.borderStage).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+  const lastBorder = borders.at(-1);
+  const borderStatus = !lastBorder || delivered ? null : lastBorder.borderStage === 'ARRIVED'
+    ? `Xe đang ở ${lastBorder.label}, đang kiểm tra giấy tờ thông quan.`
+    : `Đã qua ${borders.filter(c => c.borderStage === 'CLEARED').length} cửa khẩu, gần nhất: ${lastBorder.label.replace(/\s*–\s*đã qua cửa khẩu$/, '')}.`;
   return (
     <>
       <section className="portal-panel trk-panel trk-journey-head" aria-label="Thời gian giao dự kiến">
@@ -78,6 +88,7 @@ export default function CustomerJourneyTimeline({ timeline, now = Date.now() }: 
             : arrival ? `Dự kiến giao từ ${shortDate(arrival)} đến ${shortDate(Date.parse(arrival) + DAY_MS)}`
             : 'Chưa có lịch giao dự kiến'}
         </h2>
+        {borderStatus && <p className="trk-journey-border" role="status">{borderStatus}</p>}
         <ol className="trk-journey-steps" aria-label="Tiến trình chuyến">
           {STEPS.map((label, index) => (
             <li key={label} className={index < step ? 'is-past' : index === step ? 'is-current' : undefined} aria-current={index === step ? 'step' : undefined}>

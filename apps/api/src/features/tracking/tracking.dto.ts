@@ -53,6 +53,8 @@ export interface MilestoneRow {
 }
 
 export interface WaypointCheckinRow {
+  kind?: string;
+  borderStage?: 'ARRIVED' | 'CLEARED' | null;
   legId: string;
   waypointId: string;
   label: string;

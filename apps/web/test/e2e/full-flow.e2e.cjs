@@ -255,19 +255,19 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await page.getByText('51C-E2E.02').waitFor();
   });
 
-  await phase('Điều phối xác nhận hai đầu tuyến, chọn tuyến, xe, tổ lái, giờ chạy và gửi duyệt', async () => {
+  await phase('Điều phối nhận lộ trình tự lập (hai đầu, điểm nghỉ, giờ đến), chọn xe, tổ lái, giờ chạy và gửi duyệt', async () => {
     await login('coordinator@e2e.test');
     await page.goto(`${base}/coordinator/trips/${await tripId()}`);
-    for (const index of [0, 1]) {
-      const row = page.locator('.waypoint-editor').nth(index);
-      await row.getByRole('button', { name: 'Tìm', exact: true }).click();
-      await row.locator('.address-results button').first().click();
-      await row.getByText(/Đã xác nhận: /).waitFor();
-    }
-    await page.getByRole('button', { name: 'Tìm tuyến đường', exact: true }).click();
-    await page.getByText(/^Tuyến 1 · /).click();
+    // Mở trang là hệ thống tự lập: không nhập tay điểm gửi, điểm nhận, điểm nghỉ.
+    await page.getByText(/^Giờ đến dự kiến: /).waitFor();
+    const rows = page.locator('.waypoint-editor');
+    assert.ok(await rows.count() >= 3, 'tuyến dài phải có điểm nghỉ tự đặt');
+    await rows.first().getByText(/Đã xác nhận: /).waitFor();
     await page.getByRole('button', { name: /Lưu lộ trình$/ }).click();
     await until('lưu lộ trình', async () => (await db.query('SELECT route_plan_revision r FROM trips WHERE order_id=?', [orderId]))[0].r > 0);
+    const [{ plan }] = await db.query('SELECT route_plan plan FROM trips WHERE order_id=?', [orderId]);
+    const waypoints = (typeof plan === 'string' ? JSON.parse(plan) : plan).waypoints;
+    assert.ok(waypoints.some(w => w.kind === 'REST_STOP'), 'lộ trình đã lưu có điểm nghỉ tự đặt');
 
     await page.getByRole('button', { name: 'Chọn phương tiện', exact: true }).click();
     const drawer = () => page.locator('.ant-drawer-content, [role=dialog]').filter({ hasText: 'Xác nhận chọn' }).last();
@@ -338,7 +338,15 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await page.waitForTimeout(1500);
   });
 
-  await phase('Tài xế check-in tới điểm giao; khách còn nợ nên chưa giao được', async () => {
+  await phase('Tài xế check-in lần lượt các điểm nghỉ tự đặt, rồi tới điểm giao; khách còn nợ nên chưa giao được', async () => {
+    const checkins = async () => Number((await db.query('SELECT COUNT(*) n FROM leg_waypoint_checkins w JOIN legs l ON l.id=w.leg_id JOIN trips t ON t.id=l.trip_id WHERE t.order_id=?', [orderId]))[0].n);
+    for (let i = 0; i < 12 && !(await page.getByRole('button', { name: 'Check-in chặng' }).isVisible()); i++) {
+      const before = await checkins();
+      await page.getByRole('button', { name: /^Check-in: / }).click();
+      await page.getByRole('dialog').locator('.drv-dialog-ok').click();
+      await until('check-in điểm nghỉ', async () => await checkins() === before + 1);
+    }
+    assert.ok(await checkins() >= 1, 'đã check-in ít nhất một điểm nghỉ');
     await page.getByRole('button', { name: 'Check-in chặng' }).click();
     await page.getByRole('dialog').getByText(/Đã đến Trại ngựa Hòa Xuân/).waitFor();
     await page.getByRole('dialog').locator('.drv-dialog-ok').click();

@@ -74,6 +74,7 @@ import { modeForVehicle } from './trackmap.geo';
 
 const waypointCheckinView = (c: WaypointCheckinRow): IWaypointCheckin => ({
   waypointId: c.waypointId, label: c.label, occurredAt: c.occurredAt.toISOString(), recordedByName: c.recordedByName,
+  kind: c.kind === 'BORDER' ? 'BORDER' : 'REST_STOP', borderStage: c.borderStage ?? null,
 });
 
 /** Tổ lái chỉ thấy lý do khi ngoại lệ đã mở và đơn vẫn còn nợ. */
@@ -682,11 +683,13 @@ export class TrackingService {
       const previous = done[done.length - 1];
       if (previous) assertNotBefore(input.occurredAt, previous.occurredAt, 'check-in điểm dừng trước');
 
-      const label = stops[index].label;
+      const { label, borderStage } = stops[index];
       await repo.insertWaypointCheckin(legId, waypointId, label, input.occurredAt, String(account.id));
-      await repo.audit(String(account.id), 'LEG', legId, 'WAYPOINT_CHECKIN', null, JSON.stringify({ waypointId, label, occurredAt: input.occurredAt }), null);
-      await repo.notify(leg.plannedBy, 'LEG_MILESTONE_UPDATED', `Chuyến ${leg.tripId}: Tài xế đã tới điểm dừng ${label}.`, 'TRIP', leg.tripId);
-      await repo.notify(leg.customerId, 'ORDER_LEG_PROGRESS', `Đơn hàng ${leg.orderCode}: xe đã tới điểm dừng ${label}.`, 'ORDER', leg.orderId);
+      await repo.audit(String(account.id), 'LEG', legId, 'WAYPOINT_CHECKIN', null, JSON.stringify({ waypointId, label, borderStage, occurredAt: input.occurredAt }), null);
+      // Cửa khẩu: phía rời đi = xe đang ở cửa khẩu chờ kiểm tra giấy tờ; phía bên kia = đã qua cửa khẩu.
+      const text = borderStage === 'ARRIVED' ? `xe đang ở ${label}, đang kiểm tra giấy tờ thông quan` : borderStage === 'CLEARED' ? `xe đã qua cửa khẩu (${label.replace(/s*–s*đã qua cửa khẩu$/, '')})` : `xe đã tới điểm dừng ${label}`;
+      await repo.notify(leg.plannedBy, 'LEG_MILESTONE_UPDATED', `Chuyến ${leg.tripId}: ${text}.`, 'TRIP', leg.tripId);
+      await repo.notify(leg.customerId, 'ORDER_LEG_PROGRESS', `Đơn hàng ${leg.orderCode}: ${text}.`, 'ORDER', leg.orderId);
       return { legId, waypointId, occurredAt: input.occurredAt };
     });
   }

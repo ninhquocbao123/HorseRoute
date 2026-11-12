@@ -18,6 +18,7 @@ const routesResponse = z.object({
   routes: z.array(z.object({
     geometry: z.object({ type: z.literal('LineString'), coordinates: z.array(coordinate).min(2).max(100_000) }),
     distance: storedRouteSchema.shape.distanceM, duration: storedRouteSchema.shape.durationS,
+    legs: z.array(z.object({ distance: z.number().finite().min(0), duration: z.number().finite().min(0) })).optional(),
   })).min(1).max(3),
   waypoints: z.array(z.object({ distance: z.number().optional() })).optional(),
 });
@@ -69,10 +70,24 @@ export async function searchAddresses(query: string, fetchImpl: typeof fetch = f
   });
 }
 
+type PointLike = Pick<RouteWaypoint, 'latitude' | 'longitude' | 'label'>;
 export async function previewRoutes(tripId: string, waypoints: RouteWaypoint[], fetchImpl: typeof fetch = fetch) {
+  return (await routeCandidates(tripId, waypoints, true, fetchImpl)).map(({ legs: _legs, ...route }) => route);
+}
+/** Một tuyến duy nhất kèm thời gian từng chặng giữa các điểm (dùng cho tự lập lộ trình). */
+export async function routeWithLegs(tripId: string, waypoints: RouteWaypoint[], fetchImpl: typeof fetch = fetch) {
+  return (await routeCandidates(tripId, waypoints, false, fetchImpl))[0];
+}
+/** Tuyến thô qua các điểm (chưa có id), chỉ để đo thời gian khi đặt điểm nghỉ; không cấp mã xác thực. */
+export async function rawRoute(points: PointLike[], fetchImpl: typeof fetch = fetch) {
+  const parsed = await osrm(points, false, fetchImpl);
+  const best = parsed.routes[0];
+  return { coordinates: best.geometry.coordinates as [number, number][], legs: (best.legs ?? [{ distance: best.distance, duration: best.duration }]).map(leg => ({ distanceM: leg.distance, durationS: leg.duration })) };
+}
+async function osrm(waypoints: PointLike[], alternatives: boolean, fetchImpl: typeof fetch) {
   const coordinates = waypoints.map(point => `${point.longitude},${point.latitude}`).join(';');
   const url = new URL(`${configuredUrl(routingUrl())}${coordinates}`);
-  url.searchParams.set('alternatives', '2'); // tối đa 3 phương án; OSRM chỉ tìm phương án khác khi tuyến có đúng 2 điểm
+  url.searchParams.set('alternatives', alternatives ? '2' : 'false'); // tối đa 3 phương án; OSRM chỉ tìm phương án khác khi tuyến có đúng 2 điểm
   url.searchParams.set('geometries', 'geojson');
   url.searchParams.set('overview', 'full');
   const data = await request(url, 15_000, fetchImpl, true);
@@ -82,8 +97,12 @@ export async function previewRoutes(tripId: string, waypoints: RouteWaypoint[], 
   if (!parsed.success) throw new ServiceUnavailableException('Dịch vụ bản đồ trả phương án tuyến không hợp lệ.');
   const offRoad = farFromRoad(parsed.data.waypoints);
   if (offRoad >= 0) throw new BadRequestException(`Điểm "${waypoints[offRoad]?.label ?? offRoad + 1}" nằm quá xa đường bộ. Hãy kiểm tra lại vị trí.`);
+  return parsed.data;
+}
+async function routeCandidates(tripId: string, waypoints: RouteWaypoint[], alternatives: boolean, fetchImpl: typeof fetch) {
+  const data = await osrm(waypoints, alternatives, fetchImpl);
   const inputKey = routeInputKey(waypoints);
-  return parsed.data.routes.map(candidate => {
+  return data.routes.map(candidate => {
     const raw = candidate.geometry.coordinates;
     // Douglas–Peucker, maximum 8 m in the existing local metric. Never truncate.
     const coordinates = raw.length > MAX_ROUTE_COORDINATES ? simplifyLine(raw, 8) : raw;
@@ -95,6 +114,7 @@ export async function previewRoutes(tripId: string, waypoints: RouteWaypoint[], 
       throw new ServiceUnavailableException('Tuyến vẫn vượt giới hạn 5.000 tọa độ sau giản lược 8 m. Hãy thử phương án khác.');
     }
     const route = checked.data;
-    return { ...route, verificationToken: issueRouteToken(tripId, route) };
+    const legs = (candidate.legs ?? [{ distance: candidate.distance, duration: candidate.duration }]).map(leg => ({ distanceM: leg.distance, durationS: leg.duration }));
+    return { ...route, verificationToken: issueRouteToken(tripId, route), legs };
   });
 }

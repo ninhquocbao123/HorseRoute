@@ -55,3 +55,17 @@
   .coordinator-scope .osm-planner .osm-toolbar { grid-template-columns: 1fr; }
   .coordinator-scope .osm-map-frame .osm-map { height: 280px; }
 }
+/* Tự lập lộ trình (kế hoạch điều phối tự động) */
+.coordinator-scope .auto-plan-panel { display: grid; gap: 12px; padding: 16px; border: 1px solid #c9d7ee; border-radius: 12px; background: #f5f8fe; }
+.coordinator-scope .auto-plan-head strong { display: block; font-size: 16px; color: var(--navy); }
+.coordinator-scope .auto-plan-head small, .coordinator-scope .auto-plan-source { color: #556274; margin: 0; }
+.coordinator-scope .auto-plan-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.coordinator-scope .auto-plan-controls label { display: grid; gap: 4px; min-width: 220px; flex: 1 1 220px; }
+.coordinator-scope .auto-plan-controls label > span { font-weight: 600; font-size: 13px; }
+.coordinator-scope .auto-plan-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.coordinator-scope .auto-plan-timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.coordinator-scope .auto-plan-timeline li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; padding: 8px 10px; border-radius: 8px; background: #fff; }
+.coordinator-scope .auto-plan-timeline li > small { grid-column: 2; color: #556274; }
+.coordinator-scope .auto-plan-eta { display: grid; gap: 4px; padding: 10px 12px; border-radius: 8px; background: #e8f5ee; }
+.coordinator-scope .auto-plan-eta small { color: #3d5246; }
+@media (max-width: 600px) { .coordinator-scope .auto-plan-timeline li { grid-template-columns: 1fr; } .coordinator-scope .auto-plan-timeline li > small { grid-column: 1; } }

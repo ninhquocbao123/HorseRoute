@@ -174,12 +174,17 @@ export class TrackingRepository {
     if (!legIds.length) return [];
     return this.db.query(
       `SELECT CAST(w.leg_id AS CHAR) AS legId, w.waypoint_id AS waypointId, w.waypoint_label AS label,
-        w.occurred_at AS occurredAt, u.full_name AS recordedByName
+        w.occurred_at AS occurredAt, u.full_name AS recordedByName, tr.route_plan AS routePlan
       FROM leg_waypoint_checkins w JOIN users u ON u.id = w.recorded_by
+      JOIN legs l ON l.id = w.leg_id JOIN trips tr ON tr.id = l.trip_id
       WHERE w.leg_id IN (${legIds.map(() => '?').join(',')})
       ORDER BY w.occurred_at ASC, w.id ASC`,
       legIds
-    );
+    ).then((rows: (WaypointCheckinRow & { routePlan?: unknown })[]) => rows.map(({ routePlan, ...row }) => {
+      // Loại điểm lấy từ route_plan để khách thấy "đang ở cửa khẩu" / "đã qua cửa khẩu".
+      const point = decodeRoutePlan(routePlan)?.waypoints.find(p => p.id === row.waypointId);
+      return { ...row, kind: point?.kind ?? 'REST_STOP', borderStage: point?.borderStage ?? null };
+    }));
   }
 
   async insertWaypointCheckin(legId: string, waypointId: string, label: string, occurredAt: string, recordedBy: string): Promise<void> {
@@ -189,11 +194,11 @@ export class TrackingRepository {
     );
   }
 
-  /** Điểm nghỉ giữa đường (REST_STOP) theo thứ tự của route_plan; rỗng với chuyến cũ không có route_plan. */
-  async getRestStops(tripId: string): Promise<{ id: string; label: string }[]> {
+  /** Điểm dừng giữa đường (điểm nghỉ, hai phía cửa khẩu) theo thứ tự của route_plan; rỗng với chuyến cũ không có route_plan. */
+  async getRestStops(tripId: string): Promise<{ id: string; label: string; kind: string; borderStage: 'ARRIVED' | 'CLEARED' | null }[]> {
     const [row] = await this.db.query(`SELECT route_plan AS routePlan FROM trips WHERE id = ?`, [tripId]);
     const plan = decodeRoutePlan(row?.routePlan);
-    return plan ? plan.waypoints.filter(point => point.kind === 'REST_STOP').map(point => ({ id: point.id, label: point.label })) : [];
+    return plan ? plan.waypoints.filter(point => point.kind === 'REST_STOP' || point.kind === 'BORDER').map(point => ({ id: point.id, label: point.label, kind: point.kind, borderStage: point.borderStage ?? null })) : [];
   }
 
   async getTripHorses(orderId: string): Promise<HorseInTrip[]> {

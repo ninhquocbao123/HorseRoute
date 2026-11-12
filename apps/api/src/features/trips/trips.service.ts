@@ -10,6 +10,8 @@ import { checkCrewReadiness } from './trips.crew';
 import { TripsRepository, TripRow, TripScope } from './trips.repository';
 import { routeInputKey, routePlanSchema, verifyRouteToken } from './trip-route-plan';
 import { previewRoutes } from './trip-map-provider';
+import { autoRoutePlanSchema, buildAutoRoutePlan } from './trip-autoplan';
+import { AUTOPLAN_PARAM_CODES, autoplanParams, longestContinuousDrive } from './route-autoplan';
 
 /** Đủ cọc: có báo giá đã duyệt và tổng tiền đã trả ít nhất bằng tiền cọc. Chưa có báo giá thì coi là chưa đủ. */
 export const depositSatisfied = (money: { deposit: number | null; paid: number }) => money.deposit !== null && money.paid >= money.deposit;
@@ -45,6 +47,26 @@ export class TripsService {
     const legs = await this.repository.legs(id);
     if (legs.some(leg => leg.status !== 'NOT_STARTED')) throw new ConflictException('Chuyến đã vận hành, không được tính lại tuyến.');
     return { inputKey: routeInputKey(input.waypoints), routes: await previewRoutes(id, input.waypoints), attribution: 'OpenStreetMap' };
+  }
+  /** Tự lập lộ trình (kế hoạch điều phối tự động): điểm gửi, điểm nhận, cửa khẩu, điểm nghỉ, tuyến và giờ đến dự kiến. Chưa lưu gì. */
+  async autoRoutePlan(account: User, rawId: string, body: unknown) {
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lập lộ trình.');
+    const id = parse(tripIdSchema, rawId), input = parse(autoRoutePlanSchema, body ?? {});
+    const row = await this.accessible(account, id);
+    if (row.planStatus !== 'DRAFT' || !['APPROVED', 'PREPARING'].includes(row.orderStatus)) throw new ConflictException('Chỉ lập lộ trình khi kế hoạch còn được sửa.');
+    const legs = await this.repository.legs(id);
+    if (legs.some(leg => leg.status !== 'NOT_STARTED')) throw new ConflictException('Chuyến đã vận hành, không được lập lại lộ trình.');
+    const source = await this.repository.autoplanSource(id);
+    if (!source) throw new NotFoundException('Không tìm thấy chuyến.');
+    const params = await this.autoplanParams();
+    const catalog = (await this.repository.locations()).filter(l => ['REST_STOP', 'FUEL_STOP'].includes(l.locationType) && l.latitude !== null && l.longitude !== null)
+      .map(l => ({ id: l.id, name: l.name, latitude: Number(l.latitude), longitude: Number(l.longitude) }));
+    const result = await buildAutoRoutePlan(id, input, { source, params, catalog });
+    const { legs: routeLegs, ...route } = result.route;
+    return { ...result, route, routeLegs, params, attribution: 'OpenStreetMap' };
+  }
+  private async autoplanParams(repo: TripsRepository = this.repository) {
+    return autoplanParams(await repo.systemParameters(Object.values(AUTOPLAN_PARAM_CODES)));
   }
   async saveRoutePlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
     if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lưu lộ trình.');
@@ -182,6 +204,12 @@ export class TripsService {
         throw new ConflictException('Tuyến đã chọn không còn khớp các điểm hành trình. Hãy tính và lưu lại tuyến.');
       }
       if (existingCount !== 1 || detail.legs.length !== 1) throw new ConflictException('Kế hoạch mới phải có đúng một chặng vận hành đại diện. Hãy lưu lại thời gian dự kiến.');
+      // B5 (quy tắc Q5): đoạn lái liên tục không có điểm nghỉ quá ngưỡng chặn thì không gửi duyệt, không duyệt.
+      const params = await this.autoplanParams(repo);
+      const longest = longestContinuousDrive(detail.routePlan.waypoints, detail.routePlan.selectedRoute.geometry.coordinates, detail.routePlan.selectedRoute.durationS, params.truckFactor);
+      if (longest > params.restBlockMin) {
+        throw new ConflictException({ code: 'REST_RULE', message: `Có đoạn lái liên tục khoảng ${Math.floor(longest / 60)} giờ ${longest % 60} phút không có điểm nghỉ, quá ${params.restBlockMin / 60} giờ. Hãy thêm điểm nghỉ cho ngựa.` });
+      }
       const leg = detail.legs[0];
       if (!detail.plannedDepartureAt || !detail.plannedArrivalAt ||
         detail.plannedDepartureAt !== leg.plannedDepartureAt || detail.plannedArrivalAt !== leg.plannedArrivalAt ||
