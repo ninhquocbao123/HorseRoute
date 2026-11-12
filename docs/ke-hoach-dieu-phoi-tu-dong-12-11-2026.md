@@ -2,7 +2,7 @@
 
 Mục tiêu: điều phối viên mở trang lập kế hoạch là đã có điểm gửi, điểm nhận, giờ xuất phát, các điểm nghỉ cho ngựa, giờ đến dự kiến, và với đơn quốc tế thì có cả cửa khẩu. Điều phối viên chỉ cần xem lại, kéo chỉnh nếu cần, rồi lưu. Không phải tự nhập tay từng điểm.
 
-Kế hoạch này chưa được duyệt. Chưa có dòng code nào được viết theo nó.
+Long đã chốt H1–H6 ngày 12/11/2026 (xem mục 7). Chưa có dòng code nào được viết theo kế hoạch này.
 
 ## 1. Hiện trạng (đọc code ngày 12/11)
 
@@ -25,7 +25,8 @@ Kế hoạch này chưa được duyệt. Chưa có dòng code nào được vi�
 
 - **Luật:** Điều 64 Luật Trật tự, an toàn giao thông đường bộ 2024 (hiệu lực 1/1/2025) quy định tài xế xe kinh doanh vận tải không được lái liên tục quá **4 giờ**, không quá **10 giờ/ngày**, không quá 48 giờ/tuần. Vì vậy mốc "4–5 tiếng nghỉ một lần" mà anh đề xuất phải hạ xuống **không quá 4 giờ**, nếu không thì chính hệ thống lại xếp lịch phạm luật.
 - **Quy tắc Q5 đã chốt:** cảnh báo khi chạy liên tục quá 3 giờ không nghỉ, chặn gửi kế hoạch khi quá 6 giờ, mỗi lần nghỉ ít nhất 30 phút. Tất cả là tham số hệ thống.
-- **Đề xuất gộp:** thuật toán nhắm nghỉ sau khoảng **3 giờ 30 phút** chạy, không bao giờ quá 4 giờ. Như vậy kế hoạch tự sinh không bị chặn, và chỉ hiện cảnh báo nhẹ khi đoạn chạy dài hơn 3 giờ. Cần anh chốt lại (câu hỏi H1).
+- **Đã chốt (H1):** thuật toán nhắm nghỉ sau khoảng **3 giờ 30 phút** chạy, không bao giờ quá 4 giờ. Cảnh báo của Q5 dời từ 3 giờ lên **4 giờ** (đúng giới hạn của luật), để kế hoạch tự sinh không bị báo động ở mọi chặng. Ngưỡng chặn 6 giờ giữ nguyên. Cả hai vẫn là tham số hệ thống.
+- **Tổ lái (H2):** mỗi xe có **1 tài xế và 1 lơ xe**. Lơ xe không lái, nên giới hạn 10 giờ lái mỗi ngày tính cho một người duy nhất.
 - **Giới hạn 12 điểm:** tuyến Hà Nội – Cà Mau khoảng 30 giờ chạy sẽ có khoảng 9 điểm nghỉ, cộng điểm gửi và điểm nhận là 11 điểm, vừa đủ. Tuyến quốc tế cộng thêm 2–4 điểm cửa khẩu sẽ vượt mức, nên phải nâng giới hạn lên khoảng 20 điểm.
 
 ## 3. Luồng trong nước
@@ -51,7 +52,7 @@ Kế hoạch này chưa được duyệt. Chưa có dòng code nào được vi�
 3. Trong vùng đó, tìm trong danh mục `locations` các điểm REST_STOP hoặc FUEL_STOP nằm cách tuyến không quá 3 km. Chọn điểm gần mốc mục tiêu nhất, ưu tiên điểm được đánh dấu là có chuồng hoặc chỗ cho ngựa xuống.
 4. Không có điểm nào trong danh mục thì lấy chính điểm trên tuyến ở mốc mục tiêu, tra ngược ra tên địa danh (ví dụ "Điểm nghỉ gần Phủ Lý, Hà Nam"), và gắn nhãn "Điểm tự sinh, chưa xác minh".
 5. Cộng thời gian nghỉ (mặc định 30 phút), đặt lại bộ đếm, rồi lặp lại cho đến khi đoạn còn lại ngắn hơn mốc trễ nhất.
-6. Quá 10 giờ lái trong ngày (hoặc theo số tài xế trên xe, xem câu hỏi H2) thì đổi điểm nghỉ kế tiếp thành **nghỉ qua đêm** (tham số, mặc định 8 giờ).
+6. Quá 10 giờ lái trong ngày (mỗi xe chỉ có 1 tài xế, lơ xe không thay lái) thì đổi điểm nghỉ kế tiếp thành **nghỉ qua đêm** (tham số, mặc định 8 giờ).
 7. Gọi lại OSRM với đủ các điểm để có tuyến cuối cùng, vì đi vòng vào trạm sẽ làm tuyến dài thêm một chút.
 
 Đầu ra: danh sách điểm nghỉ, giờ đến và giờ rời từng điểm, thời gian chạy dài nhất giữa hai lần nghỉ (để kiểm tra quy tắc Q5).
@@ -99,7 +100,9 @@ ETA = giờ xuất phát
 | Đường 8 | Cầu Treo (Hà Tĩnh) – Nam Phao (Lào) | Thakhek – Nakhon Phanom (cầu Hữu Nghị 3) | Hợp cho hàng từ miền Bắc |
 | Phía Nam qua Campuchia | Mộc Bài (Tây Ninh) – Bavet | Poipet – Aranyaprathet | Hợp cho hàng từ TP.HCM. Chưa thấy nguồn xác nhận cho xe chở động vật, cần kiểm tra |
 
-**Chưa xác minh được:** cửa khẩu nào được phép xuất nhập khẩu **động vật sống** và có trạm kiểm dịch động vật. Các văn bản kiểm dịch hiện hành (Thông tư 25/2016, sửa bởi Thông tư 09/2022, 04/2024, hợp nhất 2025) không kèm danh sách cửa khẩu cụ thể. Phải hỏi Cục Thú y hoặc Chi cục Thú y vùng. Vì vậy, mỗi cửa khẩu trong danh mục có cờ `acceptsLiveAnimals` do chuyên viên bật sau khi xác minh. Hệ thống chỉ tự chọn những cửa khẩu đã bật cờ; chưa có cửa khẩu nào được bật thì hiện cảnh báo (câu hỏi H4).
+**Đã chốt (H4, H5):** trong phạm vi đề tài, coi **mọi cửa khẩu trong danh sách đều nhận ngựa sống**, kể cả hành lang Campuchia. Giao diện không ghi "dữ liệu thử". Lý do: theo quy tắc nghiệp vụ, đơn phải đủ giấy tờ mới được vận chuyển, nên ở cửa khẩu chỉ còn bước kiểm tra giấy tờ.
+
+Các văn bản kiểm dịch hiện hành (Thông tư 25/2016, sửa bởi Thông tư 09/2022, 04/2024, hợp nhất 2025) không kèm danh sách cửa khẩu được nhận động vật sống. Khi mở rộng dự án thì hỏi Cục Thú y, xác minh từng cửa khẩu, rồi mới thêm cờ lọc.
 
 ### 4.2 Dữ liệu cửa khẩu
 
@@ -111,8 +114,7 @@ Dùng bảng `locations` sẵn có (loại BORDER), thêm một bảng phụ `bo
 | `country_from`, `country_to` | Ví dụ VN→CN, VN→LA, LA→TH, KH→TH |
 | `paired_name`, `paired_lat`, `paired_lng` | Cửa khẩu đối diện bên kia biên giới |
 | `open_time`, `close_time`, `timezone` | Giờ làm việc, để lộ trình không đến lúc cửa khẩu đã đóng |
-| `expected_dwell_minutes` | Thời gian làm thủ tục dự kiến (mặc định 180 phút) |
-| `accepts_live_animals` | Đã xác minh nhận động vật sống hay chưa |
+| `expected_dwell_minutes` | Thời gian dừng để kiểm tra giấy tờ (mặc định 30 phút; kẹt xe thì có thể tới 60 phút, phần này nằm trong 1 giờ dự phòng của ETA) |
 | `corridor` | Tên hành lang để ghép các cặp cửa khẩu thành tuyến (ví dụ `EWEC-R9`) |
 
 Danh sách cửa khẩu ở mục 4.1 được nạp sẵn bằng migration dữ liệu. Tọa độ lấy từ OpenStreetMap và phải kiểm tra lại từng điểm.
@@ -120,7 +122,7 @@ Danh sách cửa khẩu ở mục 4.1 được nạp sẵn bằng migration dữ
 ### 4.3 Thuật toán chọn cửa khẩu
 
 1. Đọc nước nhận từ đơn (`recipient.country`).
-2. **CN:** lấy các cửa khẩu VN→CN đã bật cờ nhận động vật. Với mỗi cửa khẩu, gọi OSRM cho tuyến gửi → cửa khẩu → nhận và chọn tuyến tổng thời gian ngắn nhất. Nếu khách đã chọn cửa khẩu dự kiến (trường `border`, việc B13) thì ưu tiên cửa khẩu đó.
+2. **CN:** lấy các cửa khẩu VN→CN. Với mỗi cửa khẩu, gọi OSRM cho tuyến gửi → cửa khẩu → nhận và chọn tuyến tổng thời gian ngắn nhất. Nếu khách đã chọn cửa khẩu dự kiến (trường `border`, việc B13) thì ưu tiên cửa khẩu đó.
 3. **TH:** mỗi hành lang là một chuỗi 2 cặp cửa khẩu. Thử cả 3 hành lang theo cùng cách trên rồi chọn hành lang nhanh nhất. Kết quả gợi ý các phương án còn lại để điều phối viên đổi bằng một cú bấm.
 4. Mỗi cửa khẩu trở thành một điểm loại **BORDER** trên lộ trình. Thời gian ở cửa khẩu được cộng vào ETA như thời gian nghỉ, và **tính luôn là một lần nghỉ cho ngựa** nên bộ đếm chạy liên tục được đặt lại.
 5. Đến cửa khẩu ngoài giờ làm việc thì hệ thống chèn nghỉ chờ trước cửa khẩu cho đến giờ mở, và ghi rõ trong bảng ETA.
@@ -150,7 +152,7 @@ Danh sách cửa khẩu ở mục 4.1 được nạp sẵn bằng migration dữ
 | `booking_details`: thêm `originGeo`, `destinationGeo` | JSON, không cần migration |
 | Bảng `border_gates` và dữ liệu nạp sẵn | Migration (cần Long đồng ý trước khi chạy trên WDP) |
 | `leg_waypoint_checkins.stage` | Migration (cần Long đồng ý) |
-| `system_parameters`: `REST_TARGET_MIN=210`, `REST_EARLIEST_MIN=150`, `REST_LATEST_MIN=240`, `REST_DWELL_MIN=30`, `DAILY_DRIVE_MAX_MIN=600`, `OVERNIGHT_MIN=480`, `TRUCK_SPEED_FACTOR=1.25`, `ETA_BUFFER_MIN=60`, `LOADING_MIN=30`, `BORDER_DWELL_DEFAULT_MIN=180` | Dữ liệu |
+| `system_parameters`: `REST_TARGET_MIN=210`, `REST_EARLIEST_MIN=150`, `REST_LATEST_MIN=240`, `REST_DWELL_MIN=30`, `DAILY_DRIVE_MAX_MIN=600`, `OVERNIGHT_MIN=480`, `TRUCK_SPEED_FACTOR=1.25`, `ETA_BUFFER_MIN=60`, `LOADING_MIN=30`, `BORDER_DWELL_DEFAULT_MIN=30`, `REST_WARN_MIN=240` (Q5 dời từ 180), `REST_BLOCK_MIN=360` | Dữ liệu |
 | `POST /trips/:id/route-plan/auto`: sinh đề xuất, chưa lưu; trả lộ trình, mã ký, ETA, cảnh báo | API mới |
 | `POST /trips/:id/checkins` nhận thêm `stage` | API sửa |
 | Chi tiết đơn của khách trả `borderProgress[]` | API sửa |
@@ -163,20 +165,22 @@ Danh sách cửa khẩu ở mục 4.1 được nạp sẵn bằng migration dữ
 | T2 | Giờ xuất phát tự lấy từ đơn hoặc bắt nhập; tham số hệ thống | 0,5 ngày | Unit ghép ngày + khung giờ |
 | T3 | `route-autoplan.ts`: điểm nghỉ, nghỉ qua đêm, ETA và các khoản cộng; API `/route-plan/auto`; `route_plan` v2 | 1,5 ngày | Unit với tuyến giả: 2h (không nghỉ), 8h, 30h (có nghỉ qua đêm), không có trạm trong danh mục |
 | T4 | Giao diện: tự sinh khi mở trang, dòng thời gian, sinh lại, sửa ETA có ghi lại | 1 ngày | E2E đơn trong nước: mở trang, lưu không cần nhập tay |
-| T5 | `border_gates`, dữ liệu 5 cửa khẩu Trung Quốc và 3 hành lang Thái Lan, màn quản lý cửa khẩu cho chuyên viên (bật cờ nhận động vật, giờ mở cửa) | 1 ngày | Test MySQL trên Docker tạm |
+| T5 | `border_gates`, dữ liệu 5 cửa khẩu Trung Quốc và 3 hành lang Thái Lan (Lao Bảo, Cầu Treo, Mộc Bài), giờ mở cửa | 0,5 ngày | Test MySQL trên Docker tạm |
 | T6 | Chọn cửa khẩu và hành lang, điểm BORDER, giờ mở cửa, múi giờ | 1 ngày | Unit: đơn sang CN chọn cửa khẩu nhanh nhất; sang TH qua 2 cặp; đến lúc cửa khẩu đóng thì có nghỉ chờ |
 | T7 | Check-in 2 lượt ở cửa khẩu (API, mobile tài xế), dải mốc cửa khẩu cho khách (web, mobile), thông báo khi `HELD` | 1 ngày | Test MySQL; E2E tài xế bấm đến và thông quan, khách thấy đúng chữ |
 
-Tổng khoảng **6,5 ngày làm việc**, trong khi đến buổi bảo vệ (khoảng 18/11) chỉ còn 6 ngày và còn các việc B13, B5, B4 của ngày 5. **Đề xuất:**
+Tổng khoảng **6 ngày làm việc**, trong khi đến buổi bảo vệ (khoảng 18/11) chỉ còn 6 ngày và còn các việc B13, B5, B4 của ngày 5. **Đề xuất:**
 
 - **Trước bảo vệ:** làm T1–T4 (trong nước, tự động hoàn toàn). Riêng quốc tế làm bản rút gọn của T5–T7: nạp sẵn danh sách cửa khẩu, cho điều phối viên **chọn** cửa khẩu từ danh sách (hệ thống tự chèn vào tuyến), và check-in 2 lượt. T3 thay luôn phần "tính điểm nghỉ" của việc B5, nên B5 và lịch nghỉ tự động làm cùng lúc.
-- **Sau bảo vệ:** tự chọn cửa khẩu hoặc hành lang nhanh nhất, giờ mở cửa, màn quản lý cửa khẩu.
+- **Sau bảo vệ:** tự chọn cửa khẩu hoặc hành lang nhanh nhất, màn quản lý cửa khẩu, xác minh cửa khẩu nhận động vật sống.
 
-## 7. Cần Long chốt
+## 7. Long đã chốt (12/11/2026)
 
-- **H1.** Mốc nghỉ: nhắm 3h30, trễ nhất 4h00 (theo luật), thay vì 4–5 giờ như đề xuất ban đầu? Có đổi cảnh báo Q5 từ 3h lên 4h cho khớp không?
-- **H2.** Mỗi xe có 1 hay 2 tài xế? Có 2 tài xế thay ca thì giới hạn 10 giờ/ngày tính theo từng người, xe chạy được lâu hơn trước khi phải nghỉ qua đêm.
-- **H3.** Hệ số xe tải 1,25 và dự phòng 1 giờ có ổn không? Với chuyến dài hơn 1 ngày, dự phòng nên tính theo phần trăm (ví dụ 5%)?
-- **H4.** Ai xác minh cửa khẩu nào nhận ngựa sống? Trước buổi bảo vệ có tạm bật cờ cho Hữu Nghị, Lào Cai, Lao Bảo, Cầu Treo, Mộc Bài để chạy thử, ghi rõ trên giao diện là "dữ liệu thử", không?
-- **H5.** Có giữ hành lang Campuchia (Mộc Bài – Poipet) không, khi chưa có nguồn nào xác nhận vận chuyển động vật qua đó?
-- **H6.** Thời gian ở cửa khẩu mặc định 3 giờ có hợp lý với kiểm dịch ngựa không, hay nên để quản lý nhập theo từng chuyến?
+| Câu | Quyết định |
+|---|---|
+| H1 | Theo đề xuất: nhắm nghỉ sau 3h30, trễ nhất 4h00, nghỉ 30 phút. Cảnh báo Q5 dời lên 4 giờ, chặn vẫn ở 6 giờ |
+| H2 | Mỗi xe có 1 tài xế và 1 lơ xe. Giới hạn 10 giờ lái mỗi ngày tính cho một tài xế, quá mức thì nghỉ qua đêm |
+| H3 | Theo đề xuất: hệ số xe tải 1,25, dự phòng 1 giờ |
+| H4 | Coi mọi cửa khẩu trong danh sách đều nhận ngựa sống và kiểm tra giấy tờ, không ghi "dữ liệu thử". Khi mở rộng dự án sẽ tìm hiểu kỹ hơn |
+| H5 | Giữ hành lang Campuchia (Mộc Bài – Bavet → Poipet – Aranyaprathet) để có đủ đường đi. Khi mở rộng sẽ tìm hiểu như H4 |
+| H6 | Dừng ở cửa khẩu khoảng **30 phút** (chỉ kiểm tra giấy tờ, vì quy tắc nghiệp vụ là đủ giấy tờ mới được vận chuyển); kẹt xe thì tới 1 giờ, phần dư nằm trong dự phòng của ETA. Lần dừng này tính luôn là một lần nghỉ cho ngựa |
