@@ -111,7 +111,7 @@ function AuthForm({ mode }: { mode: Mode }) {
   return <main className={`v7-public ${theme === 'dark' ? 'dk' : ''}`} data-theme={theme} lang={language}>
     <PublicSymbols />
     <div id="auth"><div className="ag">
-      <aside className="ap"><Link className="logo" to="/"><BrandLogo />{t('Vận chuyển ngựa','Horse transport')}</Link>
+      <aside className="ap"><Link className="logo" to="/"><BrandLogo />HorseRoute</Link>
         <svg className="big" viewBox="0 0 400 400" aria-hidden="true"><circle cx="200" cy="200" r="190" fill="none" stroke="#ffffff22" strokeWidth="2"/><circle cx="200" cy="200" r="140" fill="none" stroke="#ffffff22" strokeWidth="2" strokeDasharray="6 10"/><circle cx="200" cy="200" r="90" fill="#ffffff12"/><use href="#hs" x="120" y="120" width="160" height="160" color="#f4b942"/></svg>
         <h2>{staff ? t('Cùng phối hợp, vững từng chặng đường.','Working together, every step of the way.') : t('Chuyến đi của ngựa, bạn luôn nắm trong tay.',"Your horses’ journey, always in your hands.")}</h2>
         <ul>{(staff ? [t('Quản lý công việc theo vai trò','Manage work by role'),t('Kết nối hồ sơ và lịch trình','Connect records and schedules'),t('Cập nhật trên cùng một hệ thống','Stay connected in one system')] : [t('Theo dõi xe trên bản đồ theo thời gian thực','Follow your truck on the map'),t('Xem tiến độ từng giấy tờ kiểm dịch','See progress on quarantine documents'),t('Báo giá rõ ràng trước chuyến đi','Clear quotes before departure')]).map(text => <li key={text}>{text}</li>)}</ul>

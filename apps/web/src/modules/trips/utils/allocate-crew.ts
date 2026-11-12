@@ -6,7 +6,7 @@ export function crewQuota(count: number, people: SelectedCrew): string {
   if (new Set(people.map(p=>p.userId)).size !== people.length) return 'Một người chỉ được chọn một lần.';
   for (const role of ['DRIVER','ESCORT'] as const) {
     const n = people.filter(p=>p.role===role).length;
-    if(n<count || n>count*2) return `${n<count?'Thiếu':'Thừa'} ${role==='DRIVER'?'tài xế':'lơ xe'}: ${count} xe cần ${count}–${count*2} người, đang chọn ${n}.`;
+    if(n<count || n>count*2) return `${n<count?'Thiếu':'Thừa'} ${role==='DRIVER'?'tài xế':'hộ tống'}: ${count} xe cần ${count}–${count*2} người, đang chọn ${n}.`;
   }
   return '';
 }

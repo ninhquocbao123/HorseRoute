@@ -8,7 +8,7 @@ type Row=Record<string,any>;
 const iso=(v:Date|string|null)=>v ? (v instanceof Date?v:new Date(v)).toISOString() : null;
 export class PricingService {
  constructor(private readonly db:DataSource){}
- private manager(user:User){if(user.role!==Role.MANAGER)throw new ForbiddenException('Chỉ Manager được quản lý bảng giá.');}
+ private manager(user:User){if(user.role!==Role.MANAGER)throw new ForbiddenException('Chỉ quản lý được quản lý bảng giá.');}
  private map(row:Row):PricingVersion{return {id:String(row.id),title:row.title,note:row.note,status:row.status,revision:Number(row.revision),config:parse(pricingConfigSchema,typeof row.config==='string'?JSON.parse(row.config):row.config),effectiveFrom:iso(row.effective_from),publishedAt:iso(row.published_at),createdAt:iso(row.created_at)!,updatedAt:iso(row.updated_at)!,createdByName:row.creator_name||null,publishedByName:row.publisher_name||null};}
  async current(){
   const [row]=await this.db.query("SELECT * FROM pricing_versions WHERE status='PUBLISHED' AND effective_from<=UTC_TIMESTAMP(3) ORDER BY effective_from DESC,id DESC LIMIT 1");

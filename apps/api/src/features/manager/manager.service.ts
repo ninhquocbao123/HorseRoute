@@ -34,7 +34,7 @@ export class ManagerService {
  (SELECT COALESCE(SUM(r.amount),0) FROM order_receipts r WHERE r.order_id=o.id) paid
  FROM orders o JOIN users u ON u.id=o.customer_id LEFT JOIN specialist_assessments a ON a.order_id=o.id LEFT JOIN users s ON s.id=a.specialist_id
  WHERE o.status<>'DRAFT' ORDER BY o.created_at DESC,o.id DESC`);}
- private allow(u:User){if(u.role!==Role.MANAGER)throw new ForbiddenException('Chỉ Manager được sử dụng chức năng này.');}
+ private allow(u:User){if(u.role!==Role.MANAGER)throw new ForbiddenException('Chỉ quản lý được sử dụng chức năng này.');}
  async context(u:User,orderId:string){this.allow(u);const [order]=await this.db.query('SELECT * FROM orders WHERE id=?',[orderId]);if(!order)throw new NotFoundException('Không tìm thấy đơn.');
   const saved=json(order.booking_details)||json(order.draft_payload)?.booking;
   const booking=saved?{...saved,recipient:saved.recipient||{name:order.recipient_name,phone:order.recipient_phone}}:(order.recipient_name||order.recipient_phone?{recipient:{name:order.recipient_name,phone:order.recipient_phone}}:null);

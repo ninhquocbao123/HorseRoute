@@ -742,7 +742,7 @@ export class TrackingRepository {
       if (Number(vehicle.busy)) blockers.push({code:'VEHICLE_BUSY',message:'Xe đang vận hành chuyến khác.'});
       for (const role of ['DRIVER','ESCORT']) {
         const count=crew.filter((p: {tripVehicleId:string;role:string})=>p.tripVehicleId===vehicle.id && p.role===role).length;
-        if(count<1 || count>2) blockers.push({code:'INELIGIBLE_CREW',message:`Mỗi xe cần 1–2 ${role==='DRIVER'?'tài xế':'lơ xe'}.`});
+        if(count<1 || count>2) blockers.push({code:'INELIGIBLE_CREW',message:`Mỗi xe cần 1–2 ${role==='DRIVER'?'tài xế':'hộ tống'}.`});
       }
     }
     if(crew.some((p:{tripVehicleId:string|null})=>!p.tripVehicleId)) blockers.push({code:'INELIGIBLE_CREW',message:'Nhân sự chưa được gắn xe.'});

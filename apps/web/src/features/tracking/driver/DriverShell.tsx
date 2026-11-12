@@ -101,7 +101,7 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
 
       <aside className="drs-sidebar">
         <div className="drs-sidebar-inner">
-          <div className="drs-brand"><span aria-hidden="true">V</span>Vận chuyển ngựa</div>
+          <div className="drs-brand"><span aria-hidden="true">H</span>HorseRoute</div>
           <div className="drs-role">{role} · {roleLabel}</div>
           <p className="drs-nav-label">ĐIỀU HƯỚNG</p>
           <nav aria-label={`Điều hướng ${roleLabel.toLowerCase()}`}>

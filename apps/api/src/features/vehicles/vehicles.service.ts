@@ -15,7 +15,7 @@ export class VehiclesService {
     if (account.role !== Role.COORDINATOR && account.role !== Role.MANAGER) throw new ForbiddenException('Không đủ quyền');
   }
   private canWrite(account: Pick<User, 'role'>) {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator được quản lý phương tiện.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên được quản lý phương tiện.');
   }
   async list(account: User, rawQuery: unknown) {
     this.canRead(account);

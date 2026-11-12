@@ -32,12 +32,12 @@ const assert=require('node:assert/strict');
   await dialog().getByText('Tất cả trạng thái',{exact:true}).waitFor();
   assert.equal(await dialog().getByRole('tab').count(),2);assert.equal(await card('Busy 7').isDisabled(),true);assert.equal(await card('Busy 9').isDisabled(),true);
   assert.doesNotMatch(await dialog().innerText(),/Chưa kiểm tra lịch nháp|TEST-106|TEST-ONLY/);
-  await card('Tài xế thử').click();await dialog().getByRole('tab',{name:'Lơ xe',exact:true}).click();await card('Lơ xe thử').click();await confirm();await closed();
+  await card('Tài xế thử').click();await dialog().getByRole('tab',{name:'Hộ tống',exact:true}).click();await card('Hộ tống thử').click();await confirm();await closed();
   assert.match(await page.locator('.assignment-personnel-list').innerText(),/Tài xế thử/);assert.equal(Number((await f.q('SELECT COUNT(*) n FROM trip_assignments WHERE trip_id=105'))[0].n),0);console.log('PASS choose crew before vehicle without dates; all statuses; modal confirm does not persist');
   await crewButton().click();await card('Tài xế thử').click();await cancel();await closed();await crewButton().click();assert.equal(await card('Tài xế thử').getAttribute('aria-pressed'),'true');await cancel();await closed();console.log('PASS cancel crew modal restores confirmed draft');
   await vehicleButton().click();assert.equal(await card('TEST-ONLY').isDisabled(),true);assert.match(await card('TEST-ONLY').innerText(),/Chuyến đang giữ: TEST-106/);assert.equal(await card('MOVING-4').isDisabled(),true);await card('FREE-2').click();await confirm();await closed();
   await vehicleButton().click();await card('FREE-2').click();await card('FREE-3').click();await confirm();await closed();assert.match(await page.locator('.assignment-personnel-list').innerText(),/Tài xế thử/);
-  await vehicleButton().click();await card('FREE-3').click();await confirm();await closed();assert.match(await page.locator('.assignment-personnel-list').innerText(),/Lơ xe thử/);console.log('PASS all vehicle states, busy locked, replace/remove all vehicles keeps people');
+  await vehicleButton().click();await card('FREE-3').click();await confirm();await closed();assert.match(await page.locator('.assignment-personnel-list').innerText(),/Hộ tống thử/);console.log('PASS all vehicle states, busy locked, replace/remove all vehicles keeps people');
   // Prepare own persisted reservation and valid schedule to exercise resave/partial save error.
   assert.equal((await f.call('PUT','/trips/105/assignments',3,fleet('2'))).status,200);
   const {issueRouteToken,routeInputKey}=require('../src/features/trips/trip-route-plan');

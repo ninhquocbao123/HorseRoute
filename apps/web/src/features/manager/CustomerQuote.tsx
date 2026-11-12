@@ -169,8 +169,8 @@ export default function CustomerQuote({
             <dl className="cq-summary">
               {[
                 ['Điều chỉnh', data.adjustment],
-                ['VAT ' + Number(data.vat_percent) + '%', data.vat_amount],
-                ['Đặt cọc ' + Number(data.deposit_percent) + '%', data.deposit],
+                ['VAT ' + Number(data.vat_percent).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + '%', data.vat_amount],
+                ['Đặt cọc ' + Number(data.deposit_percent).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + '%', data.deposit],
                 ['Đã thanh toán', paid],
                 ['Còn lại', remaining],
               ].map(([label, value]) => (

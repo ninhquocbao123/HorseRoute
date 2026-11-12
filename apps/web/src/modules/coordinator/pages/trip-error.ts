@@ -7,7 +7,7 @@ export function tripLoadError(error: unknown): string {
     400: 'ID chuyến không hợp lệ.',
     401: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.',
     403: 'Tài khoản không được phép truy cập chuyến này.',
-    404: 'Chuyến không tồn tại hoặc không được phân công cho tài khoản Coordinator này. Hãy mở chuyến từ danh sách của bạn.',
+    404: 'Chuyến không tồn tại hoặc không được phân công cho tài khoản điều phối viên này. Hãy mở chuyến từ danh sách của bạn.',
   };
   const message = status ? messages[status] || (status >= 500 ? 'API gặp lỗi phía máy chủ. Cần kiểm tra log API bằng mã yêu cầu bên dưới.' : 'API từ chối tải chuyến.') : 'Không kết nối được API. Kiểm tra API đang chạy, địa chỉ VITE_API_URL và cấu hình CORS.';
   const requestId = error.response?.data?.requestId;

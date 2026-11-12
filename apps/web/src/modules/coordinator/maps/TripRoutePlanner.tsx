@@ -4,7 +4,9 @@ import { DeleteOutlined, DownOutlined, PlusOutlined, SaveOutlined, UpOutlined } 
 import { api } from '../../../lib/axios';
 import { errorMessage } from '../../../features/tracking/tracking.api';
 import { RouteMap } from './RouteMap';
-import AutoPlanPanel, { type AutoPlanResult } from './AutoPlanPanel';
+import AutoPlanPanel, { duration, type AutoPlanResult } from './AutoPlanPanel';
+/** Số km kiểu Việt Nam: 1.492,4 */
+const km = (meters: number) => (meters / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 });
 import { inputToUtc, utcToInput } from '../../trips/utils/trip-time.utils';
 import type { AddressResult, LatLng, RouteCandidate, Waypoint } from './route.types';
 
@@ -223,7 +225,7 @@ export default function TripRoutePlanner({ tripId, originAddress, destinationAdd
     <RouteMap waypoints={mapPoints} geometry={selected?.geometry} readOnly={locked} picking={!!picking && !locked} onPick={position => { if (picking) choosePosition(picking, position); }} onMove={choosePosition} />
     <p className="osm-source">Nền, tìm kiếm và tuyến dùng dữ liệu © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (Photon, OSRM). Thời gian bản đồ tính cho xe con; lịch tự lập đã nhân hệ số xe tải và cộng thời gian nghỉ.</p>
     {notice && <Alert type="info" message={notice} />}
-    {selected && <div className="saved-route" role="status"><strong>{verificationToken ? 'Tuyến đã chọn — chưa lưu' : 'Tuyến đã lưu'}</strong><p>{(selected.distanceM / 1000).toFixed(1)} km · {Math.round(selected.durationS / 60)} phút lái xe, chưa gồm nghỉ.</p></div>}
+    {selected && <div className="saved-route" role="status"><strong>{verificationToken ? 'Tuyến đã chọn — chưa lưu' : 'Tuyến đã lưu'}</strong><p>{km(selected.distanceM)} km · {duration(selected.durationS / 60)} lái xe, chưa gồm nghỉ.</p></div>}
     {!allLocated && <Alert type="info" message="Xác nhận tọa độ của tất cả điểm để tìm và lưu lộ trình." />}
     <div className="route-stage-heading route-selection-heading">
       <span>3</span>
@@ -235,7 +237,7 @@ export default function TripRoutePlanner({ tripId, originAddress, destinationAdd
         if (cannotEdit()) return;
         const { verificationToken: token, ...stored } = route;
         setSelected(stored); setSelectedId(token); setVerificationToken(token); setDirty(true); setNotice(''); setError('');
-      }} /><span><strong>Tuyến {index + 1} · {(route.distanceM / 1000).toFixed(1)} km</strong><small>Khoảng {Math.round(route.durationS / 60)} phút lái xe, chưa tính nghỉ.</small></span>
+      }} /><span><strong>Tuyến {index + 1} · {km(route.distanceM)} km</strong><small>Khoảng {duration(route.durationS / 60)} lái xe, chưa tính nghỉ.</small></span>
     </label>)}</div>
   </div>;
 }

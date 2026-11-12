@@ -40,7 +40,7 @@ function parseStoredRoutePlan(value: unknown) {
 export class TripsService {
   constructor(private readonly repository: TripsRepository) {}
   async previewRoute(account: User, rawId: string, body: unknown) {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được tính tuyến.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được tính tuyến.');
     const id = parse(tripIdSchema, rawId), input = parse(routePreviewSchema, body);
     const row = await this.accessible(account, id);
     if (row.planStatus !== 'DRAFT' || !['APPROVED', 'PREPARING'].includes(row.orderStatus)) throw new ConflictException('Chỉ tính tuyến khi kế hoạch còn được sửa.');
@@ -50,7 +50,7 @@ export class TripsService {
   }
   /** Tự lập lộ trình (kế hoạch điều phối tự động): điểm gửi, điểm nhận, cửa khẩu, điểm nghỉ, tuyến và giờ đến dự kiến. Chưa lưu gì. */
   async autoRoutePlan(account: User, rawId: string, body: unknown) {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lập lộ trình.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được lập lộ trình.');
     const id = parse(tripIdSchema, rawId), input = parse(autoRoutePlanSchema, body ?? {});
     const row = await this.accessible(account, id);
     if (row.planStatus !== 'DRAFT' || !['APPROVED', 'PREPARING'].includes(row.orderStatus)) throw new ConflictException('Chỉ lập lộ trình khi kế hoạch còn được sửa.');
@@ -69,7 +69,7 @@ export class TripsService {
     return autoplanParams(await repo.systemParameters(Object.values(AUTOPLAN_PARAM_CODES)));
   }
   async saveRoutePlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lưu lộ trình.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được lưu lộ trình.');
     const id = parse(tripIdSchema, rawId), input = parse(routePlanWriteSchema, body);
     if (input.routePlan.selectedRoute?.inputKey !== undefined && input.routePlan.selectedRoute.inputKey !== routeInputKey(input.routePlan.waypoints)) {
       throw new BadRequestException('Tuyến đã chọn không khớp các điểm hiện tại. Hãy tính lại tuyến.');
@@ -95,7 +95,7 @@ export class TripsService {
     });
   }
   async savePlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được lưu kế hoạch.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được lưu kế hoạch.');
     const id = parse(tripIdSchema, rawId), input = parse(tripPlanSchema, body);
     return this.repository.transaction(async repo => {
       const { existing, orderId, trip } = await this.lockEditablePlan(repo, account, id);
@@ -182,7 +182,7 @@ export class TripsService {
   }
 
   async submitPlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được gửi kế hoạch.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được gửi kế hoạch.');
     const id = parse(tripIdSchema, rawId);
     parse(submitTripPlanSchema, body);
     return this.repository.transaction(async repo => {
@@ -247,7 +247,7 @@ export class TripsService {
   }
 
   async reviewPlan(account: User, rawId: string, body: unknown): Promise<TripDetail> {
-    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Manager được duyệt hoặc trả lại kế hoạch.');
+    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ quản lý được duyệt hoặc trả lại kế hoạch.');
     const id = parse(tripIdSchema, rawId), input = parse(reviewTripPlanSchema, body);
     return this.repository.transaction(async repo => {
       const orderId = await repo.orderId(id);
@@ -315,7 +315,7 @@ export class TripsService {
     });
   }
   async releaseToDriver(account: User, rawId: string, body: unknown): Promise<TripDetail> {
-    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ Manager được chuyển chuyến cho tài xế.');
+    if (account.role !== Role.MANAGER) throw new ForbiddenException('Chỉ quản lý được chuyển chuyến cho tài xế.');
     const id = parse(tripIdSchema, rawId);
     const { depositWaiverReason, customsWaiverReason } = parse(startTransportSchema, body ?? {});
     return this.repository.transaction(async repo => {
@@ -382,7 +382,7 @@ export class TripsService {
     })));
     for (const vehicle of vehicles) for (const role of ['DRIVER','ESCORT']) {
       const count = vehicle.crew.filter(p => p.role===role).length;
-      if (count<1 || count>2) readiness.blockers.push({code:'INELIGIBLE_CREW',message:`Xe ${vehicle.plateNumber}: cần 1–2 ${role==='DRIVER'?'tài xế':'lơ xe'}.`});
+      if (count<1 || count>2) readiness.blockers.push({code:'INELIGIBLE_CREW',message:`Xe ${vehicle.plateNumber}: cần 1–2 ${role==='DRIVER'?'tài xế':'hộ tống'}.`});
     }
     if (!vehicles.length || rows.some(p => !p.tripVehicleId)) readiness.blockers.push({code:'INELIGIBLE_CREW',message:'Chưa gắn đầy đủ xe và tổ nhân sự.'});
     readiness.complete = readiness.blockers.length===0;
@@ -421,7 +421,7 @@ export class TripsService {
     }
   }
   async saveAssignments(account: User, rawId: string, body: unknown): Promise<TripAssignments> {
-    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ Coordinator phụ trách được phân công.');
+    if (account.role !== Role.COORDINATOR) throw new ForbiddenException('Chỉ điều phối viên phụ trách được phân công.');
     const id = parse(tripIdSchema, rawId), input = parse(tripFleetSchema, body);
     return this.repository.transaction(async repo => {
       const {orderId, trip} = await this.lockEditablePlan(repo,account,id);

@@ -28,7 +28,7 @@ function events(timeline: IOrderTimeline): JourneyEvent[] {
     const end = index === last;
     const title = {
       DEPARTED: index === 0 ? 'Tài xế đã bắt đầu chuyến đi' : `Xe đã rời ${leg.fromLocationName}`,
-      ARRIVED_AT_STOP: end ? 'Xe đã đến điểm nhận ngựa' : `Xe đã đến ${leg.toLocationName}`,
+      ARRIVED_AT_STOP: end ? 'Xe đã đến điểm giao' : `Xe đã đến ${leg.toLocationName}`,
       CUSTOMS_CLEARED: `Đã thông quan tại ${leg.toLocationName}`,
       DELIVERED: 'Giao ngựa thành công',
     }[m.milestoneType] ?? m.milestoneType;

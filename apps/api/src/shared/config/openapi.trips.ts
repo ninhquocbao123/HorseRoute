@@ -146,7 +146,7 @@ const planPath = detailPath + '/plan';
 
 const exampleCrew = [
   { tripVehicleId: '301', id: '401', userId: '7', fullName: 'Tài xế mẫu', role: 'DRIVER', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z', crewType: 'DRIVER', workStatus: 'RESERVED' },
-  { tripVehicleId: '301', id: '402', userId: '8', fullName: 'Lơ xe mẫu', role: 'ESCORT', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z', crewType: 'ESCORT', workStatus: 'RESERVED' },
+  { tripVehicleId: '301', id: '402', userId: '8', fullName: 'Hộ tống mẫu', role: 'ESCORT', assignedBy: '4', assignedAt: '2026-10-17T08:00:00.000Z', crewType: 'ESCORT', workStatus: 'RESERVED' },
 ];
 const crewExample = { vehicles: [{id:'301',vehicleId:'5',plateNumber:'XE-DEMO-01',capacityStalls:4,horseCount:4,crew:exampleCrew}], tripId: '200', items: exampleCrew, crewReadiness: { complete: true, blockers: [] } };
 const crewEmpty = { vehicles: [], tripId: '200', items: [], crewReadiness: { complete: false, blockers: [

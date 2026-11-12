@@ -73,7 +73,7 @@ function validateFleetCrew(fleet: FleetDraft): string {
       (person) => person.role === "ESCORT",
     ).length;
     if (drivers < 1 || drivers > 2) return "Mỗi xe cần từ 1 đến 2 tài xế.";
-    if (escorts < 1 || escorts > 2) return "Mỗi xe cần từ 1 đến 2 lơ xe.";
+    if (escorts < 1 || escorts > 2) return "Mỗi xe cần từ 1 đến 2 hộ tống.";
     for (const person of vehicle.crew) {
       if (people.has(person.userId))
         return "Một người chỉ được phân công cho một xe trong chuyến.";
@@ -535,7 +535,7 @@ function TripWorkspace({ id }: { id: string }) {
                   Phân công phương tiện & nhân sự
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  Chọn xe, tài xế và lơ xe phù hợp cho chuyến vận chuyển.
+                  Chọn xe, tài xế và hộ tống phù hợp cho chuyến vận chuyển.
                 </Typography.Text>
               </div>
             </div>
@@ -636,13 +636,13 @@ function TripWorkspace({ id }: { id: string }) {
                     </strong>
                   </div>
                   <div>
-                    <span>Lơ xe</span>
+                    <span>Hộ tống</span>
                     <strong
                       className={
                         escortNames.length ? "" : "assignment-placeholder"
                       }
                     >
-                      {escortNames.join(", ") || "Chưa chọn lơ xe"}
+                      {escortNames.join(", ") || "Chưa chọn hộ tống"}
                     </strong>
                   </div>
                 </div>
@@ -1185,7 +1185,7 @@ function TripWorkspace({ id }: { id: string }) {
         }
       >
         <p className="ap-hint">
-          Chọn nhân sự chung cho chuyến. Khi lưu, mỗi xe được bố trí 1–2 tài xế và 1–2 lơ xe.
+          Chọn nhân sự chung cho chuyến. Khi lưu, mỗi xe được bố trí 1–2 tài xế và 1–2 hộ tống.
         </p>
         <div className="crew-picker-summary" aria-live="polite">
           <div>
@@ -1198,12 +1198,12 @@ function TripWorkspace({ id }: { id: string }) {
             </strong>
           </div>
           <div>
-            <span>Lơ xe đã chọn</span>
+            <span>Hộ tống đã chọn</span>
             <strong>
               {pendingRoster
                 .filter((item) => item.role === "ESCORT")
                 .map((item) => personName(item.userId))
-                .join(", ") || "Chưa chọn lơ xe"}
+                .join(", ") || "Chưa chọn hộ tống"}
             </strong>
           </div>
         </div>
@@ -1220,7 +1220,7 @@ function TripWorkspace({ id }: { id: string }) {
                 setSearch("");
               }}
             >
-              {role === "DRIVER" ? "Tài xế" : "Lơ xe"}
+              {role === "DRIVER" ? "Tài xế" : "Hộ tống"}
             </button>
           ))}
         </div>
@@ -1305,7 +1305,7 @@ function TripWorkspace({ id }: { id: string }) {
                         {p.crewType === "DRIVER"
                           ? "Tài xế"
                           : p.crewType === "ESCORT"
-                            ? "Lơ xe"
+                            ? "Hộ tống"
                             : "Chưa có hồ sơ"}
                       </span>
                     </span>

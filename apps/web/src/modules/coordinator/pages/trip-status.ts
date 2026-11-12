@@ -26,9 +26,9 @@ export function statusGuidance(order?: string, plan?: string): string {
     DELIVERED: 'Chuyến vận chuyển đã hoàn thành.',
   };
   if (priority[order]) return priority[order];
-  if (plan === 'PENDING_APPROVAL') return 'Kế hoạch đã được gửi và đang chờ Manager duyệt.';
+  if (plan === 'PENDING_APPROVAL') return 'Kế hoạch đã được gửi và đang chờ quản lý duyệt.';
   if (order === 'PREPARING' && plan === 'DRAFT') return 'Hoàn thiện lộ trình, thời gian và phân công để gửi duyệt.';
-  if (order === 'PREPARING' && plan === 'APPROVED') return 'Kế hoạch đã được duyệt; đang chờ Manager chuyển chuyến cho tổ tài xế.';
+  if (order === 'PREPARING' && plan === 'APPROVED') return 'Kế hoạch đã được duyệt; đang chờ quản lý chuyển chuyến cho tổ lái.';
   if (order === 'READY' && plan === 'APPROVED') return 'Chuyến đã sẵn sàng; đang chờ tài xế xác nhận xuất phát.';
   return fallback;
 }

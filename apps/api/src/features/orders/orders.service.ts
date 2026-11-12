@@ -65,7 +65,7 @@ export class OrdersService {
     return this.db.transaction(m=>updateCustoms(m,user,id,body));
   }
   async deleteDraft(user:User,id:string){
-    if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ Customer được xóa đơn nháp.');
+    if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ khách hàng được xóa đơn nháp.');
     try{return await this.db.transaction(async m=>{
       const order=await this.owned(m,user,id,true);
       if(order.status!=='DRAFT')throw new ConflictException('Chỉ được xóa đơn ở trạng thái Nháp.');

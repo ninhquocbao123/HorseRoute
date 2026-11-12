@@ -11,7 +11,7 @@ export default function CoordinatorAccountPage() {
         <Card className="coordinator-profile-card" bordered={false}>
           <Avatar size={90}>{account.fullName.slice(0, 1).toUpperCase()}</Avatar>
           <Typography.Title level={2}>{account.fullName}</Typography.Title>
-          <Typography.Paragraph>Coordinator · Điều phối viên</Typography.Paragraph>
+          <Typography.Paragraph>Điều phối viên</Typography.Paragraph>
           <Tag color={account.accountStatus === 'ACTIVE' ? 'green' : 'gold'}>
             {account.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : account.accountStatus}
           </Tag>

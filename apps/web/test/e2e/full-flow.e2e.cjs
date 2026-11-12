@@ -275,7 +275,7 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await drawer().getByRole('button', { name: 'Xác nhận chọn', exact: true }).click();
     await page.getByRole('button', { name: 'Chọn nhân sự', exact: true }).click();
     await drawer().getByRole('button', { name: /Tài Xế E2E/ }).click();
-    await drawer().getByText('Lơ xe', { exact: true }).last().click();
+    await drawer().getByText('Hộ tống', { exact: true }).last().click();
     await drawer().getByRole('button', { name: /Hộ Tống E2E/ }).click();
     await drawer().getByText('Đã chọn 2 nhân sự cho 1 xe').waitFor();
     await drawer().getByRole('button', { name: 'Xác nhận chọn', exact: true }).click();

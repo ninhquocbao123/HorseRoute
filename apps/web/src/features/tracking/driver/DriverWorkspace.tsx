@@ -64,7 +64,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
         <section className="drv-card drv-empty">
           <Empty description={<>
             <strong>Bạn chưa có chuyến được phân công</strong>
-            <p>Chuyến sẽ xuất hiện khi điều phối viên phân công bạn, Manager duyệt kế hoạch và bấm chuyển chuyến cho tổ tài xế.</p>
+            <p>Chuyến sẽ xuất hiện khi điều phối viên phân công bạn, quản lý duyệt kế hoạch và bấm chuyển chuyến cho tổ lái.</p>
           </>} />
           <div className="drv-empty-actions">
             <Button type="primary" icon={<HistoryOutlined />} className="drv-btn-start" onClick={() => onNavigate('history')}>Xem lịch sử giao hàng</Button>

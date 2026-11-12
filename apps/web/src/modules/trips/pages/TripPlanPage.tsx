@@ -175,7 +175,7 @@ export default function TripPlanPage() {
         back={back}
         note={
           account?.role === "MANAGER"
-            ? "Manager chỉ xem kế hoạch; Coordinator mới có thể lưu nháp."
+            ? "Quản lý chỉ xem kế hoạch; điều phối viên mới lưu nháp được."
             : "Chỉ kế hoạch DRAFT của chuyến đang chuẩn bị mới có thể chỉnh sửa."
         }
       />

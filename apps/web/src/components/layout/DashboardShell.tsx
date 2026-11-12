@@ -67,10 +67,10 @@ export default function DashboardShell({
         <Link
           className="portal-brand"
           to="/dashboard"
-          aria-label="WDP Equine – Về Tổng quan"
+          aria-label="HorseRoute – Về Tổng quan"
           onClick={event => { event.preventDefault(); go('/dashboard'); }}
         >
-          <BrandLogo /><div>WDP EQUINE<small>TRANSPORT MANAGEMENT</small></div>
+          <BrandLogo /><div>HorseRoute<small>VẬN CHUYỂN NGỰA</small></div>
         </Link>
         <div className="portal-role">KHÔNG GIAN LÀM VIỆC<strong>{config.name}</strong></div>
         <nav aria-label="Điều hướng nghiệp vụ">
@@ -96,7 +96,7 @@ export default function DashboardShell({
             <h1>{activeView === 'overview' ? config.title : title}</h1><p>{config.intro}</p>
           </div></div>}
           {children}
-          <footer className="portal-footer"><span>WDP EQUINE</span><span>Vận chuyển an toàn · Kết nối hành trình</span></footer>
+          <footer className="portal-footer"><span>HorseRoute</span><span>Vận chuyển an toàn · Kết nối hành trình</span></footer>
         </main>
       </div>
     </div>

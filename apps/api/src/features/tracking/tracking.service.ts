@@ -602,7 +602,8 @@ export class TrackingService {
       // In-app notifications
       const milestoneLabels: Record<MilestoneType, string> = {
         [MilestoneType.DEPARTED]: 'Xuất phát',
-        [MilestoneType.ARRIVED_AT_STOP]: 'Đã đến trạm dừng',
+        // B8: chặng cuối là điểm giao, không phải "trạm dừng".
+        [MilestoneType.ARRIVED_AT_STOP]: isLastLeg ? 'Đã đến điểm giao' : 'Đã đến điểm dừng',
         [MilestoneType.CUSTOMS_CLEARED]: 'Đã thông quan',
         [MilestoneType.DELIVERED]: 'Đã giao ngựa an toàn',
       };

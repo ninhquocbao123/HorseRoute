@@ -92,7 +92,9 @@ import {
   fromYmd,
   label,
   money,
+  num,
   profilePayload,
+  quoteLineLabel,
   ymd,
   validDate,
 } from "../live-domain";
@@ -1090,9 +1092,7 @@ export function QuoteScreen({ id, go }: { id: string; go: Navigate }) {
             <Card>
               {quote.items.map((item, i) =>
                 line(
-                  item.quantity > 1
-                    ? `${item.label} × ${item.quantity}`
-                    : item.label,
+                  quoteLineLabel(item),
                   money(item.amount),
                   false,
                   `${item.code}-${i}`,
@@ -1106,9 +1106,9 @@ export function QuoteScreen({ id, go }: { id: string; go: Navigate }) {
                   {`Lý do điều chỉnh: ${quote.adjustment_reason}`}
                 </Txt>
               ) : null}
-              {line(`VAT ${quote.vat_percent}%`, money(quote.vat_amount))}
+              {line(`VAT ${num(quote.vat_percent)}%`, money(quote.vat_amount))}
               {line("Tổng cộng", money(quote.total), true)}
-              {line(`Đặt cọc ${quote.deposit_percent}%`, money(quote.deposit))}
+              {line(`Đặt cọc ${num(quote.deposit_percent)}%`, money(quote.deposit))}
               {line("Đã thanh toán", money(quote.paid), true)}
               {line("Còn lại", money(due), true)}
             </Card>

@@ -52,7 +52,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
 
 function Brand({ collapsed = false, onClick }: { collapsed?: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`coordinator-brand${collapsed ? ' is-collapsed' : ''}`} onClick={onClick} aria-label="Về tổng quan Coordinator">
+    <button type="button" className={`coordinator-brand${collapsed ? ' is-collapsed' : ''}`} onClick={onClick} aria-label="Về tổng quan điều phối">
       <span className="brand-mark">H</span>
       {!collapsed && <span>HorseRoute</span>}
     </button>

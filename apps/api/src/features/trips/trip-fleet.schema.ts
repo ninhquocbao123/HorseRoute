@@ -11,7 +11,7 @@ export const tripFleetSchema = z.object({ vehicles: z.array(z.object({
     seenVehicles.add(v.vehicleId);
     for (const role of ['DRIVER', 'ESCORT']) {
       const n = v.crew.filter(p => p.role === role).length;
-      if (n < 1 || n > 2) ctx.addIssue({ code: 'custom', path: ['vehicles', i, 'crew'], message: `Xe ${v.vehicleId}: cần 1–2 ${role === 'DRIVER' ? 'tài xế' : 'lơ xe'}.` });
+      if (n < 1 || n > 2) ctx.addIssue({ code: 'custom', path: ['vehicles', i, 'crew'], message: `Xe ${v.vehicleId}: cần 1–2 ${role === 'DRIVER' ? 'tài xế' : 'hộ tống'}.` });
     }
     v.crew.forEach((p, j) => {
       if (people.has(p.userId)) ctx.addIssue({ code: 'custom', path: ['vehicles', i, 'crew', j, 'userId'], message: 'Một người chỉ được phân công một lần trong chuyến.' });

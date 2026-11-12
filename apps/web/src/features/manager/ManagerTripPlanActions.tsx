@@ -69,7 +69,7 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
       await qc.invalidateQueries({ queryKey: ['manager-trip-readiness', tripId] });
       void qc.invalidateQueries({ queryKey: ['trips'] });
       onUpdated();
-      void message.success(action === 'START' ? 'Đã chuyển chuyến cho tài xế. Tài xế sẽ xác nhận khi xuất phát.' : action === 'APPROVED' ? 'Đã duyệt kế hoạch. Bạn có thể kiểm tra và chuyển chuyến cho tài xế.' : 'Đã trả kế hoạch cho Coordinator chỉnh sửa.');
+      void message.success(action === 'START' ? 'Đã chuyển chuyến cho tài xế. Tài xế sẽ xác nhận khi xuất phát.' : action === 'APPROVED' ? 'Đã duyệt kế hoạch. Bạn có thể kiểm tra và chuyển chuyến cho tài xế.' : 'Đã trả kế hoạch cho điều phối viên chỉnh sửa.');
     } catch (failure) { setError(errorMessage(failure)); void detail.refetch(); void readiness.refetch(); }
     finally { setBusy(false); }
   }
@@ -84,7 +84,7 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
     {trip?.planStatus === 'APPROVED' && trip.orderStatus === 'PREPARING' && <Button type="primary" loading={busy} onClick={() => void act('START')}>Bắt đầu vận chuyển</Button>}
     <Modal title="Từ chối kế hoạch vận chuyển" open={reject} onCancel={() => !busy && setReject(false)} closable={!busy} maskClosable={!busy}
       okText="Từ chối và trả lại" cancelText="Hủy" confirmLoading={busy} cancelButtonProps={{ disabled: busy }} okButtonProps={{ danger: true, disabled: !reason.trim() }} onOk={() => void act('RETURNED')}>
-      <p>Kế hoạch được trả về Coordinator để chỉnh sửa. Đơn hàng vẫn được giữ lại.</p>
+      <p>Kế hoạch được trả về điều phối viên để chỉnh sửa. Đơn hàng vẫn được giữ lại.</p>
       <Input.TextArea aria-label="Lý do từ chối" value={reason} onChange={e => setReason(e.target.value)} maxLength={255} rows={4} placeholder="Nhập lý do từ chối" />
       {error && <Alert type="error" title={error} />}
     </Modal>
@@ -126,7 +126,7 @@ export default function ManagerTripPlanActions({ tripId, onUpdated, contentTarge
           {assignments.data?.crewReadiness.blockers.map((b, i) => <Alert key={i} type="warning" title={b.message} />)}
           {assignments.data?.vehicles?.map(v => <Card key={v.id} title={`Xe ${v.plateNumber} · ${v.horseCount ?? 0}/${v.capacityStalls} ngựa`}>
             <p>Tài xế: {v.crew.filter(p => p.role === 'DRIVER').map(p => p.fullName).join(', ') || 'Chưa phân công'}</p>
-            <p>Lơ xe (hộ tống): {v.crew.filter(p => p.role === 'ESCORT').map(p => p.fullName).join(', ') || 'Chưa phân công'}</p>
+            <p>Hộ tống: {v.crew.filter(p => p.role === 'ESCORT').map(p => p.fullName).join(', ') || 'Chưa phân công'}</p>
           </Card>)}
         </Space>
       </Spin>

@@ -39,7 +39,7 @@ import type {
   PriceEstimate,
   PricingConfig,
 } from "../../../../../packages/shared/src/types/pricing.type";
-import { day, fromYmd, money, ymd } from "../../live-domain";
+import { day, fromYmd, money, num, ymd } from "../../live-domain";
 import {
   COUNTRY_NAMES,
   INSURANCE_GROUPS,
@@ -1194,7 +1194,7 @@ export function ReviewStep({
               </Txt>
             </View>
             <Txt size={15} color={c.textSecondary}>
-              {`Đặt cọc ${estimate.depositPercent}% sau khi duyệt: ${money(estimate.deposit)}`}
+              {`Đặt cọc ${num(estimate.depositPercent)}% sau khi duyệt: ${money(estimate.deposit)}`}
             </Txt>
           </>
         ) : routeError ? (

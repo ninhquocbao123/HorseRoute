@@ -296,3 +296,13 @@ test("A2: lỗi API giữ mã máy đọc được, đăng nhập tài khoản c
   const plain = createApiClient({ baseUrl: "https://example.test", getToken: () => null, fetcher: async () => Response.json({ message: "Sai" }, { status: 400 }) });
   await assert.rejects(plain("/x"), (error: ApiError) => error.code === undefined);
 });
+
+test("B8: hàng chờ gửi không hiện lỗi kỹ thuật cho tài xế", async () => {
+  const { queueFailureText } = await import("../src/live-domain.ts");
+  assert.match(queueFailureText("java.net.ConnectException: Failed to connect to /10.0.2.2:3100"), /^Chưa kết nối được máy chủ/);
+  assert.match(queueFailureText("Network request failed"), /^Chưa kết nối được máy chủ/);
+  assert.match(queueFailureText("Request timed out"), /quá lâu/);
+  assert.equal(queueFailureText("Máy chủ đang bảo trì, thử lại sau."), "Máy chủ đang bảo trì, thử lại sau.");
+  assert.match(queueFailureText("HTTP 503"), /tạm thời chưa nhận/);
+  assert.equal(queueFailureText(undefined), "");
+});

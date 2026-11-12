@@ -20,7 +20,7 @@ export class LocationsService {
     if (!READERS.includes(account.role)) throw new ForbiddenException('Không đủ quyền');
   }
   private canWrite(account: Pick<User, 'role'>) {
-    if (account.role !== Role.SPECIALIST) throw new ForbiddenException('Chỉ Specialist được quản lý địa điểm.');
+    if (account.role !== Role.SPECIALIST) throw new ForbiddenException('Chỉ chuyên viên được quản lý địa điểm.');
   }
   async list(account: User, rawQuery: unknown) {
     this.canRead(account);

@@ -41,6 +41,7 @@ import { useResource, useSession } from "../session";
 import { Contact, Empty } from "../live-ui";
 import { AbnormalSheet, QuickLogSheet, lastCare } from "./CrewWork";
 import {
+  queueFailureText,
   BACKFILL_MS,
   CONTINUE_ANYWAY,
   applyPending,
@@ -937,7 +938,7 @@ export function QueueScreen() {
             ) : null}
             {item.status === "QUEUED" && item.lastFailure ? (
               <Txt size={12} color={c.textSecondary}>
-                {`Lần thử gần nhất chưa được: ${item.lastFailure}`}
+                {`Lần thử gần nhất chưa được: ${queueFailureText(item.lastFailure)}`}
               </Txt>
             ) : null}
             {item.status === "QUEUED" && item.attempts > 0 ? (

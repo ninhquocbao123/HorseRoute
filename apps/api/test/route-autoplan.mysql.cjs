@@ -80,7 +80,7 @@ function fakeMaps() {
       const restore = fakeMaps();
       try {
         await assert.rejects(() => svc.autoRoutePlan({ id: '5', role: 'COORDINATOR' }, '100', {}), /Không tìm thấy chuyến/);
-        await assert.rejects(() => svc.autoRoutePlan({ id: '1', role: 'CUSTOMER' }, '100', {}), /Chỉ Coordinator/);
+        await assert.rejects(() => svc.autoRoutePlan({ id: '1', role: 'CUSTOMER' }, '100', {}), /Chỉ điều phối viên/);
         const result = await svc.autoRoutePlan(actor, '101', { origin: { latitude: 10.77, longitude: 106.7 }, destination: { latitude: 10.95, longitude: 106.82 } });
         assert.equal(result.departure.source, 'MISSING');
         assert.equal(result.schedule, null);

@@ -5,7 +5,7 @@ import crossBorder from "../../assets/landing-v7/cross-border.png";
 import quarantine from "../../assets/landing-v7/quarantine.png";
 import care from "../../assets/landing-v7/horse-care.png";
 const serviceImages=[domestic,crossBorder,quarantine,care];
-export default function LandingMarkup(){return (<div id="home"><header><div className="wrap hb"><a className="logo" href="#/"><BrandLogo />{"Vận chuyển ngựa"}</a>
+export default function LandingMarkup(){return (<div id="home"><header><div className="wrap hb"><a className="logo" href="#/"><BrandLogo />{"HorseRoute"}</a>
 <nav><a href="#mang-luoi">{"Mạng lưới"}</a><a href="#dich-vu">{"Dịch vụ"}</a><a href="#quy-trinh">{"Quy trình"}</a><a href="#tra-cuu">{"Tra cứu"}</a><div className="tools" data-tools></div><a className="btn line sm" href="#/login">{"Đăng nhập"}</a><a className="btn" href="#/login">{"Đặt chuyến"}</a></nav></div></header>
 <main>
 <section className="hero" style={{"paddingBottom": "96px"}}><div className="wrap hg">
@@ -48,7 +48,7 @@ export default function LandingMarkup(){return (<div id="home"><header><div clas
 <div className="gp"><h4>{"Chăm sóc ngựa"}</h4><div className="rw"><span>{"Khoang đơn mở rộng"}</span><i></i><b data-fee="extraStallPerHorse" data-unit="/ngựa/chuyến">{"—"}</b></div><div className="rw"><span>{"Thức ăn nâng cao"}</span><i></i><b data-fee="premiumFeedPerHorse" data-unit="/ngựa/chuyến">{"—"}</b></div><div className="rw"><span>{"Thức ăn thể thao"}</span><i></i><b data-fee="sportFeedPerHorse" data-unit="/ngựa/chuyến">{"—"}</b></div><div className="rw"><span>{"Cữ nước mỗi 2 giờ"}</span><i></i><b data-fee="water2hPerHorse" data-unit="/ngựa/cữ">{"—"}</b></div><div className="rw"><span>{"Cữ nước mỗi giờ"}</span><i></i><b data-fee="water1hPerHorse" data-unit="/ngựa/cữ">{"—"}</b></div></div>
 <div className="gp"><h4>{"Giấy tờ"}</h4><div className="rw"><span>{"Kiểm dịch nội địa"}</span><i></i><b>{"Đã gồm trong cước"}</b></div><div className="rw"><span>{"Kiểm dịch, hải quan quốc tế"}</span><i></i><b data-fee="internationalPerTrip" data-unit="/chuyến">{"—"}</b></div></div>
 <div className="gp"><h4>{"Bảo hiểm động vật sống"}</h4><div id="insl"></div></div></div>
-<p className="note">{"Dự toán đã cộng cước cơ bản, nhân sự theo số ngày, nhiên liệu theo km, cữ nước và dịch vụ đã chọn. Số ngày và cữ nước là dự kiến; báo giá chính thức do Manager xác nhận. Không tính giá trị này là khoản đã thanh toán."}</p></div>
+<p className="note">{"Dự toán đã cộng cước cơ bản, nhân sự theo số ngày, nhiên liệu theo km, cữ nước và dịch vụ đã chọn. Số ngày và cữ nước là dự kiến; báo giá chính thức do quản lý xác nhận. Không tính giá trị này là khoản đã thanh toán."}</p></div>
 </div></div></section>
 <section style={{"paddingBottom": "40px"}}><div className="wrap g3">
 <div className="card rv"><div className="ic"><svg><use href="#i-truck"></use></svg></div><h3>{"Xe chuyên dụng"}</h3><p>{"Xe nguyên chuyến với khoang phù hợp số ngựa của bạn, không ghép đơn khác."}</p></div>
@@ -80,7 +80,7 @@ export default function LandingMarkup(){return (<div id="home"><header><div clas
 <div className="rv"><b data-n="10" data-s="+">{"0"}</b><span>{"cửa khẩu"}</span></div><div className="rv"><b data-n="30" data-s="%">{"0"}</b><span>{"đặt cọc nhận vận đơn"}</span></div></div></div>
 <section id="dat-chuyen"><div className="wrap"><div className="cb2 rv"><h2>{"Đặt chuyến vận chuyển ngựa đua"}</h2><p>{"Đặt trước tối thiểu 20 ngày. Báo giá cố định, đặt cọc 30% để nhận vận đơn."}</p><a className="btn" href="#/login">{"Đặt chuyến ngay"}</a></div></div></section>
 </main>
-<footer><div className="wrap"><div className="fg"><div><a className="logo" href="#/" style={{"color": "#fff"}}><BrandLogo />{"Vận chuyển ngựa"}</a><p style={{"maxWidth": "40ch"}}>{"Vận chuyển ngựa đua đường bộ trong Việt Nam và giữa Việt Nam với Trung Quốc, Thailand."}</p></div>
+<footer><div className="wrap"><div className="fg"><div><a className="logo" href="#/" style={{"color": "#fff"}}><BrandLogo />{"HorseRoute"}</a><p style={{"maxWidth": "40ch"}}>{"Vận chuyển ngựa đua đường bộ trong Việt Nam và giữa Việt Nam với Trung Quốc, Thailand."}</p></div>
 <div><h4>{"Tra cứu"}</h4><a href="#tra-cuu">{"Tra cứu đơn hàng"}</a><a href="#tra-cuu">{"Bảng giá"}</a><a href="#mang-luoi">{"Mạng lưới"}</a></div>
 <div><h4>{"Khách hàng"}</h4><a href="#/login">{"Đăng nhập"}</a><a href="#/register">{"Đăng ký"}</a><a href="#/login">{"Đặt chuyến"}</a></div></div><div className="cp">{"© 2026 Vận chuyển ngựa"}</div></div></footer>
 </div>);}

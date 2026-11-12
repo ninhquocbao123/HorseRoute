@@ -62,6 +62,12 @@ export const money = (value: string | number | null | undefined) =>
   value !== null && value !== undefined && Number.isFinite(Number(value))
     ? `${Number(value).toLocaleString("vi-VN")} ₫`
     : "Chưa có báo giá";
+/** B8: số kiểu Việt Nam, bỏ số 0 thừa: "30.00" → "30", "8.375" → "8,38". */
+export const num = (value: string | number | null | undefined, digits = 2) =>
+  Number(value ?? 0).toLocaleString("vi-VN", { maximumFractionDigits: digits });
+/** Dòng hạng mục báo giá: nhãn đã ghi số lượng (ví dụ "Vượt 238 km × 15.750 đ/km") thì không ghép thêm "× 238". */
+export const quoteLineLabel = (item: { label: string; quantity: number | string }) =>
+  Number(item.quantity) > 1 && !item.label.includes("×") ? `${item.label} × ${num(item.quantity)}` : item.label;
 export const asId = (value: string | number) =>
   encodeURIComponent(String(value));
 export const checks = [
@@ -222,6 +228,20 @@ export const isReplayConflict = (
   status === 409 &&
   !!item.lastFailure &&
   ["milestone", "checkin", "complete"].includes(item.kind);
+/**
+ * B8: lý do lần gửi trước chưa được, viết cho tài xế đọc. Lỗi kỹ thuật (ví dụ "java.net.ConnectException: Failed to connect
+ * to /10.0.2.2:3100") đổi thành câu dễ hiểu; câu tiếng Việt của máy chủ thì giữ nguyên.
+ */
+export function queueFailureText(raw: string | undefined) {
+  if (!raw) return "";
+  const text = raw.toLowerCase();
+  if (/timeout|timed out|quá thời gian/.test(text)) return "Máy chủ phản hồi quá lâu. Ứng dụng sẽ tự gửi lại.";
+  if (/connect|network|unreachable|econnrefused|enotfound|failed to fetch|socket|unknownhost|mạng/.test(text))
+    return "Chưa kết nối được máy chủ (mất sóng hoặc máy chủ đang tắt). Ứng dụng sẽ tự gửi lại khi có kết nối.";
+  if (/too many|429|quá nhiều/.test(text)) return "Máy chủ đang bận. Ứng dụng sẽ tự gửi lại sau ít phút.";
+  if (/[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/.test(text)) return raw;
+  return "Máy chủ tạm thời chưa nhận được. Ứng dụng sẽ tự gửi lại.";
+}
 /** Chỉ tắt GPS của đúng chuyến đang gửi: mở một chuyến đã giao không được tắt chuyến đang chạy. */
 export const shouldStopTracking = (
   trackedTripId: string | null,

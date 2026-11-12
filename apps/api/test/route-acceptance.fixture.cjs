@@ -34,7 +34,7 @@ module.exports = async function fixture() {
     (3,'coordinator@acceptance.test','!','Điều phối kiểm thử','COORDINATOR','ACTIVE'),
     (4,'other@acceptance.test','!','Điều phối khác','COORDINATOR','ACTIVE'),
     (5,'driver@acceptance.test','!','Tài xế thử','DRIVER_ESCORT','ACTIVE'),
-    (6,'escort@acceptance.test','!','Lơ xe thử','DRIVER_ESCORT','ACTIVE')`);
+    (6,'escort@acceptance.test','!','Hộ tống thử','DRIVER_ESCORT','ACTIVE')`);
   await q("INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (5,'DRIVER','AVAILABLE'),(6,'ESCORT','AVAILABLE')");
   await q("INSERT INTO locations(id,name,location_type,country,timezone) VALUES (1,'Điểm thử A','REST_STOP','VN','Asia/Ho_Chi_Minh'),(2,'Điểm thử B','REST_STOP','VN','Asia/Ho_Chi_Minh')");
   await q("INSERT INTO vehicles(id,vehicle_type,capacity_stalls,license_plate,status) VALUES (1,'LIGHT',4,'TEST-ONLY','AVAILABLE')");
