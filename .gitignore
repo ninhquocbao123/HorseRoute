@@ -13,3 +13,13 @@ test-results/
 
 # Cấu hình API demo cục bộ (có mật khẩu DB demo)
 .env.demo
+
+# C4: tệp cá nhân, tạm và sinh tự động không đưa lên git
+.idea/
+__pycache__/
+*.pyc
+# Dự án dùng pnpm (pnpm-lock.yaml); app mobile giữ apps/mobile/package-lock.json riêng
+/package-lock.json
+# Bản sao DB: chỉ giữ bản làm nguồn cho `pnpm db:local` (docs/db-local-copy.md) tới khi nhóm có DB chung mới
+backups/*
+!backups/wdp_before_trip_fleet_20261028.sql
