@@ -27,7 +27,7 @@ Ví dụ lỗi (rút gọn):
 | Mã lỗi | Kiểm tra |
 | --- | --- |
 | `INVALID_ENV` | Các tên biến trong `configFields`; không ghi giá trị của biến |
-| `INVALID_SSL_CONFIG` | `DB_SSL` và đường dẫn tuyệt đối `DB_SSL_CA_PATH` |
+| `INVALID_SSL_CONFIG` | `DB_SSL`, `DB_SSL_CA` hoặc đường dẫn tuyệt đối `DB_SSL_CA_PATH` |
 | `ENOENT` ở `mysql_config` | File CA có tồn tại ở đường dẫn đã cấu hình không |
 | `ECONNREFUSED` | Dịch vụ có chạy, địa chỉ/cổng có đúng không |
 | `ER_ACCESS_DENIED_ERROR` | Tài khoản và quyền MySQL |
