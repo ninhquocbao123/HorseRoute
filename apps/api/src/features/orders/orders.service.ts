@@ -45,14 +45,15 @@ export class OrdersService {
         WHERE o.customer_id=?
         ORDER BY r.received_at DESC, r.id DESC`,[user.id])
     ]);
-    return {orders,horses,receipts};
+    // MySQL trả EXISTS dạng chữ "0"/"1": đổi sang true/false để "0" không bị hiểu là xe đã tới.
+    return {orders:orders.map((o:Record<string,unknown>)=>({...o,arrived_at_delivery:Number(o.arrived_at_delivery)===1})),horses,receipts};
   }
 
   async quote(user:User,id:string){
     await this.owned(this.db.manager,user,id);
     const [q]=await this.db.query("SELECT q.id,q.input,q.items,q.subtotal,q.adjustment,q.adjustment_reason,q.vat_percent,q.vat_amount,q.total,q.deposit,q.deposit_percent,q.expires_at,(SELECT COALESCE(SUM(amount),0) FROM order_receipts r WHERE r.order_id=q.order_id) paid,o.status order_status,EXISTS(SELECT 1 FROM legs l JOIN trips t ON t.id=l.trip_id WHERE t.order_id=o.id AND t.plan_status='APPROVED' AND l.status='AT_STOP' AND l.seq_no=(SELECT MAX(l2.seq_no) FROM legs l2 WHERE l2.trip_id=l.trip_id)) arrived_at_delivery FROM order_quotes q JOIN orders o ON o.id=q.order_id WHERE q.order_id=? AND q.status='APPROVED' ORDER BY q.id DESC LIMIT 1",[id]);
     const receipts = await this.db.query(`SELECT id, quote_id, amount, reference, method, source, received_at FROM order_receipts WHERE order_id=? ORDER BY received_at DESC, id DESC`, [id]);
-    return q?{...q,arrived_at_delivery:Boolean(q.arrived_at_delivery),input:typeof q.input==='string'?JSON.parse(q.input):q.input,items:typeof q.items==='string'?JSON.parse(q.items):q.items, receipts}:null;
+    return q?{...q,arrived_at_delivery:Number(q.arrived_at_delivery)===1,input:typeof q.input==='string'?JSON.parse(q.input):q.input,items:typeof q.items==='string'?JSON.parse(q.items):q.items, receipts}:null;
   }
 
   /** A4: khách hủy đơn chưa duyệt; quản lý hủy đơn chưa xuất phát và quyết định số tiền hoàn. */

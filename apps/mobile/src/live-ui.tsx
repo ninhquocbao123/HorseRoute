@@ -317,6 +317,48 @@ export function WebButton({
     </>
   );
 }
+/**
+ * Tải ảnh riêng tư kèm token rồi đưa cho Image dạng data URI. Image của React Native trên Android
+ * (kiến trúc mới) bỏ qua header Authorization nên máy chủ trả 401 và ảnh không hiện.
+ * Lưu tạm theo đường dẫn để danh sách ảnh không tải lại mỗi lần vẽ.
+ */
+const privateImageCache = new Map<string, string>();
+function usePrivateImage(path: string, token: string | null) {
+  const [state, setState] = useState<{ uri: string | null; failed: boolean }>(() => ({
+    uri: privateImageCache.get(path) ?? null,
+    failed: false,
+  }));
+  useEffect(() => {
+    const cached = privateImageCache.get(path);
+    if (cached) {
+      setState({ uri: cached, failed: false });
+      return;
+    }
+    let alive = true;
+    setState({ uri: null, failed: false });
+    (async () => {
+      const res = await fetch(API_URL + path, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const uri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      privateImageCache.set(path, uri);
+      if (alive) setState({ uri, failed: false });
+    })().catch(() => {
+      if (alive) setState({ uri: null, failed: true });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [path, token]);
+  return state;
+}
 export function PrivateImage({
   path,
   caption,
@@ -329,24 +371,24 @@ export function PrivateImage({
 }) {
   const { token } = useSession();
   const { colors: c } = useTheme();
-  const [failed, setFailed] = useState(false);
-  if (size)
-    return failed ? null : (
-      <Image
-        source={{
-          uri: API_URL + path,
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }}
-        onError={() => setFailed(true)}
-        accessibilityLabel={caption || "Ảnh"}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 12,
-          backgroundColor: c.surfaceMuted,
-        }}
-      />
-    );
+  const { uri, failed: loadFailed } = usePrivateImage(path, token);
+  const [decodeFailed, setDecodeFailed] = useState(false);
+  const failed = loadFailed || decodeFailed;
+  const box = size
+    ? { width: size, height: size, borderRadius: 12, backgroundColor: c.surfaceMuted }
+    : { width: "100%" as const, height: 230, borderRadius: 16, backgroundColor: c.surfaceMuted };
+  // Đang tải: giữ chỗ bằng ô nền xám cùng kích thước.
+  const image = uri ? (
+    <Image
+      source={{ uri }}
+      onError={() => setDecodeFailed(true)}
+      accessibilityLabel={caption || (size ? "Ảnh" : "Ảnh đính kèm")}
+      style={box}
+    />
+  ) : (
+    <View style={box} accessibilityLabel="Đang tải ảnh" />
+  );
+  if (size) return failed ? null : image;
   return failed ? (
     <Banner
       warning
@@ -354,20 +396,7 @@ export function PrivateImage({
     />
   ) : (
     <View style={{ gap: 8 }}>
-      <Image
-        source={{
-          uri: API_URL + path,
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }}
-        onError={() => setFailed(true)}
-        accessibilityLabel={caption || "Ảnh đính kèm"}
-        style={{
-          width: "100%",
-          height: 230,
-          borderRadius: 16,
-          backgroundColor: c.surfaceMuted,
-        }}
-      />
+      {image}
       {caption ? <Txt size={12}>{caption}</Txt> : null}
     </View>
   );

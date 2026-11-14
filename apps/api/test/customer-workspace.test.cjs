@@ -9,3 +9,8 @@ test('customer workspace scopes every query to the signed-in customer and forbid
  assert.deepEqual(queries[1].args,['12','12']);assert.match(queries[1].sql,/h.owner_id=\? AND o.customer_id=\?/);
  assert.deepEqual(queries[2].args,['12']);assert.match(queries[2].sql,/WHERE o.customer_id=\?/);
 });
+test('customer workspace turns the MySQL "0"/"1" arrived flag into a real boolean',async()=>{
+ const service=new OrdersService({query:async(sql)=>sql.includes('FROM orders o WHERE o.customer_id')?[{id:'1',arrived_at_delivery:'0'},{id:'2',arrived_at_delivery:'1'},{id:'3',arrived_at_delivery:1}]:[]});
+ const {orders}=await service.customerWorkspace({id:'12',role:'CUSTOMER'});
+ assert.deepEqual(orders.map(o=>o.arrived_at_delivery),[false,true,true]);
+});

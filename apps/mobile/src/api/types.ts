@@ -72,7 +72,7 @@ export type Order = {
   quote_total?: number | string | null;
   quote_deposit?: number | string | null;
   quote_expires_at?: string | null;
-  arrived_at_delivery?: number | boolean;
+  arrived_at_delivery?: number | boolean | string;
   paid?: number | string;
   manager_note?: string | null;
 };

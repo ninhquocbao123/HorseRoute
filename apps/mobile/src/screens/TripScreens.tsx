@@ -86,13 +86,15 @@ import type {
   Navigate,
 } from "../api/types";
 
-const clock = (iso: string | null | undefined) =>
-  iso && Number.isFinite(Date.parse(iso))
-    ? new Date(iso).toLocaleTimeString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "--:--";
+// Giờ phút; khác ngày hôm nay thì kèm ngày (dd/mm) để chuyến nhiều ngày không bị hiểu nhầm.
+const clock = (iso: string | null | undefined) => {
+  if (!iso || !Number.isFinite(Date.parse(iso))) return "--:--";
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${time} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+};
 const duration = (ms: number) => {
   const minutes = Math.round(ms / 60000);
   return minutes >= 60

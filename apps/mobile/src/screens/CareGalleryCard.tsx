@@ -10,11 +10,14 @@ import { Card, Section, Txt, s, useTheme } from "../ui";
 import { PrivateImage } from "../live-ui";
 import { asId, label } from "../live-domain";
 
+// Giờ phút; khác ngày hôm nay thì kèm dd/mm (cùng kiểu với lịch trình).
 const clock = (iso: string) => {
   const d = new Date(iso);
-  return Number.isFinite(d.getTime())
-    ? d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
-    : "--:--";
+  if (!Number.isFinite(d.getTime())) return "--:--";
+  const time = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${time} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 };
 
 export function CareGalleryCard({ activities }: { activities: ICareActivity[] }) {

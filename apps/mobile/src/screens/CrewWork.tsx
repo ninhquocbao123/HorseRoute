@@ -108,7 +108,7 @@ const dayClock = (iso: string) => {
   const today = new Date().toDateString() === d.toDateString();
   return today
     ? clock(d)
-    : `${clock(d)} ${d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`;
+    : `${clock(d)} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 const withUnit = (n: number, unit: string) =>
   `${String(n).replace(".", ",")} ${unit}`;

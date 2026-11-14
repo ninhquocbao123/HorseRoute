@@ -169,6 +169,11 @@ test("paymentAction picks the right instalment, amount and urgency", () => {
   const arrived = paymentAction({ status: "IN_TRANSIT", arrivedAtDelivery: 1 }, { ...quote, paid: 100 });
   assert.equal(arrived.kind === "pay" && arrived.urgent, true);
   assert.match(arrived.note ?? "", /Tài xế đang đợi/);
+  // MySQL trả EXISTS dạng chữ: "0" là chưa tới, "1" là đã tới.
+  const moving = paymentAction({ status: "IN_TRANSIT", arrivedAtDelivery: "0" }, { ...quote, paid: 100 });
+  assert.equal(moving.kind === "pay" && moving.urgent, false);
+  assert.doesNotMatch(moving.note ?? "", /Xe đã tới/);
+  assert.equal(paymentAction({ status: "IN_TRANSIT", arrivedAtDelivery: "1" }, { ...quote, paid: 100 }).kind === "pay", true);
   assert.equal(paymentAction({ status: "DELIVERED" }, { ...quote, paid: 100 }).kind, "pay");
   const paid = paymentAction({ status: "IN_TRANSIT" }, { ...quote, paid: 300 });
   assert.deepEqual([paid.kind, paid.note], ["none", "Đã thanh toán đủ"]);

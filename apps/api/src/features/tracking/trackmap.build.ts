@@ -81,9 +81,11 @@ export function checkpointProgress(leg: TripMapLegRow, line: LngLat[] | null, ch
   via.forEach((point, i) => { if (done.has(point.id)) last = i; });
   const next = via.findIndex((point, i) => i > last && !done.has(point.id));
   const low = last >= 0 ? fractions[last] : 0;
+  // Phía bên kia cửa khẩu có tên kèm "– đã qua cửa khẩu"; câu mô tả không cần đuôi đó.
+  const plain = (name: string) => name.replace(/\s*–\s*đã qua cửa khẩu$/, '');
   return {
-    last: last >= 0 ? { name: via[last].name, at: done.get(via[last].id)!, fraction: low, point: [via[last].lng, via[last].lat] as LngLat } : null,
-    nextName: next >= 0 ? via[next].name : leg.toName,
+    last: last >= 0 ? { name: plain(via[last].name), at: done.get(via[last].id)!, fraction: low, point: [via[last].lng, via[last].lat] as LngLat } : null,
+    nextName: next >= 0 ? plain(via[next].name) : leg.toName,
     /** Không vượt điểm kế tiếp chưa check-in (và không bao giờ "đến nơi" khi chưa có mốc đến). */
     maxFraction: Math.max(low, Math.min(0.95, next >= 0 ? fractions[next] : 0.95)),
   };

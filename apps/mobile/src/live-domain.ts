@@ -54,10 +54,13 @@ export const statuses: Record<string, string> = {
 };
 export const label = (value: string | null | undefined) =>
   value ? (statuses[value] ?? value) : "Chưa cập nhật";
-export const dateTime = (value: string | null | undefined) =>
-  value && Number.isFinite(Date.parse(value))
-    ? new Date(value).toLocaleString("vi-VN")
-    : "Chưa cập nhật";
+/** Giờ phút rồi ngày: 16:01 14/11/2026 (không hiện giây). */
+export const dateTime = (value: string | null | undefined) => {
+  if (!value || !Number.isFinite(Date.parse(value))) return "Chưa cập nhật";
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
 export const money = (value: string | number | null | undefined) =>
   value !== null && value !== undefined && Number.isFinite(Number(value))
     ? `${Number(value).toLocaleString("vi-VN")} ₫`
@@ -129,7 +132,7 @@ export type PaymentAction =
  * báo giá hết hạn chỉ chặn khi chưa đủ cọc; đã cọc đủ thì vẫn trả tiếp được.
  */
 export function paymentAction(
-  order: { status: string; arrivedAtDelivery?: boolean | number | null },
+  order: { status: string; arrivedAtDelivery?: boolean | number | string | null },
   quote: {
     total: string | number;
     deposit: string | number;
@@ -163,7 +166,9 @@ export function paymentAction(
       urgent: false,
     };
   }
-  const urgent = !!order.arrivedAtDelivery && order.status === "IN_TRANSIT";
+  // Máy chủ cũ trả "0"/"1" dạng chữ: "0" không được coi là xe đã tới.
+  const arrived = order.arrivedAtDelivery === true || Number(order.arrivedAtDelivery) === 1;
+  const urgent = arrived && order.status === "IN_TRANSIT";
   return {
     kind: "pay",
     type: "BALANCE",
@@ -419,7 +424,7 @@ export function driverAction(
         return {
           // Cửa khẩu có hai điểm: phía rời đi (đã đến cửa khẩu) và phía bên kia (đã qua cửa khẩu).
           label: /đã qua cửa khẩu$/.test(next.name)
-            ? `Đã qua cửa khẩu ${shortName(next.name.replace(/\s*–\s*đã qua cửa khẩu$/, ""))}`
+            ? `Đã qua cửa khẩu ${shortName(next.name.replace(/\s*–\s*đã qua cửa khẩu$/, "")).replace(/^Cửa khẩu\s+/i, "")}`
             : `Đã đến ${shortName(next.name)}`,
           path: `${base}/waypoints/${asId(next.locationId)}/checkin`,
           body: {},
@@ -507,7 +512,8 @@ export function tripTimeline(
     ...rests.map((r) => {
       const at = checkinAt(r.locationId);
       return {
-        name: r.name,
+        // Dòng phụ đã ghi "Đã qua cửa khẩu", tên không lặp lại đuôi đó.
+        name: r.name.replace(/\s*–\s*đã qua cửa khẩu$/, ""),
         note:
           r.locationType !== "BORDER"
             ? "Điểm nghỉ"
@@ -696,7 +702,8 @@ export function nextStop(trip: IDriverTripDetail, map?: ITripMap | null) {
     legs.length === 1 && map ? nextRestStop(map, leg.waypointCheckins) : null;
   return {
     caption: "ĐIỂM KẾ TIẾP",
-    name: rest ? rest.name : leg.toLocationName,
+    // Phía bên kia cửa khẩu: bỏ đuôi "– đã qua cửa khẩu", nút bên dưới đã nói rõ việc cần ghi.
+    name: rest ? rest.name.replace(/\s*–\s*đã qua cửa khẩu$/, "") : leg.toLocationName,
     at: rest ? null : leg.plannedArrivalAt,
     atLabel: "Dự kiến đến",
   };
