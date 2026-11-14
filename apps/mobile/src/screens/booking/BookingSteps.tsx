@@ -31,7 +31,7 @@ import {
   useTheme,
 } from "../../ui";
 import { Sheet, useOverlay } from "../../overlay";
-import { useResource } from "../../session";
+import { useResource, useSession } from "../../session";
 import { Empty, SelectField } from "../../live-ui";
 import { motion } from "../../theme";
 import type { Navigate, Profile } from "../../api/types";
@@ -194,6 +194,7 @@ export function TripStep({
   sectionY: Record<string, number>;
 }) {
   const { colors: c } = useTheme();
+  const { request } = useSession();
   const b = draft.booking;
   const foreign =
     b.sender.country === "VN" ? b.recipient.country : b.sender.country;
@@ -300,16 +301,26 @@ export function TripStep({
         errors={errors}
         onLayoutY={(y) => (sectionY.sender = y)}
         onChange={(patch, field) => contact("sender", patch, field)}
-        onUseAccount={() => {
-          ["name", "phone", "address"].forEach((f) =>
-            clearError(`sender.${f}`),
-          );
+        onUseAccount={async () => {
+          // "Tôi là người gửi": thông tin đã lưu (tài khoản + đơn gần nhất khách là người gửi); tỉnh, phường chỉ điền khi cùng nước.
+          let patch: Partial<BookingContact> = accountContact(account);
+          try {
+            const p = await request<Partial<BookingContact>>("/orders/sender-profile");
+            const same = !p.country || p.country === b.sender.country;
+            patch = {
+              name: p.name || account.fullName,
+              phone: p.phone || account.phone || "",
+              address: p.address || account.address || "",
+              identityNumber: p.identityNumber || "",
+              ...(same && p.city ? { city: p.city, ward: p.ward || "" } : {}),
+            };
+          } catch {
+            /* mất mạng: điền phần có trong tài khoản */
+          }
+          Object.keys(patch).forEach((f) => clearError(`sender.${f}`));
           change((d) => ({
             ...d,
-            booking: {
-              ...d.booking,
-              sender: { ...d.booking.sender, ...accountContact(account) },
-            },
+            booking: { ...d.booking, sender: { ...d.booking.sender, ...patch } },
           }));
         }}
       />

@@ -68,11 +68,11 @@ import {
   ITripTrackPoint,
 } from '@my-project/shared';
 import { TrackingTripDetail, LegDetailRow, MilestoneRow, WaypointCheckinRow } from './tracking.dto';
-import { buildTripMap, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
+import { buildTripMap, checkpointProgress, isLegOverdue, legEnds, toLatestPosition } from './trackmap.build';
 import { Logger } from '../../shared/utils/logger.util';
 import { socketService } from '../../shared/socket/socket.service';
 import { RoutesProvider, type ResolvedRoute } from './trackmap.routes-provider';
-import { modeForVehicle } from './trackmap.geo';
+import { modeForVehicle, type LngLat } from './trackmap.geo';
 
 const waypointCheckinView = (c: WaypointCheckinRow): IWaypointCheckin => ({
   waypointId: c.waypointId, label: c.label, occurredAt: c.occurredAt.toISOString(), recordedByName: c.recordedByName,
@@ -1852,7 +1852,8 @@ export class TrackingService {
         routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
       }
     }));
-    return buildTripMap({ trip: { id: trip.id, orderCode: trip.orderCode, orderStatus: trip.orderStatus }, legs, routes, latest, speedLimitKmh, now: Date.now() });
+    const checkins = await this.repository.getWaypointCheckins(legs.map(leg => leg.id));
+    return buildTripMap({ trip: { id: trip.id, orderCode: trip.orderCode, orderStatus: trip.orderStatus }, legs, routes, latest, speedLimitKmh, now: Date.now(), checkins });
   }
 
   /**
@@ -1874,17 +1875,25 @@ export class TrackingService {
       if (leg.routeCoordinates?.length) routes.set(leg.id, { mode: 'ROAD', coordinates: leg.routeCoordinates, distanceKm: (leg.routeDistanceM ?? 0) / 1000 });
       else routes.set(leg.id, from && to ? await this.routes.route(leg.fromId, leg.toId, from, to, modeForVehicle(leg.vehicleType)) : null);
     }));
-    const map = buildTripMap({ trip: { id: tripId, orderCode: header.orderCode, orderStatus: header.orderStatus }, legs, routes, latest: undefined, speedLimitKmh: null, now: Date.now() });
-    // Chặng đang chạy (MOVING): builder ước tính theo giờ kế hoạch; với khách thì giữ xe ở điểm đã ghi mốc gần nhất (điểm xuất phát chặng).
+    const checkins = await this.repository.getWaypointCheckins(legs.map(leg => leg.id));
+    const map = buildTripMap({ trip: { id: tripId, orderCode: header.orderCode, orderStatus: header.orderStatus }, legs, routes, latest: undefined, speedLimitKmh: null, now: Date.now(), checkins });
+    // Chặng đang chạy (MOVING): khách không thấy ước tính theo giờ; xe đứng ở mốc gần nhất tài xế đã ghi:
+    // điểm nghỉ, cửa khẩu vừa check-in, hoặc điểm xuất phát của chặng.
     const moving = legs.findIndex(leg => leg.status === LegStatus.MOVING);
     const line = moving >= 0 ? routes.get(legs[moving].id)?.coordinates : null;
     if (moving >= 0 && line?.length) {
       const leg = legs[moving];
+      const progress = checkpointProgress(leg, line as LngLat[], checkins);
+      const last = progress?.last ?? null;
       const departed = leg.actualDepartureAt ? ` lúc ${VN_CLOCK.format(leg.actualDepartureAt)}` : '';
-      map.position = { source: 'ESTIMATED', lng: line[0][0], lat: line[0][1], asOf: (leg.actualDepartureAt ?? new Date()).toISOString(), legId: leg.id,
-        label: `Đã xuất phát từ ${leg.fromName}${departed}, đang trên đường đến ${leg.toName}` };
+      const point = last?.point ?? line[0];
+      map.position = { source: 'ESTIMATED', lng: point[0], lat: point[1], asOf: (last?.at ?? leg.actualDepartureAt ?? new Date()).toISOString(), legId: leg.id,
+        label: last
+          ? `Đã qua ${last.name} lúc ${VN_CLOCK.format(last.at)}, đang trên đường đến ${progress!.nextName}`
+          : `Đã xuất phát từ ${leg.fromName}${departed}, đang trên đường đến ${leg.toName}` };
       const rest = map.legs.slice(moving).map(item => item.distanceKm);
-      map.remainingKm = rest.every(km => km !== null) ? Math.round(rest.reduce<number>((sum, km) => sum + (km ?? 0), 0) * 10) / 10 : null;
+      map.remainingKm = rest.every(km => km !== null)
+        ? Math.round((rest.reduce<number>((sum, km) => sum + (km ?? 0), 0) - (rest[0] ?? 0) * (last?.fraction ?? 0)) * 10) / 10 : null;
     }
     // Khách không thấy cảnh báo kỹ thuật của bản đồ nội bộ.
     return { ...map, latestPosition: null, speedLimitKmh: null, warnings: [] };

@@ -37,10 +37,11 @@ const filled = () => {
 const profile = (id: string, passportNo = `P-${id}`) =>
   ({ id, name: `Ngựa ${id}`, passportNo, breed: "Arabian", birthDate: "", sex: "", coatColor: "", note: "" }) as any;
 
-test("new draft fills the sender from the account, like the web button", () => {
+test("new draft starts with an empty sender until the customer taps 'Tôi là người gửi' (like the web)", () => {
   const d = newDraft("r1", account);
-  assert.equal(d.booking.sender.name, "Khách Minh");
-  assert.equal(d.booking.sender.phone, "0912345678");
+  assert.equal(d.booking.sender.name, "");
+  assert.equal(d.booking.sender.phone, "");
+  assert.equal(d.booking.sender.country, "VN");
   assert.equal(d.booking.recipient.name, "");
   assert.equal(d.booking.paymentMethod, "BANK");
 });
@@ -83,9 +84,8 @@ test("insurance group follows the breed only when the whole group matches", () =
 test("step 1 requires every contact field and a date from today", () => {
   const empty = newDraft("r1", account);
   const e = stepErrors(0, empty, "2026-11-06");
-  for (const field of ["date", "sender.city", "sender.ward", "sender.identityNumber", "recipient.name", "recipient.phone", "recipient.address"])
+  for (const field of ["date", "sender.name", "sender.phone", "sender.city", "sender.ward", "sender.identityNumber", "recipient.name", "recipient.phone", "recipient.address"])
     assert.ok(e[field], field);
-  assert.equal(e["sender.name"], undefined);
   assert.deepEqual(stepErrors(0, filled(), "2026-11-06"), {});
   assert.ok(stepErrors(0, { ...filled(), date: "2026-11-05" }, "2026-11-06").date);
   const badPhone = filled();
@@ -147,9 +147,9 @@ test("reopening an order keeps web booking data and locks horses when it needs i
   assert.equal(needInfo.savedId, "7");
   assert.deepEqual(needInfo.lockedHorses, horses);
   assert.equal(draftFromOrder(order("DRAFT"), account, "r9", horses).lockedHorses, undefined);
-  // Đơn cũ không có booking: mở được, người gửi lấy từ tài khoản.
+  // Đơn cũ không có booking: mở được, người gửi để trống để khách bấm "Tôi là người gửi".
   const legacy = draftFromOrder({ ...order("DRAFT"), booking_details: null }, account, "r9", horses);
-  assert.equal(legacy.booking.sender.name, "Khách Minh");
+  assert.equal(legacy.booking.sender.name, "");
   assert.equal(legacy.booking.recipient.city, "");
 });
 test("old free-text drafts keep horses, date and notes, and ask for the address again", () => {

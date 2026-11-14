@@ -11,7 +11,14 @@ const REFRESH_MS = 60_000;
  * Bản đồ trong thẻ "Chuyến đang chạy" của trang chủ khách: vị trí xe cập nhật theo từng mốc tài xế check-in.
  * Dưới bản đồ: điểm đi → điểm đến và mốc mới nhất.
  */
-export default function CustomerTripMap({ orderId, from, to }: { orderId: string; from: string; to: string }) {
+export default function CustomerTripMap({ orderId, from, to, height = 320, refreshKey, className }: {
+  orderId: string; from: string; to: string;
+  /** Trang chủ 320px; trang Theo dõi hành trình to hơn. */
+  height?: number | string;
+  /** Đổi giá trị (ví dụ giờ cập nhật mới nhất của đơn) thì tải lại ngay, không chờ 60 giây. */
+  refreshKey?: string | null;
+  className?: string;
+}) {
   const [map, setMap] = useState<ITripMap | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -19,11 +26,11 @@ export default function CustomerTripMap({ orderId, from, to }: { orderId: string
     void load();
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, REFRESH_MS);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [orderId]);
+  }, [orderId, refreshKey]);
   const status = map?.position?.label?.replace(/^Ước tính theo kế hoạch, không phải GPS: /, '');
   return (
-    <div className="cj-map customer-trip-map">
-      <MapView height={190} label={`Bản đồ hành trình ${from} đến ${to}`} hint="Bấm “Theo dõi hành trình” để xem từng chặng.">
+    <div className={'cj-map customer-trip-map ' + (className ?? '')}>
+      <MapView height={height} label={`Bản đồ hành trình ${from} đến ${to}`} hint="Bấm “Theo dõi hành trình” để xem từng chặng.">
         <CustomerRouteMap map={map} />
       </MapView>
       <span>{from} <b>→</b> {to}</span>

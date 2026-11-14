@@ -102,6 +102,11 @@ run('Luồng E2E đặt chuyến đến giao ngựa', async ({ page, db, login, 
     await main.getByPlaceholder('DD/MM/YYYY').first().press('Enter');
     const selects = main.locator('select');
     const phones = main.getByPlaceholder('VD: +84 901 234 567');
+    // Người gửi để trống tới khi bấm "Tôi là người gửi" (điền từ tài khoản; chưa có đơn cũ nên tỉnh, phường vẫn chọn tay).
+    const senderName = main.getByLabel('Họ tên người gửi / Tên đơn vị *');
+    assert.equal(await senderName.inputValue(), '', 'người gửi để trống lúc đầu');
+    await main.getByRole('button', { name: 'Tôi là người gửi' }).click();
+    await until('điền người gửi từ tài khoản', async () => (await senderName.inputValue()) !== '');
     await phones.nth(0).fill('0912345678');
     await selects.nth(0).selectOption({ label: 'Thành phố Hồ Chí Minh' });
     await selects.nth(1).selectOption({ index: 8 });

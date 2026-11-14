@@ -150,7 +150,8 @@ export const normalizeSearch = (value: string) =>
     .trim();
 
 const blankBooking = (account: Account): BookingData => ({
-  sender: { ...blankContact(), ...accountContact(account) },
+  // Người gửi để trống tới khi khách bấm "Tôi là người gửi" (khớp web).
+  sender: blankContact(),
   recipient: blankContact(),
   pickupTime: "08:00 – 10:00",
   vehicleClass: "LIGHT",

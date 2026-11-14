@@ -60,6 +60,31 @@ export class OrdersService {
     if(user.role!==Role.CUSTOMER&&user.role!==Role.MANAGER)throw new ForbiddenException('Không đủ quyền hủy đơn.');
     return this.db.transaction(async m=>cancelOrder(m,user,await this.owned(m,user,id,true) as any,body,(tx,recipient,orderId,event,content)=>this.notify(tx,recipient,orderId,event,content)));
   }
+  /**
+   * "Tôi là người gửi": thông tin người gửi của chủ tài khoản. Tên, số điện thoại, địa chỉ lấy từ tài khoản;
+   * tỉnh/thành, xã/phường, CCCD và địa chỉ cụ thể lấy từ đơn gần nhất mà khách là người gửi (cùng số điện thoại hoặc cùng tên).
+   */
+  async senderProfile(user:User){
+    if(user.role!==Role.CUSTOMER)throw new ForbiddenException('Chỉ khách hàng dùng được chức năng này.');
+    const [account]=await this.db.query('SELECT full_name,phone,address FROM users WHERE id=?',[user.id]);
+    const rows:Row[]=await this.db.query("SELECT booking_details,draft_payload FROM orders WHERE customer_id=? ORDER BY id DESC LIMIT 20",[user.id]);
+    const text=(v:unknown)=>typeof v==='string'?v.trim():'';
+    const norm=(v:unknown)=>text(v).replace(/\D/g,'');
+    let last:Row|undefined;
+    for(const row of rows){
+      const parse=(v:unknown)=>{try{return typeof v==='string'?JSON.parse(v):v;}catch{return null;}};
+      const sender=parse(row.booking_details)?.sender??parse(row.draft_payload)?.booking?.sender;
+      if(!sender)continue;
+      const samePhone=norm(sender.phone)&&norm(sender.phone)===norm(account?.phone);
+      const sameName=text(sender.name).toLowerCase()===text(account?.full_name).toLowerCase();
+      if(samePhone||sameName){last=sender;break;}
+    }
+    return {
+      name:text(account?.full_name),phone:text(account?.phone)||text(last?.phone),
+      address:text(last?.address)||text(account?.address),
+      city:text(last?.city),ward:text(last?.ward),identityNumber:text(last?.identityNumber),country:text(last?.country),
+    };
+  }
   /** B13: bổ sung, sửa số tờ khai hải quan, giấy phép nhập khẩu, cửa khẩu dự kiến của chuyến quốc tế. */
   async updateCustoms(user:User,id:string,body:unknown){
     return this.db.transaction(m=>updateCustoms(m,user,id,body));

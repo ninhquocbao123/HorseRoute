@@ -71,6 +71,7 @@ route('get', '/users', 'Admin: danh sách người dùng', 'Users', { query: pag
 route('get', '/orders', 'Customer xem đơn của mình; Manager xem đơn đã gửi, theo nhóm và thứ tự tạo tăng dần', 'Flow 1 - Orders', { query: orderQuerySchema });
 route('get', '/orders/customer-workspace', 'Customer: tổng quan đơn, hồ sơ ngựa và khoản đã thu của tài khoản hiện tại', 'Flow 1 - Orders');
 route('post', '/orders', 'Customer: lưu nháp, requestId chống tạo trùng', 'Flow 1 - Orders', { body: 'DraftOrderDto', status: 201 });
+route('get', '/orders/sender-profile', 'Customer: thông tin người gửi cho nút "Tôi là người gửi": tên, số điện thoại, địa chỉ của tài khoản; tỉnh/thành, xã/phường, CCCD, địa chỉ cụ thể từ đơn gần nhất khách là người gửi', 'Flow 1 - Orders');
 route('get', '/orders/{id}', 'Chi tiết đơn và lịch sử', 'Flow 1 - Orders');
 route('delete', '/orders/{id}', 'Customer: xóa đơn DRAFT của chính mình; đơn đã gửi trả 409', 'Flow 1 - Orders');
 route('put', '/orders/{id}', 'Customer: sửa đơn DRAFT hoặc NEED_INFO', 'Flow 1 - Orders', { body: 'DraftOrderDto' });

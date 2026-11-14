@@ -1,5 +1,7 @@
 import { DateInput } from '../../components/DateInput';
-import { Button, Select } from 'antd';
+import { App, Button, Select } from 'antd';
+import { useState } from 'react';
+import { api } from '../../lib/axios';
 import { SwapOutlined, CalendarOutlined, EnvironmentOutlined, HomeOutlined, UserOutlined } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 import './booking-contacts.css';
@@ -19,7 +21,25 @@ type Props = {
 const Field=({label,children}:{label:string;children:ReactNode})=><label className="bc-field"><span>{label}</span>{children}</label>;
 export const contactAddress=(contact:BookingContact)=>[contact.address,contact.ward,contact.city].filter(Boolean).join(', ');
 
+type SenderProfile = {name:string;phone:string;address:string;city:string;ward:string;identityNumber:string;country:string};
+
 export default function BookingContacts({date,onDate,sender,recipient,onContact,account,international,countries,onRoute}:Props){
+  const {message}=App.useApp();
+  const [filling,setFilling]=useState(false);
+  /** "Tôi là người gửi": điền thông tin người gửi đã lưu (tài khoản + đơn gần nhất khách là người gửi). Tỉnh, phường chỉ điền khi cùng nước với chuyến đang đặt. */
+  async function useAsSender(){
+    setFilling(true);
+    try{
+      const {data}=await api.get<SenderProfile>('/orders/sender-profile');
+      const province=(locations[sender.country]||[]).find(p=>p.name===data.city);
+      const sameCountry=!data.country||data.country===sender.country;
+      onContact('sender',{name:data.name||account.fullName,phone:data.phone||account.phone||'',address:data.address||account.address||'',identityNumber:data.identityNumber||'',
+        ...(sameCountry&&province?{city:province.name,ward:province.wards.includes(data.ward)?data.ward:''}:{})});
+      if(!(sameCountry&&province))void message.info('Đã điền thông tin của bạn. Chọn tỉnh / thành phố và xã / phường của điểm đón.');
+    }catch{
+      onContact('sender',{name:account.fullName,phone:account.phone||'',address:account.address||''});
+    }finally{setFilling(false);}
+  }
   const earliest=new Date().toISOString().slice(0,10);
   const countryLabel=(code:string)=><span className="bc-country-label"><CountryFlag country={code}/>{countries.find(c=>c[0]===code)?.[1]||code}</span>;
   const countryControl=(key:'sender'|'recipient')=>{
@@ -39,7 +59,7 @@ export default function BookingContacts({date,onDate,sender,recipient,onContact,
       const country=countries.find(([code])=>code===contact.country)?.[1]||contact.country;
       return <section className="bc-section" key={key}>
         <header><h3>{key==='sender'?<HomeOutlined/>:<EnvironmentOutlined/>} {key==='sender'?'Người gửi & Điểm đón ngựa':'Người nhận & Điểm giao ngựa'} <small className="bc-contact-country"><CountryFlag country={contact.country}/>{country}</small></h3>
-          {key==='sender'&&<Button size="small" icon={<UserOutlined/>} onClick={()=>onContact('sender',{name:account.fullName,phone:account.phone||'',address:account.address||''})}>Tôi là người gửi</Button>}
+          {key==='sender'&&<Button size="small" icon={<UserOutlined/>} loading={filling} onClick={()=>void useAsSender()}>Tôi là người gửi</Button>}
         </header>
         <div className="bc-grid">
           <Field label={key==='sender'?'Họ tên người gửi / Tên đơn vị *':'Họ tên người nhận / Tên trại đích *'}><input required maxLength={100} value={contact.name} autoComplete="off" onChange={e=>onContact(key,{name:e.target.value})}/></Field>

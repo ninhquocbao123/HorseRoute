@@ -306,3 +306,23 @@ test("B8: hàng chờ gửi không hiện lỗi kỹ thuật cho tài xế", asy
   assert.match(queueFailureText("HTTP 503"), /tạm thời chưa nhận/);
   assert.equal(queueFailureText(undefined), "");
 });
+
+test("ảnh trong chuyến: một lần ghi cho nhiều con chỉ hiện một ảnh, chú thích đủ tên; bản đã đính chính lấy ảnh mới", async () => {
+  const { careGallery } = await import("../../../packages/shared/src/care-gallery.ts");
+  const photo = (id: string, name = "IMG_1.jpg", at = "2026-11-13T09:21:05.000Z") => ({ id, originalName: name, fileType: "JPG", sizeBytes: 20480, uploadedAt: at, caption: null });
+  const act = (id: string, horseName: string | null, photos: any[], extra: any = {}) =>
+    ({ id, tripId: "1", legId: null, horseId: horseName ? id : null, horseName, activityType: "WATER", feedDescription: null, amountLiters: 10, durationMinutes: null, note: null,
+      performedAt: "2026-11-13T09:21:00.000Z", createdBy: "6", createdByName: "Hộ tống", createdAt: "2026-11-13T09:21:05.000Z", correctsActivityId: null, photos, ...extra }) as any;
+  const items = careGallery([
+    act("1", "Winter Sonata", [photo("a")]),
+    act("2", "Winter So", [photo("b", "IMG_1.jpg", "2026-11-13T09:21:06.000Z")]),
+    act("3", "Winter So", [photo("c", "IMG_2.jpg")]),
+    act("4", null, [photo("d", "old.jpg")]),
+    act("5", null, [photo("e", "new.jpg")], { correctsActivityId: "4" }),
+  ]);
+  assert.deepEqual(items.map((i) => [i.photo.originalName, i.horseNames]), [
+    ["IMG_1.jpg", ["Winter Sonata", "Winter So"]],
+    ["IMG_2.jpg", ["Winter So"]],
+    ["new.jpg", []],
+  ]);
+});

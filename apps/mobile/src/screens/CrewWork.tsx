@@ -85,6 +85,7 @@ import {
   HORSE_CONDITION_META,
   HORSE_VITALS_RANGE,
 } from "../../../../packages/shared/src/constants/horse.constants";
+import { CareGalleryCard } from "./CareGalleryCard";
 import { INCIDENT_SUB_TYPES } from "../../../../packages/shared/src/constants/incident.constants";
 import type {
   ICareActivityList,
@@ -855,6 +856,9 @@ export function LogTab({
           </Card>
         ))
       )}
+      {filter !== "report" ? (
+        <CareGalleryCard activities={care.data?.activities ?? []} />
+      ) : null}
     </ScreenBody>
   );
 }

@@ -7,3 +7,4 @@ export * from './types/trackmap.type';
 export * from './constants';
 export * from './countries';
 export * from './types/pricing.type';
+export * from './care-gallery';

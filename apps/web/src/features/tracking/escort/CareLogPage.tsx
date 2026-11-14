@@ -7,6 +7,7 @@ import HorseCareCard from './HorseCareCard';
 import QuickLogCard from './QuickLogCard';
 import TodayCard from './TodayCard';
 import CareHistoryList from './CareHistoryList';
+import CareGallery from '../CareGallery';
 import { inRange, latestReportByHorse } from './care-ui';
 import { useCareActivities } from './useCareActivities';
 
@@ -59,6 +60,7 @@ export default function CareLogPage({ trip, detail, viewedEvent, onTripChanged }
               ))}
             </div>
           )}
+          <CareGallery activities={data.activities} />
           <CareHistoryList
             activities={data.activities} onEdit={writable ? setEditing : undefined} running={writable}
             tripStart={trip.legs[0]?.actualDepartureAt ?? trip.legs[0]?.plannedDepartureAt ?? null}

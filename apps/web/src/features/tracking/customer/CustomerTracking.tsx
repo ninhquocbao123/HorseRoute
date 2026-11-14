@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { HORSE_APPETITE_LABEL, HORSE_CONDITION_META, type ICareActivityList, type IHorseReport, type IOrderTimeline } from '@my-project/shared';
 import AttachmentImage from '../AttachmentImage';
+import CareGallery from '../CareGallery';
 import { activityDetail, careLabel } from '../escort/care-ui';
 import { errorMessage, trackingApi } from '../tracking.api';
 import CustomerJourneyTimeline from './CustomerJourneyTimeline';
+import CustomerTripMap from '../../customer/CustomerTripMap';
 import { ORDER_STATUS_LABEL, formatDateTime } from '../tracking.format';
 import { statuses } from '../../orders/types';
 
@@ -32,13 +34,12 @@ function CareLog({ care }: { care: ICareActivityList }) {
                 <span className="trk-care-main">
                   <strong>{activity.horseName ?? 'Cả đoàn'}</strong>
                   <small>{activityDetail(activity) || '—'} · {activity.createdByName}</small>
-                  {activity.photos.length > 0 && (
-                    <span className="trk-report-photos trk-care-photos">{activity.photos.map(photo => <AttachmentImage key={photo.id} id={photo.id} name={photo.originalName} />)}</span>
-                  )}
+                  {activity.photos.length > 0 && <span className="care-photo-count">{activity.photos.length} ảnh · xem ở Ảnh trong chuyến</span>}
                 </span>
               </li>
             ))}
           </ul>
+          <CareGallery activities={care.activities} className="trk-care-gallery" />
         </>
       )}
     </section>
@@ -158,6 +159,15 @@ export default function CustomerTracking() {
 
           {loadingTimeline && !timeline && <p role="status">Đang tải tiến độ…</p>}
           {timeline && timeline.legs.length > 0 && <CustomerJourneyTimeline timeline={timeline} />}
+          {timeline && timeline.legs.length > 0 && selected && ['READY', 'IN_TRANSIT', 'DELIVERED'].includes(timeline.orderStatus) && (
+            <section className="portal-panel trk-panel trk-map-panel" aria-label="Bản đồ hành trình">
+              <div className="portal-panel-heading"><h2>Bản đồ hành trình</h2></div>
+              <CustomerTripMap
+                orderId={selected} height="min(520px, 62vh)" refreshKey={timeline.lastUpdatedAt} className="trk-map-large"
+                from={timeline.legs[0].fromLocationName} to={timeline.legs[timeline.legs.length - 1].toLocationName}
+              />
+            </section>
+          )}
           {timeline && timeline.legs.length === 0 && (
             <section className="portal-panel trk-panel" aria-label="Tiến độ đơn hàng">
               <div className="portal-panel-heading">

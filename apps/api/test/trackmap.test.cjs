@@ -224,7 +224,7 @@ const straightRoute = leg => {
 const build = (legs, extra = {}) => buildTripMap({
   trip: { id: '100', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, ...extra.trip },
   legs, routes: new Map(legs.map(l => [l.id, l.fromLat === null || l.toLat === null ? null : straightRoute(l)])),
-  latest: extra.latest, speedLimitKmh: extra.speedLimitKmh ?? 80, now,
+  latest: extra.latest, speedLimitKmh: extra.speedLimitKmh ?? 80, now, checkins: extra.checkins,
 });
 
 test('map: estimated position by leg status, km totals and labels', () => {
@@ -322,6 +322,7 @@ function mapRepo(overrides = {}, calls = {}) {
   return {
     findTrip: async () => ({ id: '100', orderId: '50', orderCode: 'WDP-1', orderStatus: OrderStatus.IN_TRANSIT, plannedBy: '3', customerId: '1' }),
     getDriverAssignment: async (_trip, user) => (user === '6' ? { role: 'DRIVER' } : user === '8' ? { role: 'ESCORT' } : undefined),
+    getWaypointCheckins: async () => [],
     getTripMapLegs: async () => [legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-60) })],
     getLatestPosition: async () => ({ legId: '10', latitude: '11.02', longitude: '106.35', accuracyM: 5, speedMps: '10', headingDeg: null, recordedAt: at(-1) }),
     getSpeedLimitKmh: async () => 80,
@@ -492,4 +493,34 @@ test('map mode: LIGHT/MEDIUM/HEAVY routes are always ROAD or STRAIGHT (never AIR
   assert.deepEqual(await modes(trucks), ['STRAIGHT', 'STRAIGHT']);
   assert.deepEqual(await modes([...trucks, legRow({ id: '12', seqNo: 3, vehicleType: 'LIGHT' })]), ['STRAIGHT', 'STRAIGHT', 'STRAIGHT']);
   assert.deepEqual(await modes([trucks[0], legRow({ id: '11', seqNo: 2, vehicleType: 'HEAVY' })]), ['STRAIGHT', 'STRAIGHT']);
+});
+
+test('map: xe đi tới điểm nghỉ, cửa khẩu vừa check-in và không vượt điểm kế tiếp chưa check-in', () => {
+  // Lộ trình một chặng Củ Chi → Mộc Bài, hai điểm giữa đường ở 1/4 và 3/4 quãng đường.
+  const lerp = f => [106.4933 + (106.158 - 106.4933) * f, 10.9733 + (11.076 - 10.9733) * f];
+  const waypoints = [
+    { id: 'o', name: 'Củ Chi', type: 'ORIGIN', lng: 106.4933, lat: 10.9733 },
+    { id: 'r1', name: 'Điểm nghỉ 1', type: 'REST_STOP', lng: lerp(0.25)[0], lat: lerp(0.25)[1] },
+    { id: 'g1', name: 'Cửa khẩu A', type: 'BORDER', lng: lerp(0.75)[0], lat: lerp(0.75)[1] },
+    { id: 'd', name: 'Mộc Bài', type: 'DESTINATION', lng: 106.158, lat: 11.076 },
+  ];
+  const fractionOf = map => {
+    const { fraction } = geo.projectOnLine([[106.4933, 10.9733], [106.158, 11.076]], [map.position.lng, map.position.lat]);
+    return Math.round(fraction * 100) / 100;
+  };
+  // Vừa xuất phát (theo giờ mới ~5%) nhưng đã check-in điểm nghỉ 1: xe ở điểm nghỉ 1, không ở đầu tuyến.
+  const early = legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-6), plannedDepartureAt: at(-6), plannedArrivalAt: at(114), routeWaypoints: waypoints });
+  const checked = build([early], { checkins: [{ legId: '10', waypointId: 'r1', occurredAt: at(-1) }] });
+  assert.equal(fractionOf(checked), 0.25);
+  assert.match(checked.position.label, /đã qua Điểm nghỉ 1 lúc \d{2}:\d{2}, đang trên đường đến Cửa khẩu A/);
+  // Theo giờ đã gần tới nơi (~90%) nhưng chưa check-in cửa khẩu A: xe dừng ở cửa khẩu A, không chạy quá.
+  const late = legRow({ status: LegStatus.MOVING, actualDepartureAt: at(-108), plannedDepartureAt: at(-108), plannedArrivalAt: at(12), routeWaypoints: waypoints });
+  assert.equal(fractionOf(build([late], { checkins: [{ legId: '10', waypointId: 'r1', occurredAt: at(-60) }] })), 0.75);
+  // Không có check-in: vẫn ước tính theo giờ nhưng không vượt điểm nghỉ 1 chưa check-in.
+  assert.equal(fractionOf(build([late])), 0.25);
+  // GPS cũ hơn lần check-in cuối thì không dùng GPS.
+  const gpsOld = build([early], { checkins: [{ legId: '10', waypointId: 'r1', occurredAt: at(-1) }],
+    latest: { legId: '10', latitude: '10.9733', longitude: '106.4933', accuracyM: 5, speedMps: '10', headingDeg: null, recordedAt: at(-3) } });
+  assert.equal(gpsOld.position.source, 'ESTIMATED');
+  assert.equal(fractionOf(gpsOld), 0.25);
 });

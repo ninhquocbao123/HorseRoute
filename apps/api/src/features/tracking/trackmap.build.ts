@@ -63,9 +63,33 @@ type Input = {
   latest: PositionRow | undefined;
   speedLimitKmh: number | null;
   now: number;
+  /** Check-in điểm nghỉ, cửa khẩu của lộ trình (route_plan): xe trên bản đồ đi tới điểm đã check-in. */
+  checkins?: CheckinLite[];
 };
+export type CheckinLite = { legId: string; waypointId: string; occurredAt: Date };
 
-export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }: Input): ITripMap {
+/**
+ * Tiến độ theo check-in trên chặng có lộ trình nhiều điểm: điểm cuối cùng đã check-in và điểm kế tiếp chưa check-in,
+ * kèm tỉ lệ quãng đường của chúng trên tuyến. Null khi chặng không có điểm giữa đường hoặc chưa có tuyến.
+ */
+export function checkpointProgress(leg: TripMapLegRow, line: LngLat[] | null, checkins: CheckinLite[]) {
+  const via = (leg.routeWaypoints ?? []).slice(1, -1);
+  if (!line || line.length < 2 || !via.length) return null;
+  const done = new Map(checkins.filter(c => c.legId === leg.id).map(c => [c.waypointId, c.occurredAt]));
+  const fractions = via.map(point => projectOnLine(line, [point.lng, point.lat]).fraction);
+  let last = -1;
+  via.forEach((point, i) => { if (done.has(point.id)) last = i; });
+  const next = via.findIndex((point, i) => i > last && !done.has(point.id));
+  const low = last >= 0 ? fractions[last] : 0;
+  return {
+    last: last >= 0 ? { name: via[last].name, at: done.get(via[last].id)!, fraction: low, point: [via[last].lng, via[last].lat] as LngLat } : null,
+    nextName: next >= 0 ? via[next].name : leg.toName,
+    /** Không vượt điểm kế tiếp chưa check-in (và không bao giờ "đến nơi" khi chưa có mốc đến). */
+    maxFraction: Math.max(low, Math.min(0.95, next >= 0 ? fractions[next] : 0.95)),
+  };
+}
+
+export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now, checkins = [] }: Input): ITripMap {
   const warnings: string[] = [];
   const stops: ITripMapStop[] = [];
   const seen = new Set<string>();
@@ -116,10 +140,9 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
 
   // Mốc mới nhất của chuyến (xuất phát / đến điểm dừng): nếu mới hơn điểm GPS cuối thì GPS đã cũ so với thực tế,
   // vị trí lấy theo mốc và tốc độ của điểm GPS cũ không còn đúng nữa.
-  const milestoneAt = legs.reduce<number | null>((max, leg) => {
-    const times = [leg.actualDepartureAt, leg.actualArrivalAt].filter((t): t is Date => !!t).map(t => t.getTime());
-    return times.length ? Math.max(max ?? 0, ...times) : max;
-  }, null);
+  // Check-in điểm nghỉ, cửa khẩu cũng là mốc: GPS cũ hơn lần check-in cuối thì vị trí lấy theo check-in.
+  const milestoneAt = [...legs.flatMap(leg => [leg.actualDepartureAt, leg.actualArrivalAt]), ...checkins.map(c => c.occurredAt)]
+    .filter((t): t is Date => !!t).reduce<number | null>((max, t) => Math.max(max ?? 0, t.getTime()), null);
   const milestoneNewer = milestoneAt !== null && (!latest || milestoneAt > latest.recordedAt.getTime());
   const rawLatest = toLatestPosition(latest, now);
   const latestPosition = rawLatest && milestoneNewer ? { ...rawLatest, speedKmh: null } : rawLatest;
@@ -157,9 +180,15 @@ export function buildTripMap({ trip, legs, routes, latest, speedLimitKmh, now }:
       } else if (currentLine) {
         const started = (leg.actualDepartureAt ?? leg.plannedDepartureAt).getTime();
         const planned = leg.plannedArrivalAt.getTime() - leg.plannedDepartureAt.getTime();
-        // Không bao giờ "đến nơi" khi chưa có mốc đến: kẹp [0, 0.95].
-        const fraction = planned > 0 ? Math.min(0.95, Math.max(0, (now - started) / planned)) : 0;
-        at(current, pointAlong(currentLine, fraction), fraction, `đang trên đường từ ${leg.fromName} đến ${leg.toName}`);
+        const byTime = planned > 0 ? (now - started) / planned : 0;
+        // Ước tính theo giờ, nhưng ít nhất ở điểm vừa check-in và không vượt điểm kế tiếp chưa check-in;
+        // không bao giờ "đến nơi" khi chưa có mốc đến (tối đa 0.95).
+        const progress = checkpointProgress(leg, currentLine, checkins);
+        const low = progress?.last?.fraction ?? 0, high = progress?.maxFraction ?? 0.95;
+        const fraction = Math.min(high, Math.max(low, byTime));
+        at(current, pointAlong(currentLine, fraction), fraction, progress?.last
+          ? `đã qua ${progress.last.name} lúc ${clock.format(progress.last.at)}, đang trên đường đến ${progress.nextName}`
+          : `đang trên đường từ ${leg.fromName} đến ${leg.toName}`);
       }
     } else {
       const lastDone = legs.map(leg => leg.status).lastIndexOf(LegStatus.COMPLETED);

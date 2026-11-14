@@ -35,7 +35,7 @@ export default function CustomerJourney({view,orderId,account,go,register,onSave
  const [profiles,setProfiles]=useState<Profile[]>([]),[types,setTypes]=useState<{id:string;name:string;description:string}[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [dirty,setDirty]=useState(false);
  const [bookingStep,setBookingStep]=useState(0);
- const [draft,setDraft]=useState<TripDraft>({...initialTrip,booking:{...initialTrip.booking,sender:{...emptyContact,name:account.fullName,phone:account.phone||'',address:account.address||''}}});
+ const [draft,setDraft]=useState<TripDraft>({...initialTrip,booking:{...initialTrip.booking,sender:{...emptyContact}}});
  const [storedEstimate,setEstimate]=useState<PriceEstimate|null>(null),[estimateError,setEstimateError]=useState(''),[international,setInternational]=useState(false),[savedId,setSavedId]=useState<string>(),[requestId,setRequestId]=useState(()=>crypto.randomUUID());
  const [preview,setPreview]=useState<{file:Blob;name:string}|null>(null),[terms,setTerms]=useState(false);
  const formRef=useRef<HTMLFormElement>(null),dirtyRef=useRef(false);
@@ -67,7 +67,7 @@ export default function CustomerJourney({view,orderId,account,go,register,onSave
  // The draft stays in this mounted workspace while navigating between customer pages.
  // Keep it in memory only: leaving the website or signing out must not restore it.
  const resetBooking=useCallback(()=>{
-  setDraft({...initialTrip,booking:{...initialTrip.booking,sender:{...emptyContact,name:account.fullName,phone:account.phone||'',address:account.address||''},recipient:{...emptyContact}}});
+  setDraft({...initialTrip,booking:{...initialTrip.booking,sender:{...emptyContact},recipient:{...emptyContact}}});
   setBookingStep(0);setInternational(false);setSavedId(undefined);setRequestId(crypto.randomUUID());setTerms(false);
  },[account.fullName,account.phone,account.address]);
  useEffect(()=>{window.addEventListener('pagehide',resetBooking);return()=>window.removeEventListener('pagehide',resetBooking);},[resetBooking]);

@@ -4,6 +4,7 @@ import { HistoryDetail } from '../driver/DriverHistory';
 import { HorseIcon } from '../driver/icons';
 import { formatDateTime } from '../tracking.format';
 import CareHistoryList from './CareHistoryList';
+import CareGallery from '../CareGallery';
 import { horseSubtitle } from './care-ui';
 import { useCareActivities } from './useCareActivities';
 
@@ -32,6 +33,7 @@ export default function EscortHistoryDetail({ trip, detail, onBack }: { trip: ID
           </section>
           {data.loading ? <div className="drv-loading"><Spin /><span>Đang tải nhật ký chăm sóc…</span></div> : (
             <>
+              <CareGallery activities={data.activities} />
               <CareHistoryList
                 activities={data.activities} running={false}
                 tripStart={trip.legs[0]?.actualDepartureAt ?? trip.legs[0]?.plannedDepartureAt ?? null}

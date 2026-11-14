@@ -66,6 +66,7 @@ import {
 } from "../live-ui";
 import { SkeletonLines } from "../skeleton";
 import { CustomsCard } from "./CustomsCard";
+import { CareGalleryCard } from "./CareGalleryCard";
 import type {
   ICareActivityList,
   IOrderTimeline,
@@ -1383,16 +1384,10 @@ function CareEvent({
               .join(" · ")}
           </Txt>
           {activity.photos.length ? (
-            <View style={s.wrap}>
-              {activity.photos.map((photo) => (
-                <PrivateImage
-                  key={photo.id}
-                  path={`/tracking/attachments/${asId(photo.id)}`}
-                  caption={photo.originalName}
-                  size={56}
-                />
-              ))}
-            </View>
+            // Ảnh không gắn theo từng con: xem ở khu "Ảnh trong chuyến" bên dưới.
+            <Txt size={12} color={c.textSecondary}>
+              {`${activity.photos.length} ảnh · xem ở Ảnh trong chuyến`}
+            </Txt>
           ) : null}
         </View>
       </View>
@@ -1680,6 +1675,7 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
           detail="Các điểm dừng hiện ở đây khi điều phối lập xong kế hoạch."
         />
       ) : null}
+      <CareGalleryCard activities={care.data?.activities ?? []} />
       {reports.error && !reports.data ? (
         <Banner warning text="Chưa tải được báo cáo sức khỏe." />
       ) : null}
