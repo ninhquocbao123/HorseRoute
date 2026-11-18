@@ -3,7 +3,7 @@ import { Role } from '@my-project/shared';
 import { authorize } from '../../shared/middlewares/auth.middleware';
 import { parse,idSchema } from '../../shared/utils/validation.util';
 import { ManagerService } from './manager.service';
-export function managerRoutes(s:ManagerService){const r=Router();r.use(authorize(Role.MANAGER));
+export function managerRoutes(s:ManagerService){const r=Router();r.use(authorize(Role.MANAGER, Role.ADMIN));
  r.get('/overview',async(req,res)=>{res.json(await s.overview(req.account));});
  r.get('/intake',async(req,res)=>{res.json(await s.intake(req.account));});
  r.get('/orders/:id/context',async(req,res)=>{res.json(await s.context(req.account,parse(idSchema,req.params.id)));});

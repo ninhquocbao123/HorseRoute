@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1230" height="2520" viewBox="0 0 1230 2520" role="img" aria-label="HorseRoute · Lập kế hoạch và cho phép xuất phát"><defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0 0 L10 4 L0 8" fill="none" stroke="#526179"/></marker></defs><rect width="100%" height="100%" fill="#fff"/>
+<text x="32" y="42" text-anchor="start" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#172c47"><tspan x="32" dy="0">HorseRoute · Lập kế hoạch và cho phép xuất phát</tspan></text>
+<text x="32" y="74" text-anchor="start" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#172c47"><tspan x="32" dy="0">Activity diagram · Làn thể hiện bên chịu trách nhiệm · Nhãn trên nhánh là điều kiện chuyển bước</tspan></text>
+<rect x="35" y="105" width="290" height="2300" rx="0" fill="#ffffff" stroke="#bcc8d7"/>
+<text x="180" y="1260" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0"></tspan></text>
+<rect x="35" y="105" width="290" height="42" rx="0" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="131" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Điều phối viên</tspan></text>
+<rect x="325" y="105" width="290" height="2300" rx="0" fill="#fafcff" stroke="#bcc8d7"/>
+<text x="470" y="1260" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0"></tspan></text>
+<rect x="325" y="105" width="290" height="42" rx="0" fill="#eaf8f1" stroke="#bcc8d7"/>
+<text x="470" y="131" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Quản lý</tspan></text>
+<rect x="615" y="105" width="290" height="2300" rx="0" fill="#ffffff" stroke="#bcc8d7"/>
+<text x="760" y="1260" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="760" dy="0"></tspan></text>
+<rect x="615" y="105" width="290" height="42" rx="0" fill="#fff3df" stroke="#bcc8d7"/>
+<text x="760" y="131" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="760" dy="0">Khách hàng</tspan></text>
+<rect x="905" y="105" width="290" height="2300" rx="0" fill="#fafcff" stroke="#bcc8d7"/>
+<text x="1050" y="1260" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0"></tspan></text>
+<rect x="905" y="105" width="290" height="42" rx="0" fill="#f2edff" stroke="#bcc8d7"/>
+<text x="1050" y="131" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Hệ thống</tspan></text>
+<circle cx="180" cy="185" r="12" fill="#172c47" stroke="#172c47" stroke-width="2"/>
+<rect x="59" y="264" width="242" height="68" rx="12" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="293" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Đơn APPROVED / PREPARING:</tspan><tspan x="180" dy="20">lập tuyến và điểm nghỉ</tspan></text>
+<rect x="59" y="377" width="242" height="68" rx="12" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="406" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Bố trí ngựa lên xe;</tspan><tspan x="180" dy="20">phân công tài xế / hộ tống</tspan></text>
+<rect x="59" y="490" width="242" height="68" rx="12" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="529" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Lưu và gửi kế hoạch</tspan></text>
+<polygon points="1050,593 1160,637 1050,681 940,637" fill="#f2edff" stroke="#526179"/>
+<text x="1050" y="642" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Kế hoạch hợp lệ?</tspan></text>
+<rect x="929" y="716" width="242" height="68" rx="12" fill="#f2edff" stroke="#bcc8d7"/>
+<text x="1050" y="745" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">PENDING_APPROVAL;</tspan><tspan x="1050" dy="20">đơn chuyển PREPARING</tspan></text>
+<rect x="349" y="829" width="242" height="68" rx="12" fill="#eaf8f1" stroke="#bcc8d7"/>
+<text x="470" y="868" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Xét duyệt kế hoạch</tspan></text>
+<polygon points="470,932 580,976 470,1020 360,976" fill="#eaf8f1" stroke="#526179"/>
+<text x="470" y="981" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Duyệt kế hoạch?</tspan></text>
+<rect x="59" y="1055" width="242" height="68" rx="12" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="1084" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Nhận lý do trả lại;</tspan><tspan x="180" dy="20">sửa kế hoạch DRAFT</tspan></text>
+<rect x="349" y="1168" width="242" height="68" rx="12" fill="#eaf8f1" stroke="#bcc8d7"/>
+<text x="470" y="1207" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Kế hoạch APPROVED</tspan></text>
+<rect x="349" y="1281" width="242" height="68" rx="12" fill="#eaf8f1" stroke="#bcc8d7"/>
+<text x="470" y="1300" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Kiểm tra cọc và tờ khai</tspan><tspan x="470" dy="20">(quốc tế) trước khi giao</tspan><tspan x="470" dy="20">chuyến</tspan></text>
+<polygon points="1050,1384 1160,1428 1050,1472 940,1428" fill="#f2edff" stroke="#526179"/>
+<text x="1050" y="1423" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Đủ điều kiện cọc</tspan><tspan x="1050" dy="20">và tờ khai?</tspan></text>
+<rect x="639" y="1507" width="242" height="68" rx="12" fill="#fff3df" stroke="#bcc8d7"/>
+<text x="760" y="1536" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="760" dy="0">Bổ sung cọc / tờ khai</tspan><tspan x="760" dy="20">hoặc đề nghị ngoại lệ</tspan></text>
+<polygon points="470,1610 580,1654 470,1698 360,1654" fill="#eaf8f1" stroke="#526179"/>
+<text x="470" y="1649" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Đã bổ sung hoặc</tspan><tspan x="470" dy="20">có lý do ngoại lệ?</tspan></text>
+<rect x="639" y="1733" width="242" height="68" rx="12" fill="#fff3df" stroke="#bcc8d7"/>
+<text x="760" y="1772" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="760" dy="0">Chờ bổ sung / xử lý</tspan></text>
+<rect x="349" y="1846" width="242" height="68" rx="12" fill="#eaf8f1" stroke="#bcc8d7"/>
+<text x="470" y="1875" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Yêu cầu chuyển chuyến</tspan><tspan x="470" dy="20">cho tài xế</tspan></text>
+<polygon points="1050,1949 1160,1993 1050,2037 940,1993" fill="#f2edff" stroke="#526179"/>
+<text x="1050" y="1988" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Kế hoạch, xe, tổ lái</tspan><tspan x="1050" dy="20">vẫn hợp lệ?</tspan></text>
+<rect x="59" y="2072" width="242" height="68" rx="12" fill="#eaf3ff" stroke="#bcc8d7"/>
+<text x="180" y="2111" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="180" dy="0">Xử lý nguyên nhân bị chặn</tspan></text>
+<rect x="929" y="2185" width="242" height="68" rx="12" fill="#f2edff" stroke="#bcc8d7"/>
+<text x="1050" y="2214" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Đơn READY; thông báo</tspan><tspan x="1050" dy="20">cho tài xế và khách</tspan></text>
+<circle cx="1050" cy="2332" r="12" fill="white" stroke="#172c47" stroke-width="2"/>
+<circle cx="1050" cy="2332" r="7" fill="#172c47"/>
+<polyline points="180,197 180,264" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="180,332 180,377" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="180,445 180,490" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="180,558 180,575 1050,575 1050,593" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="940,637 43,637 43,298 59,298" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="15.5" y="450.5" width="55" height="23" fill="white"/>
+<text x="43" y="467.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="43" dy="0">Không</tspan></text>
+<polyline points="1050,681 1050,716" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="1036" y="681.5" width="28" height="23" fill="white"/>
+<text x="1050" y="698.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Có</tspan></text>
+<polyline points="1050,784 1050,801 470,801 470,829" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,897 470,932" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,1020 470,1037 180,1037 180,1055" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="288.5" y="1020" width="73" height="23" fill="white"/>
+<text x="325" y="1037" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="325" dy="0">Trả lại</tspan></text>
+<polyline points="59,1089 43,1089 43,298 59,298" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,1020 470,1168" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="442.5" y="1077" width="55" height="23" fill="white"/>
+<text x="470" y="1094" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Duyệt</tspan></text>
+<polyline points="470,1236 470,1281" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,1349 470,1366 1050,1366 1050,1384" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="1050,1472 1050,1489 760,1489 760,1507" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="877.5" y="1472" width="55" height="23" fill="white"/>
+<text x="905" y="1489" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="905" dy="0">Thiếu</tspan></text>
+<polyline points="760,1575 760,1592 470,1592 470,1610" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,1698 470,1715 760,1715 760,1733" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="587.5" y="1698" width="55" height="23" fill="white"/>
+<text x="615" y="1715" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="615" dy="0">Không</tspan></text>
+<polyline points="639,1767 623,1767 623,1541 639,1541" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="470,1698 470,1846" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="456" y="1755" width="28" height="23" fill="white"/>
+<text x="470" y="1772" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="470" dy="0">Có</tspan></text>
+<polyline points="1160,1428 1186,1428 1186,1834 470,1834 470,1846" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="814" y="1817" width="28" height="23" fill="white"/>
+<text x="828" y="1834" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="828" dy="0">Đủ</tspan></text>
+<polyline points="470,1914 470,1931 1050,1931 1050,1949" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<polyline points="1050,2037 1050,2054 180,2054 180,2072" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="587.5" y="2037" width="55" height="23" fill="white"/>
+<text x="615" y="2054" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="615" dy="0">Không</tspan></text>
+<polyline points="301,2106 333,2106 333,1880 349,1880" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="296.5" y="1976" width="73" height="23" fill="white"/>
+<text x="333" y="1993" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="333" dy="0">Thử lại</tspan></text>
+<polyline points="1050,2037 1050,2185" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<rect x="1036" y="2094" width="28" height="23" fill="white"/>
+<text x="1050" y="2111" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="1050" dy="0">Có</tspan></text>
+<polyline points="1050,2253 1050,2320" fill="none" stroke="#526179" stroke-width="1.5" marker-end="url(#arrow)" />
+<text x="35" y="2455" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="35" dy="0">Báo giá do quản lý lập / duyệt; khách trả cọc qua VNPay hoặc quản lý ghi nhận biên nhận. Đây là luồng độc lập với lập tuyến.</tspan></text>
+<text x="35" y="2478" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="35" dy="0">Thiếu cọc / tờ khai có thể được quản lý cho ngoại lệ có lý do và lưu audit. READY chưa phải IN_TRANSIT: tài xế phải ghi mốc xuất phát.</tspan></text></svg>

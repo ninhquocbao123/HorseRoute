@@ -1,6 +1,6 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
-import DashboardLayout from '../auth/pages/components/DashboardLayout';
 import { useAuth } from '../auth/hooks/useAuth';
+import AdminDashboard from '../auth/pages/Admin/AdminDashboard';
 import CustomerDashboard from '../auth/pages/Customer/CustomerDashboard';
 import DriverDashboard from '../auth/pages/Driver/DriverDashboard';
 import ManagerDashboard from '../auth/pages/Manager/ManagerDashboard';
@@ -28,7 +28,7 @@ export default function HomePage() {
 
   switch (account.role) {
     case 'ADMIN':
-      return <DashboardLayout account={account} logout={logout} />;
+      return <AdminDashboard account={account} logout={logout} />;
     case 'CUSTOMER':
       return <CustomerDashboard account={account} logout={logout} />;
     case 'DRIVER_ESCORT':
@@ -51,5 +51,3 @@ export default function HomePage() {
       );
   }
 }
-
-

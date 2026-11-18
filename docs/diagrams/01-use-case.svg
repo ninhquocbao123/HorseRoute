@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1520" viewBox="0 0 1600 1520" role="img" aria-label="HorseRoute · Use-case tổng quan"><defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0 0 L10 4 L0 8" fill="none" stroke="#526179"/></marker></defs><rect width="100%" height="100%" fill="#fff"/>
+<text x="32" y="42" text-anchor="start" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#172c47"><tspan x="32" dy="0">HorseRoute · Use-case tổng quan</tspan></text>
+<text x="32" y="74" text-anchor="start" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#172c47"><tspan x="32" dy="0">Phạm vi: chức năng đã có trong API/web/mobile · Nhóm các mục tiêu liên quan để dễ đọc</tspan></text>
+<rect x="240" y="110" width="1120" height="1305" rx="0" fill="#fafcff" stroke="#bcc8d7"/>
+<text x="800" y="767.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="800" dy="0"></tspan></text>
+<text x="800" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#172c47"><tspan x="800" dy="0">HỆ THỐNG QUẢN LÝ VẬN CHUYỂN NGỰA</tspan></text>
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="182" r="10"/><path d="M115 192v30 m-23 -18 h46 M115 222l-21 25 M115 222l21 25"/></g>
+<text x="115" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Khách hàng</tspan></text>
+<text x="115" y="294" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">CUSTOMER</tspan></text>
+<ellipse cx="395" cy="223" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="395" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Quản lý hồ sơ ngựa</tspan><tspan x="395" dy="20">và giấy tờ</tspan></text>
+<polyline points="138,204 222,204 222,161 395,161 395,185" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="223" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="660" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Tạo, sửa, gửi, hủy</tspan><tspan x="660" dy="20">đơn vận chuyển</tspan></text>
+<polyline points="138,204 222,204 222,165 660,165 660,185" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="223" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="925" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Theo dõi hành trình</tspan><tspan x="925" dy="20">và báo cáo sức khỏe</tspan></text>
+<polyline points="138,204 222,204 222,169 925,169 925,185" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="223" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="1190" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Xem báo giá</tspan><tspan x="1190" dy="20">và thanh toán</tspan></text>
+<polyline points="138,204 222,204 222,173 1190,173 1190,185" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="332" r="10"/><path d="M115 342v30 m-23 -18 h46 M115 372l-21 25 M115 372l21 25"/></g>
+<text x="115" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Quản lý</tspan></text>
+<text x="115" y="444" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">MANAGER</tspan></text>
+<ellipse cx="395" cy="373" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="395" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Duyệt đơn và giao</tspan><tspan x="395" dy="20">điều phối phụ trách</tspan></text>
+<polyline points="138,354 222,354 222,311 395,311 395,335" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="373" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="660" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Lập / duyệt báo giá;</tspan><tspan x="660" dy="20">quản lý bảng giá</tspan></text>
+<polyline points="138,354 222,354 222,315 660,315 660,335" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="373" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="925" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Duyệt kế hoạch;</tspan><tspan x="925" dy="20">chuyển chuyến READY</tspan></text>
+<polyline points="138,354 222,354 222,319 925,319 925,335" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="373" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="1190" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Thu tiền / doanh thu;</tspan><tspan x="1190" dy="20">duyệt ngoại lệ giao</tspan></text>
+<polyline points="138,354 222,354 222,323 1190,323 1190,335" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="482" r="10"/><path d="M115 492v30 m-23 -18 h46 M115 522l-21 25 M115 522l21 25"/></g>
+<text x="115" y="570" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Chuyên viên</tspan></text>
+<text x="115" y="594" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">SPECIALIST</tspan></text>
+<ellipse cx="395" cy="523" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="395" y="518" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Tiếp nhận và kết luận</tspan><tspan x="395" dy="20">thẩm định hồ sơ</tspan></text>
+<polyline points="138,504 222,504 222,461 395,461 395,485" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="523" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="660" y="518" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Duyệt giấy tờ;</tspan><tspan x="660" dy="20">yêu cầu bổ sung</tspan></text>
+<polyline points="138,504 222,504 222,465 660,465 660,485" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="523" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="925" y="518" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Cập nhật hồ sơ cơ quan</tspan><tspan x="925" dy="20">và thông tin hải quan</tspan></text>
+<polyline points="138,504 222,504 222,469 925,469 925,485" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="523" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="1190" y="518" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Quản lý địa điểm;</tspan><tspan x="1190" dy="20">xem vận hành</tspan></text>
+<polyline points="138,504 222,504 222,473 1190,473 1190,485" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="632" r="10"/><path d="M115 642v30 m-23 -18 h46 M115 672l-21 25 M115 672l21 25"/></g>
+<text x="115" y="720" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Điều phối viên</tspan></text>
+<text x="115" y="744" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">COORDINATOR</tspan></text>
+<ellipse cx="395" cy="673" rx="120" ry="38" fill="#f2edff" stroke="#526179"/>
+<text x="395" y="668" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Lập tuyến, điểm nghỉ;</tspan><tspan x="395" dy="20">gửi duyệt kế hoạch</tspan></text>
+<polyline points="138,654 222,654 222,611 395,611 395,635" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="673" rx="120" ry="38" fill="#f2edff" stroke="#526179"/>
+<text x="660" y="668" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Quản lý xe; phân công</tspan><tspan x="660" dy="20">xe, tài xế, hộ tống</tspan></text>
+<polyline points="138,654 222,654 222,615 660,615 660,635" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="673" rx="120" ry="38" fill="#f2edff" stroke="#526179"/>
+<text x="925" y="668" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Giám sát chuyến;</tspan><tspan x="925" dy="20">xử lý sự cố, cảnh báo</tspan></text>
+<polyline points="138,654 222,654 222,619 925,619 925,635" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="673" rx="120" ry="38" fill="#f2edff" stroke="#526179"/>
+<text x="1190" y="668" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Mở ngoại lệ giao ngựa</tspan><tspan x="1190" dy="20">đã được quản lý duyệt</tspan></text>
+<polyline points="138,654 222,654 222,623 1190,623 1190,635" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="782" r="10"/><path d="M115 792v30 m-23 -18 h46 M115 822l-21 25 M115 822l21 25"/></g>
+<text x="115" y="870" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Tài xế</tspan></text>
+<text x="115" y="894" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">DRIVER_ESCORT / DRIVER</tspan></text>
+<ellipse cx="395" cy="823" rx="120" ry="38" fill="#e9f6f8" stroke="#526179"/>
+<text x="395" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Xem chuyến</tspan><tspan x="395" dy="20">được phân công</tspan></text>
+<polyline points="138,804 222,804 222,761 395,761 395,785" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="823" rx="120" ry="38" fill="#e9f6f8" stroke="#526179"/>
+<text x="660" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Gửi GPS; ghi mốc</tspan><tspan x="660" dy="20">và check-in điểm dừng</tspan></text>
+<polyline points="138,804 222,804 222,765 660,765 660,785" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="823" rx="120" ry="38" fill="#e9f6f8" stroke="#526179"/>
+<text x="925" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Báo cáo sự cố</tspan><tspan x="925" dy="20">trong chuyến</tspan></text>
+<polyline points="138,804 222,804 222,769 925,769 925,785" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="823" rx="120" ry="38" fill="#e9f6f8" stroke="#526179"/>
+<text x="1190" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Hoàn tất chặng</tspan><tspan x="1190" dy="20">và bàn giao ngựa</tspan></text>
+<polyline points="138,804 222,804 222,773 1190,773 1190,785" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="932" r="10"/><path d="M115 942v30 m-23 -18 h46 M115 972l-21 25 M115 972l21 25"/></g>
+<text x="115" y="1020" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Hộ tống</tspan></text>
+<text x="115" y="1044" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">DRIVER_ESCORT / ESCORT</tspan></text>
+<ellipse cx="395" cy="973" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="395" y="968" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Xem chuyến</tspan><tspan x="395" dy="20">được phân công</tspan></text>
+<polyline points="138,954 222,954 222,911 395,911 395,935" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="973" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="660" y="968" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Ghi nhật ký</tspan><tspan x="660" dy="20">chăm sóc ngựa</tspan></text>
+<polyline points="138,954 222,954 222,915 660,915 660,935" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="973" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="925" y="968" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Soạn và gửi</tspan><tspan x="925" dy="20">báo cáo sức khỏe</tspan></text>
+<polyline points="138,954 222,954 222,919 925,919 925,935" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="973" rx="120" ry="38" fill="#eaf3ff" stroke="#526179"/>
+<text x="1190" y="968" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Báo cáo sự cố</tspan><tspan x="1190" dy="20">trong chuyến</tspan></text>
+<polyline points="138,954 222,954 222,923 1190,923 1190,935" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="1082" r="10"/><path d="M115 1092v30 m-23 -18 h46 M115 1122l-21 25 M115 1122l21 25"/></g>
+<text x="115" y="1170" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Quản trị viên</tspan></text>
+<text x="115" y="1194" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">ADMIN</tspan></text>
+<ellipse cx="395" cy="1123" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="395" y="1118" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Tạo, sửa tài khoản</tspan><tspan x="395" dy="20">và vai trò</tspan></text>
+<polyline points="138,1104 222,1104 222,1061 395,1061 395,1085" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="1123" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="660" y="1118" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Khóa / mở khóa</tspan><tspan x="660" dy="20">tài khoản</tspan></text>
+<polyline points="138,1104 222,1104 222,1065 660,1065 660,1085" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="1123" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="925" y="1118" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Đặt lại mật khẩu</tspan><tspan x="925" dy="20">cho tài khoản</tspan></text>
+<polyline points="138,1104 222,1104 222,1069 925,1069 925,1085" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="1123" rx="120" ry="38" fill="#eaf8f1" stroke="#526179"/>
+<text x="1190" y="1118" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Xem danh sách</tspan><tspan x="1190" dy="20">người dùng</tspan></text>
+<polyline points="138,1104 222,1104 222,1073 1190,1073 1190,1085" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="115" cy="1232" r="10"/><path d="M115 1242v30 m-23 -18 h46 M115 1272l-21 25 M115 1272l21 25"/></g>
+<text x="115" y="1320" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Người dùng (*)</tspan></text>
+<text x="115" y="1344" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#172c47"><tspan x="115" dy="0">Chức năng chung</tspan></text>
+<ellipse cx="395" cy="1273" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="395" y="1268" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="395" dy="0">Đăng nhập;</tspan><tspan x="395" dy="20">khôi phục mật khẩu</tspan></text>
+<polyline points="138,1254 222,1254 222,1211 395,1211 395,1235" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="660" cy="1273" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="660" y="1268" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="660" dy="0">Cập nhật hồ sơ</tspan><tspan x="660" dy="20">và đổi mật khẩu</tspan></text>
+<polyline points="138,1254 222,1254 222,1215 660,1215 660,1235" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="925" cy="1273" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="925" y="1268" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="925" dy="0">Xem và đánh dấu</tspan><tspan x="925" dy="20">đã đọc thông báo</tspan></text>
+<polyline points="138,1254 222,1254 222,1219 925,1219 925,1235" fill="none" stroke="#526179" stroke-width="1.5"  />
+<ellipse cx="1190" cy="1273" rx="120" ry="38" fill="#fff3df" stroke="#526179"/>
+<text x="1190" y="1268" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1190" dy="0">Đăng ký / xác minh</tspan><tspan x="1190" dy="20">email (chỉ khách)</tspan></text>
+<polyline points="138,1254 222,1254 222,1223 1190,1223 1190,1235" fill="none" stroke="#526179" stroke-width="1.5"  />
+<g fill="none" stroke="#172c47" stroke-width="2"><circle cx="1475" cy="187" r="10"/><path d="M1475 197v30 m-23 -18 h46 M1475 227l-21 25 M1475 227l21 25"/></g>
+<text x="1475" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#172c47"><tspan x="1475" dy="0">VNPay</tspan></text>
+<polyline points="1452,209 1310,223" fill="none" stroke="#526179" stroke-width="1.5"  />
+<text x="1450" y="335" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#172c47"><tspan x="1450" dy="0">Ngoại lệ giao ngựa:</tspan><tspan x="1450" dy="20">quản lý duyệt;</tspan><tspan x="1450" dy="20">điều phối hoặc</tspan><tspan x="1450" dy="20">quản lý mở.</tspan></text>
+<text x="32" y="1450" text-anchor="start" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#172c47"><tspan x="32" dy="0">(*) Mỗi vai trò sử dụng các chức năng chung phù hợp; đăng ký chỉ tạo CUSTOMER. Các use case được gom theo mục tiêu.</tspan></text>
+<text x="32" y="1477" text-anchor="start" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#172c47"><tspan x="32" dy="0">Tài xế / hộ tống được phân biệt bằng vai trò tổ lái trong chuyến. VNPay là hệ thống ngoài; chế độ mô phỏng chỉ phục vụ thử nghiệm.</tspan></text></svg>
