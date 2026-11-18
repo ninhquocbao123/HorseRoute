@@ -1,6 +1,6 @@
 # Hoàn thiện 7 mục, 19/11/2026
 
-Nhánh `feat/hoan-thien-19-11-2026` (tạo từ `long` `7608b13`), worktree `.claude/worktrees/beautiful-davinci-56b8f2`. **Chưa push.** Cập nhật lần cuối sau khi làm xong mục 3, 6, 7.
+Nhánh `feat/hoan-thien-19-11-2026` (tạo từ `long` `7608b13`), worktree `.claude/worktrees/beautiful-davinci-56b8f2`. Cập nhật lần cuối sau khi thử trên máy ảo; đã gộp vào `long`, `dev`, `main` theo yêu cầu người dùng.
 
 Môi trường thử: MySQL riêng `hr-test-mysql-1911` (cổng 33077, DB `wdp_flow4_demo`), API cổng 3100 với `apps/api/.env.demo` (gitignore, `MAIL_DISABLED=true`, lưu tệp local), web cổng 5190. Không ghi gì lên DB chung Aiven.
 
@@ -57,9 +57,28 @@ Môi trường thử: MySQL riêng `hr-test-mysql-1911` (cổng 33077, DB `wdp_f
 - `tsc` sạch ở api, web, mobile; test API 225/225, web đạt, mobile 81/81; `vite build` và `expo export --platform android` build được.
 - Chưa chạy được luồng đầu cuối trên app (máy ảo không dùng được trong phiên). Các bước web đã chạy thật trên DB thử: khách nhận toast xanh và đỏ, bấm mở đơn; tài xế check-in ở 360px; lightbox ảnh.
 
+## Thử trên máy ảo Android (Pixel_9a, Expo Go, API thử cổng 3100)
+
+| Luồng | Kết quả |
+| --- | --- |
+| Khách đăng nhập tài khoản seed | Đạt, ảnh đại diện seed hiện đúng |
+| Popup cảnh báo điều phối (thường) | Đạt: trượt xuống, viền teal, tự ẩn 5 giây |
+| Popup sự cố (đỏ) | Đạt: viền đỏ nền đỏ nhạt; bấm mở thẳng màn Theo dõi hành trình, thông báo đánh dấu đã đọc, chuông giảm |
+| Thẩm định viên yêu cầu bổ sung → popup → màn Nộp lại giấy tờ | Đạt: đúng con ngựa, hiện lý do, viền đỏ giấy tờ cần nộp |
+| Nộp lại từ thư viện ảnh | Đạt sau khi sửa (`c8f4e91`): giấy tờ về SUBMITTED, quản lý và thẩm định viên nhận thông báo, thông báo cũ của khách đã đọc |
+| Thêm ngựa mới kèm giấy tờ, sửa hồ sơ thêm giấy tờ | Đạt sau khi sửa (`c1d4ba6`) |
+| Timeline: mới nhất trên cùng, cũ xám, sắp tới nét đứt, ảnh theo mốc | Đạt |
+| Tài xế ghi mốc khi khách đang mở timeline | Đạt: mốc mới tự lên đầu, không cần kéo |
+| Trình xem ảnh: "1/3", vuốt sang "2/3", chạm đúp phóng, X đóng, giờ chụp, nơi chụp | Đạt |
+| Tài xế: nút chân màn "Check-in", thẻ "Điểm đến tiếp theo" nổi trên bản đồ | Đạt; tile bản đồ trên máy ảo tải quá lâu nên rơi về sơ đồ tuyến (chấm vàng điểm kế vẫn hiện) |
+
+Lỗi tìm ra khi thử và đã sửa: XMLHttpRequest không gửi được tệp trên Expo SDK 58 (chuyển sang `createUploadTask`); form ngựa mất lỗi khi giấy tờ hỏng; hộp "Rời biểu mẫu?" ở màn nộp lại.
+
 ## Còn vướng
 
 - **Push FCM chưa có trong dự án.** Theo yêu cầu, cần người dùng đồng ý trước khi tích hợp. Vì vậy chưa có thông báo khi app chạy nền hoặc đã tắt, và chưa test được deep link từ push.
 - Máy ảo: lệnh `adb screencap` treo, người dùng tự bật lại máy ảo nên chưa thử mục 2, 4 trên app.
 - Seed chưa có giấy tờ (`documents`) cho đơn nào, nên muốn thử "yêu cầu bổ sung" phải tạo đơn mới có ngựa, hoặc bổ sung seed.
-- Cần thử trên máy ảo hoặc máy thật: popup mục 4, giấy tờ và nộp lại mục 2, trình xem ảnh mục 3, nút và thẻ mục 6, timeline mục 7.
+- Push FCM: người dùng quyết định không làm trong đợt này, nên app chạy nền hoặc đã tắt chưa nhận thông báo.
+- Chưa thử chụm hai ngón (máy ảo không giả lập được) và chọn tệp PDF trên app.
+- Tên tệp giấy tờ tải từ app là tên tệp tạm (chuỗi mã), không phải tên đẹp.
