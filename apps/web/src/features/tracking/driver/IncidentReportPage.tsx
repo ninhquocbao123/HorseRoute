@@ -7,6 +7,7 @@ import { useDraft } from './useDraft';
 import SeverityPicker from './SeverityPicker';
 import DamageTargetChips from './DamageTargetChips';
 import LabeledPhotoGrid from './LabeledPhotoGrid';
+import { shrinkPhoto } from '../../../lib/shrink-photo';
 import { QuickContactCard, RedNotice, ReportedIncidents, WaitingChecklist } from './IncidentSidePanel';
 import { INCIDENT_KIND_GROUPS, splitIncidentKind } from './driver-ui';
 
@@ -110,7 +111,9 @@ export default function IncidentReportPage({ trip, detail, onDone, onCancel }: {
     } else if (location) {
       form.set('locationText', location);
     }
-    photos.forEach((photo, index) => {
+    // Ảnh chụp gốc có thể tới 5 MB: thu nhỏ còn tối đa 1600px trước khi gửi, giống app.
+    const small = await Promise.all(photos.map(shrinkPhoto));
+    small.forEach((photo, index) => {
       form.append('photos', photo);
       form.append('captions', captions[index]?.trim() ?? '');
     });

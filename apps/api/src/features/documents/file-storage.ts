@@ -68,6 +68,19 @@ export async function saveFile(file: Upload) {
  return { key, type, name: basename(file.originalname).replace(/[\r\n\x00-\x1f]/g, '').slice(0,255) || 'document', size: file.buffer.length };
 }
 
+/**
+ * Lưu nhiều tệp cùng lúc thay vì lần lượt (mỗi tệp là một lượt tải lên kho), giữ đúng thứ tự đầu vào.
+ * Một tệp lỗi thì xóa các tệp đã lưu được rồi báo lỗi, để không để lại tệp mồ côi.
+ */
+export async function saveFiles(files: Upload[]) {
+ files.forEach(fileType);
+ const results = await Promise.allSettled(files.map(file => saveFile(file)));
+ const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+ if (!failed) return results.map(r => (r as PromiseFulfilledResult<Awaited<ReturnType<typeof saveFile>>>).value);
+ await Promise.all(results.map(r => r.status === 'fulfilled' ? removeFile(r.value.key) : undefined));
+ throw failed.reason;
+}
+
 // Do not hide a failed DB transaction if rollback cleanup also fails.
 export async function removeFile(key: string) {
  try {

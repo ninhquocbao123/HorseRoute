@@ -25,7 +25,7 @@ import {
   trackQuerySchema,
   approveDeliveryExceptionSchema,
 } from './tracking.validation';
-import { Upload, fileType, saveFile, removeFile, loadFile } from '../documents/file-storage';
+import { Upload, fileType, saveFile, saveFiles, removeFile, loadFile } from '../documents/file-storage';
 import { parse } from '../../shared/utils/validation.util';
 import {
   BadRequestException,
@@ -914,7 +914,7 @@ export class TrackingService {
 
     const saved: StoredFile[] = [];
     try {
-      for (const file of files) saved.push(await saveFile(file));
+      saved.push(...(await saveFiles(files)));
       let outbox = null as ReportOutbox | null;
       const log = await this.repository.transaction(async repo => {
         const leg = await repo.lockLegForUpdate(legId);
@@ -1081,7 +1081,7 @@ export class TrackingService {
 
     const saved: StoredFile[] = [];
     try {
-      for (const file of files) saved.push(await saveFile(file));
+      saved.push(...(await saveFiles(files)));
       const result = await this.repository.transaction(async repo => {
         const log = await this.lockOwnDraft(repo, account, logId);
         this.assertOrderOpen(log.orderStatus);
@@ -1278,7 +1278,7 @@ export class TrackingService {
 
     const saved: StoredFile[] = [];
     try {
-      for (const file of files) saved.push(await saveFile(file));
+      saved.push(...(await saveFiles(files)));
       const created = await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
         const assignment = await repo.getDriverAssignment(tripId, String(account.id));
@@ -1405,7 +1405,7 @@ export class TrackingService {
 
     const saved: StoredFile[] = [];
     try {
-      for (const file of files) saved.push(await saveFile(file));
+      saved.push(...(await saveFiles(files)));
       const created = await this.repository.transaction(async repo => {
         const trip = await this.authorizeTrip(repo, account, tripId, [Role.DRIVER_ESCORT]);
         // 5.4: cho báo sự cố cả lúc chuẩn bị khởi hành (chất ngựa lên xe, trước giờ chạy).

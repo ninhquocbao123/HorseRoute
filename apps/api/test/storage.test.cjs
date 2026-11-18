@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 require('reflect-metadata');
 require('ts-node').register({ project: path.resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
-const { saveFile, loadFile, removeFile, verifyStoredFile, forgetBucketChecks, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
+const { saveFile, saveFiles, loadFile, removeFile, verifyStoredFile, forgetBucketChecks, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
 const { envValidationSchema } = require('../src/shared/config/env.validation');
 const pdf = { buffer: Buffer.from('%PDF-1.7\nfixture'), originalname: 'giấy tờ.pdf', size: 16 };
 
@@ -68,6 +68,31 @@ test('private storage integration', async t => {
       calls.length = 0;
       await saveFile(pdf);
       assert.equal(calls.filter(c => c.url.includes('/bucket/')).length, 1);
+    });
+    await t.test('several photos upload at the same time, keep order, and are all removed if one fails', async () => {
+      forgetBucketChecks();
+      calls.length = 0;
+      let inFlight = 0, peak = 0, failSecond = false, uploads = 0;
+      handler = async (url, init) => {
+        if (url.includes('/bucket/')) return json({ id: 'wdp-documents', public: false });
+        if (init.method === 'DELETE') return json([]);
+        const nth = ++uploads;
+        inFlight++; peak = Math.max(peak, inFlight);
+        await new Promise(done => setTimeout(done, 20));
+        inFlight--;
+        return failSecond && nth === 2 ? json({ message: 'boom' }, 500) : json({ Key: 'ok' });
+      };
+      const files = ['a.pdf', 'b.pdf', 'c.pdf'].map(originalname => ({ ...pdf, originalname }));
+      const saved = await saveFiles(files);
+      assert.deepEqual(saved.map(f => f.name), ['a.pdf', 'b.pdf', 'c.pdf']);
+      assert.equal(peak, 3);
+      calls.length = 0; uploads = 0; failSecond = true;
+      await assert.rejects(saveFiles(files), e => e.getStatus() === 503);
+      const deleted = calls.filter(c => c.init.method === 'DELETE');
+      assert.equal(deleted.length, 2);
+      calls.length = 0;
+      await assert.rejects(saveFiles([pdf, { ...pdf, buffer: Buffer.from('not an image') }]), e => e.getStatus() === 400);
+      assert.equal(calls.length, 0);
     });
     await t.test('public bucket is rejected before uploading', async () => {
       forgetBucketChecks();

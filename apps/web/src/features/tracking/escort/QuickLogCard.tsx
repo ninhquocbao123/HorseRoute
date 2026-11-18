@@ -8,6 +8,7 @@ import { toLocalInput, fromLocalInput } from '../tracking.format';
 import { useDraft } from '../driver/useDraft';
 import { useDriverNotice } from '../driver/DriverNotices';
 import PhotoPicker from '../driver/PhotoPicker';
+import { shrinkPhoto } from '../../../lib/shrink-photo';
 import { CARE_TYPES, EMPTY_CARE_FORM, WATER_WARN_LITERS, WHOLE_HERD, careLabel, formFromActivity, isUnusualWater, toInput, validateCare, type CareForm } from './care-ui';
 
 type Retry = { form: CareForm; photos: File[]; remaining: string[]; total: number; at: Date; error: string };
@@ -76,9 +77,11 @@ export default function QuickLogCard({ tripId, writable, horses, editing, onCanc
   };
 
   /** Ghi lần lượt; trả true khi xong hết. Lỗi giữa chừng: giữ phần còn lại để thử lại, không ghi trùng ngựa đã xong. */
-  const writeAll = async (snapshot: CareForm, files: File[], targets: string[], at: Date, total: number) => {
+  const writeAll = async (snapshot: CareForm, original: File[], targets: string[], at: Date, total: number) => {
     setBusy(true);
     setError('');
+    // Thu nhỏ một lần trước khi gửi: ghi cho nhiều ngựa sẽ gửi lại cùng bộ ảnh cho từng con.
+    const files = await Promise.all(original.map(shrinkPhoto));
     for (const [index, id] of targets.entries()) {
       try {
         await trackingApi.createCareActivity(tripId, toInput(snapshot, id === WHOLE_HERD ? null : id, at, editing?.id), files);
