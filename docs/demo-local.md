@@ -32,25 +32,25 @@ Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng.
 
 ## 3. Tài khoản demo
 
-Đăng nhập nhân viên tại http://localhost:5180/staff/login. Mật khẩu của **tất cả** tài khoản: `Demo@12345` (chỉ dùng cho DB demo này).
+Đăng nhập nhân viên tại http://localhost:5180/staff/login, khách tại `/login`. Mật khẩu của **tất cả** tài khoản: `HorseRoute@2026`. Bảng đầy đủ (họ tên, email, vai trò): [doc/tai_khoan_demo.md](../doc/tai_khoan_demo.md). Từ 19/11/2026 email dạng tên + `@gmail.com`; API không gửi thư tới các địa chỉ này.
 
 | Email | Vai trò |
 |---|---|
-| `driver@example.com` | Tài xế (DRIVER) của chuyến demo |
-| `escort@example.com` | Hộ tống (ESCORT) cùng chuyến: đăng nhập vào khung hộ tống, màn E1 "Quản lý ngựa" (ngựa có giống và tuổi, 7 hoạt động chăm sóc hôm nay, 1 báo cáo đã gửi + 1 nháp) |
-| `driver2@example.com` | Tài xế khác (kiểm tra cô lập quyền) |
-| `coordinator@example.com`, `coordinator2@example.com` | Điều phối |
-| `manager@example.com`, `specialist@example.com`, `admin@example.com` | Quản lý, chuyên viên, quản trị |
-| `customer@example.com`, `customer2@example.com` | Khách hàng (đăng nhập ở `/login`) |
-| `driver3@example.com`, `escort2@example.com` | Tài xế và hộ tống còn rảnh, để điều phối phân công cho các đơn `WDP-DEMO-AUTO-*` |
+| `nguyenvanhung.driver@gmail.com` | Tài xế (DRIVER) của chuyến đang chạy |
+| `phamthilan.escort@gmail.com` | Hộ tống (ESCORT) cùng chuyến |
+| `tranminhtuan.driver@gmail.com` | Tài xế khác (kiểm tra cô lập quyền) |
+| `dangthutrang.coordinator@gmail.com`, `huynhquocviet.coordinator@gmail.com` | Điều phối |
+| `lethiminhchau.manager@gmail.com`, `nguyenthanhha.specialist@gmail.com`, `tranquocbao.admin@gmail.com` | Quản lý, chuyên viên, quản trị |
+| `vohoanglong.customer@gmail.com`, `buithingocanh.customer@gmail.com` | Khách hàng |
+| `lequangvinh.driver@gmail.com`, `doanhtuan.escort@gmail.com`, `ngothuhuong.escort@gmail.com` | Tài xế và hộ tống còn rảnh, để điều phối phân công cho các đơn `WDP-DEMO-AUTO-*` |
 
 ## 4. Dữ liệu mẫu cho tài xế / hộ tống
 
 - **Đang chạy** `WDP-DEMO-F4-A` (chuyến #200, 3 ngựa): chặng 1 Long An → cửa khẩu Mộc Bài đã xong, chặng 2 Mộc Bài → Phnom Penh đang chạy bằng đường bộ, chặng 3 → Cảng Sihanoukville chưa đi. Có 14 điểm GPS, 2 cảnh báo điều phối (kẹt xe, thời tiết), 1 ghi chú hộ tống, 1 sự cố mức vàng. Dữ liệu hộ tống (migration `EscortHorseCare`): 7 hoạt động chăm sóc hôm nay do hộ tống ghi (có 1 bản đính chính 80 L → 8 L), 1 báo cáo sức khỏe `SENT` gửi khách (Bỏ ăn, chưa xem) và 1 báo cáo `DRAFT`. Hai tài khoản tài xế và hộ tống cùng thấy chuyến này. Mỗi cảnh báo điều phối có **thông báo IN_APP chưa đọc** cho quản lý, tài xế, hộ tống và khách của đơn (như API thật), nên toast ở góc dưới phải và bảng chuông khớp nhau: tắt toast (X) hoặc bấm thân toast là đánh dấu đã đọc.
 - **Sắp tới** `WDP-DEMO-F4-NEXT` (chuyến #205, READY): cùng tài xế, nên màn chuyến hiện dòng "Còn 1 chuyến sắp tới".
-- **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng). H1–H3: tài xế 5 + hộ tống 6. **H4 đổi vai** (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: `driver@example.com` và `escort@example.com` đều chỉ thấy H1–H3 ở lịch sử của khung mình, H4 chỉ xuất hiện ở khung ngược lại. Lịch sử hộ tống (chi tiết chỉ xem): H2 có hoạt động chăm sóc trải trên 2 ngày, **13 hoạt động trong một ngày** (thử phân trang 10 dòng/trang) và 1 bản đính chính; H1 có 3 hoạt động và 1 báo cáo sức khỏe đã gửi, khách đã xem.
+- **Lịch sử** `WDP-DEMO-F4-H1…H4`: 4 chuyến đã giao (5, 12, 20, 35 ngày trước, 1–3 ngựa, hai loại xe, một chuyến có sự cố đã đóng). H1–H3: tài xế 5 + hộ tống 6. **H4 đổi vai** (6 làm tài xế, 5 làm hộ tống) để thử lịch sử lọc theo vai trò: tài xế Nguyễn Văn Hùng và hộ tống Phạm Thị Lan đều chỉ thấy H1–H3 ở lịch sử của khung mình, H4 chỉ xuất hiện ở khung ngược lại. Lịch sử hộ tống (chi tiết chỉ xem): H2 có hoạt động chăm sóc trải trên 2 ngày, **13 hoạt động trong một ngày** (thử phân trang 10 dòng/trang) và 1 bản đính chính; H1 có 3 hoạt động và 1 báo cáo sức khỏe đã gửi, khách đã xem.
 - `WDP-DEMO-F4-B` (tài xế khác, READY) và `WDP-DEMO-F4-C` (kế hoạch chờ duyệt) để thử cô lập quyền.
-- **Chờ lập kế hoạch** `WDP-DEMO-AUTO-VN`, `-CN`, `-TH` (thêm 12/11/2026): đơn đã duyệt và đặt cọc, kế hoạch nháp của `coordinator@example.com` chưa có lộ trình. Mở chuyến là hệ thống tự lập lộ trình (cần mạng): Hà Nội → TP.HCM, Hà Nội → Nam Ninh (cửa khẩu Hữu Nghị, đã có số tờ khai), Hà Nội → Bangkok (qua Lào, **chưa có số tờ khai** để demo B13). Xe `29C-246.13` và `51G-864.20` còn rảnh. Kịch bản demo đầy đủ: [kich-ban-demo.md](kich-ban-demo.md).
+- **Chờ lập kế hoạch** `WDP-DEMO-AUTO-VN`, `-CN`, `-TH` (thêm 12/11/2026): đơn đã duyệt và đặt cọc, kế hoạch nháp của `dangthutrang.coordinator@gmail.com` chưa có lộ trình. Mở chuyến là hệ thống tự lập lộ trình (cần mạng): Hà Nội → TP.HCM, Hà Nội → Nam Ninh (cửa khẩu Hữu Nghị, đã có số tờ khai), Hà Nội → Bangkok (qua Lào, **chưa có số tờ khai** để demo B13). Xe `29C-246.13` và `51G-864.20` còn rảnh. Kịch bản demo đầy đủ: [kich-ban-demo.md](kich-ban-demo.md).
 - **Đơn mới** `WDP-DEMO-F4-NEW` (PENDING): có đủ thông tin đặt chuyến, quản lý tiếp nhận và tính giá được ngay.
 - **Thanh toán:** mọi đơn đã duyệt có báo giá chính thức. Các chuyến đã giao đã trả đủ (có số liệu ở trang Doanh thu). `WDP-DEMO-F4-A` mới đặt cọc, nên khi tài xế tới điểm giao sẽ thấy "Chờ khách thanh toán" cho tới khi khách trả nốt. Các đơn còn lại đã đặt cọc.
 - **Xe:** mỗi chuyến chưa xong dùng một xe riêng (xe 5 đang chạy, xe 6, 7, 8 đã giữ chỗ), xe 9 còn rảnh để thử phân công. Tài xế 5, hộ tống 6 và tài xế 11 có hồ sơ tổ lái.
@@ -58,7 +58,7 @@ Bản đồ không cần token (MapLibre + OpenFreeMap), chỉ cần có mạng.
 **Tín hiệu GPS chỉ "LIVE" trong 2 phút** sau khi seed (điểm cuối cách đây ~1 phút). Muốn thẻ Tốc độ và vị trí xe luôn tươi, chạy trình mô phỏng (xe chạy dọc chặng 2):
 
 ```bash
-node apps/api/scripts/simulate-gps.cjs --api http://localhost:3010/api/v1 --trip 200 --email driver@example.com --password Demo@12345
+node apps/api/scripts/simulate-gps.cjs --api http://localhost:3010/api/v1 --trip 200 --email nguyenvanhung.driver@gmail.com --password HorseRoute@2026
 ```
 
 hoặc chạy lại seed rồi mở trang ngay.

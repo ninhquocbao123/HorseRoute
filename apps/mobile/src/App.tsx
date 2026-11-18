@@ -25,6 +25,7 @@ import {
   CloudOff,
   CloudUpload,
   History,
+  IdCard,
   LogOut,
   MapPin,
   Monitor,
@@ -347,10 +348,24 @@ function Account({
   const pending = useQueue();
   const [error, setError] = useState("");
   const [avatarError, setAvatarError] = useState("");
+  const crew = useResource<{
+    crewType: "DRIVER" | "ESCORT";
+    licenseNumber: string | null;
+    licenseClass: string | null;
+    licenseExpiresOn: string | null;
+  } | null>(user!.role === "DRIVER_ESCORT" ? "/users/me/crew" : null);
+  const license = crew.data?.licenseNumber
+    ? `Bằng lái hạng ${crew.data.licenseClass ?? "?"} · số ${crew.data.licenseNumber}${
+        crew.data.licenseExpiresOn
+          ? ` · hết hạn ${crew.data.licenseExpiresOn.split("-").reverse().join("/")}`
+          : ""
+      }`
+    : null;
   const info = [
     { icon: Mail, text: user!.email },
     { icon: Phone, text: user!.phone || "Chưa có số điện thoại" },
     { icon: MapPin, text: user!.address || "Chưa có nơi ở" },
+    ...(license ? [{ icon: IdCard, text: license }] : []),
   ];
   return (
     <>
@@ -362,7 +377,11 @@ function Account({
               {user!.fullName}
             </Txt>
             <Txt size={15} color={c.textSecondary}>
-              {roleName}
+              {crew.data?.crewType === "DRIVER"
+                ? "Tài xế"
+                : crew.data?.crewType === "ESCORT"
+                  ? "Hộ tống (lơ xe)"
+                  : roleName}
             </Txt>
           </View>
         </View>

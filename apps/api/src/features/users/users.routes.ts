@@ -8,6 +8,7 @@ import { UsersService } from './users.service';
 export function usersRoutes(service: UsersService) {
   const router = Router(), controller = new UsersController(service);
   router.get('/me', controller.me);
+  router.get('/me/crew',async(req,res)=>{res.json(await service.crewProfile(req.account.id));});
   router.get('/me/avatar',async(req,res)=>{res.set('Cache-Control','no-store').json(await service.avatar(req.account.id));});
   router.post('/me/avatar',multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:1}}).single('avatar'),async(req,res)=>{res.json(await service.saveAvatar(req.account.id,req.file));});
   router.patch('/me', controller.updateProfile);

@@ -35,16 +35,16 @@ BEGIN
   END IF;
 
   INSERT INTO users (id,email,password_hash,full_name,role,account_status,organization_name,customer_type,address,created_at) VALUES
-  (1,'admin@example.com','!DEMO_LOGIN_DISABLED!','Nguyễn Minh An','ADMIN','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (2,'manager@example.com','!DEMO_LOGIN_DISABLED!','Trần Hoàng Nam','MANAGER','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (3,'specialist@example.com','!DEMO_LOGIN_DISABLED!','Lê Thu Hà','SPECIALIST','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (4,'coordinator@example.com','!DEMO_LOGIN_DISABLED!','Phạm Gia Huy','COORDINATOR','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (5,'driver@example.com','!DEMO_LOGIN_DISABLED!','Võ Thành Đạt','DRIVER_ESCORT','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (6,'escort@example.com','!DEMO_LOGIN_DISABLED!','Đặng Ngọc Mai','DRIVER_ESCORT','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
-  (7,'club@example.com','!DEMO_LOGIN_DISABLED!','Nguyễn Bảo Long','CUSTOMER','ACTIVE','CLB Ngựa Ánh Dương Demo','CLUB','Khu chuồng ngựa Demo, Long An, Việt Nam','2026-09-01 01:00:00'),
-  (8,'owner@example.com','!DEMO_LOGIN_DISABLED!','Trần Thanh Lan','CUSTOMER','ACTIVE',NULL,'INDIVIDUAL','Trang trại Demo, Tây Ninh, Việt Nam','2026-09-01 01:00:00'),
-  (9,'pending@example.com','!DEMO_LOGIN_DISABLED!','Lê Minh Khang','CUSTOMER','PENDING',NULL,'INDIVIDUAL',NULL,'2026-10-07 01:00:00'),
-  (10,'locked@example.com','!DEMO_LOGIN_DISABLED!','Phạm Ngọc Anh','CUSTOMER','LOCKED',NULL,'INDIVIDUAL',NULL,'2026-09-01 01:00:00');
+  (1,'nguyenminhan.admin@gmail.com','!DEMO_LOGIN_DISABLED!','Nguyễn Minh An','ADMIN','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (2,'tranhoangnam.manager@gmail.com','!DEMO_LOGIN_DISABLED!','Trần Hoàng Nam','MANAGER','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (3,'lethuha.specialist@gmail.com','!DEMO_LOGIN_DISABLED!','Lê Thu Hà','SPECIALIST','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (4,'phamgiahuy.coordinator@gmail.com','!DEMO_LOGIN_DISABLED!','Phạm Gia Huy','COORDINATOR','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (5,'vothanhdat.driver@gmail.com','!DEMO_LOGIN_DISABLED!','Võ Thành Đạt','DRIVER_ESCORT','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (6,'dangngocmai.escort@gmail.com','!DEMO_LOGIN_DISABLED!','Đặng Ngọc Mai','DRIVER_ESCORT','ACTIVE',NULL,NULL,NULL,'2026-09-01 01:00:00'),
+  (7,'nguyenbaolong.customer@gmail.com','!DEMO_LOGIN_DISABLED!','Nguyễn Bảo Long','CUSTOMER','ACTIVE','CLB Ngựa Ánh Dương','CLUB','Khu chuồng ngựa Bến Lức, Long An, Việt Nam','2026-09-01 01:00:00'),
+  (8,'tranthanhlan.customer@gmail.com','!DEMO_LOGIN_DISABLED!','Trần Thanh Lan','CUSTOMER','ACTIVE',NULL,'INDIVIDUAL','Trang trại Gò Dầu, Tây Ninh, Việt Nam','2026-09-01 01:00:00'),
+  (9,'leminhkhang.customer@gmail.com','!DEMO_LOGIN_DISABLED!','Lê Minh Khang','CUSTOMER','PENDING',NULL,'INDIVIDUAL',NULL,'2026-10-07 01:00:00'),
+  (10,'phamngocanh.customer@gmail.com','!DEMO_LOGIN_DISABLED!','Phạm Ngọc Anh','CUSTOMER','LOCKED',NULL,'INDIVIDUAL',NULL,'2026-09-01 01:00:00');
 
   -- Mã DEMO riêng vì schema chưa giải thích ý nghĩa nghiệp vụ của L/D/N/S/T.
   INSERT INTO system_parameters (param_code,param_value,description) VALUES

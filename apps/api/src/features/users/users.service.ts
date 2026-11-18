@@ -8,6 +8,13 @@ import { User } from './users.model';
 import { PaginationDto } from '../../shared/utils/pagination.util';
 export class UsersService {
   constructor(private readonly repo: UsersRepository) {}
+  /** Tổ lái: loại (tài xế / hộ tống) và bằng lái. Tài khoản khác trả null. */
+  async crewProfile(id:string) {
+    const row=await this.repo.crewProfile(id);
+    if(!row)return null;
+    const expires=row.licenseExpiresOn instanceof Date?row.licenseExpiresOn.toISOString().slice(0,10):row.licenseExpiresOn??null;
+    return {crewType:row.crewType,workStatus:row.workStatus,licenseNumber:row.licenseNumber??null,licenseClass:row.licenseClass??null,licenseExpiresOn:expires};
+  }
   async avatar(id:string) { return {image:await this.repo.avatar(id)}; }
   async saveAvatar(id:string,file?:Express.Multer.File) {
     if(!file || file.size>5*1024*1024 || file.mimetype!=='image/jpeg' || file.buffer[0]!==255 || file.buffer[1]!==216 || file.buffer[file.buffer.length-2]!==255 || file.buffer[file.buffer.length-1]!==217) throw new BadRequestException('Ảnh không hợp lệ. Vui lòng chọn lại ảnh.');

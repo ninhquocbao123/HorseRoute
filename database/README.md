@@ -14,7 +14,7 @@ Seed dùng transaction, giữ nguyên kiểm tra khóa ngoại, không xóa hay 
 
 ## Nội dung demo
 
-- 10 người dùng: đủ 6 vai trò, trạng thái ACTIVE/PENDING/LOCKED. Email dùng miền `example.com`.
+- 10 người dùng: đủ 6 vai trò, trạng thái ACTIVE/PENDING/LOCKED. Email dạng tên không dấu + `@gmail.com`; API không gửi thư tới các địa chỉ này (`apps/api/src/shared/mail/seed-accounts.ts`).
 - 10 đơn: đủ DRAFT, PENDING, NEED_INFO, REJECTED, APPROVED, PREPARING, READY, IN_TRANSIT, DELIVERED, CANCELLED.
 - 11 ngựa; đơn đã giao có 2 ngựa để thử danh sách nhiều ngựa.
 - 33 checklist giấy tờ với đủ 5 trạng thái; 21 phiên bản upload gồm một giấy tờ có 2 phiên bản.

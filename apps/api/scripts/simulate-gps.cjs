@@ -3,7 +3,7 @@
 // thấy xe "chạy" trên bản đồ. KHÔNG chạy với NODE_ENV=production.
 //
 // Chạy (API đang chạy ở máy dev, chuyến đã IN_TRANSIT, chặng hiện tại không phải chặng bay):
-//   node apps/api/scripts/simulate-gps.cjs --trip 200 --email driver@example.com --password Demo@12345
+//   node apps/api/scripts/simulate-gps.cjs --trip 200 --email nguyenvanhung.driver@gmail.com --password HorseRoute@2026
 // Tùy chọn: --api http://localhost:3000/api/v1  --speed 60 (km/h)  --every 10 (giây giữa hai lần gửi)  --batch 2 (điểm/lô)
 // Dừng: Ctrl+C. Dừng hẳn 2 phút thì bản đồ chuyển "mất tín hiệu"; quá 10 phút thì quay về vị trí ước tính.
 'use strict';
@@ -23,7 +23,7 @@ const speedKmh = Number(args.speed || 60);
 const everySeconds = Number(args.every || 10);
 const perBatch = Math.min(20, Math.max(1, Number(args.batch || 2)));
 if (!tripId || !args.email || !args.password) {
-  console.error('Thiếu tham số. Ví dụ: node apps/api/scripts/simulate-gps.cjs --trip 200 --email driver@example.com --password Demo@12345');
+  console.error('Thiếu tham số. Ví dụ: node apps/api/scripts/simulate-gps.cjs --trip 200 --email nguyenvanhung.driver@gmail.com --password HorseRoute@2026');
   process.exit(1);
 }
 if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(api).hostname) && args.remote !== 'yes') {

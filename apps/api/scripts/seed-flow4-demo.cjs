@@ -12,11 +12,41 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const { DataSource } = require('typeorm');
 const { User } = require('../src/features/users/users.model');
+const zlib = require('zlib');
 const { calculateEstimate } = require('@my-project/shared');
+const { SEED_ACCOUNTS } = require('../src/shared/mail/seed-accounts');
+
+/** Ảnh đại diện PNG 128×128 (nền màu thương hiệu, hình người cách điệu), lưu dạng data URL như ảnh người dùng tự tải. */
+function avatarPng(seed) {
+  const palette = [[11, 59, 66], [20, 96, 106], [168, 106, 0], [22, 101, 52], [84, 109, 113]];
+  const [r, g, b] = palette[seed % palette.length];
+  const size = 128, raw = Buffer.alloc((size * 3 + 1) * size);
+  for (let y = 0; y < size; y++) {
+    raw[y * (size * 3 + 1)] = 0;
+    for (let x = 0; x < size; x++) {
+      const head = (x - 64) ** 2 + (y - 50) ** 2 < 22 ** 2;
+      const body = y > 80 && (x - 64) ** 2 / 44 ** 2 + (y - 128) ** 2 / 46 ** 2 < 1;
+      const light = head || body;
+      const o = y * (size * 3 + 1) + 1 + x * 3;
+      raw[o] = light ? 244 : r; raw[o + 1] = light ? 241 : g; raw[o + 2] = light ? 232 : b;
+    }
+  }
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = buf => { let c = 0xffffffff; for (const byte of buf) c = crcTable[(c ^ byte) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(body));
+    return Buffer.concat([len, body, sum]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+  return 'data:image/png;base64,' + png.toString('base64');
+}
 
 const DB_NAME = process.env.DEMO_DB_NAME || 'wdp_flow4_demo';
 if (!/^wdp_flow4_demo\w*$/.test(DB_NAME)) { console.error('DEMO_DB_NAME phải bắt đầu bằng wdp_flow4_demo.'); process.exit(1); }
-const PASSWORD = 'Demo@12345';
+const PASSWORD = 'HorseRoute@2026';
 const host = process.env.DEMO_DB_HOST || '127.0.0.1';
 const port = Number(process.env.DEMO_DB_PORT || 3306);
 const user = process.env.DEMO_DB_USER || 'root';
@@ -50,29 +80,21 @@ async function main() {
   try {
 
     const hash = await bcrypt.hash(PASSWORD, 10);
-    accounts = [
-      [1, 'admin@example.com', 'Quản Trị Demo', 'ADMIN', null, null],
-      [2, 'manager@example.com', 'Quản Lý Demo', 'MANAGER', null, null],
-      [3, 'specialist@example.com', 'Chuyên Viên Demo', 'SPECIALIST', null, null],
-      [4, 'coordinator@example.com', 'Điều Phối Demo', 'COORDINATOR', null, null],
-      [5, 'driver@example.com', 'Tài Xế Demo', 'DRIVER_ESCORT', null, null],
-      [6, 'escort@example.com', 'Hộ Tống Demo', 'DRIVER_ESCORT', null, null],
-      [7, 'customer@example.com', 'Khách Hàng Demo', 'CUSTOMER', 'CLUB', 'Khu chuồng ngựa Demo, Long An'],
-      [8, 'customer2@example.com', 'Khách Hàng Hai', 'CUSTOMER', 'INDIVIDUAL', 'Trang trại Demo, Tây Ninh'],
-      [11, 'driver2@example.com', 'Tài Xế Khác', 'DRIVER_ESCORT', null, null],
-      [12, 'coordinator2@example.com', 'Điều Phối Khác', 'COORDINATOR', null, null],
-      // Tổ lái còn rảnh để điều phối phân công cho các đơn chờ lập kế hoạch (demo tự lập lộ trình).
-      [13, 'driver3@example.com', 'Tài Xế Ba', 'DRIVER_ESCORT', null, null],
-      [14, 'escort2@example.com', 'Hộ Tống Hai', 'DRIVER_ESCORT', null, null],
-    ];
-    for (const [id, email, fullName, role, customerType, address] of accounts) {
+    // Tài khoản mẫu: danh sách dùng chung với mailer (không bao giờ gửi email tới các địa chỉ này), bảng ở doc/tai_khoan_demo.md.
+    // Tạo sẵn ở trạng thái ACTIVE (đã xác minh email), có ảnh đại diện; tổ lái có hồ sơ và bằng lái.
+    accounts = SEED_ACCOUNTS;
+    for (const a of accounts) {
+      const role = a.kind === 'DRIVER' || a.kind === 'ESCORT' ? 'DRIVER_ESCORT' : a.kind;
       await runner.query(
-        'INSERT INTO users(id,email,password_hash,full_name,role,account_status,customer_type,address,phone) VALUES (?,?,?,?,?,?,?,?,?)',
-        [id, email, hash, fullName, role, 'ACTIVE', customerType, address ?? 'Địa chỉ demo', '0901234567']
+        'INSERT INTO users(id,email,password_hash,full_name,role,account_status,customer_type,organization_name,address,phone) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [a.id, a.email, hash, a.fullName, role, 'ACTIVE', a.customerType ?? null, a.organizationName ?? null, a.address, a.phone]
       );
+      await runner.query('INSERT INTO account_avatars(user_id,image) VALUES (?,?)', [a.id, avatarPng(a.id)]);
+      if (role === 'DRIVER_ESCORT') {
+        await runner.query('INSERT INTO crew_profiles(user_id,crew_type,work_status,license_number,license_class,license_expires_on) VALUES (?,?,?,?,?,?)',
+          [a.id, a.kind, 'AVAILABLE', a.license?.number ?? null, a.license?.class ?? null, a.license?.expiresOn ?? null]);
+      }
     }
-    // Hồ sơ tổ lái: điều phối chỉ chọn được người có crew_profiles đúng loại.
-    await runner.query(`INSERT INTO crew_profiles(user_id,crew_type,work_status) VALUES (5,'DRIVER','AVAILABLE'),(6,'ESCORT','AVAILABLE'),(11,'DRIVER','AVAILABLE'),(13,'DRIVER','AVAILABLE'),(14,'ESCORT','AVAILABLE')`);
 
     // Địa điểm có tọa độ; tuyến đường bộ giữa các cặp liên tiếp được ghi sẵn vào cache location_routes (mode ROAD, hình học xấp xỉ quốc lộ)
     // nên demo không cần gọi dịch vụ tính tuyến. Cặp không có cache (vd. 1→3) rơi về đường thẳng ước lượng.
@@ -311,7 +333,7 @@ async function main() {
     // ── Đơn mới chờ quản lý tiếp nhận (đầu luồng): đủ thông tin đặt chuyến để quản lý tính giá, ngựa có hồ sơ của khách ──
     const contact = (name, address, city, ward, country) => ({ name, phone: '0912345678', address, city, ward, identityNumber: '079204000001', country });
     const booking = {
-      sender: contact('Khách Hàng Demo', 'Khu chuồng ngựa Demo', 'Tỉnh Tây Ninh', 'Phường Tân Ninh', 'VN'),
+      sender: contact('Võ Hoàng Long', 'Khu chuồng ngựa Đức Hòa', 'Tỉnh Tây Ninh', 'Xã Đức Hòa', 'VN'),
       recipient: contact('Trại Ngựa Phnom Penh', 'Trạm nghỉ Phnom Penh', 'Phnom Penh', 'Chamkar Mon', 'KH'),
       pickupTime: '08:00 – 10:00', vehicleClass: 'LIGHT', vehicleCapacity: 2, distanceKm: 240, durationDays: 1, insurance: 'NONE', feed: 'STANDARD',
       extraStall: false, water: 'EVERY_2_HOURS', waterRounds: 0, border: 'Cửa khẩu Mộc Bài', documentLanguage: '', customsCode: '', importPermit: '',
@@ -327,7 +349,7 @@ async function main() {
     // Kế hoạch nháp chưa có lộ trình: điều phối mở trang là hệ thống tự lập (cần mạng để gọi Photon, OSRM công khai).
     const planDemo = async (orderId, tripId, code, to, toCountry, recipient, horses, km, days, extra) => {
       await addOrder(orderId, code, 7, 'APPROVED', horses, { date: hoursFromNow(24 * 5) });
-      const details = { ...booking, sender: contact('Khách Hàng Demo', '1 Tràng Tiền', 'Thành phố Hà Nội', 'Phường Hoàn Kiếm', 'VN'), recipient,
+      const details = { ...booking, sender: contact('Võ Hoàng Long', '1 Tràng Tiền', 'Thành phố Hà Nội', 'Phường Hoàn Kiếm', 'VN'), recipient,
         pickupTime: '07:00 – 09:00', vehicleClass: 'LIGHT', vehicleCapacity: 2, distanceKm: km, durationDays: days, border: '', customsCode: '', importPermit: '', ...extra };
       await runner.query('UPDATE orders SET origin_address=?,origin_country=?,destination_address=?,destination_country=?,booking_details=?,recipient_name=?,recipient_phone=? WHERE id=?',
         ['1 Tràng Tiền, Phường Hoàn Kiếm, Thành phố Hà Nội', 'VN', to, toCountry, JSON.stringify(details), recipient.name, recipient.phone, orderId]);
@@ -356,13 +378,13 @@ async function main() {
 
   console.log(`\nĐã tạo database demo "${DB_NAME}" trên ${host}:${port}.\n`);
   console.log(`Mật khẩu của TẤT CẢ tài khoản: ${PASSWORD}\n`);
-  console.table(accounts.map(([, email, fullName, role]) => ({ email, 'họ tên': fullName, 'vai trò': role })));
-  console.log('Dữ liệu mẫu (tài xế demo: driver@example.com; hộ tống demo: escort@example.com):');
+  console.table(accounts.map(a => ({ email: a.email, 'họ tên': a.fullName, 'vai trò': a.kind })));
+  console.log('Dữ liệu mẫu (tài xế: nguyenvanhung.driver@gmail.com; hộ tống: phamthilan.escort@gmail.com). Không gửi email tới các tài khoản này:');
   console.log('  • WDP-DEMO-F4-A      IN_TRANSIT, chuyến #200: chặng 1 xong, chặng 2 đang chạy (GPS LIVE), 2 cảnh báo điều phối, ghi chú hộ tống, 1 sự cố vàng, 7 hoạt động chăm sóc hôm nay (có 1 bản đính chính), 1 báo cáo sức khỏe đã gửi khách + 1 nháp');
   console.log('  • WDP-DEMO-F4-NEXT   READY, chuyến #205 khởi hành sau ~26 giờ (cùng tài xế → dòng "Còn 1 chuyến sắp tới")');
   console.log('  • WDP-DEMO-F4-H1..H4 DELIVERED (5/12/20/35 ngày trước) → trang Lịch sử giao hàng');
-  console.log('  • WDP-DEMO-F4-B      READY, tài xế khác (driver2@example.com) → thử cô lập quyền;  WDP-DEMO-F4-C  PREPARING, kế hoạch chờ duyệt');
-  console.log('  • WDP-DEMO-AUTO-VN/CN/TH  APPROVED, kế hoạch nháp của coordinator@example.com: mở là tự lập lộ trình (Hà Nội → TP.HCM, Nam Ninh, Bangkok); CN đã có số tờ khai, TH chưa có (demo B13); tổ lái rảnh: driver3 + escort2, xe 10 và xe 9\n');
+  console.log('  • WDP-DEMO-F4-B      READY, tài xế khác (tranminhtuan.driver@gmail.com) → thử cô lập quyền;  WDP-DEMO-F4-C  PREPARING, kế hoạch chờ duyệt');
+  console.log('  • WDP-DEMO-AUTO-VN/CN/TH  APPROVED, kế hoạch nháp của dangthutrang.coordinator@gmail.com: mở là tự lập lộ trình (Hà Nội → TP.HCM, Nam Ninh, Bangkok); CN đã có số tờ khai, TH chưa có (demo B13); tổ lái rảnh: lequangvinh.driver + doanhtuan.escort, ngothuhuong.escort, xe 10 và xe 9\n');
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

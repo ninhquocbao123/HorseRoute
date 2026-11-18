@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { Logger } from '../utils/logger.util';
+import { isSeedAccountEmail } from './seed-accounts';
 const logger = new Logger('Mailer');
 
 export type Mail = { to: string; subject: string; text: string };
@@ -15,6 +16,29 @@ export interface Mailer {
  * Thiếu SMTP_USER hoặc SMTP_PASSWORD: chỉ ghi email vào log khi không phải production, để thử luồng trên máy.
  */
 export function createMailer(env: Record<string, string | undefined> = process.env): Mailer {
+  return guardSeedRecipients(createTransportMailer(env), env);
+}
+
+/**
+ * Chặn thư tới tài khoản mẫu (seed-accounts.ts) ở mọi môi trường, và mọi thư khi MAIL_DISABLED=true.
+ * Thư bị chặn chỉ ghi log; nội dung (mã xác minh, mã đặt lại mật khẩu) chỉ ghi khi không phải production để thử trên máy.
+ */
+export function guardSeedRecipients(inner: Mailer, env: Record<string, string | undefined> = process.env): Mailer {
+  const disabled = env.MAIL_DISABLED?.trim().toLowerCase() === 'true';
+  return {
+    configured: inner.configured && !disabled,
+    async send(mail) {
+      if (disabled || isSeedAccountEmail(mail.to)) {
+        logger.info('mail_suppressed', { to: mail.to, subject: mail.subject, reason: disabled ? 'MAIL_DISABLED' : 'SEED_ACCOUNT',
+          ...(env.NODE_ENV === 'production' ? {} : { text: mail.text }) });
+        return;
+      }
+      await inner.send(mail);
+    },
+  };
+}
+
+function createTransportMailer(env: Record<string, string | undefined>): Mailer {
   const user = env.SMTP_USER?.trim(), pass = env.SMTP_PASSWORD?.replace(/\s/g, '');
   if (!user || !pass) {
     return {
