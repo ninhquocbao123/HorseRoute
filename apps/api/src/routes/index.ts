@@ -4,7 +4,8 @@ import { tripsRoutes } from '../features/trips/trips.routes';
 import { Router } from 'express';
 import { Services } from '../shared/config/services';
 import { TokenService } from '../shared/utils/jwt.util';
-import { authenticate } from '../shared/middlewares/auth.middleware';
+import { Role } from '@my-project/shared';
+import { authenticate, authorize } from '../shared/middlewares/auth.middleware';
 import { AUTH_REQUEST_LIMIT, TRACKMAP_PATH, USER_REQUEST_LIMIT, createRateLimiter, createUserRateLimiter } from '../shared/middlewares/rateLimiter.middleware';
 import { authRoutes } from '../features/auth/auth.routes';
 import { healthRoutes } from '../features/health/health.routes';
@@ -45,5 +46,6 @@ export function apiRoutes(services: Services, tokens: TokenService, userRequestL
   router.use('/manager/pricing', managerPricingRoutes(services.pricing));
   router.use('/manager', managerRoutes(services.manager));
   router.use('/admin/accounts', accountsRoutes(services.accounts));
+  router.get('/admin/revenue', authorize(Role.ADMIN), async (req, res) => { res.json(await services.manager.revenue(req.account, req.query)); });
   return router;
 }
