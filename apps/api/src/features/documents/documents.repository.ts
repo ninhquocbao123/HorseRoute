@@ -73,6 +73,14 @@ export class DocumentsRepository {
   findSpecialists(db: QueryExecutor, parameters: any[] = []) {
     return db.query("SELECT id FROM users WHERE role='SPECIALIST' AND account_status='ACTIVE'", parameters);
   }
+  /**
+   * Khách vừa nộp lại một giấy tờ: thông báo "yêu cầu bổ sung" cũ của khách cho giấy tờ đó coi như đã xử lý (đã đọc),
+   * và quản lý được báo (người thẩm định đã có DOCUMENT_SUBMITTED).
+   */
+  async resolveSupplement(db: QueryExecutor, customerId: string, documentId: string, orderId: string, content: string) {
+    await db.query("UPDATE notifications SET is_read=1 WHERE recipient_id=? AND event_type='DOCUMENT_SUPPLEMENT' AND related_type='DOCUMENT' AND related_id=?", [customerId, documentId]);
+    await db.query("INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel) SELECT id,'DOCUMENT_RESUBMITTED',?,'ORDER',?,'IN_APP' FROM users WHERE role='MANAGER' AND account_status='ACTIVE'", [content.slice(0, 500), orderId]);
+  }
   notifySpecialist(db: QueryExecutor, parameters: any[] = []) {
     return db.query("INSERT INTO notifications(recipient_id,event_type,content,related_type,related_id,channel) VALUES (?,'DOCUMENT_SUBMITTED',?,'ORDER',?,'IN_APP')", parameters);
   }

@@ -169,6 +169,8 @@ export type Notice = {
   order_id?: string;
   horse_id?: string;
   document_id?: string;
+  /** Trạng thái hiện tại của giấy tờ trong thông báo (SUBMITTED, VALID: yêu cầu bổ sung đã xử lý). */
+  document_status?: string;
 };
 export type Page = {
   screen: string;
@@ -178,6 +180,8 @@ export type Page = {
   horseId?: string;
   /** Mở form sự cố với loại chọn sẵn (Y tế ngựa từ ESC-07). */
   incidentType?: string;
+  /** Giấy tờ cần nộp lại (mở từ thông báo yêu cầu bổ sung). */
+  documentId?: string;
   /** Đợt thanh toán của màn CUS-17. */
   paymentType?: "DEPOSIT" | "BALANCE";
 };

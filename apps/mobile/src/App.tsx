@@ -94,6 +94,10 @@ import {
 import { LocationScreen, QueueScreen } from "./screens/TripScreens";
 import { LoginScreen, ThemeToggle } from "./screens/LoginScreen";
 import { BookingScreen } from "./screens/booking/BookingScreen";
+import { NoticeBanner } from "./notice-banner";
+import { DocResubmitScreen } from "./screens/DocResubmitScreen";
+import { isIncidentNotice, noticeTitle, routeNotice } from "./notice-route";
+import { useRealtime } from "./realtime";
 
 const titles: Record<string, string> = {
   orders: "Đơn hàng",
@@ -105,6 +109,7 @@ const titles: Record<string, string> = {
   quote: "Báo giá",
   payment: "Thanh toán",
   documents: "Giấy tờ",
+  "doc-resubmit": "Nộp lại giấy tờ",
   tracking: "Theo dõi hành trình",
   "tracking-map": "Bản đồ hành trình",
   health: "Sức khỏe ngựa",
@@ -153,6 +158,7 @@ const selfScrolling = new Set([
 ]);
 const guardedForms = new Set([
   "horse-form",
+  "doc-resubmit",
   "report",
   "quick-log",
   "incident-form",
@@ -511,34 +517,19 @@ function PasswordScreen({ go }: { go: Navigate }) {
     </>
   );
 }
-function Notifications({ go }: { go: Navigate }) {
+function Notifications({
+  openNotice,
+}: {
+  openNotice: (notice: Notice) => Promise<void>;
+}) {
   const resource = useResource<Notice[]>("/notifications");
-  const { user, request, write, writing, refresh } = useSession();
+  const { writing } = useSession();
   const { colors: c } = useTheme();
   const [error, setError] = useState("");
   const open = async (notice: Notice) => {
     setError("");
     try {
-      await write(async () => {
-        if (!notice.is_read)
-          await request(`/notifications/${asId(notice.id)}/read`, {
-            method: "POST",
-          });
-        refresh();
-        const orderId =
-          notice.order_id ||
-          (notice.related_type === "ORDER" ? notice.related_id : undefined);
-        if (orderId && user!.role === "CUSTOMER")
-          go(notice.event_type === "CARE_ACTIVITY" ? "tracking" : "order", {
-            id: String(orderId),
-          });
-        else if (
-          notice.related_type === "TRIP" &&
-          notice.related_id &&
-          user!.role === "DRIVER_ESCORT"
-        )
-          go("trip", { tripId: String(notice.related_id) });
-      });
+      await openNotice(notice);
     } catch (e) {
       setError(messageOf(e));
     }
@@ -560,8 +551,15 @@ function Notifications({ go }: { go: Navigate }) {
               padding: 16,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: c.border,
-              backgroundColor: notice.is_read ? c.surface : c.infoBg,
+              borderColor:
+                isIncidentNotice(notice.event_type) && !notice.is_read
+                  ? c.dangerFg
+                  : c.border,
+              backgroundColor: notice.is_read
+                ? c.surface
+                : isIncidentNotice(notice.event_type)
+                  ? c.dangerBg
+                  : c.infoBg,
               opacity: pressed ? 0.85 : 1,
             })}
           >
@@ -571,13 +569,24 @@ function Notifications({ go }: { go: Navigate }) {
                 height: 8,
                 borderRadius: 4,
                 marginTop: 8,
-                backgroundColor: notice.is_read ? "transparent" : c.accent,
+                backgroundColor: notice.is_read
+                  ? "transparent"
+                  : isIncidentNotice(notice.event_type)
+                    ? c.dangerFg
+                    : c.accent,
               }}
             />
             <View style={{ flex: 1, gap: 4 }}>
+              <Txt size={12} bold color={c.textSecondary}>
+                {noticeTitle(notice.event_type)}
+              </Txt>
               <Txt bold={!notice.is_read}>{notice.content}</Txt>
               <Txt size={12} color={c.textSecondary}>
                 {dateTime(notice.created_at)}
+                {notice.event_type === "DOCUMENT_SUPPLEMENT" &&
+                ["SUBMITTED", "VALID"].includes(notice.document_status ?? "")
+                  ? " · Đã nộp lại"
+                  : ""}
               </Txt>
             </View>
           </Pressable>
@@ -668,7 +677,7 @@ function Authenticated({
 }: {
   changeAppearance: (value: Appearance) => void;
 }) {
-  const { user, request, write, refresh, writing } = useSession();
+  const { user, request, write, refresh, writing, token } = useSession();
   const { colors: c, shadow } = useTheme();
   const { confirm, notify } = useOverlay();
   const customer = user!.role === "CUSTOMER";
@@ -685,6 +694,42 @@ function Authenticated({
   const escort = !customer && selected?.crewRole === "ESCORT";
   const notices = useResource<Notice[]>("/notifications");
   const unread = notices.data?.filter((n) => !n.is_read).length ?? 0;
+  // Mục 4: popup trong app cho thông báo mới. Lần tải đầu chỉ ghi nhận (không hiện lại thông báo cũ);
+  // các lần sau (socket `notification:new` gọi refresh, hoặc nhịp 30 giây) thông báo chưa đọc chưa thấy thì xếp hàng hiện lần lượt.
+  const seenNotices = React.useRef<Set<string> | null>(null);
+  const [bannerQueue, setBannerQueue] = useState<Notice[]>([]);
+  useEffect(() => {
+    if (!notices.data) return;
+    if (!seenNotices.current) {
+      seenNotices.current = new Set(notices.data.map((n) => String(n.id)));
+      return;
+    }
+    const fresh = notices.data
+      .filter((n) => !n.is_read && !seenNotices.current!.has(String(n.id)))
+      .reverse();
+    for (const n of notices.data) seenNotices.current.add(String(n.id));
+    if (fresh.length) setBannerQueue((q) => [...q, ...fresh]);
+  }, [notices.data]);
+  useRealtime(token, {
+    onNotification: refresh,
+    onTripChange: refresh,
+    onReconnect: refresh,
+  });
+  /** Mở màn của thông báo (danh sách, popup) và đánh dấu đã đọc. */
+  const openNotice = async (notice: Notice) => {
+    await write(async () => {
+      if (!notice.is_read)
+        await request(`/notifications/${asId(notice.id)}/read`, {
+          method: "POST",
+        });
+    });
+    refresh();
+    const target = routeNotice(user!.role, notice);
+    if (target) {
+      const { screen: next, ...params } = target;
+      go(next, params);
+    } else go("notifications");
+  };
   const readAll = async () => {
     try {
       await write(() => request("/notifications/read-all", { method: "POST" }));
@@ -776,7 +821,8 @@ function Authenticated({
       />
     );
   else if (screen === "password") content = <PasswordScreen go={go} />;
-  else if (screen === "notifications") content = <Notifications go={go} />;
+  else if (screen === "notifications")
+    content = <Notifications openNotice={openNotice} />;
   else if (screen === "queue") content = <QueueScreen />;
   else if (screen === "location") content = <LocationScreen go={go} />;
   else if (customer) {
@@ -793,6 +839,15 @@ function Authenticated({
     else if (page.id && (screen === "order" || screen === "documents"))
       content = (
         <OrderScreen id={page.id} go={go} documents={screen === "documents"} />
+      );
+    else if (page.id && page.orderId && screen === "doc-resubmit")
+      content = (
+        <DocResubmitScreen
+          orderId={page.orderId}
+          horseId={page.id}
+          documentId={page.documentId}
+          go={go}
+        />
       );
     else if (page.id && screen === "quote")
       content = <QuoteScreen id={page.id} go={go} />;
@@ -1060,6 +1115,17 @@ function Authenticated({
           </View>
         </View>
       ) : null}
+      <NoticeBanner
+        queue={bannerQueue}
+        onOpen={(notice) => {
+          void openNotice(notice).catch((e) =>
+            notify("Chưa mở được thông báo", messageOf(e)),
+          );
+        }}
+        onDone={(notice) =>
+          setBannerQueue((q) => q.filter((n) => n.id !== notice.id))
+        }
+      />
     </>
   );
 }

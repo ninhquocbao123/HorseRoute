@@ -1,3 +1,4 @@
+import { DocumentSlot, coreDocumentTypes, uploadWithProgress, type SlotState } from "../doc-upload";
 /**
  * Màn khách hàng theo 02-screens mục 2 và 06-ui phần Khách hàng:
  * CUS-01 Hành trình, CUS-02 Đơn hàng, CUS-03 Chi tiết đơn, CUS-04 Báo giá, CUS-05 Theo dõi,
@@ -2126,9 +2127,16 @@ function ProfileForm({
   go: Navigate;
   replace: Navigate;
 }) {
-  const { request, user, write, writing, refresh } = useSession();
+  const { request, user, write, writing, refresh, token } = useSession();
   const { notify } = useOverlay();
   const { colors: c } = useTheme();
+  // Giấy tờ như web: 3 loại cơ bản, PDF/JPG/PNG ≤ 5 MB, tải lên /customer/profiles/:id/files (kind DOCUMENT, slot = mã loại).
+  const docTypes = useResource<{ id: string; name: string }[]>("/customer/document-types");
+  const coreTypes = coreDocumentTypes(docTypes.data ?? []);
+  const [docs, setDocs] = useState<Record<string, SlotState>>({});
+  const setDoc = (slot: string, next: SlotState) => setDocs((old) => ({ ...old, [slot]: next }));
+  const storedDoc = (slot: string) =>
+    initial?.files.find((f) => f.kind === "DOCUMENT" && String(f.slot) === slot)?.original_name;
   const [form, setForm] = useState<ProfileInput>(() =>
     initial
       ? profilePayload(initial)
@@ -2179,7 +2187,29 @@ function ProfileForm({
             photoError = messageOf(e);
           });
         }
+        // Tải các giấy tờ vừa chọn cùng lúc, mỗi tệp có thanh tiến trình; tệp lỗi giữ lại để bấm lưu thử lại.
+        const pendingDocs = Object.entries(docs).filter(([, d]) => d.picked && !d.done);
+        const results = await Promise.allSettled(
+          pendingDocs.map(async ([slot, d]) => {
+            setDoc(slot, { ...d, progress: 0, error: undefined });
+            try {
+              await uploadWithProgress(`/customer/profiles/${asId(savedId)}/files`, token, { kind: "DOCUMENT", slot }, d.picked!, (progress) =>
+                setDocs((old) => ({ ...old, [slot]: { ...old[slot], progress } })),
+              );
+              setDoc(slot, { ...d, progress: 1, done: true });
+            } catch (e) {
+              setDoc(slot, { ...d, progress: undefined, error: messageOf(e) });
+              throw e;
+            }
+          }),
+        );
+        const docFailed = results.filter((r) => r.status === "rejected").length;
         refresh();
+        if (docFailed) {
+          // Hồ sơ đã lưu; ở lại form để thử tải lại giấy tờ lỗi (lưu lại sẽ cập nhật, không tạo trùng).
+          if (!initial) replace("horse-form", { id: savedId });
+          throw new Error(`Đã lưu thông tin ngựa nhưng ${docFailed} giấy tờ chưa tải lên. Xem lỗi ở từng giấy tờ rồi bấm Lưu để thử lại.`);
+        }
         notify(
           `Đã lưu hồ sơ ${form.name.trim()}`,
           photoError ? `Chưa tải được ảnh: ${photoError}` : undefined,
@@ -2286,6 +2316,29 @@ function ProfileForm({
         multiline
         maxLength={255}
       />
+      <View style={{ gap: 8 }}>
+        <Txt size={17} bold>
+          Giấy tờ ({coreTypes.filter((t) => docs[String(t.id)]?.picked || storedDoc(String(t.id))).length}/{coreTypes.length})
+        </Txt>
+        <Txt size={12} color={c.textSecondary}>
+          Hộ chiếu, sổ tiêm, xét nghiệm EIA. Chụp ảnh, chọn từ thư viện hoặc tệp PDF. Tệp được gửi khi bấm Lưu hồ sơ.
+        </Txt>
+        {docTypes.error && !docTypes.data ? <Banner warning text="Chưa tải được danh mục giấy tờ. Kéo xuống để thử lại." /> : null}
+        {coreTypes.map((t) => {
+          const slot = String(t.id);
+          return (
+            <DocumentSlot
+              key={slot}
+              label={t.name}
+              stored={storedDoc(slot)}
+              state={docs[slot] ?? {}}
+              disabled={writing}
+              onPick={(picked, err) => setDoc(slot, picked ? { picked } : { ...docs[slot], error: err })}
+              onRemove={() => setDoc(slot, {})}
+            />
+          );
+        })}
+      </View>
       {error ? <Banner warning text={error} /> : null}
       <Button
         title={writing ? "Đang lưu…" : "Lưu hồ sơ"}
