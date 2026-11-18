@@ -1,3 +1,6 @@
+import { JourneyTimeline } from "./JourneyTimeline";
+import type { JourneyPhoto } from "../journey";
+import { careGallery } from "../../../../packages/shared/src/care-gallery";
 import { DocumentSlot, coreDocumentTypes, uploadWithProgress, type SlotState } from "../doc-upload";
 /**
  * Màn khách hàng theo 02-screens mục 2 và 06-ui phần Khách hàng:
@@ -1428,68 +1431,16 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
     legs.find((l) => l.status === "MOVING" || l.status === "AT_STOP") ??
     legs.find((l) => l.status !== "COMPLETED");
   const late = legs.find((l) => l.isOverdue);
-  const events = useMemo(() => {
-    const list: TrackEvent[] = [];
-    if (legs.length) {
-      const first = legs[0];
-      list.push({
-        kind: "stop",
-        key: "start",
-        name: first.fromLocationName,
-        note: first.actualDepartureAt
-          ? `Đã rời ${clock(first.actualDepartureAt)}`
-          : `Dự kiến rời ${clock(first.plannedDepartureAt)}`,
-        time: first.actualDepartureAt ?? first.plannedDepartureAt,
-        done: !!first.actualDepartureAt,
-        current: first.status === "NOT_STARTED",
-      });
-    }
-    for (const l of legs) {
-      for (const w of l.waypointCheckins)
-        list.push({
-          kind: "stop",
-          key: `w-${l.seqNo}-${w.waypointId}`,
-          // Cửa khẩu: phía rời đi = đang kiểm tra giấy tờ, phía bên kia = đã thông quan.
-          name: w.borderStage === "CLEARED" ? w.label.replace(/\s*–\s*đã qua cửa khẩu$/, "") : w.label,
-          note: w.borderStage === "ARRIVED"
-            ? `Đến cửa khẩu ${clock(w.occurredAt)} · kiểm tra giấy tờ`
-            : w.borderStage === "CLEARED"
-              ? `Đã thông quan ${clock(w.occurredAt)}`
-              : `Đã qua ${clock(w.occurredAt)}`,
-          time: w.occurredAt,
-          done: true,
-          current: false,
-        });
-      const arrived = l.status === "AT_STOP" || l.status === "COMPLETED";
-      list.push({
-        kind: "stop",
-        key: `l-${l.seqNo}`,
-        name: l.toLocationName,
-        note: arrived
-          ? `Đã đến ${clock(l.actualArrivalAt)}${l.status === "COMPLETED" && l.actualDepartureAt ? ` · rời ${clock(l.actualDepartureAt)}` : ""}`
-          : `Dự kiến ${clock(l.plannedArrivalAt)}${l.isOverdue ? " · đang trễ" : ""}`,
-        time: l.actualArrivalAt ?? l.plannedArrivalAt,
-        done: arrived,
-        current: l === leg,
-      });
-    }
-    for (const r of reports.data ?? [])
-      list.push({
-        kind: "report",
-        key: `r-${r.id}`,
-        report: r,
-        time: r.sentAt,
-      });
-    for (const activity of care.data?.activities ?? [])
-      list.push({
-        kind: "care",
-        key: `c-${activity.id}`,
-        activity,
-        time: activity.performedAt,
-      });
-    const at = (e: TrackEvent) => Date.parse(e.time ?? "") || 0;
-    return list.sort((a, b) => at(a) - at(b));
-  }, [legs, leg, reports.data, care.data]);
+  // Mục 7: ảnh chăm sóc gắn vào mốc hành trình (bấm mở trình xem ảnh).
+  const journeyPhotos = useMemo<JourneyPhoto[]>(
+    () =>
+      careGallery(care.data?.activities ?? []).map((item) => ({
+        id: item.photo.id,
+        at: item.photo.uploadedAt || item.performedAt,
+        caption: `${label(item.activityType)} · ${item.horseNames.length ? item.horseNames.join(", ") : "Cả đoàn"}`,
+      })),
+    [care.data],
+  );
   return (
     <ScreenBody
       onRefresh={() => {
@@ -1578,105 +1529,52 @@ export function TrackingScreen({ id, go }: { id: string; go: Navigate }) {
           ) : null}
         </Pressable>
       ) : null}
-      <Section title="Hành trình" />
+      <Section title="Lịch sử hành trình" />
       {care.data?.activities.length ? (
         <Txt size={15} color={c.textSecondary}>
           {careSummaryLine(care.data.summary)}
         </Txt>
       ) : null}
-      {events.length ? (
-        <View>
-          {events.map((e, i) =>
-            e.kind === "stop" ? (
-              <View key={e.key} style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ width: 24, alignItems: "center" }}>
-                  <View
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: e.current ? 3 : 1,
-                      borderColor: e.current ? c.accent : c.borderInput,
-                      backgroundColor: e.done ? c.surfaceBrand : c.surface,
-                    }}
-                  >
-                    {e.done ? (
-                      <CircleCheck size={14} color={c.onBrand} />
-                    ) : (
-                      <MapPin size={14} color={c.textPrimary} />
-                    )}
-                  </View>
-                  {i < events.length - 1 ? (
-                    <View
-                      style={{ width: 2, flex: 1, backgroundColor: c.border }}
-                    />
-                  ) : null}
-                </View>
-                <View style={{ flex: 1, paddingBottom: 20, gap: 2 }}>
-                  <Txt bold={e.current}>{e.name}</Txt>
-                  <Txt size={15} color={e.current ? c.link : c.textSecondary}>
-                    {e.note}
-                  </Txt>
-                </View>
-              </View>
-            ) : e.kind === "care" ? (
-              <CareEvent key={e.key} activity={e.activity} />
-            ) : (
-              <View key={e.key} style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ width: 24, alignItems: "center" }}>
-                  <View
-                    style={{ width: 2, flex: 1, backgroundColor: c.border }}
-                  />
-                </View>
-                <View style={{ flex: 1, paddingBottom: 16 }}>
-                  <Card
-                    label={`Báo cáo sức khỏe ${e.report.horseName}`}
-                    onPress={() =>
-                      go("health", { id: e.report.id, orderId: id })
-                    }
-                  >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <HeartPulse size={20} color={c.link} />
-                      <Txt bold style={{ flex: 1 }}>
-                        {e.report.horseName}
-                      </Txt>
-                      {!e.report.viewedAt ? (
-                        <Txt size={12} bold color={c.link}>
-                          MỚI
-                        </Txt>
-                      ) : null}
-                    </View>
-                    <View style={s.wrap}>
-                      <StatusBadge
-                        spec={
-                          horseCondition[e.report.conditionStatus] ??
-                          horseCondition.STABLE
-                        }
-                      />
-                    </View>
-                    <Txt size={12} color={c.textSecondary}>
-                      {`${e.report.escortName} · ${clock(e.report.sentAt)}`}
-                    </Txt>
-                  </Card>
-                </View>
-              </View>
-            ),
-          )}
-        </View>
+      {t && t.legs.length ? (
+        <JourneyTimeline timeline={t} photos={journeyPhotos} />
       ) : t ? (
         <Empty
           icon={MapPinned}
           title="Chưa có lộ trình được duyệt"
           detail="Các điểm dừng hiện ở đây khi điều phối lập xong kế hoạch."
         />
+      ) : null}
+      {reports.data?.length ? (
+        <>
+          <Section title="Báo cáo sức khỏe" />
+          {[...reports.data]
+            .sort((x, y) => Date.parse(y.sentAt ?? "") - Date.parse(x.sentAt ?? ""))
+            .map((report) => (
+              <Card
+                key={report.id}
+                label={`Báo cáo sức khỏe ${report.horseName}`}
+                onPress={() => go("health", { id: report.id, orderId: id })}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <HeartPulse size={20} color={c.link} />
+                  <Txt bold style={{ flex: 1 }}>
+                    {report.horseName}
+                  </Txt>
+                  {!report.viewedAt ? (
+                    <Txt size={12} bold color={c.link}>
+                      MỚI
+                    </Txt>
+                  ) : null}
+                </View>
+                <View style={s.wrap}>
+                  <StatusBadge spec={horseCondition[report.conditionStatus] ?? horseCondition.STABLE} />
+                </View>
+                <Txt size={12} color={c.textSecondary}>
+                  {`${report.escortName} · ${clock(report.sentAt)}`}
+                </Txt>
+              </Card>
+            ))}
+        </>
       ) : null}
       <CareGalleryCard activities={care.data?.activities ?? []} />
       {reports.error && !reports.data ? (
