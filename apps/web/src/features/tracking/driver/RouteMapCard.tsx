@@ -1,3 +1,4 @@
+import { EnvironmentFilled } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 import { Button, Modal, Switch, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
@@ -16,7 +17,7 @@ export function missingCoordinateNotes(map: ITripMap | null) {
     .map(stop => `Điểm ${stop.name} chưa có tọa độ — nhờ Specialist ghim trên màn Địa điểm`);
 }
 
-export default function RouteMapCard({ trip, map, track, running, gps, failed = false, onRetry, navigating = false, onNavigate, nextWaypoint = null, children }: {
+export default function RouteMapCard({ trip, map, track, running, gps, failed = false, onRetry, navigating = false, onNavigate, nextWaypoint = null, nextStop = null, children }: {
   trip: IDriverTripSummary;
   map: ITripMap | null;
   track: ITripTrackPoint[];
@@ -31,6 +32,8 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
   onNavigate?: (on: boolean) => void;
   /** Điểm nghỉ kế tiếp chưa check-in (lộ trình mới): banner dẫn đường chỉ về phía điểm này thay vì điểm nhận. */
   nextWaypoint?: string | null;
+  /** Điểm đến tiếp theo (mục 6): thẻ nổi trên bản đồ và marker nổi bật. */
+  nextStop?: { id: string | null; name: string; hint?: string | null } | null;
   /** Phần dưới bản đồ (D1b: ba thẻ số liệu) */
   children?: ReactNode;
 }) {
@@ -46,11 +49,21 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
         <h3 id="drv-route-title" className="drv-card-title">Lộ trình chuyến đi</h3>
         <span>{corner}</span>
       </div>
-      <div className={'drv-map-wrap' + (nav ? ' is-nav' : '')}>
+      <div className={'drv-map-wrap' + (nav ? ' is-nav' : '') + (nextStop ? ' has-next' : '')}>
         <MapView height="var(--drv-map-h)" label="Bản đồ lộ trình chuyến đi" hint="Xem thứ tự điểm dừng ở thẻ “Các chặng”.">
-          <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} navigating={nav} />
+          <DriverRouteMap map={map} track={track} running={running} ownFix={gps?.active ? gps.lastFix : null} navigating={nav} nextStopId={nextStop?.id ?? null} />
         </MapView>
-        {nav && <NavigationOverlay trip={trip} map={map} nextWaypoint={nextWaypoint} onExit={() => onNavigate?.(false)} />}
+        {nextStop && (
+          <div className="drv-next-card" role="status" aria-label={`Điểm đến tiếp theo: ${nextStop.name}`}>
+            <EnvironmentFilled className="drv-next-pin" aria-hidden="true" />
+            <div>
+              <small>Điểm đến tiếp theo</small>
+              <strong title={nextStop.name}>{nextStop.name}</strong>
+              {nextStop.hint && <span>{nextStop.hint}</span>}
+            </div>
+          </div>
+        )}
+        {nav && <NavigationOverlay trip={trip} map={map} nextWaypoint={nextWaypoint} withBanner={!nextStop} onExit={() => onNavigate?.(false)} />}
         {running && !navigating && onNavigate && (
           <button type="button" className="drv-nav-resume" onClick={() => onNavigate(true)}>
             <span className="drv-nav-arrow" aria-hidden="true" />Tiếp tục hành trình
@@ -83,16 +96,16 @@ export default function RouteMapCard({ trip, map, track, running, gps, failed = 
 /**
  * Lớp chỉ đường: banner về phía điểm kế tiếp và nút "Thoát" nổi trên bản đồ.
  */
-function NavigationOverlay({ trip, map, nextWaypoint, onExit }: { trip: IDriverTripSummary; map: ITripMap | null; nextWaypoint: string | null; onExit: () => void }) {
+function NavigationOverlay({ trip, map, nextWaypoint, withBanner = true, onExit }: { trip: IDriverTripSummary; map: ITripMap | null; nextWaypoint: string | null; withBanner?: boolean; onExit: () => void }) {
   const next = nextWaypoint ? { name: nextWaypoint, arrived: false } : nextStopView(tripPhase(trip.legs), map);
   return (
     <>
-      <div className="drv-nav-banner" role="status">
+      {withBanner && <div className="drv-nav-banner" role="status">
         <span className="drv-nav-banner-arrow" aria-hidden="true">↑</span>
         <span className="drv-nav-banner-text">
           {next?.arrived ? 'Đã tới' : 'về phía'} <strong>{next?.name ?? 'điểm nhận'}</strong>
         </span>
-      </div>
+      </div>}
       <button type="button" className="drv-nav-exit" onClick={onExit}>Thoát</button>
     </>
   );

@@ -232,3 +232,13 @@ export function headlineLeg(legs: ILegTracking[], orderStatus: string) {
   if (orderStatus === 'DELIVERED') return legs[legs.length - 1];
   return legs[0];
 }
+
+/** Mục 6: tài xế chỉ check-in được khi cách điểm tối đa chừng này (có GPS); không có GPS thì không chặn. */
+export const CHECKIN_RADIUS_KM = 2;
+/** Khoảng cách đường chim bay (km) giữa vị trí GPS và điểm dừng; null khi thiếu tọa độ. */
+export function distanceKm(a: { lat: number; lng: number } | null | undefined, b: { lat: number | null; lng: number | null } | null | undefined) {
+  if (!a || !b || b.lat == null || b.lng == null) return null;
+  const r = (x: number) => (x * Math.PI) / 180;
+  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}

@@ -52,3 +52,8 @@
 .crm-stop.is-start { width: 16px; height: 16px; background: #0c3e47; border: 3px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 30%); }
 .crm-stop.is-end { width: 18px; height: 18px; background: #e5ad2c; border: 3px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 30%); }
 .drm-vehicle.crm-truck { width: 32px; height: 32px; background-size: 16px; }
+
+/* Mục 6: điểm đến tiếp theo của tài xế nổi bật hơn các điểm khác. */
+.drm-stop.is-next { width: 26px; height: 26px; background: var(--drs-gold, #f4b942); border: 4px solid var(--drs-navy, #0b3b42); box-shadow: 0 0 0 6px rgb(244 185 66 / 35%), 0 2px 8px rgb(13 42 46 / 40%); z-index: 3; }
+@media (prefers-reduced-motion: no-preference) { .drm-stop.is-next { animation: drm-next-pulse 1.8s ease-out infinite; } }
+@keyframes drm-next-pulse { 0% { box-shadow: 0 0 0 0 rgb(244 185 66 / 55%), 0 2px 8px rgb(13 42 46 / 40%); } 100% { box-shadow: 0 0 0 14px rgb(244 185 66 / 0%), 0 2px 8px rgb(13 42 46 / 40%); } }

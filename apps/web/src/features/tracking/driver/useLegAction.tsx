@@ -150,5 +150,5 @@ export function useLegAction(trip: IDriverTripSummary, onChanged: () => Promise<
     </CheckInDialog>
   );
 
-  return { leg, action, finished, open, labelOf, notice, setNotice, pendingAlert, modal };
+  return { leg, action, finished, open, labelOf, notice, setNotice, pendingAlert, modal, busy };
 }

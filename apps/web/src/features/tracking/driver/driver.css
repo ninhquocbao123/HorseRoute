@@ -337,3 +337,25 @@
 .drv-customs-row strong { overflow-wrap: anywhere; }
 .drv-customs-row strong.is-missing { color: #b45309; font-weight: 600; }
 .drv-customs-note { color: #5b6b63; }
+
+/* Mục 6: nút Check-in cố định (không đổi cỡ theo tên địa điểm) và thẻ "Điểm đến tiếp theo" nổi trên bản đồ. */
+.drs .drv-header-actions .drv-btn-checkin-fixed { flex: 0 0 168px; width: 168px; padding: 0 12px; justify-content: center; }
+.drv-next-card { position: absolute; top: 12px; left: 12px; right: 72px; max-width: 380px; z-index: 3; display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 14px; background: #fff; border-radius: 14px; box-shadow: 0 6px 20px rgb(11 59 66 / 22%); font-family: 'Be Vietnam Pro', sans-serif; }
+.drv-next-card .drv-next-pin { color: var(--drs-navy, #0b3b42); font-size: 22px; margin-top: 2px; flex: 0 0 auto; }
+.drv-next-card > div { min-width: 0; display: grid; gap: 1px; }
+.drv-next-card small { font-size: 12px; color: var(--drs-muted, #546d71); font-weight: 600; }
+.drv-next-card strong { font-size: 15px; font-weight: 700; color: var(--drs-ink, #0d2a2e); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.drv-next-card span { font-size: 12px; color: var(--drs-navy2, #14606a); font-weight: 600; }
+/* Màn hẹp: hàng nút thành thanh hành động cố định cuối màn hình, kích thước không đổi. */
+@media (max-width: 768px) {
+  .drs .drv-header-actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; flex-wrap: nowrap; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--drs-line, #d8e6e6); box-shadow: 0 -4px 16px rgb(11 59 66 / 10%); }
+  .drs .drv-header-actions .ant-btn { height: 56px; flex: 1 1 0; min-width: 0; }
+  .drs .drv-header-actions .drv-btn-checkin-fixed { flex: 1 1 0; width: auto; }
+  .drs #drs-main { padding-bottom: 96px; }
+  .drv-next-card { right: 56px; }
+}
+/* Thẻ điểm đến nằm trên cùng bản đồ: huy hiệu GPS xuống dưới thẻ. */
+.drv-map-wrap.has-next .drv-gps-overlay { top: 92px; }

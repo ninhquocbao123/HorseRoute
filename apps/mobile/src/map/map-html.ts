@@ -97,7 +97,7 @@ const PAGE_SCRIPT = String.raw`
     stopMarkers.forEach(function (item) { item.marker.remove(); });
     stopMarkers = scene.stops.map(function (stop) {
       var dot = document.createElement('div');
-      dot.className = 'hr-stop hr-' + stop.kind;
+      dot.className = 'hr-stop hr-' + stop.kind + (stop.next ? ' hr-next' : '');
       dot.style.background = stop.kind === 'mid' ? scene.colors.stop : scene.colors.stopRing;
       dot.style.borderColor = stop.kind === 'mid' ? scene.colors.stopRing : scene.colors.stop;
       var label = null;
@@ -239,6 +239,7 @@ const PAGE_SCRIPT = String.raw`
 const PAGE_CSS = `
 html,body,#map{margin:0;padding:0;width:100%;height:100%;background:transparent}
 .hr-stop{width:14px;height:14px;border-radius:50%;border:3px solid;box-sizing:border-box}
+.hr-stop.hr-next{width:26px;height:26px;border-width:4px;background:#f4b942!important;border-color:#0b3b42!important;box-shadow:0 0 0 6px rgba(244,185,66,.35),0 2px 8px rgba(13,42,46,.4);z-index:3}
 .hr-mid{width:12px;height:12px;border-width:2px}
 .hr-label{position:absolute;left:20px;top:-6px;max-width:55vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/16px system-ui,sans-serif;color:#0d2a2e;background:rgba(255,255,255,.92);padding:2px 6px;border-radius:6px}
 .hr-label.is-left{left:auto;right:20px}

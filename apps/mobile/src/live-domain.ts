@@ -686,6 +686,7 @@ export function nextStop(trip: IDriverTripDetail, map?: ITripMap | null) {
   if (leg.status === "NOT_STARTED")
     return {
       caption: "ĐIỂM XUẤT PHÁT",
+      id: String(leg.fromLocationId ?? ""),
       name: leg.fromLocationName,
       at: leg.plannedDepartureAt,
       atLabel: "Kế hoạch xuất phát",
@@ -693,6 +694,7 @@ export function nextStop(trip: IDriverTripDetail, map?: ITripMap | null) {
   if (leg.status === "AT_STOP")
     return {
       caption: "ĐANG DỪNG TẠI",
+      id: String(leg.toLocationId ?? ""),
       name: leg.toLocationName,
       // Giờ rời là giờ xuất phát của chặng kế tiếp; chặng cuối không còn gì để rời.
       at: legs.find((l) => l.seqNo > leg.seqNo)?.plannedDepartureAt ?? null,
@@ -702,6 +704,7 @@ export function nextStop(trip: IDriverTripDetail, map?: ITripMap | null) {
     legs.length === 1 && map ? nextRestStop(map, leg.waypointCheckins) : null;
   return {
     caption: "ĐIỂM KẾ TIẾP",
+    id: String(rest ? rest.locationId : (leg.toLocationId ?? "")),
     // Phía bên kia cửa khẩu: bỏ đuôi "– đã qua cửa khẩu", nút bên dưới đã nói rõ việc cần ghi.
     name: rest ? rest.name.replace(/\s*–\s*đã qua cửa khẩu$/, "") : leg.toLocationName,
     at: rest ? null : leg.plannedArrivalAt,

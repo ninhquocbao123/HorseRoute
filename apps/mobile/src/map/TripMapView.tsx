@@ -74,6 +74,8 @@ export const TripMapView = forwardRef<
     following?: boolean;
     /** Thẻ nhỏ: không nhãn, không nhận thao tác */
     compact?: boolean;
+    /** Điểm đến tiếp theo của tài xế: marker nổi bật (mục 6). */
+    nextStopId?: string | null;
     height?: number;
     accessibilityLabel: string;
     onUserMoved?: () => void;
@@ -90,6 +92,7 @@ export const TripMapView = forwardRef<
     navigating,
     following,
     compact = false,
+    nextStopId = null,
     height,
     accessibilityLabel,
     onUserMoved,
@@ -120,11 +123,12 @@ export const TripMapView = forwardRef<
         navigating,
         following,
         compact,
+        nextStopId,
         colors,
         dark,
         size,
       }),
-    [map, mode, running, track, ownFix, navigating, following, compact, colors, dark, size],
+    [map, mode, running, track, ownFix, navigating, following, compact, nextStopId, colors, dark, size],
   );
 
   const send = useCallback((code: string) => {

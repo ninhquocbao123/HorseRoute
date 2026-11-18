@@ -1701,7 +1701,7 @@ export function TripMapScreen({
 }: {
   trip: IDriverTripDetail;
 }) {
-  const { colors: c } = useTheme();
+  const { colors: c, shadow } = useTheme();
   const map = useLiveTripMap(`/tracking/trips/${asId(serverTrip.id)}/map`);
   const progress = useTripProgress(serverTrip.id);
   const trip = useMemo(
@@ -1788,27 +1788,40 @@ export function TripMapScreen({
             following={following}
             onUserMoved={() => setFollowing(false)}
             onFallbackChange={setFallback}
+            nextStopId={running ? (stop?.id ?? null) : null}
             accessibilityLabel={`Bản đồ chuyến ${trip.orderCode}${stop ? `, ${stop.caption.toLowerCase()} ${stop.name}` : ""}`}
           />
           {nav ? <KeepScreenAwake /> : null}
-          {nav && stop ? (
+          {stop && running ? (
+            // Mục 6: "Điểm đến tiếp theo" là thẻ nổi trên bản đồ (nền trắng, đổ bóng, ghim màu thương hiệu, tên tối đa 2 dòng).
             <View
               accessibilityRole="text"
-              style={{
-                position: "absolute",
-                left: 12,
-                right: 12,
-                top: 12,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: c.surfaceBrand,
-              }}
+              accessibilityLabel={`${stop.caption === "ĐANG DỪNG TẠI" ? "Đang dừng tại" : "Điểm đến tiếp theo"}: ${stop.name}`}
+              style={[
+                {
+                  position: "absolute",
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  flexDirection: "row",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  padding: 12,
+                  borderRadius: 16,
+                  backgroundColor: c.surface,
+                },
+                shadow.md,
+              ]}
             >
-              <Txt bold color={c.onBrand} numberOfLines={2}>
-                {stop.caption === "ĐANG DỪNG TẠI"
-                  ? `Đang dừng tại ${stop.name}`
-                  : `Về phía ${stop.name}`}
-              </Txt>
+              <MapPin size={24} color={c.surfaceBrand} fill={c.accent} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt size={12} bold color={c.textSecondary}>
+                  {stop.caption === "ĐANG DỪNG TẠI" ? "Đang dừng tại" : "Điểm đến tiếp theo"}
+                </Txt>
+                <Txt size={17} bold numberOfLines={2}>
+                  {stop.name}
+                </Txt>
+              </View>
             </View>
           ) : null}
           {running && !fallback ? (

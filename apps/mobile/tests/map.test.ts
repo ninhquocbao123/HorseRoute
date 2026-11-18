@@ -280,3 +280,11 @@ test("định dạng", () => {
   assert.equal(formatKm(9.25), "9,3");
   assert.equal(formatKm(1234), "1.234");
 });
+
+test("mục 6: chỉ điểm đến tiếp theo được đánh dấu nổi bật", () => {
+  const map = baseMap();
+  const target = map.stops[map.stops.length - 1].locationId;
+  const stops = sceneStops(map, false, target);
+  assert.deepEqual(stops.filter((s) => s.next).map((s) => s.id), [target]);
+  assert.equal(sceneStops(map).some((s) => s.next), false);
+});

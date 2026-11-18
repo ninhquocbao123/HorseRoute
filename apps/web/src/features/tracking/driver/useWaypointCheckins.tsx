@@ -70,5 +70,5 @@ export function useWaypointCheckins(trip: IDriverTripSummary, mapStops: ITripMap
     />
   );
 
-  return { visited, next, open, modal, rest };
+  return { visited, next, open, modal, rest, busy };
 }

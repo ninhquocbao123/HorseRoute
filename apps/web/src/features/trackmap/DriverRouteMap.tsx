@@ -19,7 +19,7 @@ const NAV_PITCH = 55;
  * Bản đồ lộ trình của màn tài xế (D1 khi READY, D1b khi IN_TRANSIT). Chỉ import qua lazy chunk.
  * ROAD nét liền; STRAIGHT (đường thẳng ước lượng) và AIR (cung tròn lớn) nét đứt. Tự fit theo tuyến khi đổi chuyến.
  */
-export default function DriverRouteMap({ map, track, running, ownFix, navigating = false }: {
+export default function DriverRouteMap({ map, track, running, ownFix, navigating = false, nextStopId = null }: {
   /** null khi chưa tải được /map: vẫn hiện bản đồ ở góc nhìn Việt Nam */
   map: ITripMap | null;
   track: ITripTrackPoint[];
@@ -28,6 +28,8 @@ export default function DriverRouteMap({ map, track, running, ownFix, navigating
   ownFix: OwnFix | null;
   /** Chế độ dẫn đường: camera bám theo xe, quay theo hướng đi; kéo bản đồ thì tạm ngừng bám, có nút "Về giữa". */
   navigating?: boolean;
+  /** Điểm đến tiếp theo của tài xế: marker to hơn, màu vàng thương hiệu, nhấp nháy nhẹ (mục 6). */
+  nextStopId?: string | null;
 }) {
   const ref = useRef<MapRef>(null);
   const fittedFor = useRef<string | null>(null);
@@ -191,7 +193,7 @@ export default function DriverRouteMap({ map, track, running, ownFix, navigating
         const label = first ? `${stop.name} · điểm gửi` : last ? `${stop.name} · điểm nhận` : stop.name;
         return (
           <Marker key={stop.locationId} longitude={stop.lng!} latitude={stop.lat!} anchor="center">
-            <span className={'drm-stop' + (first ? ' is-start' : last ? ' is-end' : '')} role="img" aria-label={label}>
+            <span className={'drm-stop' + (first ? ' is-start' : last ? ' is-end' : '') + (stop.locationId === nextStopId ? ' is-next' : '')} role="img" aria-label={stop.locationId === nextStopId ? `Điểm đến tiếp theo: ${label}` : label}>
               {(first || last) && <span className={'drm-label' + (flipped[stop.locationId] ? ' is-left' : '')}>{label}</span>}
             </span>
           </Marker>

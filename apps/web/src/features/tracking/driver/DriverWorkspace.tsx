@@ -18,7 +18,8 @@ import { useDraft } from './useDraft';
 import { useDriverNotice } from './DriverNotices';
 import { isTripStart, useLegAction } from './useLegAction';
 import { useWaypointCheckins } from './useWaypointCheckins';
-import { PRE_DEPARTURE_CHECKS, checkInLabel, checkInTitle } from './driver-ui';
+import { nextStopView, tripPhase } from './trip-phase';
+import { CHECKIN_RADIUS_KM, PRE_DEPARTURE_CHECKS, checkInLabel, checkInTitle, distanceKm } from './driver-ui';
 import type { DriverTrips } from './useDriverTrips';
 import './driver.css';
 
@@ -124,6 +125,13 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
   const viaNext = waypoints.next;
 
   const start = isTripStart(action, seqNo);
+  // Mục 6: điểm đến tiếp theo (điểm nghỉ chưa check-in, hết thì điểm cuối chặng) cho thẻ nổi trên bản đồ và khóa nút khi còn xa.
+  const phaseNext = running ? nextStopView(tripPhase(trip.legs), map) : null;
+  const nextName = viaNext?.name ?? phaseNext?.name ?? null;
+  const nextMapStop = viaNext ? map?.stops.find(stop => stop.locationId === viaNext.id) : map?.stops.find(stop => stop.name === phaseNext?.name);
+  const awayKm = gps.active ? distanceKm(gps.lastFix, nextMapStop) : null;
+  const tooFar = awayKm !== null && awayKm > CHECKIN_RADIUS_KM && !phaseNext?.arrived;
+  const checkinBusy = waypoints.busy || legAction.busy;
   const waitingPayment = action?.kind === 'milestone' && action.milestone === 'DELIVERED' && trip.paymentCleared === false;
   // Đang đợi khách thanh toán: hỏi lại để nút giao mở ngay khi khách trả xong.
   useEffect(() => {
@@ -162,14 +170,23 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
         trip={trip} detail={detail} totalKm={map?.totalKm ?? null}
         actions={<>
           {running && viaNext && (
-            <Button size="large" className="drv-action drv-btn-checkin" onClick={() => waypoints.open(viaNext)}>
-              Check-in: {viaNext.name}
-            </Button>
+            <Tooltip title={tooFar ? `Còn ${awayKm!.toFixed(1)} km tới ${viaNext.name}; nút mở khi tới gần (dưới ${CHECKIN_RADIUS_KM} km).` : undefined}>
+              <Button
+                size="large" className="drv-action drv-btn-checkin drv-btn-checkin-fixed" loading={checkinBusy} disabled={tooFar || checkinBusy}
+                aria-label={`Check-in tại ${viaNext.name}`} onClick={() => { if (!checkinBusy) waypoints.open(viaNext); }}
+              >
+                Check-in
+              </Button>
+            </Tooltip>
           )}
           {running && !viaNext && (
-            <Tooltip title={waitingPayment ? 'Nút mở khi khách trả đủ hoặc điều phối cho phép giao.' : action ? undefined : 'Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).'}>
-              <Button size="large" className="drv-action drv-btn-checkin" disabled={!action || waitingPayment} onClick={() => action && legAction.open(action)}>
-                {waitingPayment ? 'Chờ khách thanh toán' : action ? checkInLabel(action) : 'Check-in chặng'}
+            <Tooltip title={waitingPayment ? 'Nút mở khi khách trả đủ hoặc điều phối cho phép giao.' : !action ? 'Đã check-in điểm này. Chưa có mốc nào cần ghi lúc này (chờ chặng trước hoàn thành hoặc điều phối hiệu chỉnh).' : tooFar ? `Còn ${awayKm!.toFixed(1)} km tới ${nextName}; nút mở khi tới gần.` : undefined}>
+              <Button
+                size="large" className="drv-action drv-btn-checkin drv-btn-checkin-fixed" loading={checkinBusy}
+                disabled={!action || waitingPayment || checkinBusy || (tooFar && !(action.kind === 'milestone' && action.milestone === 'DEPARTED'))}
+                onClick={() => { if (action && !checkinBusy) legAction.open(action); }}
+              >
+                {waitingPayment ? 'Chờ thanh toán' : action && checkInLabel(action) === 'Xác nhận đã giao' ? 'Xác nhận đã giao' : 'Check-in'}
               </Button>
             </Tooltip>
           )}
@@ -210,6 +227,7 @@ function TripScreen({ trip, detail, upcoming, onChanged, onNavigate, flash, onFl
         <RouteMapCard
           trip={trip} map={map} track={track} running={running} gps={running ? gps : null} failed={mapFailed} onRetry={() => void reloadMap()}
           navigating={navigating} onNavigate={setNavigating} nextWaypoint={viaNext?.name ?? null}
+          nextStop={running && nextName ? { id: nextMapStop?.locationId ?? null, name: nextName, hint: awayKm !== null ? `Còn ${awayKm.toFixed(1)} km` : null } : null}
         />
         <div className="drv-side">
           <StopTimeline legs={trip.legs} horseCount={detail?.horses.length ?? 0} running={running} mapStops={map?.stops} visited={waypoints.visited} />

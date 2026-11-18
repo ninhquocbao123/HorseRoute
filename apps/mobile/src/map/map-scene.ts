@@ -36,6 +36,8 @@ export type SceneStop = {
   lat: number;
   kind: "start" | "mid" | "end";
   label: string | null;
+  /** Điểm đến tiếp theo của tài xế: marker to, vàng thương hiệu (mục 6). */
+  next?: boolean;
 };
 export type SceneLine = { coordinates: LngLat[]; mode: string };
 export type SceneVehicle = {
@@ -133,7 +135,7 @@ export function mapColors(tokens: RouteTokens, dark: boolean): MapColors {
 const finite = (value: number | null): value is number =>
   value !== null && Number.isFinite(value);
 
-export function sceneStops(map: ITripMap | null, compact = false): SceneStop[] {
+export function sceneStops(map: ITripMap | null, compact = false, nextStopId: string | null = null): SceneStop[] {
   const stops = (map?.stops ?? []).filter(
     (stop) =>
       finite(stop.lat) &&
@@ -149,6 +151,7 @@ export function sceneStops(map: ITripMap | null, compact = false): SceneStop[] {
       lng: stop.lng!,
       lat: stop.lat!,
       kind: first ? "start" : last ? "end" : "mid",
+      ...(nextStopId && stop.locationId === nextStopId ? { next: true } : {}),
       label:
         compact || (!first && !last)
           ? null
@@ -196,6 +199,8 @@ export function buildScene(input: {
   navigating?: boolean;
   following?: boolean;
   compact?: boolean;
+  /** Điểm đến tiếp theo (chỉ bản đồ tổ lái): marker nổi bật. */
+  nextStopId?: string | null;
   colors: MapColors;
   dark: boolean;
   size: { width: number; height: number };
@@ -209,7 +214,7 @@ export function buildScene(input: {
   const navigating = crew && running && !!input.navigating;
   const legs = map?.legs ?? [];
   const lined = legs.filter((leg) => leg.coordinates);
-  const stops = sceneStops(map, compact);
+  const stops = sceneStops(map, compact, crew ? (input.nextStopId ?? null) : null);
   const vehicle = sceneVehicle(map, mode, running, ownFix);
 
   const route: SceneLine[] = lined.map((leg) => ({

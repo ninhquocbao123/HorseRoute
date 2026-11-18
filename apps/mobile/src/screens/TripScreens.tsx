@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -128,6 +128,11 @@ function PaymentPoll({ reload }: { reload: () => void }) {
 }
 
 /** DRV-02 Chuyến của tài xế: một nút hành động theo ngữ cảnh ở đáy, mốc điểm dừng có Hoàn tác 5 giây. */
+/** Mục 6: check-in điểm nghỉ và "đã đến" điểm cuối chặng dùng chung một nút "Check-in" (tên điểm nằm ở thẻ điểm đến). */
+function isCheckIn(a: DriverAction) {
+  return a.kind === "checkin" || a.body.milestoneType === "ARRIVED_AT_STOP";
+}
+
 export function DriverTrip({
   trip: serverTrip,
   map,
@@ -268,7 +273,17 @@ export function DriverTrip({
       onExpire: () => sendNow(id),
     });
   };
+  // Mục 6: khóa chống bấm hai lần trong lúc ghi mốc (hàng chờ có 5 giây hoàn tác rồi mới gửi).
+  const pressing = useRef(false);
+  const [locked, setLocked] = useState(false);
   const press = async (a: DriverAction) => {
+    if (pressing.current) return;
+    pressing.current = true;
+    setLocked(true);
+    setTimeout(() => {
+      pressing.current = false;
+      setLocked(false);
+    }, 1200);
     if (a.needsChecklist && checked && checked.length < checks.length) {
       go("checklist", { tripId: trip.id });
       return;
@@ -367,13 +382,20 @@ export function DriverTrip({
       ) : (
         <>
           <Button
-            title={action.label}
+            title={
+              locked
+                ? "Đang ghi…"
+                : isCheckIn(action)
+                  ? "Check-in"
+                  : action.label
+            }
             large
-            hint={
+            disabled={locked}
+            hint={`${action.label}. ${
               action.confirm
                 ? "Mở hộp xác nhận giờ ghi mốc"
                 : "Ghi ngay, có 5 giây để hoàn tác"
-            }
+            }`}
             onPress={() => void press(action)}
           />
           {!action.confirm ? (
@@ -454,7 +476,7 @@ export function DriverTrip({
           <Txt size={12} bold color={c.onBrandMuted}>
             {`${stop?.caption ?? "CHUYẾN"} · ${trip.orderCode}`}
           </Txt>
-          <Txt size={24} bold color={c.onBrand}>
+          <Txt size={24} bold color={c.onBrand} numberOfLines={2}>
             {stop?.name ?? "Chưa có lộ trình"}
           </Txt>
           {eta ? (
