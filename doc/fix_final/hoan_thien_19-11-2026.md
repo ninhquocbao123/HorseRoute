@@ -1,6 +1,6 @@
 # Hoàn thiện 7 mục, 19/11/2026
 
-Nhánh `feat/hoan-thien-19-11-2026` (tạo từ `long` `7608b13`), worktree `.claude/worktrees/beautiful-davinci-56b8f2`. **Chưa push.** Phiên dừng giữa chừng theo yêu cầu người dùng; file này ghi đúng tình trạng lúc dừng.
+Nhánh `feat/hoan-thien-19-11-2026` (tạo từ `long` `7608b13`), worktree `.claude/worktrees/beautiful-davinci-56b8f2`. **Chưa push.** Cập nhật lần cuối sau khi làm xong mục 3, 6, 7.
 
 Môi trường thử: MySQL riêng `hr-test-mysql-1911` (cổng 33077, DB `wdp_flow4_demo`), API cổng 3100 với `apps/api/.env.demo` (gitignore, `MAIL_DISABLED=true`, lưu tệp local), web cổng 5190. Không ghi gì lên DB chung Aiven.
 
@@ -12,9 +12,9 @@ Môi trường thử: MySQL riêng `hr-test-mysql-1911` (cổng 33077, DB `wdp_f
 | 5. Toast thông báo web | Xong, đã thử trên trình duyệt | `99bcb6b` |
 | 4. Popup thông báo mobile | Code xong, typecheck và test đạt; **chưa thử trên máy ảo**; push FCM chưa làm (chờ đồng ý) | `1f36afe` |
 | 2. Giấy tờ ngựa trên mobile | Code xong, typecheck và test đạt; **chưa thử trên máy ảo**, chưa thử luồng nộp lại đầu cuối | `ad0739a` |
-| 3. Xem ảnh phóng to | Chưa làm | |
-| 6. Nút Check-in cố định | Chưa làm | |
-| 7. Timeline mobile giống web | Chưa làm (cập nhật tự động đã có một phần nhờ socket ở mục 4) | |
+| 3. Xem ảnh phóng to | Xong; bản web đã thử trên trình duyệt, bản mobile chưa thử trên máy ảo | `b2a9bef` |
+| 6. Nút Check-in cố định | Xong; web đã thử ở 360px với tên rất dài; mobile chưa thử trên máy ảo | `a5474f6` |
+| 7. Timeline mobile giống web | Code xong, test logic đạt; chưa thử trên máy ảo | `204b9e0` |
 
 ## Mục 1
 
@@ -37,9 +37,29 @@ Môi trường thử: MySQL riêng `hr-test-mysql-1911` (cổng 33077, DB `wdp_f
 - API documents: nộp lại thì đánh dấu thông báo yêu cầu bổ sung cũ đã đọc, báo quản lý (`DOCUMENT_RESUBMITTED`); `/notifications` trả `document_status`.
 - Test mobile 77/77, API 225/225, `tsc` sạch ở api, web, mobile.
 
+## Mục 3
+
+- Mobile `src/image-viewer.tsx` (tự viết, không thêm thư viện vì dự án chưa có gesture-handler/reanimated): chụm phóng tới 4x, chạm đúp 2,5x, kéo khi phóng, vuốt ngang chuyển ảnh, vuốt xuống hoặc X để đóng, "2/5", giờ chụp, mốc/địa điểm, vòng tải, ô thay thế khi lỗi. Dùng ở "Ảnh trong chuyến" (`CareGalleryCard`) và timeline mục 7.
+- Web `features/tracking/PhotoLightbox.tsx` thay Modal cũ của `CareGallery`: lăn chuột, chụm, nhấp đúp, kéo, phím ←/→, nút hai bên, vuốt, Esc. Thử trên trình duyệt: mở, chuyển ảnh, phóng, đóng.
+
+## Mục 6
+
+- Web `DriverWorkspace.tsx`, `RouteMapCard.tsx`, `DriverRouteMap.tsx`, `driver.css`, `trackmap.css`, `driver-ui.ts`: nút "Check-in" rộng cố định, màn ≤ 768px thành thanh cố định cuối màn; loading, khóa khi đang gửi, tắt khi đã check-in hoặc khi GPS cho thấy còn xa hơn 2 km (không có GPS thì không chặn); thẻ "Điểm đến tiếp theo" nổi trên bản đồ, tên tối đa 2 dòng; marker điểm kế vàng, to, nhấp nháy nhẹ.
+- Mobile `TripScreens.tsx`, `CrewWork.tsx`, `map/*`: nút chân màn "Check-in", khóa chống bấm hai lần; thẻ điểm đến nổi trên bản đồ màn Tuyến và vị trí, marker nổi bật. Màn chuyến chính của app không có bản đồ nên thẻ chuyến vẫn ghi điểm kế (tối đa 2 dòng). App chưa khóa theo khoảng cách GPS.
+- Thử trên web 360px, tên điểm dài 90 ký tự: thẻ cắt 2 dòng "…", nút không đổi cỡ, check-in thật trên DB thử, thẻ chuyển sang điểm kế.
+
+## Mục 7
+
+- Mobile `src/journey.ts`, `screens/JourneyTimeline.tsx`, `screens/CustomerScreens.tsx`: cùng câu chữ, thứ tự với web, mới nhất trên cùng và nổi bật, mốc cũ xám, điểm sắp tới nét đứt; ảnh gắn vào mốc, bấm mở trình xem; báo cáo sức khỏe thành khối riêng. Tự cập nhật nhờ socket mục 4 (check-in gửi ORDER_LEG_PROGRESS cho khách).
+
+## Kiểm tra cuối
+
+- `tsc` sạch ở api, web, mobile; test API 225/225, web đạt, mobile 81/81; `vite build` và `expo export --platform android` build được.
+- Chưa chạy được luồng đầu cuối trên app (máy ảo không dùng được trong phiên). Các bước web đã chạy thật trên DB thử: khách nhận toast xanh và đỏ, bấm mở đơn; tài xế check-in ở 360px; lightbox ảnh.
+
 ## Còn vướng
 
 - **Push FCM chưa có trong dự án.** Theo yêu cầu, cần người dùng đồng ý trước khi tích hợp. Vì vậy chưa có thông báo khi app chạy nền hoặc đã tắt, và chưa test được deep link từ push.
 - Máy ảo: lệnh `adb screencap` treo, người dùng tự bật lại máy ảo nên chưa thử mục 2, 4 trên app.
 - Seed chưa có giấy tờ (`documents`) cho đơn nào, nên muốn thử "yêu cầu bổ sung" phải tạo đơn mới có ngựa, hoặc bổ sung seed.
-- Mục 3, 6, 7 và phần kiểm tra cuối chưa làm.
+- Cần thử trên máy ảo hoặc máy thật: popup mục 4, giấy tờ và nộp lại mục 2, trình xem ảnh mục 3, nút và thẻ mục 6, timeline mục 7.
