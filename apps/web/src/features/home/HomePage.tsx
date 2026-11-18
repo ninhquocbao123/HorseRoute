@@ -19,7 +19,7 @@ export default function HomePage() {
   }
 
   if (account.role === 'COORDINATOR') {
-    return <Navigate to="/coordinator/dashboard" replace />;
+    return <Navigate to="/coordinator/trips" replace />;
   }
 
   if (params.get('view') === 'trips' && ['MANAGER', 'COORDINATOR'].includes(account.role)) {

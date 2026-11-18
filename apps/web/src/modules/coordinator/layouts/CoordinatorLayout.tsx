@@ -3,7 +3,6 @@ import {
   BellOutlined,
   CalendarOutlined,
   CarOutlined,
-  DashboardOutlined,
   InboxOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -34,7 +33,6 @@ function IncidentsMenuLabel() {
 }
 
 const menuItems: MenuProps['items'] = [
-  { key: coordinatorPaths.dashboard, icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: coordinatorPaths.trips, icon: <CarOutlined />, label: 'Chuyến vận chuyển' },
   { key: coordinatorPaths.fleet, icon: <InboxOutlined />, label: 'Phương tiện' },
   { key: coordinatorPaths.incidents, icon: <WarningOutlined />, label: <IncidentsMenuLabel /> },
@@ -43,7 +41,6 @@ const menuItems: MenuProps['items'] = [
 
 const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   [coordinatorPaths.incidents]: { title: 'Xử lý sự cố', subtitle: 'Sự cố tài xế / hộ tống gửi lên: tiếp nhận, gửi hướng xử lý và theo dõi tới khi xong' },
-  [coordinatorPaths.dashboard]: { title: 'Không gian điều phối' },
   [coordinatorPaths.trips]: { title: 'Danh sách chuyến' },
   [coordinatorPaths.fleet]: { title: 'Phương tiện', subtitle: 'Thêm xe, sửa sức chứa và trạng thái, xóa xe chưa từng chạy' },
   [coordinatorPaths.notifications]: { title: 'Trung tâm thông báo', subtitle: 'Cập nhật kế hoạch, phương tiện và công việc điều phối' },
@@ -52,7 +49,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
 
 function Brand({ collapsed = false, onClick }: { collapsed?: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`coordinator-brand${collapsed ? ' is-collapsed' : ''}`} onClick={onClick} aria-label="Về tổng quan điều phối">
+    <button type="button" className={`coordinator-brand${collapsed ? ' is-collapsed' : ''}`} onClick={onClick} aria-label="Về danh sách chuyến">
       <span className="brand-mark">H</span>
       {!collapsed && <span>HorseRoute</span>}
     </button>
@@ -81,7 +78,7 @@ export default function CoordinatorLayout() {
 
   const selectedKey = useMemo(() => {
     return menuItems?.find(item => item && 'key' in item && location.pathname.startsWith(String(item.key)))?.key?.toString()
-      ?? coordinatorPaths.dashboard;
+      ?? coordinatorPaths.trips;
   }, [location.pathname]);
 
   const meta = location.pathname.startsWith(`${coordinatorPaths.trips}/`)
@@ -100,7 +97,7 @@ export default function CoordinatorLayout() {
   const sidebarContent = (compact = false) => (
     <>
       <div className={`coordinator-brand-row${compact ? ' is-collapsed' : ''}`}>
-        <Brand collapsed={compact} onClick={() => go(coordinatorPaths.dashboard)} />
+        <Brand collapsed={compact} onClick={() => go(coordinatorPaths.trips)} />
         {isDesktop && (
           <Tooltip title={compact ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} placement="right">
             <Button

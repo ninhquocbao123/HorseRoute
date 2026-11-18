@@ -13,7 +13,6 @@ const TripListPage = lazy(() => import('../../modules/trips/pages/TripListPage')
 const TripDetailPage = lazy(() => import('../../modules/trips/pages/TripDetailPage'));
 const TripPlanPage = lazy(() => import('../../modules/trips/pages/TripPlanPage'));
 const CoordinatorLayout = lazy(() => import('../../modules/coordinator/layouts/CoordinatorLayout'));
-const CoordinatorOverviewPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorOverviewPage'));
 const CoordinatorAccountPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorAccountPage'));
 const CoordinatorTripsPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorTripsPage'));
 const CoordinatorTripPage = lazy(() => import('../../modules/coordinator/pages/CoordinatorTripPage'));
@@ -31,8 +30,9 @@ export default function AppRouter() {
         <Route path="/staff/login" element={<LoginPage />} />
         <Route element={<CoordinatorRoute />}>
           <Route path="/coordinator" element={<CoordinatorLayout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<CoordinatorOverviewPage />} />
+            <Route index element={<Navigate to="trips" replace />} />
+            {/* Trang Tổng quan đã bỏ: link cũ chuyển sang danh sách chuyến. */}
+            <Route path="dashboard" element={<Navigate to="/coordinator/trips" replace />} />
             <Route path="trips" element={<CoordinatorTripsPage />} />
             <Route path="trips/:tripId" element={<CoordinatorTripPage />} />
             <Route path="trips/:tripId/plan" element={<CoordinatorTripPage />} />

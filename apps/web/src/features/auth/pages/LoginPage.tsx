@@ -65,7 +65,7 @@ function AuthForm({ mode }: { mode: Mode }) {
   const password = watch('password');
   if (account) {
     const destination = account.role === 'COORDINATOR'
-      ? '/coordinator/dashboard'
+      ? '/coordinator/trips'
       : params.get('order') ? '/dashboard?view=orders' : '/dashboard';
     return <Navigate to={destination} replace />;
   }
