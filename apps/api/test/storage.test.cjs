@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 require('reflect-metadata');
 require('ts-node').register({ project: path.resolve(__dirname, '../tsconfig.json'), transpileOnly: true });
-const { saveFile, loadFile, removeFile, verifyStoredFile, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
+const { saveFile, loadFile, removeFile, verifyStoredFile, forgetBucketChecks, MAX_FILE_SIZE } = require('../src/features/documents/file-storage');
 const { envValidationSchema } = require('../src/shared/config/env.validation');
 const pdf = { buffer: Buffer.from('%PDF-1.7\nfixture'), originalname: 'giấy tờ.pdf', size: 16 };
 
@@ -49,7 +49,28 @@ test('private storage integration', async t => {
       assert.ok(calls.some(c => c.init.method === 'DELETE' && c.init.body.includes(saved.key.split('/')[1])));
       process.env.DOCUMENT_STORAGE_PROVIDER = 'supabase';
     });
+    await t.test('a confirmed private bucket is checked once, and checked again after an upload error', async () => {
+      forgetBucketChecks();
+      calls.length = 0;
+      let failUpload = false;
+      handler = (url, init) => {
+        if (url.includes('/bucket/')) return json({ id: 'wdp-documents', public: false });
+        if (failUpload) return json({ message: 'boom' }, 500);
+        return json({ Key: 'ok' });
+      };
+      await saveFile(pdf);
+      await saveFile(pdf);
+      assert.equal(calls.filter(c => c.url.includes('/bucket/')).length, 1);
+      assert.equal(calls.filter(c => c.init.method === 'POST').length, 2);
+      failUpload = true;
+      await assert.rejects(saveFile(pdf), e => e.getStatus() === 503);
+      failUpload = false;
+      calls.length = 0;
+      await saveFile(pdf);
+      assert.equal(calls.filter(c => c.url.includes('/bucket/')).length, 1);
+    });
     await t.test('public bucket is rejected before uploading', async () => {
+      forgetBucketChecks();
       calls.length = 0;
       handler = () => json({ id: 'wdp-documents', public: true });
       await assert.rejects(saveFile(pdf), e => e.getStatus() === 503);

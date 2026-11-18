@@ -28,6 +28,21 @@ function location(key: string) {
  throw new BadRequestException('File cũ chưa được đưa vào kho tài liệu.');
 }
 
+// Remember a confirmed-private bucket for a short time: checking it before every file cost 200-750 ms each.
+// Only a private result is remembered, and any upload error clears it so the next save checks again.
+const PRIVATE_BUCKET_TTL_MS = 5 * 60 * 1000;
+const privateBuckets = new Map<string, number>();
+export function forgetBucketChecks() { privateBuckets.clear(); }
+
+async function assertPrivateBucket(storage: ReturnType<typeof storageClient>, bucket: string) {
+ const id = `${process.env.SUPABASE_URL}\n${bucket}`;
+ if ((privateBuckets.get(id) ?? 0) > Date.now()) return;
+ const info = await storage.getBucket(bucket);
+ // Server keys bypass RLS: reject public buckets for sensitive documents.
+ if (info.error || !info.data || info.data.public !== false) { privateBuckets.delete(id); throw unavailable(); }
+ privateBuckets.set(id, Date.now() + PRIVATE_BUCKET_TTL_MS);
+}
+
 export async function saveFile(file: Upload) {
  const type = fileType(file);
  const object = randomUUID();
@@ -38,16 +53,14 @@ export async function saveFile(file: Upload) {
   if (!bucketPattern.test(bucket)) throw unavailable();
   try {
    const storage = storageClient();
-   const info = await storage.getBucket(bucket);
-   // Server keys bypass RLS: reject public buckets for sensitive documents.
-   if (info.error || !info.data || info.data.public !== false) throw unavailable();
+   await assertPrivateBucket(storage, bucket);
    const result = await storage.from(bucket).upload(object, file.buffer, {
     contentType: { PDF: 'application/pdf', PNG: 'image/png', JPG: 'image/jpeg' }[type],
     upsert: false,
    });
    if (result.error) throw unavailable();
    key = `supabase:${bucket}/${object}`;
-  } catch { throw unavailable(); }
+  } catch { forgetBucketChecks(); throw unavailable(); }
  } else if (provider === 'local') {
   await mkdir(directory(), { recursive: true });
   await writeFile(resolve(directory(), object), file.buffer, { flag: 'wx' });

@@ -5,6 +5,7 @@ import { App, Alert, Button, Empty, Modal } from 'antd';
 import { CheckCircleOutlined, FileTextOutlined, PlusOutlined, ArrowRightOutlined, ArrowLeftOutlined, UploadOutlined, EyeOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
 import { isAxiosError } from 'axios';
 import { api } from '../../lib/axios';
+import { shrinkPhoto } from '../../lib/shrink-photo';
 import type { Profile } from './CustomerJourney';
 import './horse-profiles.css';
 
@@ -61,13 +62,17 @@ export default function HorseProfiles({profiles,types,ownerName,reload,onDirty,s
       const savedId=String(r.data.id),revision=(editing.revision||0)+1;
       profileSaved=true;
       setEditing(p=>p?{...p,id:savedId,revision}:p);
+      // Upload all files at once instead of one after another; ảnh ngựa được thu nhỏ trước khi gửi.
       // Remove each successful upload from the queue so retrying cannot duplicate it.
-      for(const [key,item] of Object.entries(pending)) {
-        const body=new FormData();body.append('file',item.file);body.append('kind',item.kind);body.append('slot',item.slot);
+      const results=await Promise.allSettled(Object.entries(pending).map(async([key,item])=>{
+        const file=item.kind==='PHOTO'?await shrinkPhoto(item.file):item.file;
+        const body=new FormData();body.append('file',file);body.append('kind',item.kind);body.append('slot',item.slot);
         const uploaded=await api.post(`/customer/profiles/${savedId}/files`,body);
-        setEditing(p=>p?{...p,files:[{id:String(uploaded.data.id),kind:item.kind,slot:item.slot,original_name:item.file.name},...p.files]}:p);
+        setEditing(p=>p?{...p,files:[{id:String(uploaded.data.id),kind:item.kind,slot:item.slot,original_name:file.name},...p.files]}:p);
         setPending(p=>{const next={...p};delete next[key];return next;});
-      }
+      }));
+      const failed=results.find((r):r is PromiseRejectedResult=>r.status==='rejected');
+      if(failed)throw failed.reason;
       await reload();setEditing(null);setPending({});setDirty(false);onDirty(false);void message.success('Đã lưu hồ sơ ngựa.');
     } catch(e) {
       const reason=isAxiosError(e)?String(e.response?.data?.message||'Không kết nối được máy chủ.'):'Không lưu được hồ sơ.';
