@@ -6,6 +6,7 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { Camera, CircleCheck, FileText, ImageIcon, RefreshCw, Trash2, TriangleAlert, Upload } from "lucide-react-native";
 import { Txt, useTheme } from "./ui";
 import { API_URL } from "./config";
+import { createUploadTask, FileSystemUploadType } from "expo-file-system/legacy";
 
 /** Giống web (apps/web/src/features/customer/HorseProfiles.tsx): PDF, JPG, PNG, tối đa 5 MB mỗi tệp. */
 export const DOC_MAX_BYTES = 5 * 1024 * 1024;
@@ -59,43 +60,50 @@ async function fromFiles(): Promise<PickedDoc | null> {
 }
 
 /**
- * Tải multipart có tiến trình (fetch không báo tiến trình tải lên, nên dùng XMLHttpRequest).
+ * Tải multipart có tiến trình. Expo SDK 58 thay fetch/FormData nên XMLHttpRequest không gửi được tệp
+ * `{ uri, name, type }` (thử trên máy ảo: lỗi mạng, yêu cầu không tới máy chủ); dùng tác vụ tải lên gốc của expo-file-system.
  * Lỗi máy chủ trả câu `message` của API.
  */
-export function uploadWithProgress<T>(
+export async function uploadWithProgress<T>(
   path: string,
   token: string | null,
   fields: Record<string, string>,
   file: PickedDoc,
   onProgress: (fraction: number) => void,
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", API_URL + path);
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.timeout = 120000;
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && e.total) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      let body: { message?: string } | null = null;
-      try {
-        body = JSON.parse(xhr.responseText);
-      } catch {
-        body = null;
-      }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(1);
-        resolve(body as T);
-      } else reject(new Error(body?.message || `Máy chủ từ chối tệp (mã ${xhr.status}).`));
-    };
-    xhr.onerror = () => reject(new Error("Mất kết nối khi tải tệp. Kiểm tra mạng rồi thử lại."));
-    xhr.ontimeout = () => reject(new Error("Tải tệp quá lâu. Thử lại khi mạng ổn định hơn."));
-    const form = new FormData();
-    for (const [key, value] of Object.entries(fields)) form.append(key, value);
-    form.append("file", { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
-    xhr.send(form);
-  });
+  const task = createUploadTask(
+    API_URL + path,
+    file.uri,
+    {
+      httpMethod: "POST",
+      uploadType: FileSystemUploadType.MULTIPART,
+      fieldName: "file",
+      mimeType: file.type,
+      parameters: fields,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+    (p) => {
+      if (p.totalBytesExpectedToSend > 0) onProgress(p.totalBytesSent / p.totalBytesExpectedToSend);
+    },
+  );
+  let result;
+  try {
+    result = await task.uploadAsync();
+  } catch {
+    throw new Error("Mất kết nối khi tải tệp. Kiểm tra mạng rồi thử lại.");
+  }
+  if (!result) throw new Error("Đã hủy tải tệp.");
+  let body: { message?: string } | null = null;
+  try {
+    body = JSON.parse(result.body);
+  } catch {
+    body = null;
+  }
+  if (result.status >= 200 && result.status < 300) {
+    onProgress(1);
+    return body as T;
+  }
+  throw new Error(body?.message || `Máy chủ từ chối tệp (mã ${result.status}).`);
 }
 
 export type SlotState = {
