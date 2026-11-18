@@ -26,3 +26,8 @@
 
 
 .sp-doc-preview{padding:0;overflow:hidden;flex-shrink:0}.sp-doc-preview img{display:block;width:100%;height:100%;object-fit:contain;background:#f5f8f8}.sp-doc-thumbnail-fallback{font-size:10px;line-height:1.3;color:#416b73;padding:4px;text-align:center}
+
+/* Icon antd cũng là thẻ span: không cho nó giãn theo luật "nav button span{flex:1}" để chữ thẳng hàng với các mục khác. */
+.sp-sidebar nav button .anticon{flex:none;display:inline-grid;place-items:center;width:20px;height:20px}
+/* Nhãn menu luôn một dòng; "Tiếp nhận thẩm định" khi được chọn (chữ đậm) cần ~165px nên nới thanh bên trên màn hình rộng. */
+@media(min-width:851px){.sp-sidebar{width:288px;flex-basis:288px;padding-left:16px;padding-right:16px}.sp-sidebar nav button{gap:10px;padding-left:12px;padding-right:12px}.sp-sidebar nav button span:not(.anticon){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
