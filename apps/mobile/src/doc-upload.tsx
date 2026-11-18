@@ -89,8 +89,9 @@ export async function uploadWithProgress<T>(
   let result;
   try {
     result = await task.uploadAsync();
-  } catch {
-    throw new Error("Mất kết nối khi tải tệp. Kiểm tra mạng rồi thử lại.");
+  } catch (e) {
+    const detail = e instanceof Error && e.message ? ` (${e.message.slice(0, 120)})` : "";
+    throw new Error(`Mất kết nối khi tải tệp. Kiểm tra mạng rồi thử lại.${detail}`);
   }
   if (!result) throw new Error("Đã hủy tải tệp.");
   let body: { message?: string } | null = null;

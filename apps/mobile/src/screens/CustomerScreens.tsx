@@ -2032,6 +2032,8 @@ function ProfileForm({
   const docTypes = useResource<{ id: string; name: string }[]>("/customer/document-types");
   const coreTypes = coreDocumentTypes(docTypes.data ?? []);
   const [docs, setDocs] = useState<Record<string, SlotState>>({});
+  // Hồ sơ mới đã lưu nhưng giấy tờ lỗi: ở lại form, lần Lưu sau cập nhật đúng hồ sơ đó (không tạo trùng).
+  const createdId = React.useRef<string | null>(null);
   const setDoc = (slot: string, next: SlotState) => setDocs((old) => ({ ...old, [slot]: next }));
   const storedDoc = (slot: string) =>
     initial?.files.find((f) => f.kind === "DOCUMENT" && String(f.slot) === slot)?.original_name;
@@ -2065,13 +2067,17 @@ function ProfileForm({
             form.birthDate > new Date().toISOString().slice(0, 10))
         )
           throw new Error("Ngày sinh không hợp lệ hoặc ở tương lai.");
-        const result = await request<{ id: string }>(
-          initial
-            ? `/customer/profiles/${asId(initial.id)}`
-            : "/customer/profiles",
-          { method: initial ? "PUT" : "POST", body: profilePayload(form) },
-        );
-        const savedId = String(result.id ?? initial?.id);
+        // Lần thử lại sau khi hồ sơ mới đã lưu: chỉ gửi lại giấy tờ (thông tin ngựa đã lưu ở lần trước).
+        const result = createdId.current && !initial
+          ? { id: createdId.current }
+          : await request<{ id: string }>(
+              initial
+                ? `/customer/profiles/${asId(initial.id)}`
+                : "/customer/profiles",
+              { method: initial ? "PUT" : "POST", body: profilePayload(form) },
+            );
+        const savedId = String(result?.id ?? initial?.id);
+        if (!initial) createdId.current = savedId;
         let photoError = "";
         if (photos[0]) {
           const body = new FormData();
@@ -2105,7 +2111,6 @@ function ProfileForm({
         refresh();
         if (docFailed) {
           // Hồ sơ đã lưu; ở lại form để thử tải lại giấy tờ lỗi (lưu lại sẽ cập nhật, không tạo trùng).
-          if (!initial) replace("horse-form", { id: savedId });
           throw new Error(`Đã lưu thông tin ngựa nhưng ${docFailed} giấy tờ chưa tải lên. Xem lỗi ở từng giấy tờ rồi bấm Lưu để thử lại.`);
         }
         notify(

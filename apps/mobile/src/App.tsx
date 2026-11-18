@@ -158,7 +158,6 @@ const selfScrolling = new Set([
 ]);
 const guardedForms = new Set([
   "horse-form",
-  "doc-resubmit",
   "report",
   "quick-log",
   "incident-form",
