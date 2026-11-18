@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Modal } from 'antd';
 import { careGallery, type ICareActivity } from '@my-project/shared';
 import AttachmentImage from './AttachmentImage';
+import PhotoLightbox from './PhotoLightbox';
 import { careLabel } from './escort/care-ui';
 import { formatDateTime } from './tracking.format';
 import './care-gallery.css';
@@ -33,9 +33,15 @@ export default function CareGallery({ activities, className }: { activities: ICa
           ))}
         </ul>
       )}
-      <Modal open={open !== null} footer={null} onCancel={() => setOpen(null)} width={760} centered title={open !== null ? caption(open) : ''} destroyOnHidden>
-        {open !== null && <div className="care-gallery-full"><AttachmentImage id={items[open].photo.id} name={items[open].photo.originalName} /></div>}
-      </Modal>
+      <PhotoLightbox
+        index={open}
+        onClose={() => setOpen(null)}
+        photos={items.map(item => ({
+          id: item.photo.id, name: item.photo.originalName,
+          caption: `${careLabel(item.activityType)} · ${item.horseNames.length ? item.horseNames.join(', ') : 'Cả đoàn'} · ${item.createdByName}`,
+          takenAt: item.photo.uploadedAt || item.performedAt,
+        }))}
+      />
     </section>
   );
 }

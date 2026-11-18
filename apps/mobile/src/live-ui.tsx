@@ -323,12 +323,13 @@ export function WebButton({
  * Lưu tạm theo đường dẫn để danh sách ảnh không tải lại mỗi lần vẽ.
  */
 const privateImageCache = new Map<string, string>();
-function usePrivateImage(path: string, token: string | null) {
+export function usePrivateImage(path: string, token: string | null) {
   const [state, setState] = useState<{ uri: string | null; failed: boolean }>(() => ({
     uri: privateImageCache.get(path) ?? null,
     failed: false,
   }));
   useEffect(() => {
+    if (!path) return;
     const cached = privateImageCache.get(path);
     if (cached) {
       setState({ uri: cached, failed: false });
