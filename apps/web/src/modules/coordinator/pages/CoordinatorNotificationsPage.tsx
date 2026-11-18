@@ -4,8 +4,11 @@ import { Alert, Button, Card, Empty, Spin, Tag, Typography } from 'antd';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
 import { api } from '../../../lib/axios';
 import type { Notice } from '../../../features/notifications/NotificationsPanel';
+import { useEffect } from 'react';
+import { onNoticeChange } from '../../../features/notifications/notice-meta';
 export default function CoordinatorNotificationsPage() {
   const {account}=useAuth(); const qc=useQueryClient(); const key=['coordinator',account?.id,'notifications'];
+  useEffect(()=>onNoticeChange(()=>void qc.invalidateQueries({queryKey:['coordinator',account?.id,'notifications']})),[qc,account?.id]);
   const query=useQuery({queryKey:key,queryFn:({signal})=>api.get<Notice[]>('/notifications',{signal}).then(r=>r.data)});
   const read=useMutation({mutationFn:(id:string)=>api.post(`/notifications/${encodeURIComponent(id)}/read`),onSuccess:()=>qc.invalidateQueries({queryKey:key})});
   return <><div className="page-actions"><Button icon={<ReloadOutlined/>} loading={query.isFetching} onClick={()=>void query.refetch()}>Làm mới</Button></div>

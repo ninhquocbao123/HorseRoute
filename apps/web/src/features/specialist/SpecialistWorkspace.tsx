@@ -25,6 +25,7 @@ export default function SpecialistWorkspace({account,logout}:DashboardProps){
  const load=useCallback(async()=>{setLoading(true);try{const {data}=await api.get('/specialist/orders');setOrders(data);setError('');}catch{setError('Không tải được danh sách hồ sơ.');}finally{setLoading(false);}},[]);
  const loadNotices=useCallback(async()=>{try{const {data}=await api.get('/notifications');setNotices(data);setNoticeError('');}catch{setNoticeError('Không tải được thông báo.');}},[]);
  useEffect(()=>{void load();void loadNotices();},[load,loadNotices]);
+ useEffect(()=>onNoticeChange(()=>void loadNotices()),[loadNotices]);
  useEffect(()=>{const before=(e:BeforeUnloadEvent)=>{if(dirty.current){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',before);return()=>window.removeEventListener('beforeunload',before);},[]);
  const waiting=orders.filter(o=>!o.specialist_id),mine=orders.filter(o=>String(o.specialist_id)===String(account.id));
  const selectedId=view==='assessments'?(orderId||String(mine[0]?.id||'')):'';
@@ -48,3 +49,4 @@ export default function SpecialistWorkspace({account,logout}:DashboardProps){
 }
 
 import './specialist-figma.css';
+import { onNoticeChange } from '../notifications/notice-meta';

@@ -1446,6 +1446,11 @@ export class TrackingService {
         for (const userId of new Set([plannerId, ...managerIds].filter(Boolean))) {
           notices.push({ userId, id: await repo.notify(userId, 'INCIDENT_REPORTED', content, 'INCIDENT', incidentId) });
         }
+        // Khách của đơn và tổ lái còn lại trên chuyến cũng được báo (popup đỏ trên app). Thông báo gắn với ĐƠN để mở màn theo dõi chuyến;
+        // socket `notification:new` cho các thông báo này do NotificationRelay phát.
+        const others = await repo.getIncidentAudience(tripId, String(account.id));
+        const publicContent = `Sự cố ${INCIDENT_LABELS[input.incidentType]} trên chuyến của đơn ${trip.orderCode}: ${input.description.slice(0, 200)}`;
+        for (const userId of others) await repo.notify(userId, 'INCIDENT_REPORTED', publicContent, 'ORDER', trip.orderId);
 
         const [detail] = await this.toIncidents(repo, [(await repo.getIncidentById(incidentId))!]);
         return { detail, plannerId, notices, content };

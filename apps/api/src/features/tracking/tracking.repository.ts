@@ -1179,6 +1179,18 @@ export class TrackingRepository {
     return { plannerId: trip?.plannerId ?? '', managerIds: managers.map((row: { id: string }) => row.id) };
   }
 
+  /** Khách của đơn và tổ lái khác trên chuyến (trừ người báo), để báo sự cố. */
+  async getIncidentAudience(tripId: string, reporterId: string): Promise<string[]> {
+    const rows = await this.db.query(
+      `SELECT DISTINCT CAST(u.id AS CHAR) AS id FROM users u
+       WHERE u.account_status = 'ACTIVE' AND u.id <> ? AND (
+         u.id IN (SELECT o.customer_id FROM trips t JOIN orders o ON o.id = t.order_id WHERE t.id = ?)
+         OR u.id IN (SELECT user_id FROM trip_assignments WHERE trip_id = ?))`,
+      [reporterId, tripId, tripId]
+    );
+    return rows.map((row: { id: string }) => row.id);
+  }
+
   async getCareActivityAttachments(activityIds: string[]): Promise<import('./tracking.dto').AttachmentRow[]> {
     if (!activityIds.length) return [];
     return this.db.query(

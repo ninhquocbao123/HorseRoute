@@ -460,6 +460,7 @@ function stage2Repo(overrides = {}, calls = {}) {
     getIncidentResponses: async () => calls.responses ?? [],
     insertIncidentResponse: async (...args) => { (calls.responsesInserted ||= []).push(args); },
     getIncidentRecipients: async () => ({ plannerId: '3', managerIds: ['2'] }),
+    getIncidentAudience: async () => [],
     getTripCrewIds: async () => ['5', '6'],
     findIncident: async () => ({ id: '701', tripId: '100', status: calls.incidentStatus || 'NEW', reportedBy: '5', plannedBy: '3', customerId: '2' }),
     updateIncidentStatus: async (...args) => { calls.incidentUpdate = args; },

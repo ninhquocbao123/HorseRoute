@@ -68,8 +68,11 @@ function DriverShellInner({ account, logout, view, onNavigate, crewRole, heading
   const [bellOpen, setBellOpen] = useState(false);
   const { panelProps, unreadCount, addNotice, refresh, markReadQuiet } = useNotifications(String(account.id));
   const notice = useDriverNotice();
+  // Thẻ cảnh báo điều phối giờ do toast chung (NotificationToaster, góc trên phải) hiện từ `notification:new`;
+  // useAlertToasts vẫn giữ danh sách cảnh báo chưa đọc cho bảng chuông.
+  const alertNotice = useMemo(() => ({ ...notice, alert: () => undefined, dismissAlert: () => undefined }), [notice]);
   const [alertsListOpen, setAlertsListOpen] = useState(false);
-  const alerts = useAlertToasts(String(account.id), activeTripId, notice, () => { setAlertsListOpen(true); setBellOpen(true); }, {
+  const alerts = useAlertToasts(String(account.id), activeTripId, alertNotice, () => { setAlertsListOpen(true); setBellOpen(true); }, {
     markRead: id => void markReadQuiet(id),
     openPanel: () => { setAlertsListOpen(false); setBellOpen(true); },
   });

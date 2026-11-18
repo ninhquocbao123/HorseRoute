@@ -17,6 +17,7 @@ import NotificationsPanel, { type Notice } from '../notifications/NotificationsP
 import { statuses, type OrderSummary } from '../orders/types';
 import './customer.css';
 import './journey.css';
+import { onNoticeChange } from '../notifications/notice-meta';
 
 type CustomerOrder=OrderSummary&{quote_total:number|string|null;paid:number|string;horse_names?:string};
 type Horse={id:string;order_id:string;name:string;passport_no:string;breed:string|null;birth_date:string|null;sex:string|null;coat_color:string|null;note:string|null;order_code:string;order_status:string;document_count:number;missing_documents:number;pending_documents:number};
@@ -53,6 +54,7 @@ export default function CustomerWorkspace({account,logout}:DashboardProps){
  const refresh=useCallback(async()=>{setLoading(true);try{const {data:next}=await api.get<Workspace>('/orders/customer-workspace');setData(next);setError('');}catch{setError('Không tải được thông tin của bạn. Vui lòng thử lại.');}finally{setLoading(false);}},[]);
  const refreshNotices=useCallback(async()=>{try{const {data:items}=await api.get<Notice[]>('/notifications');setNotices(items);setNoticeError('');}catch{setNoticeError('Không tải được thông báo.');}},[]);
  useEffect(()=>{void refresh();void refreshNotices();},[refresh,refreshNotices,view]);
+ useEffect(()=>onNoticeChange(()=>void refreshNotices()),[refreshNotices]);
  async function go(next:string,id?:string,horse?:string,document?:string){if(guard.current&&!await guard.current())return;navigate('/dashboard?view='+next+(id?'&order='+encodeURIComponent(id):'')+(horse?'&horse='+encodeURIComponent(horse):'')+(document?'&document='+encodeURIComponent(document):''));window.scrollTo(0,0);}
  async function markRead(id:string){setMarking(id);try{await api.post('/notifications/'+id+'/read');setNotices(items=>items.map(n=>n.id===id?{...n,is_read:1}:n));}catch{void message.error('Chưa thể cập nhật thông báo.');}finally{setMarking(null);}}
  const needs=data.orders.filter(o=>o.status==='NEED_INFO'),running=data.orders.filter(o=>o.status==='IN_TRANSIT');

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { App } from 'antd';
 import { api } from '../../lib/axios';
 import type { Notice } from './NotificationsPanel';
+import { onNoticeChange } from './notice-meta';
 
 /** Dữ liệu và thao tác cho NotificationsPanel (tải danh sách, đánh dấu đã đọc). */
 export function useNotifications(accountId: string) {
@@ -77,6 +78,9 @@ export function useNotifications(accountId: string) {
   useEffect(() => {
     void refresh();
   }, [accountId, refresh]);
+
+  // Toast chung (NotificationToaster) vừa nhận hoặc vừa đánh dấu đọc: tải lại để chuông đúng số.
+  useEffect(() => onNoticeChange(() => void refresh()), [refresh]);
 
   return {
     panelProps: {

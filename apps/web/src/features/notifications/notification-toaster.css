@@ -1,0 +1,11 @@
+/* Toast thông báo (NotificationToaster): tông xanh của design system, sự cố viền đỏ nền đỏ nhạt. */
+body .ant-notification .ant-notification-notice.hr-toast{cursor:pointer;border:1px solid #cfe3e6;border-left:4px solid #14606a;background:#fff;width:360px}
+body .ant-notification .hr-toast .hr-toast-icon{color:#14606a}
+body .ant-notification .hr-toast :is(.ant-notification-notice-title,.ant-notification-notice-message){color:#0b3b42}
+body .ant-notification .hr-toast .hr-toast-text{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:#244c55}
+body .ant-notification .hr-toast .hr-toast-time{display:block;margin-top:4px;font-size:12px;color:#546d71}
+body .ant-notification .ant-notification-notice.hr-toast.is-incident{border:1px solid #f0b8b8;border-left:4px solid #dc2626;background:#fff4f3}
+body .ant-notification .hr-toast.is-incident .hr-toast-icon{color:#dc2626}
+body .ant-notification .hr-toast.is-incident :is(.ant-notification-notice-title,.ant-notification-notice-message){color:#991b1b}
+body .ant-notification .ant-notification-notice.hr-toast:hover{box-shadow:0 12px 32px #0b3b4224}
+@media(max-width:540px){body .ant-notification .ant-notification-notice.hr-toast{width:100%}}

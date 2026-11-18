@@ -8,6 +8,7 @@ import { createServices } from './shared/config/services';
 import { TokenService } from './shared/utils/jwt.util';
 import { Logger, safeError } from './shared/utils/logger.util';
 import { socketService } from './shared/socket/socket.service';
+import { NotificationRelay } from './features/notifications/notification-relay';
 
 const logger = new Logger('API');
 const defaults = { loadEnvironment, createDatabase, createRedis, createServices, createServer, createApp };
@@ -20,6 +21,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
   let redis: ReturnType<typeof createRedis> | undefined;
   let services: ReturnType<typeof createServices> | undefined;
   let server: ReturnType<typeof createServer> | undefined;
+  let relay: NotificationRelay | null = null;
   let stopping: Promise<void> | undefined;
 
   const shutdownOnSignal = () => {
@@ -47,6 +49,7 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
         await Promise.all([
           cleanup('expiry_job', () => services?.documents.stopExpiryJob()),
           cleanup('position_retention_job', () => services?.tracking.stopPositionRetentionJob()),
+          cleanup('notification_relay', () => relay?.stop()),
           cleanup('http', () => new Promise<void>((resolve, reject) => {
             if (!server?.listening) { resolve(); return; }
             server.close(error => error ? reject(error) : resolve());
@@ -102,6 +105,11 @@ export async function startServer(overrides: Partial<typeof defaults> = {}) {
     }));
     await step('expiry_job', () => services!.documents.startExpiryJob());
     await step('position_retention_job', () => services!.tracking.startPositionRetentionJob());
+    // Mọi thông báo mới → socket `notification:new` (toast web, popup app). Lỗi không chặn API khởi động.
+    await step('notification_relay', async () => {
+      try { relay = new NotificationRelay(db!, socketService); await relay.start(); }
+      catch (error) { relay = null; logger.warn('notification_relay_disabled', safeError(error)); }
+    });
     logger.info('api_listening', { port: env.PORT });
     process.once('SIGINT', shutdownOnSignal);
     process.once('SIGTERM', shutdownOnSignal);

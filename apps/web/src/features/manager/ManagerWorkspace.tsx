@@ -19,6 +19,7 @@ import { statuses, type OrderDetail, type OrderSummary, type ReviewOptions } fro
 import PricingWorkspace from '../pricing/PricingWorkspace';
 import './manager.css';
 import './manager-figma.css';
+import { onNoticeChange } from '../notifications/notice-meta';
 const money=(n:number|string)=>Number(n||0).toLocaleString('vi-VN')+' đ';
 const compactMoney=(value:number|string)=>{const n=Number(value||0);return n>=1e9?(n/1e9).toLocaleString('vi-VN',{maximumFractionDigits:2})+' tỷ đ':n>=1e6?(n/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tr đ':money(n);};
 const date=(v:string|null|undefined)=>v?new Date(v).toLocaleDateString('vi-VN'):'—';
@@ -38,6 +39,7 @@ export default function ManagerWorkspace({account,logout}:DashboardProps){
  const refresh=useCallback(()=>{void api.get('/manager/overview').then(r=>setCounts(r.data)).catch(()=>setCounts({}));},[]);
  useEffect(refresh,[refresh]);
  useEffect(()=>{if(view==='notifications')void loadNotices();},[view,loadNotices]);
+ useEffect(()=>onNoticeChange(()=>void loadNotices()),[loadNotices]);
  async function go(id:string){if(guard.current&&!await guard.current())return;navigate('/dashboard?view='+id);setSearch('');}
  function report(e:any){void message.error(e.response?.data?.message||'Không tải được dữ liệu. Vui lòng thử lại.');}
  return <div className="mgr"><aside className="mgr-sidebar"><a className="mgr-brand" href="/dashboard?view=orders"><BrandLogo /> Vận chuyển ngựa</a><span className="mgr-role">● MANAGER · Quản lý</span><small>ĐIỀU HƯỚNG</small><nav>{nav.map(n=><button key={n.id} className={view===n.id?'active':''} onClick={()=>void go(n.id)}>{n.icon}<span>{n.label}</span>{['orders','quotes'].includes(n.id)&&Number(counts[n.id==='orders'?'pending':'quotesPending'])>0&&<em>{counts[n.id==='orders'?'pending':'quotesPending']}</em>}</button>)}</nav><AccountProfile account={account} roleName="Quản lý"><button aria-label="Đăng xuất" onClick={()=>{void (async()=>{if(guard.current&&!await guard.current())return;modal.confirm({title:'Đăng xuất khỏi tài khoản?',onOk:logout});})();}}><LogoutOutlined/></button></AccountProfile></aside><main className="mgr-main"><header className="mgr-header"><div><small>Quản lý / {nav.find(n=>n.id===view)?.label||'Thông báo'}</small><h1>{nav.find(n=>n.id===view)?.label||'Thông báo'}</h1><p>{view==='orders'?'Tiếp nhận đơn từ khách hàng và theo dõi tiến trình thẩm định':view==='quotes'?'Kiểm tra từng hạng mục trước khi gửi báo giá chính thức':view==='revenue'?'Lịch sử đơn đã giao và thanh toán đủ theo tháng, năm':'Quản lý thông tin vận chuyển'}</p></div><div className="mgr-tools">{view==='quotes'&&<Input prefix={<SearchOutlined/>} aria-label="Tìm mã đơn, khách hàng" placeholder="Tìm mã đơn, khách hàng..." value={search} onChange={e=>setSearch(e.target.value)}/>}<button aria-label="Thông báo" onClick={()=>void go('notifications')}><BellOutlined/></button><span className="mgr-today">{new Date().toLocaleDateString('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}</span></div></header>

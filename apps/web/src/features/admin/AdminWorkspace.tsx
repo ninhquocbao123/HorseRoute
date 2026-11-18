@@ -24,6 +24,7 @@ import AccountsWorkspace from './AccountsWorkspace';
 import AdminRevenue from './AdminRevenue';
 import AdminProfile from './AdminProfile';
 import './admin.css';
+import { onNoticeChange } from '../notifications/notice-meta';
 
 type AdminView = 'overview' | 'accounts' | 'revenue' | 'profile';
 
@@ -89,6 +90,8 @@ export default function AdminWorkspace({ account, logout }: DashboardProps) {
     void loadStats();
     void loadNotices();
   }, [loadStats, loadNotices]);
+
+  useEffect(() => onNoticeChange(() => void loadNotices()), [loadNotices]);
 
   async function markNotice(id: string) {
     if (markingId) return;

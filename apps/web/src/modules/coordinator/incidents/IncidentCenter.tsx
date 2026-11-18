@@ -82,27 +82,10 @@ export function IncidentCenterProvider({ accountId, children }: { accountId: str
     if (seen.current.has(incident.id)) return;
     seen.current.add(incident.id);
     writeSeen(seen.current);
+    // Thẻ nổi do NotificationToaster (góc trên phải, viền đỏ) hiện từ thông báo `notification:new`; ở đây chỉ phát chuông.
     const sev = severityOf(incident);
     if (sev.severity === 'RED' || incident.urgency === 'HIGH') playChime();
-    toast.open({
-      key: 'incident:' + incident.id,
-      duration: 0,
-      className: 'coord-incident-toast',
-      style: { '--sev': sev.color, '--sev-soft': sev.soft, '--sev-text': sev.text } as React.CSSProperties,
-      icon: <ExclamationCircleFilled className="coord-incident-toast-icon" />,
-      role: 'alert',
-      message: <strong className="coord-incident-toast-title">{incidentTitle(incident)}</strong>,
-      description: (
-        <span className="coord-incident-toast-body">
-          <span className="coord-inc-sev">{sev.label}{incident.urgency === 'HIGH' ? ' · KHẨN' : ''}</span>
-          <span className="coord-incident-toast-text">{incident.description}</span>
-          <small>{incident.orderCode} · {incident.reportedByName} · {whenText(incident.reportedAt)}</small>
-          <span className="coord-incident-toast-hint">Bấm để xem chi tiết</span>
-        </span>
-      ),
-      onClick: () => { toast.destroy('incident:' + incident.id); showDetail(incident); },
-    });
-  }, [showDetail, toast]);
+  }, []);
 
   /** Tải sự cố đang mở: đếm badge; sự cố NEW vừa báo mà chưa bật popup trên máy này thì bật. */
   const loadOpen = useCallback(async (withPopups: boolean) => {
