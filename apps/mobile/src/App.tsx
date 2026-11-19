@@ -1018,10 +1018,9 @@ function Authenticated({
           </Txt>
         </Pressable>
       ) : null}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      {/* "padding" cả hai nền tảng: kiểu "height" trên Android đổi kích thước khung, khung đổi lại làm tính lại độ cao bàn phím,
+          thành vòng lặp nhấp nháy với bàn phím nổi (Gboard thu gọn) trên Android edge-to-edge. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {selfScroll && content ? (
           <View key={`${screen}:${page.tripId || ""}`} style={{ flex: 1 }}>
             {content}
