@@ -1,4 +1,5 @@
 import LandingPage from '../home/LandingPage';
+import { RETRY_EVENT } from '../../lib/network';
 import AccountProfile from '../../components/AccountProfile';
 import {useFeedback} from '../../components/useFeedback';
 import CustomerOrders, { isSettledOrder } from './CustomerOrders';
@@ -54,6 +55,8 @@ export default function CustomerWorkspace({account,logout}:DashboardProps){
  const refresh=useCallback(async()=>{setLoading(true);try{const {data:next}=await api.get<Workspace>('/orders/customer-workspace');setData(next);setError('');}catch{setError('Không tải được thông tin của bạn. Vui lòng thử lại.');}finally{setLoading(false);}},[]);
  const refreshNotices=useCallback(async()=>{try{const {data:items}=await api.get<Notice[]>('/notifications');setNotices(items);setNoticeError('');}catch{setNoticeError('Không tải được thông báo.');}},[]);
  useEffect(()=>{void refresh();void refreshNotices();},[refresh,refreshNotices,view]);
+ // Banner mạng: có mạng lại hoặc bấm Thử lại thì tải lại dữ liệu (không tải lại trang, không mất form đang nhập).
+ useEffect(()=>{const retry=()=>{void refresh();void refreshNotices();};window.addEventListener(RETRY_EVENT,retry);return()=>window.removeEventListener(RETRY_EVENT,retry);},[refresh,refreshNotices]);
  useEffect(()=>onNoticeChange(()=>void refreshNotices()),[refreshNotices]);
  async function go(next:string,id?:string,horse?:string,document?:string){if(guard.current&&!await guard.current())return;navigate('/dashboard?view='+next+(id?'&order='+encodeURIComponent(id):'')+(horse?'&horse='+encodeURIComponent(horse):'')+(document?'&document='+encodeURIComponent(document):''));window.scrollTo(0,0);}
  async function markRead(id:string){setMarking(id);try{await api.post('/notifications/'+id+'/read');setNotices(items=>items.map(n=>n.id===id?{...n,is_read:1}:n));}catch{void message.error('Chưa thể cập nhật thông báo.');}finally{setMarking(null);}}

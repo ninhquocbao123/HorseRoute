@@ -6,9 +6,39 @@
     <link rel="icon" type="image/png" href="/brand/horse-transport-logo.png" />
     <link rel="apple-touch-icon" href="/brand/horse-transport-logo.png" />
     <title>HorseRoute · Vận chuyển ngựa</title>
+    <style>
+      /* Màn tải lần đầu (trước khi có bundle JS). Cùng giao diện với components/ui/PageLoader.tsx.
+         Dấu thương hiệu vẽ bằng SVG ngay trong trang: không tải thêm ảnh để không tranh băng thông với JS. */
+      html, body { margin: 0; background: #f6faf9; }
+      .boot { position: fixed; inset: 0; display: grid; place-items: center; font-family: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #062a2f; animation: boot-in 0.3s ease 0.2s both; }
+      .boot-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; background: rgba(20, 96, 106, 0.14); }
+      .boot-bar span { position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: linear-gradient(90deg, #14606a, #f4b942); animation: boot-slide 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+      .boot-center { display: grid; justify-items: center; gap: 12px; text-align: center; }
+      .boot-mark { position: relative; display: grid; place-items: center; width: 88px; height: 88px; border-radius: 26px; background: #ffffff; border: 1px solid #d8e6e6; }
+      .boot-mark svg { width: 56px; height: 56px; }
+      .boot-mark::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 2px solid transparent; border-top-color: #f4b942; animation: boot-spin 1.1s linear infinite; }
+      .boot strong { margin-top: 8px; font-size: 20px; line-height: 28px; letter-spacing: -0.01em; }
+      .boot p { margin: 0; font-size: 13px; line-height: 20px; color: #546d71; }
+      @keyframes boot-in { from { opacity: 0; } }
+      @keyframes boot-slide { to { left: 100%; } }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .boot, .boot-bar span, .boot-mark::after { animation: none; } .boot-bar span { left: 0; width: 100%; opacity: 0.5; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot" role="status" aria-live="polite" aria-busy="true">
+        <div class="boot-bar" aria-hidden="true"><span></span></div>
+        <div class="boot-center">
+          <div class="boot-mark" aria-hidden="true">
+            <svg viewBox="0 0 56 56"><rect width="56" height="56" rx="14" fill="#f4b942" /><path d="M14 40c0-14 10-14 14-14s14 0 14-14" fill="none" stroke="#2b1a00" stroke-width="4" stroke-linecap="round" /><circle cx="14" cy="40" r="4.5" fill="#2b1a00" /><circle cx="42" cy="12" r="4.5" fill="#2b1a00" /></svg>
+          </div>
+          <strong>HorseRoute</strong>
+          <p>Đang mở ứng dụng…</p>
+        </div>
+      </div>
+      <noscript><p style="padding: 24px; font-family: system-ui, sans-serif">HorseRoute cần bật JavaScript để chạy.</p></noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

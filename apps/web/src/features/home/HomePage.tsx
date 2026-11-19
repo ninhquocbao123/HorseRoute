@@ -1,4 +1,5 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
+import PageLoader from '../../components/ui/PageLoader';
 import { useAuth } from '../auth/hooks/useAuth';
 import AdminDashboard from '../auth/pages/Admin/AdminDashboard';
 import CustomerDashboard from '../auth/pages/Customer/CustomerDashboard';
@@ -11,11 +12,7 @@ export default function HomePage() {
   const [params] = useSearchParams();
 
   if (!account) {
-    return (
-      <div className="container" style={{ padding: '20px' }}>
-        <p>Đang tải thông tin người dùng...</p>
-      </div>
-    );
+    return <PageLoader label="Đang tải thông tin tài khoản" />;
   }
 
   if (account.role === 'COORDINATOR') {

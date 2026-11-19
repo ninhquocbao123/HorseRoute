@@ -1,0 +1,32 @@
+/* Trang 404/403/500 (ErrorPage). Chỉ dùng token. */
+.hr-err { min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; background: var(--bg, #f6faf9); color: var(--text, #0d2a2e); font-family: var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); }
+.hr-err-top { display: flex; align-items: center; height: 64px; padding: 0 var(--sp-8, 32px); border-bottom: 1px solid var(--line, #d8e6e6); background: var(--surface, #ffffff); }
+.hr-err-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--brand-900, #062a2f); text-decoration: none; border-radius: var(--r-sm, 10px); }
+.hr-err-brand:focus-visible { outline: none; box-shadow: var(--ring, 0 0 0 3px rgba(20, 96, 106, 0.35)); }
+.hr-err-body { flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--sp-3, 12px); max-width: 560px; margin: 0 auto; padding: var(--sp-12, 48px) var(--sp-6, 24px); text-align: center; }
+.hr-err-code { font: 700 13px/1 var(--font-mono, 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text, #8a5600); background: var(--accent-100, #fdf3d8); padding: 6px 10px; border-radius: var(--r-full, 999px); }
+.hr-err-art { margin: var(--sp-2, 8px) 0; }
+.hr-err-art .is-line { stroke: var(--line-strong, #b9cfd0); stroke-width: 3; stroke-linecap: round; }
+.hr-err-art .is-dash { stroke-dasharray: 2 7; }
+.hr-err-art .is-accent { stroke: var(--accent-500, #f4b942); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.hr-err h1 { margin: 0; font-size: var(--fs-h1, 28px); line-height: var(--lh-h1, 36px); font-weight: 700; letter-spacing: -0.02em; color: var(--brand-900, #062a2f); }
+.hr-err-body > p { margin: 0; font-size: var(--fs-body, 15px); line-height: var(--lh-body, 24px); color: var(--text-2, #546d71); }
+.hr-err-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3, 12px); margin-top: var(--sp-4, 16px); }
+.hr-err-btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--touch, 44px); padding: 0 20px; border-radius: var(--r-sm, 10px); border: 1px solid var(--line-strong, #b9cfd0); background: var(--surface, #ffffff); color: var(--text, #0d2a2e); font: 600 14px/1 var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); text-decoration: none; cursor: pointer; transition: border-color var(--dur-1, 150ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)), background var(--dur-1, 150ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)), transform var(--dur-1, 150ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)); }
+.hr-err-btn:hover { border-color: var(--brand-700, #14606a); color: var(--brand-700, #14606a); }
+.hr-err-btn.is-primary { background: var(--secondary, #0b3b42); border-color: var(--secondary, #0b3b42); color: var(--on-brand, #ffffff); }
+.hr-err-btn.is-primary:hover { background: var(--secondary-hover, #14606a); border-color: var(--secondary-hover, #14606a); color: var(--on-brand, #ffffff); }
+.hr-err-btn:active { transform: scale(0.98); }
+.hr-err-btn:focus-visible, .hr-err-link:focus-visible { outline: none; box-shadow: var(--ring, 0 0 0 3px rgba(20, 96, 106, 0.35)); }
+.hr-err-detail { display: grid; justify-items: center; gap: var(--sp-2, 8px); margin-top: var(--sp-4, 16px); width: 100%; }
+.hr-err-link { padding: 4px 6px; border: 0; background: none; color: var(--brand-700, #14606a); font: 600 13px/1.4 var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); cursor: pointer; border-radius: var(--r-xs, 6px); }
+.hr-err-detail pre { width: 100%; max-height: 180px; overflow: auto; margin: 0; padding: var(--sp-3, 12px); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 var(--font-mono, 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace); color: var(--text-2, #546d71); background: var(--surface-2, #eef5f4); border: 1px solid var(--line, #d8e6e6); border-radius: var(--r-sm, 10px); }
+@media (max-width: 639px) {
+  .hr-err-top { height: 56px; padding: 0 var(--sp-4, 16px); }
+  .hr-err-body { padding: var(--sp-10, 40px) var(--sp-4, 16px); }
+  .hr-err-actions { width: 100%; }
+  .hr-err-btn { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .hr-err-btn { transition: none; } }
+
+.hr-err-brand .brand-logo { width: 32px; height: 32px; border-radius: 8px; }

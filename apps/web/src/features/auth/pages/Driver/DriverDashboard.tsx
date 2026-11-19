@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import PageLoader from '../../../../components/ui/PageLoader';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Spin } from 'antd';
 import { CrewRole } from '@my-project/shared';
 import type { DashboardProps } from '../components/DashboardLayout';
 import DriverShell, { DRIVER_NAV } from '../../../tracking/driver/DriverShell';
@@ -24,7 +24,7 @@ export default function DriverDashboard({ account, logout }: DashboardProps) {
   const data = useDriverTrips();
   const role = data.active?.crewRole ?? data.history[0]?.crewRole ?? 'DRIVER';
   // Chưa biết vai trò thì chưa vẽ khung nào, tránh nhấp nháy khung tài xế rồi đổi sang hộ tống.
-  if (data.loading) return <div className="drv-loading" role="status"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
+  if (data.loading) return <PageLoader variant="content" label="Đang tải chuyến" />;
   return role === 'ESCORT' ? <EscortArea account={account} logout={logout} data={data} /> : <DriverArea account={account} logout={logout} data={data} />;
 }
 

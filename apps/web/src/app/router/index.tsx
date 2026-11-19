@@ -1,5 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import NotFoundPage from './NotFoundPage';
+import AppErrorBoundary from './AppErrorBoundary';
+import PageLoader from '../../components/ui/PageLoader';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import TripsRoute from './TripsRoute';
 import CoordinatorRoute from './CoordinatorRoute';
@@ -22,7 +25,8 @@ const FleetWorkspace = lazy(() => import('../../features/fleet/FleetWorkspace'))
 
 export default function AppRouter() {
   return (
-    <Suspense fallback={<div className="container">Đang tải...</div>}>
+    <AppErrorBoundary>
+    <Suspense fallback={<PageLoader label="Đang tải trang" />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -54,9 +58,10 @@ export default function AppRouter() {
             <Route path=":tripId/plan" element={<TripPlanPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<main className="container"><h1>Không tìm thấy trang</h1><Link className="button" to="/dashboard">Về trang làm việc</Link></main>} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </AppErrorBoundary>
   );
 }
 

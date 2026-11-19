@@ -1,4 +1,5 @@
 import { disconnectSocket } from '../../lib/socket';
+import { RETRY_EVENT } from '../../lib/network';
 import { createContext, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
 import type { IUser } from '@my-project/shared';
@@ -100,6 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const retrySync = useCallback(() => { void sync(); }, [sync]);
+
+  // Banner mạng: có mạng lại hoặc bấm "Thử lại" thì tải lại tài khoản nếu đang kẹt ở màn "Chưa tải được tài khoản".
+  const offlineRef = useRef(offline);
+  offlineRef.current = offline;
+  useEffect(() => {
+    const retry = () => { if (offlineRef.current) void sync(); };
+    window.addEventListener(RETRY_EVENT, retry);
+    return () => window.removeEventListener(RETRY_EVENT, retry);
+  }, [sync]);
 
   return (
     <AuthContext.Provider value={{ account, loading, syncError, offline, retrySync, logout, onLoginSuccess, updateAccount: setAccount }}>

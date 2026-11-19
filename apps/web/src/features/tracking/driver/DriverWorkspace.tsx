@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Empty, Spin, Tooltip } from 'antd';
+import PageLoader from '../../../components/ui/PageLoader';
+import { Alert, Button, Empty, Tooltip } from 'antd';
 import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import { currentLeg } from '../tracking.format';
@@ -38,7 +39,7 @@ export default function DriverWorkspace({ data, userId, view, historyTripId, sea
   const [flash, setFlash] = useState('');
   const clearFlash = useCallback(() => setFlash(''), []);
 
-  if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
+  if (loading) return <PageLoader variant="content" label="Đang tải chuyến" />;
 
   const retry = error && (
     <Alert type="error" showIcon title={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />

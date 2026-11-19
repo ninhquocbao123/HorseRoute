@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Empty, Spin } from 'antd';
+import PageLoader from '../../../components/ui/PageLoader';
+import { Alert, Button, Empty } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import IncidentScreen from '../driver/IncidentScreen';
 import { HistoryList } from '../driver/DriverHistory';
@@ -33,7 +34,7 @@ export default function EscortWorkspace({ data, view, historyTripId, search, vie
     if (done && view === 'care') { notice.success(done); setDone(''); }
   }, [done, view, notice]);
 
-  if (loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải chuyến…</span></div>;
+  if (loading) return <PageLoader variant="content" label="Đang tải chuyến" />;
 
   const retry = error && (
     <Alert type="error" showIcon title={error} action={<Button size="small" onClick={() => void load()}>Thử lại</Button>} />

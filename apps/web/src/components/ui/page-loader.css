@@ -1,0 +1,54 @@
+/* Màn tải toàn trang (PageLoader). Chỉ dùng token trong styles/tokens.css. */
+.hr-loader, .hr-loader-content { font-family: var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); color: var(--text, #0d2a2e); }
+.hr-loader[data-stage='hidden'], .hr-loader-content[data-stage='hidden'] { opacity: 0; }
+.hr-loader, .hr-loader-content { transition: opacity var(--dur-3, 300ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)); }
+
+/* ---------- Biến thể brand: toàn màn hình ---------- */
+.hr-loader { position: fixed; inset: 0; z-index: var(--z-overlay, 70); display: grid; place-items: center; padding: var(--sp-6, 24px); background: var(--bg, #f6faf9); }
+.hr-loader-center { display: grid; justify-items: center; gap: var(--sp-3, 12px); text-align: center; max-width: 360px; }
+.hr-loader-mark { position: relative; display: grid; place-items: center; width: 88px; height: 88px; border-radius: 26px; background: var(--surface, #ffffff); border: 1px solid var(--line, #d8e6e6); box-shadow: var(--shadow-2, 0 8px 24px -8px rgba(6, 42, 47, 0.18)); }
+.hr-loader-mark::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent-500, #f4b942); border-right-color: color-mix(in srgb, var(--accent-500, #f4b942) 35%, transparent); animation: hr-loader-spin 1.1s linear infinite; }
+.hr-loader-name { margin-top: var(--sp-2, 8px); font-size: var(--fs-h2, 20px); line-height: var(--lh-h2, 28px); font-weight: 700; letter-spacing: -0.01em; color: var(--brand-900, #062a2f); }
+
+/* Thanh tiến trình chạy liên tục ở mép trên */
+.hr-loader-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; background: color-mix(in srgb, var(--brand-700, #14606a) 14%, transparent); }
+.hr-loader-bar > span { position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; border-radius: 0 3px 3px 0; background: linear-gradient(90deg, var(--brand-700, #14606a), var(--accent-500, #f4b942)); animation: hr-loader-slide 1.4s var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)) infinite; }
+
+/* ---------- Dòng trạng thái ---------- */
+.hr-loader-status { display: grid; gap: var(--sp-2, 8px); justify-items: center; }
+.hr-loader-label { margin: 0; font-size: var(--fs-sm, 13px); line-height: var(--lh-sm, 20px); color: var(--text-2, #546d71); }
+.hr-loader-dots::after { content: '…'; display: inline-block; width: 1.2em; text-align: left; animation: hr-loader-dots 1.2s steps(4, end) infinite; overflow: hidden; vertical-align: bottom; }
+.hr-loader-note { margin: 0; max-width: 320px; font-size: var(--fs-caption, 12px); line-height: var(--lh-caption, 16px); color: var(--text-2, #546d71); }
+.hr-loader-retry { padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--brand-700, #14606a); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; border-radius: var(--r-xs, 6px); }
+.hr-loader-retry:focus-visible { outline: none; box-shadow: var(--ring, 0 0 0 3px rgba(20, 96, 106, 0.35)); }
+
+/* ---------- Biến thể content: skeleton trong khung trang ---------- */
+.hr-loader-content { display: grid; gap: var(--sp-3, 12px); width: 100%; max-width: 1200px; margin: 0 auto; padding: var(--sp-8, 32px); box-sizing: border-box; }
+.hr-loader-content .hr-skeleton { height: 14px; }
+.hr-loader-content .hr-loader-sk-title { width: min(320px, 70%); height: 28px; border-radius: var(--r-xs, 6px); }
+.hr-loader-content .hr-loader-sk-sub { width: min(460px, 90%); }
+.hr-loader-sk-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3, 12px); margin-top: var(--sp-3, 12px); }
+.hr-loader-sk-stats .hr-skeleton { height: 76px; border-radius: var(--r-md, 14px); }
+.hr-loader-sk-card { display: grid; gap: var(--sp-3, 12px); padding: var(--sp-5, 20px); border: 1px solid var(--line, #d8e6e6); border-radius: var(--r-md, 14px); background: var(--surface, #ffffff); }
+.hr-loader-content .hr-loader-status { justify-items: start; margin-top: var(--sp-2, 8px); }
+@media (max-width: 639px) {
+  .hr-loader-content { padding: var(--sp-5, 20px) var(--sp-4, 16px); }
+  .hr-loader-sk-stats { grid-template-columns: 1fr 1fr; }
+  .hr-loader-sk-stats .hr-skeleton:nth-child(3) { display: none; }
+}
+
+@keyframes hr-loader-spin { to { transform: rotate(360deg); } }
+@keyframes hr-loader-slide { 0% { left: -40%; } 100% { left: 100%; } }
+@keyframes hr-loader-dots { 0% { width: 0; } 100% { width: 1.2em; } }
+@media (prefers-reduced-motion: reduce) {
+  .hr-loader-mark::after, .hr-loader-bar > span, .hr-loader-dots::after { animation: none; }
+  .hr-loader-bar > span { left: 0; width: 100%; opacity: 0.5; }
+  .hr-loader, .hr-loader-content { transition: none; }
+}
+
+/* Skeleton (bản đầy đủ nằm trong styles/components.css ở nhánh design). */
+.hr-skeleton { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--surface-2, #eef5f4) 0, var(--surface-3, #e2ecec) 50%, var(--surface-2, #eef5f4) 100%); background-size: 200% 100%; animation: hr-shimmer 1.2s linear infinite; }
+@keyframes hr-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .hr-skeleton { animation: none; } }
+/* BrandLogo trên nhánh này có cỡ cố định 48 px: đặt cỡ theo chỗ dùng. */
+.hr-loader-mark .brand-logo { width: 56px; height: 56px; border-radius: 12px; }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Spin } from 'antd';
+import PageLoader from '../../../components/ui/PageLoader';
+import { Alert, Button } from 'antd';
 import type { ICareActivity, IDriverTripDetail, IDriverTripSummary } from '@my-project/shared';
 import type { RealtimeHorseReportViewed } from '../driver/useDriverRealtime';
 import { useDriverNotice } from '../driver/DriverNotices';
@@ -40,7 +41,7 @@ export default function CareLogPage({ trip, detail, viewedEvent, onTripChanged }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId]);
 
-  if (data.loading) return <div className="drv-loading"><Spin size="large" /><span>Đang tải nhật ký chăm sóc…</span></div>;
+  if (data.loading) return <PageLoader variant="content" label="Đang tải nhật ký chăm sóc" />;
 
   return (
     <div className="esc">

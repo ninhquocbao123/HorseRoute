@@ -1,0 +1,24 @@
+/* Banner mạng (NetworkBanner). Chỉ dùng token. Nổi trên cùng, giữa màn, không đẩy nội dung trang. */
+.hr-net { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1100; /* trên mọi thanh đầu trang (z 100) và toast antd (~1010) */ width: max-content; max-width: calc(100vw - 32px); pointer-events: none; font-family: var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); }
+.hr-net-bar { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 10px 14px; border-radius: var(--r-md, 14px); border: 1px solid var(--line, #d8e6e6); background: var(--surface, #ffffff); color: var(--text, #0d2a2e); box-shadow: var(--shadow-2, 0 8px 24px -8px rgba(6, 42, 47, 0.18)); font-size: var(--fs-sm, 13px); line-height: var(--lh-sm, 20px); animation: hr-net-in var(--dur-2, 220ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)); }
+.hr-net-bar b { font-weight: 600; }
+.hr-net-bar span:not(.hr-net-dot) { color: var(--text-2, #546d71); }
+.hr-net-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--mute-dot, #8aa0a3); }
+.hr-net-bar[data-tone='warn'] { background: var(--warn-bg, #fdf3d8); border-color: var(--warn-line, #f1d79e); color: var(--warn-fg, #7a4f00); }
+.hr-net-bar[data-tone='warn'] .hr-net-dot { background: var(--warn-dot, #d99a0b); }
+.hr-net-bar[data-tone='bad'] { background: var(--bad-bg, #fde8e8); border-color: var(--bad-line, #f3b4b4); color: var(--bad-fg, #991b1b); }
+.hr-net-bar[data-tone='bad'] .hr-net-dot { background: var(--bad-dot, #c81e1e); }
+.hr-net-bar[data-tone='info'] .hr-net-dot { background: var(--info-dot, #14606a); animation: hr-net-pulse 1.4s var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)) infinite; }
+.hr-net-bar[data-tone='ok'] { background: var(--ok-bg, #e3f4ea); border-color: var(--ok-line, #a8dcba); color: var(--ok-fg, #14532d); }
+.hr-net-bar[data-tone='ok'] .hr-net-dot { background: var(--ok-dot, #16a34a); }
+.hr-net-bar[data-tone='warn'] span:not(.hr-net-dot), .hr-net-bar[data-tone='bad'] span:not(.hr-net-dot), .hr-net-bar[data-tone='ok'] span:not(.hr-net-dot) { color: inherit; }
+.hr-net-btn { min-height: 32px; padding: 0 12px; border-radius: var(--r-sm, 10px); border: 1px solid currentColor; background: var(--surface, #ffffff); color: inherit; font: 600 13px/1 var(--font, 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif); cursor: pointer; }
+.hr-net-btn:hover { background: var(--surface-2, #eef5f4); }
+.hr-net-btn:focus-visible { outline: none; box-shadow: var(--ring, 0 0 0 3px rgba(20, 96, 106, 0.35)); }
+@keyframes hr-net-in { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes hr-net-pulse { 50% { opacity: 0.35; } }
+@media (max-width: 639px) {
+  .hr-net { top: 8px; width: calc(100vw - 16px); max-width: none; }
+  .hr-net-btn { min-height: var(--touch, 44px); flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .hr-net-bar, .hr-net-dot { animation: none !important; } }
